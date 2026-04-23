@@ -11,6 +11,8 @@
 - Add phase-specific middle slices after `decompose phase` is completed.
 - Keep `phase review` open until the phase passes review.
 - If review fails, add dedicated fix slices and rerun review.
+- Keep this file limited to actively scheduled phases and slices.
+- Move intentionally deferred work into `works/deferred.md` instead of leaving it in the active backlog.
 - Link active work items from `works/current/`.
 - Use stable phase IDs such as `P1`.
 - Use stable slice IDs such as `P1.DECOMP`, `P1.S1`, `P1.F1`, and `P1.REVIEW`.
@@ -68,6 +70,21 @@
   - [x] Slice ID: `P6.S1` | Name: `refine go command rules` | Status: done | Work item: `works/archives/work_items/20260423_1827_refine_go_command_rules` | Notes: Updated `AGENTS.md` so bare `go` defaults to `go next slice`, and defined explicit behavior for `go next slice` and `go next phase`.
   - [x] Slice ID: `P6.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260423_1828_review_go_navigation_phase` | Notes: Reviewed the go-command updates, confirmed the command semantics are coherent, and closed the phase.
 
+### Phase P7: Revise workflow commands and deferred queue
+
+- Phase ID: `P7`
+- Objective: Replace the ambiguous `go` workflow wording with explicit slice and whole-phase triggers, add a dedicated deferred-jobs queue, and restore the active backlog to currently scheduled work.
+- Status: done
+- Review outcome: passed
+- Work items:
+  - `works/archives/work_items/20260423_2253_revise_workflow_commands_and_deferred_queue`
+  - `works/archives/work_items/20260423_2254_update_commands_and_deferred_queue`
+  - `works/archives/work_items/20260423_2257_review_workflow_commands_and_deferred_queue`
+- Slices:
+  - [x] Slice ID: `P7.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260423_2253_revise_workflow_commands_and_deferred_queue` | Notes: Added the concrete workflow-update slice required to rename the execution triggers, create a deferred queue, and realign active backlog state.
+  - [x] Slice ID: `P7.S1` | Name: `update commands and deferred queue` | Status: done | Work item: `works/archives/work_items/20260423_2254_update_commands_and_deferred_queue` | Notes: Replaced the `go` wording with explicit execution commands, created `works/deferred.md`, updated the backlog/template rules, and reset `P3` to `planned`.
+  - [x] Slice ID: `P7.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260423_2257_review_workflow_commands_and_deferred_queue` | Notes: Reviewed the workflow changes, found no blocking issues, and closed the phase with `P2` next in backlog order.
+
 ### Phase P2: Build MCP capture and persistence core
 
 - Phase ID: `P2`
@@ -87,9 +104,13 @@
 - Status: planned
 - Review outcome: pending
 - Work items:
-  - None yet
+  - `works/archives/work_items/20260423_2117_decompose_review_query_api_phase`
 - Slices:
-  - [ ] Slice ID: `P3.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break the review/query API phase into concrete implementation and review slices.
+  - [x] Slice ID: `P3.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260423_2117_decompose_review_query_api_phase` | Notes: Decomposed the draft review/query API phase into contract, listing, aggregate, verification, and review slices without expanding scope beyond the MVP docs.
+  - [ ] Slice ID: `P3.S1` | Name: `lock review query contract` | Status: todo | Work item: none | Notes: Turn the current draft review/query surface into the concrete contract this phase will implement.
+  - [ ] Slice ID: `P3.S2` | Name: `implement feedback record listing` | Status: todo | Work item: none | Notes: Add the read path for retrieving stored feedback records with the supported filters.
+  - [ ] Slice ID: `P3.S3` | Name: `implement summary counts and trends` | Status: todo | Work item: none | Notes: Add the read path for simple aggregate queries over the stored feedback.
+  - [ ] Slice ID: `P3.S4` | Name: `verify query API behavior and docs` | Status: todo | Work item: none | Notes: Add query-facing tests and update consumer docs for any contract that becomes concrete during implementation.
   - [ ] Slice ID: `P3.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the completed review/query work, add fix slices if needed, and rerun until it passes.
 
 ### Phase P4: Harden the self-hosted MVP

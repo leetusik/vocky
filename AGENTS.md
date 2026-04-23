@@ -34,11 +34,12 @@ Examples:
 
 1. Almost all coding is done through a planning and implementation workflow, not direct edits.
 2. `works/backlog.md` is the active queue of phases and slices.
-3. Active work-item folders live under `works/current/`.
-4. Completed work-item folders move to `works/archives/work_items/`.
-5. Archived backlog snapshots move to `works/archives/backlogs/`.
-6. Every work item contains `plan.md` and `result.md`.
-7. Long-lived reference docs live under `docs/` and transient execution notes live under `works/`.
+3. `works/deferred.md` is the deferred-jobs queue for work intentionally parked outside the active execution order.
+4. Active work-item folders live under `works/current/`.
+5. Completed work-item folders move to `works/archives/work_items/`.
+6. Archived backlog snapshots move to `works/archives/backlogs/`.
+7. Every work item contains `plan.md` and `result.md`.
+8. Long-lived reference docs live under `docs/` and transient execution notes live under `works/`.
 
 ## Python Development
 
@@ -75,21 +76,22 @@ Examples:
 11. Run `scripts/archive_work.sh <work_dir_name>` after the work item is complete.
 12. Run `scripts/rotate_backlog.sh` when the active backlog cycle is finished and a fresh backlog should start.
 
-## Go Commands
+## Execution Commands
 
-- Treat `go` as shorthand for `go next slice`.
+- Use `do the next slice` to continue the current phase one slice at a time.
+- Use `do the whole phase` to finish the current phase end-to-end.
+- Do not use `go`, `go next slice`, or `go next phase`.
 - Resolve the current phase by scanning `works/backlog.md` from top to bottom and selecting the first phase whose status is not `done`.
 - If the current phase is `blocked`, stop and surface the blocker instead of skipping ahead.
-- `go next slice` selects the first slice in the current phase whose status is not `done`.
+- `do the next slice` selects the first slice in the current phase whose status is not `done`.
 - Do not skip fix slices or `phase review` slices when they are the next non-done work in the current phase.
-- `go next phase` selects the phase immediately after the current phase in backlog order.
-- If there is no later phase, stop and say there is no next phase to start.
-- If the selected next phase is `blocked`, stop and surface the blocker instead of skipping ahead.
-- After `go next phase` selects a phase, default to that phase's first slice whose status is not `done`.
+- Deferred jobs in `works/deferred.md` are not part of current-phase selection until they are promoted back into `works/backlog.md`.
+- `do the whole phase` stays in the current phase and works through each remaining slice in order until the phase is `done`, `blocked`, or paused for user input.
+- If `do the whole phase` reaches review and the review finds problems, add explicit fix slices, complete them, and rerun review until the phase passes.
 - If a matching active work item already exists for the selected phase and slice, continue it.
-- If no matching work item exists and execution is allowed, create one with `scripts/start_work.sh <phase_id> <slice_id> <slug>` before editing.
-- If the agent is in Plan mode, do not implement the selected slice. Inspect the selected phase and slice, then prepare the job plan for that work. If no work item exists yet, say that it should be created when execution begins.
-- If the agent is not in Plan mode, start or continue the selected slice through the normal workflow.
+- If no matching active work item exists and execution is allowed, create one with `scripts/start_work.sh <phase_id> <slice_id> <slug>` before editing.
+- If the agent is in Plan mode, do not implement the selected slice. Inspect the selected slice for `do the next slice`, or the full current phase for `do the whole phase`, then prepare the job plan. If no work item exists yet, say that it should be created when execution begins.
+- If the agent is not in Plan mode, start or continue the selected scope through the normal workflow. `do the whole phase` may require multiple sequential work items.
 
 ## Status Model
 
@@ -118,6 +120,9 @@ Rules:
 ## Backlog Rules
 
 - Organize the backlog by phase, not as a flat task list.
+- Keep `works/backlog.md` limited to actively scheduled phases and slices.
+- Move intentionally deferred or parked work into `works/deferred.md` instead of leaving it in the active backlog.
+- Promote deferred work back into `works/backlog.md` when it is ready to re-enter execution order.
 - Every phase must include an objective, status, review outcome, work items, and slices.
 - `decompose phase` creates the middle slices needed to finish the phase.
 - `phase review` validates the phase and stays open until the bar is met.
@@ -156,6 +161,7 @@ If there is any doubt, use the full workflow.
 - `docs/product.md`: problem, users, goals, and terminology
 - `docs/architecture.md`: current repo shape and intended system design
 - `docs/api.md`: current and planned public-facing contracts
+- `works/deferred.md`: deferred jobs intentionally parked outside the active backlog
 - `works/templates/backlog.md`: fresh backlog template
 - `works/templates/plan.md`: work-item plan template
 - `works/templates/result.md`: work-item result template

@@ -11,6 +11,8 @@
 - Add phase-specific middle slices after `decompose phase` is completed.
 - Keep `phase review` open until the phase passes review.
 - If review fails, add dedicated fix slices and rerun review.
+- Keep this file limited to actively scheduled phases and slices.
+- Move intentionally deferred work into `works/deferred.md` instead of leaving it in the active backlog.
 - Link active work items from `works/current/`.
 - Use stable phase IDs such as `P1`.
 - Use stable slice IDs such as `P1.DECOMP`, `P1.S1`, `P1.F1`, and `P1.REVIEW`.

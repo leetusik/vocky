@@ -9,7 +9,7 @@ This architecture is intentionally lightweight. Vocky does not have production c
 - `README.md`: product-facing project overview
 - `AGENTS.md`: coding-agent workflow rules
 - `docs/`: stable reference documents
-- `works/`: backlog, active work items, archives, and templates
+- `works/`: active backlog, deferred queue, active work items, archives, and templates
 - `scripts/`: workflow helpers
 
 ## First MVP System Shape
@@ -38,6 +38,7 @@ The first MVP should be built from these parts:
 - Keep public contracts explicit in `docs/api.md`.
 - Keep durable technical context here, not in transient work items.
 - Keep execution history under `works/`.
+- Keep currently scheduled work in `works/backlog.md` and intentionally deferred work in `works/deferred.md`.
 - Prefer small slices and explicit review loops over large untracked changes.
 - Avoid locking runtime or schema details earlier than necessary.
 
