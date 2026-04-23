@@ -18,10 +18,17 @@ The name comes from VoC, short for voice of customer.
 
 ## What It Will Do First
 
-- Capture feedback events from agent interactions
-- Classify feedback into a small set such as positive, issue, bug, and suggestion
-- Store feedback with basic metadata for later review
-- Show simple summaries and trend views
+- Capture feedback events from agent interactions through MCP
+- Store raw feedback with basic metadata for later review
+- Expose a minimal review/query API for retrieving records and simple counts
+- Run as a self-hosted, single-tenant MVP
+
+## What The First MVP Will Not Do
+
+- Automatic classification or taxonomy assignment
+- A dashboard UI
+- Non-MCP ingestion paths
+- Managed multi-tenant SaaS features
 
 ## Open Source + Managed Direction
 
@@ -30,6 +37,7 @@ Vocky is intended to follow a light open-core direction: a community, self-hosta
 ## Current Status
 
 - This repo is the initial public home for the project direction and upcoming implementation.
+- The first MVP scope is defined, but implementation has not started yet.
 - There is no production-ready server yet.
 - There is no install guide yet.
 - There is no stable public API or tool contract yet.

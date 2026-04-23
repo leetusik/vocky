@@ -14,6 +14,8 @@
 - Link active work items from `works/current/`.
 - Use stable phase IDs such as `P1`.
 - Use stable slice IDs such as `P1.DECOMP`, `P1.S1`, `P1.F1`, and `P1.REVIEW`.
+- Prefix each slice with `[ ]` until it is done, then switch it to `[x]`.
+- Treat the checkbox as a visual summary only. The `Status` field remains authoritative.
 
 ## Active Phases
 
@@ -26,9 +28,9 @@
 - Work items:
   - None yet
 - Slices:
-  - Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
-  - Slice ID: `P1.S1` | Name: `<middle slice>` | Status: todo | Work item: none | Notes: Replace this line with the first phase-specific slice.
-  - Slice ID: `P1.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+  - [ ] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
+  - [ ] Slice ID: `P1.S1` | Name: `<middle slice>` | Status: todo | Work item: none | Notes: Replace this line with the first phase-specific slice.
+  - [ ] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
 
 ## Archive Notes
 

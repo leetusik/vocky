@@ -40,6 +40,13 @@ Examples:
 6. Every work item contains `plan.md` and `result.md`.
 7. Long-lived reference docs live under `docs/` and transient execution notes live under `works/`.
 
+## Python Development
+
+- Use `uv` for Python development in this repository.
+- Prefer `uv run` for Python commands such as tests, scripts, and CLIs.
+- Prefer `uv add`, `uv remove`, `uv lock`, and `uv sync` for Python dependency management.
+- Do not introduce `pip`, `venv`, or bare `python` workflows unless an existing repo constraint requires them.
+
 ## Stable IDs
 
 - Every phase must have a stable phase ID such as `P1`, `P2`, or `P3`.
@@ -67,6 +74,22 @@ Examples:
 10. Mark the phase done only when review passes.
 11. Run `scripts/archive_work.sh <work_dir_name>` after the work item is complete.
 12. Run `scripts/rotate_backlog.sh` when the active backlog cycle is finished and a fresh backlog should start.
+
+## Go Commands
+
+- Treat `go` as shorthand for `go next slice`.
+- Resolve the current phase by scanning `works/backlog.md` from top to bottom and selecting the first phase whose status is not `done`.
+- If the current phase is `blocked`, stop and surface the blocker instead of skipping ahead.
+- `go next slice` selects the first slice in the current phase whose status is not `done`.
+- Do not skip fix slices or `phase review` slices when they are the next non-done work in the current phase.
+- `go next phase` selects the phase immediately after the current phase in backlog order.
+- If there is no later phase, stop and say there is no next phase to start.
+- If the selected next phase is `blocked`, stop and surface the blocker instead of skipping ahead.
+- After `go next phase` selects a phase, default to that phase's first slice whose status is not `done`.
+- If a matching active work item already exists for the selected phase and slice, continue it.
+- If no matching work item exists and execution is allowed, create one with `scripts/start_work.sh <phase_id> <slice_id> <slug>` before editing.
+- If the agent is in Plan mode, do not implement the selected slice. Inspect the selected phase and slice, then prepare the job plan for that work. If no work item exists yet, say that it should be created when execution begins.
+- If the agent is not in Plan mode, start or continue the selected slice through the normal workflow.
 
 ## Status Model
 
@@ -99,6 +122,8 @@ Rules:
 - `decompose phase` creates the middle slices needed to finish the phase.
 - `phase review` validates the phase and stays open until the bar is met.
 - Re-review is mandatory after fixes.
+- Prefix every slice entry with `[ ]` while it is not done and with `[x]` once it is done.
+- The checkbox marker is a visual summary only. The explicit `Status` field remains the source of truth.
 
 ## Fast-Path Exceptions
 
