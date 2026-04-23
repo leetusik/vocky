@@ -89,13 +89,27 @@
 
 - Phase ID: `P2`
 - Objective: Implement the first usable path from MCP feedback submission to persisted feedback records with validation and predictable errors.
-- Status: planned
-- Review outcome: pending
+- Status: done
+- Review outcome: passed
 - Work items:
-  - None yet
+  - `works/archives/work_items/20260423_2326_decompose_capture_persistence_phase`
+  - `works/archives/work_items/20260423_2327_lock_capture_contract_and_storage_shape`
+  - `works/archives/work_items/20260423_2329_bootstrap_service_and_dev_stack`
+  - `works/archives/work_items/20260423_2333_implement_postgres_persistence`
+  - `works/archives/work_items/20260423_2345_implement_mcp_capture_tool`
+  - `works/archives/work_items/20260423_2346_verify_capture_flow_and_update_docs`
+  - `works/archives/work_items/20260423_2352_review_capture_persistence_phase`
+  - `works/archives/work_items/20260423_2354_isolate_test_database_workflow`
+  - `works/archives/work_items/20260423_2356_rereview_capture_persistence_phase`
 - Slices:
-  - [ ] Slice ID: `P2.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break the capture and persistence phase into concrete implementation and review slices.
-  - [ ] Slice ID: `P2.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the completed capture and persistence work, add fix slices if needed, and rerun until it passes.
+  - [x] Slice ID: `P2.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260423_2326_decompose_capture_persistence_phase` | Notes: Expanded the phase into contract, bootstrap, persistence, MCP tool, verification, and review slices for the first runnable capture path.
+  - [x] Slice ID: `P2.S1` | Name: `lock capture contract and storage shape` | Status: done | Work item: `works/archives/work_items/20260423_2327_lock_capture_contract_and_storage_shape` | Notes: Locked the runtime, schema, config, and `capture_feedback` contract details in the durable reference docs before runtime scaffolding.
+  - [x] Slice ID: `P2.S2` | Name: `bootstrap service and dev stack` | Status: done | Work item: `works/archives/work_items/20260423_2329_bootstrap_service_and_dev_stack` | Notes: Bootstrapped the Python project, mounted FastMCP host app, local settings, container stack, and Make targets for the first runnable service shell.
+  - [x] Slice ID: `P2.S3` | Name: `implement Postgres persistence` | Status: done | Work item: `works/archives/work_items/20260423_2333_implement_postgres_persistence` | Notes: Added SQLAlchemy async persistence, the Alembic async migration environment, the initial `feedback_events` schema, and the transport-neutral feedback write service.
+  - [x] Slice ID: `P2.S4` | Name: `implement MCP capture tool` | Status: done | Work item: `works/archives/work_items/20260423_2345_implement_mcp_capture_tool` | Notes: Implemented the capture MCP tool, normalization rules, UTC timestamp handling, tool-execution error mapping, and protocol-aware unknown-tool handling.
+  - [x] Slice ID: `P2.S5` | Name: `verify capture flow and update docs` | Status: done | Work item: `works/archives/work_items/20260423_2346_verify_capture_flow_and_update_docs` | Notes: Added pytest coverage, upgraded the smoke target to call the MCP tool, and updated README plus the architecture and API docs for the implemented capture service.
+  - [x] Slice ID: `P2.F1` | Name: `isolate test database workflow` | Status: done | Work item: `works/archives/work_items/20260423_2354_isolate_test_database_workflow` | Notes: Moved destructive test setup onto a dedicated test database workflow and documented the `TEST_DATABASE_URL` path.
+  - [x] Slice ID: `P2.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260423_2356_rereview_capture_persistence_phase` | Notes: Reran the review after `P2.F1`, found no remaining blockers, and closed the phase.
 
 ### Phase P3: Build review/query API
 

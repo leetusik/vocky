@@ -2,7 +2,7 @@
 
 Feedback MCP for agents. Turn customer conversations into structured voice-of-customer signals.
 
-Vocky is in the early planning and pre-MVP stage.
+Vocky is pre-MVP, but the first runnable feedback-capture service is now implemented.
 
 ## What Vocky Is
 
@@ -36,11 +36,50 @@ Vocky is intended to follow a light open-core direction: a community, self-hosta
 
 ## Current Status
 
-- This repo is the initial public home for the project direction and upcoming implementation.
-- The first MVP scope is defined, but implementation has not started yet.
-- There is no production-ready server yet.
-- There is no install guide yet.
-- There is no stable public API or tool contract yet.
+- MCP feedback capture is implemented through the `capture_feedback` tool.
+- Feedback events persist to PostgreSQL with Alembic migrations.
+- The review/query API is still planned and not implemented yet.
+- The project is still pre-MVP and the contracts should be treated as early-stage.
+
+## Local Development
+
+The repo uses `uv` for Python workflows and Docker Compose for the app plus PostgreSQL stack.
+
+1. Copy the example environment:
+   `cp .env.example .env`
+2. Sync the local Python environment:
+   `make sync`
+3. Start the stack:
+   `POSTGRES_PORT=55432 VOCKY_PORT=8011 make compose-up`
+4. Apply the migration:
+   `DATABASE_URL=postgresql+psycopg://vocky:vocky@127.0.0.1:55432/vocky make migrate`
+5. Run the test suite against the dedicated test database:
+   `DATABASE_URL=postgresql+psycopg://vocky:vocky@127.0.0.1:55432/vocky TEST_DATABASE_URL=postgresql+psycopg://vocky:vocky@127.0.0.1:55432/vocky_test make test`
+6. Run the smoke check:
+   `APP_BASE_URL=http://127.0.0.1:8011 make smoke`
+7. Stop the stack when finished:
+   `POSTGRES_PORT=55432 VOCKY_PORT=8011 make compose-down`
+
+The pytest fixtures reset only the database named in `TEST_DATABASE_URL`. The smoke target checks both `GET /healthz` and an MCP `capture_feedback` call.
+
+## Running The App Directly
+
+If PostgreSQL is already running outside Compose, point `DATABASE_URL` at it and start the service with:
+
+`uv run vocky`
+
+The Starlette host app exposes:
+
+- `GET /healthz`
+- MCP Streamable HTTP at `/mcp`
+
+Some clients may follow the framework redirect from `/mcp` to `/mcp/` automatically.
+
+## MCP Surface
+
+The implemented MCP tool is:
+
+- `capture_feedback`: store one feedback event with source metadata, optional conversation/session context, optional event time, tags, and arbitrary JSON metadata.
 
 ## License
 

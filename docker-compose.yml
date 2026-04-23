@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vocky}
+      POSTGRES_USER: ${POSTGRES_USER:-vocky}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vocky}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-vocky}:${POSTGRES_PASSWORD:-vocky}@postgres:5432/${POSTGRES_DB:-vocky}
+      VOCKY_HOST: 0.0.0.0
+      VOCKY_PORT: 8000
+      VOCKY_LOG_LEVEL: ${VOCKY_LOG_LEVEL:-INFO}
+    command: ["sh", "-lc", "uv sync --frozen && uv run vocky"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "${VOCKY_PORT:-8000}:8000"
+
+volumes:
+  postgres-data:

@@ -1,0 +1,124 @@
+"""Shared pytest fixtures for Vocky."""
+
+from __future__ import annotations
+
+import asyncio
+import os
+from collections.abc import Generator
+
+import psycopg
+import pytest
+import pytest_asyncio
+from alembic import command
+from alembic.config import Config
+from psycopg import sql
+from sqlalchemy import text
+from sqlalchemy.engine import URL, make_url
+
+from vocky.config import get_settings
+from vocky.db import dispose_engine, get_engine
+
+DEFAULT_DATABASE_URL = "postgresql+psycopg://vocky:vocky@127.0.0.1:55432/vocky"
+
+
+def set_database_url(database_url: str) -> None:
+    """Update the active DATABASE_URL and clear cached settings."""
+
+    os.environ["DATABASE_URL"] = database_url
+    get_settings.cache_clear()
+
+
+def render_url(url: URL) -> str:
+    """Render a SQLAlchemy URL with its password preserved."""
+
+    return url.render_as_string(hide_password=False)
+
+
+@pytest.fixture(scope="session")
+def base_database_url() -> str:
+    """Return the base database URL used for tests."""
+
+    return os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
+
+
+@pytest.fixture(scope="session")
+def anyio_backend() -> str:
+    """Run anyio-backed tests on asyncio."""
+
+    return "asyncio"
+
+
+@pytest.fixture(scope="session")
+def test_database_url(base_database_url: str) -> Generator[str, None, None]:
+    """Reset and migrate a dedicated PostgreSQL database used for tests."""
+
+    original_database_url = os.environ.get("DATABASE_URL")
+    base_url = make_url(base_database_url)
+    configured_test_database_url = os.getenv("TEST_DATABASE_URL")
+    if configured_test_database_url is None:
+        test_database_name = f"{base_url.database or 'vocky'}_test"
+        test_url = base_url.set(database=test_database_name)
+    else:
+        test_url = make_url(configured_test_database_url)
+
+    if render_url(base_url) == render_url(test_url):
+        raise RuntimeError("TEST_DATABASE_URL must not point to the same database as DATABASE_URL")
+
+    base_sync_database_url = render_url(base_url.set(drivername="postgresql"))
+    test_sync_database_url = render_url(test_url.set(drivername="postgresql"))
+
+    with psycopg.connect(base_sync_database_url, autocommit=True) as connection:
+        test_database_name = test_url.database
+        if test_database_name is None:
+            raise RuntimeError("TEST_DATABASE_URL must include a database name")
+
+        exists = connection.execute(
+            "SELECT 1 FROM pg_database WHERE datname = %s",
+            (test_database_name,),
+        ).fetchone()
+        if exists is None:
+            try:
+                connection.execute(
+                    sql.SQL("CREATE DATABASE {}").format(sql.Identifier(test_database_name))
+                )
+            except psycopg.Error as exc:  # pragma: no cover
+                raise RuntimeError(
+                    "Unable to create the test database automatically. "
+                    "Set TEST_DATABASE_URL to an existing disposable database."
+                ) from exc
+
+    with psycopg.connect(test_sync_database_url, autocommit=True) as connection:
+        connection.execute("DROP SCHEMA IF EXISTS public CASCADE")
+        connection.execute("CREATE SCHEMA public")
+        connection.execute("GRANT ALL ON SCHEMA public TO CURRENT_USER")
+
+    set_database_url(render_url(test_url))
+    command.upgrade(Config("alembic.ini"), "head")
+
+    try:
+        yield render_url(test_url)
+    finally:
+        asyncio.run(dispose_engine())
+        get_settings.cache_clear()
+        if original_database_url is None:
+            os.environ.pop("DATABASE_URL", None)
+        else:
+            os.environ["DATABASE_URL"] = original_database_url
+
+
+@pytest_asyncio.fixture
+async def configured_database(test_database_url: str) -> str:
+    """Point the app at the test database and clear state between tests."""
+
+    set_database_url(test_database_url)
+    await dispose_engine()
+
+    async with get_engine().begin() as connection:
+        await connection.execute(text("TRUNCATE TABLE feedback_events"))
+
+    yield test_database_url
+
+    async with get_engine().begin() as connection:
+        await connection.execute(text("TRUNCATE TABLE feedback_events"))
+
+    await dispose_engine()
