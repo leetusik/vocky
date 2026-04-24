@@ -43,28 +43,41 @@ Vocky is intended to follow a light open-core direction: a community, self-hosta
 
 ## Local Development
 
-The repo uses `uv` for Python workflows and Docker Compose for the app plus PostgreSQL stack.
+The supported local workflow is Compose-first and uses the copied repo-root `.env` as the shared configuration source for Docker Compose, Alembic, smoke checks, and pytest.
 
 1. Copy the example environment:
    `cp .env.example .env`
-2. Sync the local Python environment:
-   `make sync`
-3. Start the stack:
-   `POSTGRES_PORT=55432 VOCKY_PORT=8011 make compose-up`
-4. Apply the migration:
-   `DATABASE_URL=postgresql+psycopg://vocky:vocky@127.0.0.1:55432/vocky make migrate`
-5. Run the test suite against the dedicated test database:
-   `DATABASE_URL=postgresql+psycopg://vocky:vocky@127.0.0.1:55432/vocky TEST_DATABASE_URL=postgresql+psycopg://vocky:vocky@127.0.0.1:55432/vocky_test make test`
-6. Run the smoke check:
-   `APP_BASE_URL=http://127.0.0.1:8011 make smoke`
-7. Stop the stack when finished:
-   `POSTGRES_PORT=55432 VOCKY_PORT=8011 make compose-down`
+2. Bootstrap the stack on the default local ports from `.env`:
+   `make bootstrap`
+3. Verify the running stack:
+   `make verify`
+4. Stop the stack when finished:
+   `make compose-down`
 
-The pytest fixtures reset only the database named in `TEST_DATABASE_URL`. The smoke target checks `GET /healthz` plus MCP `capture_feedback`, `list_feedback`, and `summarize_feedback`.
+The default `.env` values publish the app at `http://127.0.0.1:8000` and PostgreSQL at `127.0.0.1:55432`.
+
+`make bootstrap` runs `make sync`, `make compose-up`, and the explicit migration step `make migrate`.
+
+`make verify` waits for `GET /healthz`, then runs the MCP smoke flow and the full pytest suite.
+
+`TEST_DATABASE_URL` must point at a separate disposable database. `make test` refuses to run if it matches `DATABASE_URL`, and the pytest fixtures reset only the database named in `TEST_DATABASE_URL`.
+
+If you need different host ports, edit `.env` before you run the workflow. `VOCKY_PORT` and `POSTGRES_PORT` change the published ports. `VOCKY_BASE_URL` is optional and only needed when the smoke-check base URL should differ from `http://127.0.0.1:${VOCKY_PORT}`.
+
+Granular fallback commands remain available:
+
+- `make sync`
+- `make compose-up`
+- `make migrate`
+- `make smoke`
+- `make test`
+- `make compose-down`
+
+The smoke target checks `GET /healthz` plus MCP `capture_feedback`, `list_feedback`, and `summarize_feedback`, and it waits for readiness before the MCP calls.
 
 ## Running The App Directly
 
-If PostgreSQL is already running outside Compose, point `DATABASE_URL` at it and start the service with:
+The supported self-hosted flow is Compose-first. If PostgreSQL is already running outside Compose, point `DATABASE_URL` at it and start the service with:
 
 `uv run vocky`
 

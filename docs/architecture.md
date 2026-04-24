@@ -41,14 +41,19 @@ In the current Starlette mount setup, clients connect to `/mcp`; some will trans
 
 ## Configuration Surface
 
-The initial service configuration surface is intentionally small:
+The initial runtime configuration surface is intentionally small:
 
 - `DATABASE_URL`: PostgreSQL connection URL for the async SQLAlchemy engine and Alembic migrations
 - `VOCKY_HOST`: application bind host
 - `VOCKY_PORT`: application bind port
 - `VOCKY_LOG_LEVEL`: application log level
 
-Local development uses Docker Compose for the app and PostgreSQL together, while Python commands continue to run through `uv`.
+The supported local operator workflow adds these host-side settings:
+
+- `TEST_DATABASE_URL`: dedicated disposable PostgreSQL database used by `make test`. It must not point at the same database as `DATABASE_URL`.
+- `VOCKY_BASE_URL`: optional override for host-side smoke checks when the public base URL differs from `http://127.0.0.1:${VOCKY_PORT}`.
+
+The root `.env`, copied from `.env.example`, is the primary local configuration source for both Docker Compose and the Make-based host workflow. The supported self-hosted path is Compose-first: `make bootstrap` runs `sync`, `compose-up`, and `migrate`; `make verify` waits for readiness and then runs `smoke` plus `test`; `make compose-down` tears the stack back down.
 
 ## MVP Boundaries
 
