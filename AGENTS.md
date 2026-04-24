@@ -96,6 +96,17 @@ Examples:
 - Still inspect the relevant docs and code, make focused changes, run appropriate verification, and report the result.
 - For standalone changes that trigger reference-doc updates, update the relevant `docs/` files and summarize the planned and completed doc changes in agent updates and the final report instead of `plan.md` and `result.md`.
 
+## Deferred Work
+
+- `works/deferred.md` is the explicit parking lot for later jobs that should not affect active backlog ordering yet.
+- If the user asks to save tasks, follow-ups, later work, or ideas to `works/deferred.md`, add them to that file immediately.
+- A direct user request to save items to `works/deferred.md` does not require creating a phase, slice, or work-item folder.
+- During slice implementation, add a deferred job when a substantial or necessary later job is discovered and it is not appropriate to add it to the current backlog as a slice, fix slice, or new phase.
+- Do not defer work that is required for the current slice or required for the current phase to pass review. Track that work in the active slice or add a review-driven fix slice instead.
+- Use the next stable deferred ID by scanning existing `D*` entries, then record title, status, source, reason, and trigger for re-entry.
+- Keep deferred entries concise and actionable. If the source is a user request, say so. If the source is implementation work, include the phase/slice or work item when available.
+- Deferred jobs are not part of `do the next slice` or `do the whole phase` selection until they are promoted into `works/backlog.md`.
+
 ## Execution Commands
 
 - Use `do the next slice` to continue the current phase one slice at a time.
@@ -145,7 +156,7 @@ Rules:
 - Organize the backlog by phase, not as a flat task list.
 - Keep `works/backlog.md` limited to actively scheduled phases and slices.
 - Do not add standalone unrelated requests to `works/backlog.md`.
-- Move intentionally deferred or parked work into `works/deferred.md` instead of leaving it in the active backlog.
+- Move intentionally deferred or parked work into `works/deferred.md` instead of leaving it in the active backlog, following the Deferred Work rules.
 - Promote deferred work back into `works/backlog.md` when it is ready to re-enter execution order.
 - When every documented phase is `done` and every slice is `done`, rotate the completed backlog with `scripts/rotate_backlog.sh` before starting new backlog-scheduled work.
 - Rotation moves the completed backlog to `works/archives/backlogs/<timestamp>_backlog.md` and copies `works/templates/backlog.md` to `works/backlog.md`.
