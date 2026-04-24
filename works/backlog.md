@@ -21,64 +21,34 @@
 
 ## Active Phases
 
-### Phase P1: Explicit action feedback capture
+### Phase P1: Review fast-built feedback MCP/Admin backlog
 
 - Phase ID: `P1`
-- Objective: Extend Vocky's capture contract and storage so explicit user actions persist feedback value, comment, conversation messages, used context, channel, timestamps, and existing metadata.
+- Objective: Review the completed P1-P3 work that was built too quickly, checking backlog quality, workflow compliance, code/API/docs consistency, tests, and any follow-up risks.
 - Status: done
 - Review outcome: passed
+- Notes:
+  - Review the prior action-feedback, liked-conversation retrieval, and Admin REST API work.
+  - Check whether implementation matches docs and API contracts.
+  - Check whether backlog/work-item history accurately represents what happened.
+  - Identify needed fixes as explicit `P1.F*` slices during the audit and review work.
+  - Do not implement fixes during backlog creation.
 - Work items:
-  - `works/archives/work_items/20260424_1632_decompose_action_feedback_mcp`
-  - `works/archives/work_items/20260424_1633_add_action_feedback_storage_model`
-  - `works/archives/work_items/20260424_1635_extend_capture_feedback_action_contract`
-  - `works/archives/work_items/20260424_1636_update_capture_read_contracts_and_reference_docs`
-  - `works/archives/work_items/20260424_1639_review_explicit_action_feedback_capture`
+  - `works/archives/work_items/20260424_1716_decompose_review_fast_built_feedback_mcp_admin_backlog`
+  - `works/archives/work_items/20260424_1720_audit_workflow_and_backlog_history`
+  - `works/archives/work_items/20260424_1726_audit_mcp_feedback_contracts`
+  - `works/archives/work_items/20260424_1728_audit_admin_rest_contracts`
+  - `works/archives/work_items/20260424_1729_verify_test_posture_and_follow_up_risks`
+  - `works/archives/work_items/20260424_1730_archive_fast_built_backlog_snapshot`
+  - `works/archives/work_items/20260424_1731_review_fast_built_feedback_mcp_admin_backlog`
 - Slices:
-  - [x] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260424_1632_decompose_action_feedback_mcp` | Notes: Locked the P1-P3 backlog structure and implementation order.
-  - [x] Slice ID: `P1.S1` | Name: `add action feedback storage model` | Status: done | Work item: `works/archives/work_items/20260424_1633_add_action_feedback_storage_model` | Notes: Added first-class storage fields, migration, repository mapping, and persistence tests.
-  - [x] Slice ID: `P1.S2` | Name: `extend capture_feedback action contract` | Status: done | Work item: `works/archives/work_items/20260424_1635_extend_capture_feedback_action_contract` | Notes: Extended capture input, validation, Redis serialization, and integration tests for action feedback.
-  - [x] Slice ID: `P1.S3` | Name: `update capture/read contracts and reference docs` | Status: done | Work item: `works/archives/work_items/20260424_1636_update_capture_read_contracts_and_reference_docs` | Notes: Updated read filters, list record serialization, tests, and generic public docs.
-  - [x] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260424_1639_review_explicit_action_feedback_capture` | Notes: Review passed with full pytest suite.
-
-### Phase P2: Liked conversation retrieval and integration handoff
-
-- Phase ID: `P2`
-- Objective: Add a dedicated MCP read tool for AI agents to retrieve liked conversations as few-shot examples, plus integration docs for client apps.
-- Status: done
-- Review outcome: passed
-- Work items:
-  - `works/archives/work_items/20260424_1639_decompose_liked_retrieval_and_handoff`
-  - `works/archives/work_items/20260424_1640_add_liked_conversation_read_tool`
-  - `works/archives/work_items/20260424_1641_write_general_action_feedback_integration_guide`
-  - `works/archives/work_items/20260424_1642_write_gitignored_changple5_apply_handoff`
-  - `works/archives/work_items/20260424_1643_review_liked_retrieval_and_handoff`
-- Slices:
-  - [x] Slice ID: `P2.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260424_1639_decompose_liked_retrieval_and_handoff` | Notes: Confirmed the liked-retrieval and documentation slices before implementation.
-  - [x] Slice ID: `P2.S1` | Name: `add liked conversation read tool` | Status: done | Work item: `works/archives/work_items/20260424_1640_add_liked_conversation_read_tool` | Notes: Added liked-only MCP read surface with integration tests.
-  - [x] Slice ID: `P2.S2` | Name: `write general action feedback integration guide` | Status: done | Work item: `works/archives/work_items/20260424_1641_write_general_action_feedback_integration_guide` | Notes: Added generic integration guide and public API docs for liked-conversation retrieval.
-  - [x] Slice ID: `P2.S3` | Name: `write gitignored Changple5 apply handoff` | Status: done | Work item: `works/archives/work_items/20260424_1642_write_gitignored_changple5_apply_handoff` | Notes: Added local ignored handoff doc and confirmed it is ignored by git.
-  - [x] Slice ID: `P2.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260424_1643_review_liked_retrieval_and_handoff` | Notes: Review passed with full pytest suite and ignored handoff check.
-
-### Phase P3: Admin REST API for human review
-
-- Phase ID: `P3`
-- Objective: Implement dedicated REST API endpoints for human operators and admin dashboards, completely separate from MCP tools.
-- Status: done
-- Review outcome: passed
-- Work items:
-  - `works/archives/work_items/20260424_1644_decompose_admin_rest_api`
-  - `works/archives/work_items/20260424_1645_add_admin_rest_routing_surface`
-  - `works/archives/work_items/20260424_1646_add_admin_feedback_query_endpoints`
-  - `works/archives/work_items/20260424_1648_add_admin_feedback_management_endpoints`
-  - `works/archives/work_items/20260424_1650_document_two_track_api_architecture`
-  - `works/archives/work_items/20260424_1651_review_admin_rest_api`
-- Slices:
-  - [x] Slice ID: `P3.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260424_1644_decompose_admin_rest_api` | Notes: Locked route namespace, auth default, query endpoints, management endpoints, and docs scope.
-  - [x] Slice ID: `P3.S1` | Name: `add admin REST routing surface` | Status: done | Work item: `works/archives/work_items/20260424_1645_add_admin_rest_routing_surface` | Notes: Added `/admin/api/*` Starlette routes and optional bearer protection without reusing MCP tool handlers.
-  - [x] Slice ID: `P3.S2` | Name: `add admin feedback query endpoints` | Status: done | Work item: `works/archives/work_items/20260424_1646_add_admin_feedback_query_endpoints` | Notes: Added list/detail endpoints for all feedback, including likes, dislikes, comments, metadata, and full contexts.
-  - [x] Slice ID: `P3.S3` | Name: `add admin feedback management endpoints` | Status: done | Work item: `works/archives/work_items/20260424_1648_add_admin_feedback_management_endpoints` | Notes: Added patch/delete management operations using the shared feedback service and repository.
-  - [x] Slice ID: `P3.S4` | Name: `document two-track API architecture` | Status: done | Work item: `works/archives/work_items/20260424_1650_document_two_track_api_architecture` | Notes: Documented that MCP serves AI-agent workflows while Admin REST serves human/operator workflows over the same database schema.
-  - [x] Slice ID: `P3.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260424_1651_review_admin_rest_api` | Notes: Review passed with full pytest suite.
+  - [x] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260424_1716_decompose_review_fast_built_feedback_mcp_admin_backlog` | Notes: Defined separate workflow, MCP contract, Admin REST contract, and test/risk review slices.
+  - [x] Slice ID: `P1.S1` | Name: `audit workflow and backlog history` | Status: done | Work item: `works/archives/work_items/20260424_1720_audit_workflow_and_backlog_history` | Notes: Found one actionable workflow-history gap: the completed fast-built P1-P3 backlog needs an archived snapshot before final review.
+  - [x] Slice ID: `P1.S2` | Name: `audit MCP feedback contracts` | Status: done | Work item: `works/archives/work_items/20260424_1726_audit_mcp_feedback_contracts` | Notes: MCP implementation, tests, README, integration guide, `docs/api.md`, and architecture notes are consistent; no required fix slice identified.
+  - [x] Slice ID: `P1.S3` | Name: `audit Admin REST contracts` | Status: done | Work item: `works/archives/work_items/20260424_1728_audit_admin_rest_contracts` | Notes: Admin REST implementation, tests, README, `docs/api.md`, and architecture notes are consistent; no required fix slice identified.
+  - [x] Slice ID: `P1.S4` | Name: `verify test posture and follow-up risks` | Status: done | Work item: `works/archives/work_items/20260424_1729_verify_test_posture_and_follow_up_risks` | Notes: Full pytest baseline passes with meaningful coverage of the reviewed MVP risks; no additional fix slice identified.
+  - [x] Slice ID: `P1.F1` | Name: `archive fast-built backlog snapshot` | Status: done | Work item: `works/archives/work_items/20260424_1730_archive_fast_built_backlog_snapshot` | Notes: Preserved the completed action-feedback, liked-conversation, and Admin REST P1-P3 backlog from `HEAD:works/backlog.md` as `works/archives/backlogs/20260424_1652_backlog.md`.
+  - [x] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260424_1731_review_fast_built_feedback_mcp_admin_backlog` | Notes: Review passed after workflow, MCP, Admin REST, test/risk, and backlog snapshot checks; no follow-up fix slices required.
 
 ## Archive Notes
 
