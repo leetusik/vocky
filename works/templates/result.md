@@ -10,20 +10,28 @@
 - Reviewer:
 - Next action:
 
-## Summary
+## Outcome
 
-## Changes Made
+Summarize what shipped, or explain why the slice closed as `Blocked`.
 
-## Files Changed
+## Deviations from plan
 
-## Verification Performed
+## Validation run
 
-## Review Findings
+-
 
-## Blocking Findings
+## Files changed
 
-## Reference Docs Updated
+-
 
-## Follow-Ups
+## Docs updated
 
-## Commit References
+-
+
+## Roadmap updates
+
+-
+
+## Retrospective
+
+-

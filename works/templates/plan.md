@@ -7,23 +7,26 @@
 - Slice ID: __SLICE_ID__
 - Slice:
 
-## Context
-
 ## Goal
 
 ## Scope
 
-- In scope:
-- Out of scope:
+## Context
 
-## Approach
+## Milestones
 
-## Affected Files
+1.
+2.
+3.
 
-## Reference Docs To Review
+## Validation
 
-## Risks and Open Questions
+-
 
-## Verification Plan
+## Risks / open questions
 
-## Planned Commits
+-
+
+## Docs to update
+
+-
