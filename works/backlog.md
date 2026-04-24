@@ -111,21 +111,26 @@
   - [x] Slice ID: `P2.F1` | Name: `isolate test database workflow` | Status: done | Work item: `works/archives/work_items/20260423_2354_isolate_test_database_workflow` | Notes: Moved destructive test setup onto a dedicated test database workflow and documented the `TEST_DATABASE_URL` path.
   - [x] Slice ID: `P2.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260423_2356_rereview_capture_persistence_phase` | Notes: Reran the review after `P2.F1`, found no remaining blockers, and closed the phase.
 
-### Phase P3: Build review/query API
+### Phase P3: Build MCP review/query tools
 
 - Phase ID: `P3`
-- Objective: Expose stored feedback through a minimal review/query API that supports record retrieval and simple counts or trends.
-- Status: planned
-- Review outcome: pending
+- Objective: Expose stored feedback through MCP read tools that support record retrieval and simple counts or trends.
+- Status: done
+- Review outcome: passed
 - Work items:
   - `works/archives/work_items/20260423_2117_decompose_review_query_api_phase`
+  - `works/archives/work_items/20260424_0846_lock_review_query_contract`
+  - `works/archives/work_items/20260424_0849_implement_feedback_record_listing`
+  - `works/archives/work_items/20260424_0856_implement_summary_counts_and_trends`
+  - `works/archives/work_items/20260424_0859_verify_query_api_behavior_and_docs`
+  - `works/archives/work_items/20260424_0904_review_mcp_query_phase`
 - Slices:
   - [x] Slice ID: `P3.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260423_2117_decompose_review_query_api_phase` | Notes: Decomposed the draft review/query API phase into contract, listing, aggregate, verification, and review slices without expanding scope beyond the MVP docs.
-  - [ ] Slice ID: `P3.S1` | Name: `lock review query contract` | Status: todo | Work item: none | Notes: Turn the current draft review/query surface into the concrete contract this phase will implement.
-  - [ ] Slice ID: `P3.S2` | Name: `implement feedback record listing` | Status: todo | Work item: none | Notes: Add the read path for retrieving stored feedback records with the supported filters.
-  - [ ] Slice ID: `P3.S3` | Name: `implement summary counts and trends` | Status: todo | Work item: none | Notes: Add the read path for simple aggregate queries over the stored feedback.
-  - [ ] Slice ID: `P3.S4` | Name: `verify query API behavior and docs` | Status: todo | Work item: none | Notes: Add query-facing tests and update consumer docs for any contract that becomes concrete during implementation.
-  - [ ] Slice ID: `P3.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the completed review/query work, add fix slices if needed, and rerun until it passes.
+  - [x] Slice ID: `P3.S1` | Name: `lock review query contract` | Status: done | Work item: `works/archives/work_items/20260424_0846_lock_review_query_contract` | Notes: Replaced the draft review/query API wording with the concrete `list_feedback` and `summarize_feedback` MCP contracts, including ingest-time filters, cursor semantics, and UTC daily-count behavior.
+  - [x] Slice ID: `P3.S2` | Name: `implement feedback record listing` | Status: done | Work item: `works/archives/work_items/20260424_0849_implement_feedback_record_listing` | Notes: Added the newest-first filtered listing path, opaque cursor pagination, the `list_feedback` MCP tool, and focused unit, persistence, and MCP integration coverage.
+  - [x] Slice ID: `P3.S3` | Name: `implement summary counts and trends` | Status: done | Work item: `works/archives/work_items/20260424_0856_implement_summary_counts_and_trends` | Notes: Added the summary aggregate path, UTC day bucketing with zero-filled windows, the `summarize_feedback` MCP tool, and focused unit, persistence, and MCP integration coverage.
+  - [x] Slice ID: `P3.S4` | Name: `verify query API behavior and docs` | Status: done | Work item: `works/archives/work_items/20260424_0859_verify_query_api_behavior_and_docs` | Notes: Aligned README and durable docs to the implemented MCP read tools, extended smoke coverage across capture/list/summary, and ran the full pytest plus live smoke verification set.
+  - [x] Slice ID: `P3.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260424_0904_review_mcp_query_phase` | Notes: Reviewed the completed MCP read-tool phase, found no fix-slice-worthy issues, and closed `P3` with passing pytest, live smoke coverage, and aligned docs.
 
 ### Phase P4: Harden the self-hosted MVP
 

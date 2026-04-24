@@ -2,7 +2,7 @@
 
 ## Status
 
-The review/query API is still draft. The feedback capture MCP tool is now implemented, but the project is still pre-MVP and the contract should be treated as early-stage rather than long-term stable.
+The feedback capture MCP tool and the `P3` read tools are implemented. They should still be treated as early-stage MVP contracts rather than long-term stable commitments.
 
 ## Purpose
 
@@ -11,7 +11,7 @@ Use this file to record real public-facing contracts once they exist. Until then
 ## MVP Surfaces
 
 - MCP tool contract for feedback capture
-- A minimal service API for review and query access
+- MCP tool contracts for review and query access
 
 ## Documentation Rules
 
@@ -75,23 +75,87 @@ Use this file to record real public-facing contracts once they exist. Until then
   - Validation and business-rule failures should be visible to MCP clients so models can correct and retry when possible
   - The self-hosted service exposes this tool through the Starlette-hosted MCP endpoint at `/mcp`
 
-### Review Query API
+### Feedback Listing MCP Tool
 
-- Status: draft
-- Consumers: Operators, scripts, or future UI layers reviewing stored feedback
-- Purpose: Retrieve stored feedback records and simple aggregates without requiring a dashboard
+- Status: implemented in `P3`
+- Consumers: Operators, scripts, or future UI layers reviewing stored feedback through MCP
+- Purpose: Retrieve stored feedback records with a small, explicit filter set and cursor pagination
 - Inputs:
-  - Record-list queries with simple filters such as time range, source, conversation or session identifiers, or tags when available
-  - Summary queries for simple counts or trends over a time window
+  - Tool name: `list_feedback`
+  - Request body:
+    - `start_ingested_at: string` optional. Must be a timezone-aware UTC-capable ISO 8601 timestamp. When provided, records are filtered with `ingested_at >= start_ingested_at` after normalization to UTC.
+    - `end_ingested_at: string` optional. Must be a timezone-aware UTC-capable ISO 8601 timestamp. When provided, records are filtered with `ingested_at < end_ingested_at` after normalization to UTC.
+    - `source_product: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `source_integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `tag: string` optional. Leading and trailing whitespace is trimmed. Blank values are rejected.
+    - `limit: integer` optional. When omitted, the server applies a default page size of `50`. Values must be between `1` and `100`.
+    - `cursor: string` optional. Must be an opaque base64url-encoded JSON cursor returned from an earlier `list_feedback` call. Invalid cursor payloads are rejected.
 - Outputs:
-  - Filtered feedback records with stored metadata
-  - Simple aggregates such as counts over time or by supported metadata dimensions
+  - Success MCP tool result:
+    - A text acknowledgement in `content`
+    - A structured response object in `structuredContent`
+  - Structured response object:
+    - `records: object[]` newest-first records sorted by `(ingested_at desc, id desc)`
+    - `next_cursor: string` opaque pagination cursor for the next page when more records exist. The field is omitted when no further page exists.
+  - Record shape:
+    - `id: string` UUID of the stored record
+    - `message: string`
+    - `source_product: string`
+    - `source_integration: string | null`
+    - `conversation_id: string | null`
+    - `session_id: string | null`
+    - `event_at: string | null` UTC ISO 8601 timestamp when present
+    - `ingested_at: string` UTC ISO 8601 timestamp
+    - `tags: string[]`
+    - `source_metadata: object`
+    - `attributes: object`
 - Errors:
-  - Invalid filter or unsupported aggregation request
-  - Storage unavailable or read failed
-  - Unauthorized, if the deployment requires it
+  - Invalid timestamps, invalid time windows, invalid limits, blank `tag`, and invalid cursors return MCP tool execution errors with `isError: true`
+  - Storage read failures return MCP tool execution errors with `isError: true`
+  - Unknown-tool and protocol-level failures remain MCP protocol errors
 - Auth or permissions:
   - Deployment-specific for the self-hosted MVP
 - Notes:
+  - Time filtering is based on `ingested_at` only, not `event_at`
+  - `start_ingested_at` is inclusive and `end_ingested_at` is exclusive
+  - The cursor payload is derived from the last returned record's `ingested_at` and `id`
+  - `tag` matches exact single-tag membership against the stored `tags` array
   - This is a machine-readable review surface, not a human-facing dashboard
-  - Classification outputs are out of scope for the first MVP
+
+### Feedback Summary MCP Tool
+
+- Status: implemented in `P3`
+- Consumers: Operators, scripts, or future UI layers reviewing stored feedback trends through MCP
+- Purpose: Return total feedback volume and UTC daily counts for an explicit ingest-time window
+- Inputs:
+  - Tool name: `summarize_feedback`
+  - Request body:
+    - `start_ingested_at: string` required. Must be a timezone-aware ISO 8601 timestamp and is normalized to UTC. The summary window includes records with `ingested_at >= start_ingested_at`.
+    - `end_ingested_at: string` required. Must be a timezone-aware ISO 8601 timestamp and is normalized to UTC. The summary window includes records with `ingested_at < end_ingested_at`.
+    - `source_product: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `source_integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `tag: string` optional. Leading and trailing whitespace is trimmed. Blank values are rejected.
+- Outputs:
+  - Success MCP tool result:
+    - A text acknowledgement in `content`
+    - A structured response object in `structuredContent`
+  - Structured response object:
+    - `total_count: integer` total number of matching records in the window
+    - `daily_counts: object[]` UTC day buckets spanning the entire requested window, including zero-count days
+  - Daily count shape:
+    - `day: string` UTC calendar day in `YYYY-MM-DD` format
+    - `count: integer`
+- Errors:
+  - Missing or invalid timestamps, invalid time windows, and blank `tag` return MCP tool execution errors with `isError: true`
+  - Storage read failures return MCP tool execution errors with `isError: true`
+  - Unknown-tool and protocol-level failures remain MCP protocol errors
+- Auth or permissions:
+  - Deployment-specific for the self-hosted MVP
+- Notes:
+  - Time filtering is based on `ingested_at` only, not `event_at`
+  - `daily_counts` is a zero-filled UTC day series across the requested window
+  - The MVP summary surface does not include by-product, by-tag, or by-integration breakdowns

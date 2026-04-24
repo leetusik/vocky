@@ -85,7 +85,7 @@ settings = get_settings()
 mcp = FastMCP(
     settings.app_name,
     instructions=(
-        "Capture user feedback from agent interactions and store it for later review."
+        "Capture user feedback from agent interactions and review stored feedback through MCP tools."
     ),
     json_response=True,
     stateless_http=True,
@@ -93,5 +93,7 @@ mcp = FastMCP(
 )
 
 from vocky.tools import capture_feedback as _capture_feedback  # noqa: E402,F401
+from vocky.tools import list_feedback as _list_feedback  # noqa: E402,F401
+from vocky.tools import summarize_feedback as _summarize_feedback  # noqa: E402,F401
 
 install_protocol_aware_call_handler(mcp)

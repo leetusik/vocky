@@ -2,7 +2,7 @@
 
 ## Status
 
-This architecture is intentionally lightweight. Vocky is still pre-MVP, and the first runnable capture service is now implemented against the runtime and storage shape defined in `P2`.
+This architecture is intentionally lightweight. Vocky is still pre-MVP, and the first runnable capture plus review/query service is now implemented against the runtime and storage shape defined in `P2` and `P3`.
 
 ## Current Repo Shape
 
@@ -23,11 +23,11 @@ The first MVP should be built from these parts:
 
 - An MCP-facing feedback capture layer that accepts feedback events from agent products
 - A storage layer that preserves raw feedback plus the metadata needed for retrieval and basic aggregates
-- A minimal review/query API that returns stored records and simple counts or trends
+- MCP read tools that return stored records and simple counts or trends
 
 ## Runtime Shape
 
-The current capture service uses these choices:
+The current service uses these choices:
 
 - Python application managed with `uv`
 - Application package under `src/vocky`
@@ -35,7 +35,7 @@ The current capture service uses these choices:
 - Official MCP Python SDK `FastMCP` mounted on the host app at `/mcp` using Streamable HTTP
 - Stateless MCP operation with JSON responses enabled
 - A plain `/healthz` endpoint on the same host app for smoke checks
-- Transport-neutral service and persistence layers so `P3` can add the review/query HTTP JSON surface to the same process
+- Transport-neutral service and persistence layers so `P3` can add review/query MCP tools to the same process without a second transport stack
 
 In the current Starlette mount setup, clients connect to `/mcp`; some will transparently follow a redirect to `/mcp/`.
 
@@ -61,7 +61,7 @@ Local development uses Docker Compose for the app and PostgreSQL together, while
 ## MVP Data Expectations
 
 - Each stored record should preserve raw feedback content plus the metadata needed for review, such as source identity, available conversation context, creation time, and optional caller-provided tags or attributes.
-- The storage layer only needs to support the retrieval and aggregate queries required by the review/query API; it does not need analytics-warehouse style modeling for the first MVP.
+- The storage layer only needs to support the retrieval and aggregate queries required by the MCP review tools; it does not need analytics-warehouse style modeling for the first MVP.
 
 ## Capture Storage Model
 
@@ -99,6 +99,25 @@ The capture write path is layered as:
 - A repository backed by SQLAlchemy async sessions
 - PostgreSQL plus Alembic-managed schema
 
+The implemented `P3` read path reuses the same service and repository layers:
+
+- MCP tool input normalization and error mapping for `list_feedback` and `summarize_feedback`
+- Transport-neutral read methods on the feedback service
+- Repository queries against `feedback_events`
+- No separate HTTP JSON transport or parallel query stack in the base MVP
+
+## Query Read Model
+
+The implemented `P3` query model uses these constraints:
+
+- Read filters are limited to `ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, and exact single-tag membership.
+- Time filtering uses `ingested_at` only. `start_ingested_at` is inclusive and `end_ingested_at` is exclusive after normalization to UTC.
+- `list_feedback` returns full stored records ordered newest-first by `(ingested_at desc, id desc)`.
+- `list_feedback` defaults to `50` records per page and rejects values outside `1` through `100`.
+- `list_feedback` pagination uses an opaque base64url-encoded JSON cursor derived from the last returned record's `ingested_at` and `id`.
+- `summarize_feedback` returns only `total_count` plus UTC `daily_counts`, with zero-filled missing days inside the requested window.
+- The base phase does not add full-text search, JSONB filtering, new summary dimensions, or new storage indexes beyond the `P2` baseline.
+
 ## Architecture Constraints
 
 - Keep public contracts explicit in `docs/api.md`.
@@ -108,10 +127,11 @@ The capture write path is layered as:
 - Prefer small slices and explicit review loops over large untracked changes.
 - Keep the capture service runnable as a single self-hosted process for the MVP.
 - Normalize capture timestamps to UTC before persistence.
+- Normalize query timestamps to UTC before filtering or aggregation.
 - Return capture validation failures and storage write failures as MCP tool execution errors instead of protocol errors.
+- Return query validation failures and storage read failures as MCP tool execution errors instead of protocol errors.
 - Keep unknown-tool failures at the MCP protocol layer.
 
 ## Open Questions
 
-- Auth and permission boundaries for self-hosted deployments
-- Which query filters and aggregate dimensions should be included in the first implemented API version
+- Auth and permission boundaries for self-hosted deployments, including whether capture and review capabilities should eventually be separated
