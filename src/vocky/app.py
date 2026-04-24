@@ -11,6 +11,7 @@ from starlette.routing import Mount, Route
 
 from vocky.db import dispose_engine
 from vocky.mcp_server import mcp
+from vocky.redis_client import dispose_redis_client
 
 
 async def healthz(_: Request) -> JSONResponse:
@@ -27,6 +28,7 @@ async def lifespan(_: Starlette):
         try:
             yield
         finally:
+            await dispose_redis_client()
             await dispose_engine()
 
 

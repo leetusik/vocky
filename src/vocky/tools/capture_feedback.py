@@ -11,7 +11,8 @@ from pydantic import BaseModel, Field
 
 from mcp.types import CallToolResult, TextContent
 
-from vocky.feedback import CreateFeedbackEvent, FeedbackPersistenceError, get_feedback_service
+from vocky.capture_queue import CaptureQueueError, get_capture_queue
+from vocky.feedback import CreateFeedbackEvent
 from vocky.mcp_server import mcp
 
 logger = logging.getLogger(__name__)
@@ -44,9 +45,9 @@ class CaptureFeedbackInput(BaseModel):
 class CaptureFeedbackResponse(BaseModel):
     """Structured MCP success response."""
 
-    feedback_id: str
-    ingested_at: str
-    event_at: str | None = None
+    request_id: str
+    accepted_at: str
+    status: str = "accepted"
 
 
 @dataclass(slots=True, kw_only=True)
@@ -184,27 +185,22 @@ async def capture_feedback(
         return error_result(str(exc))
 
     try:
-        record = await get_feedback_service().create_feedback_event(normalized.payload)
-    except FeedbackPersistenceError:
-        logger.exception("Failed to persist captured feedback event")
-        return error_result("storage write failed")
+        receipt = await get_capture_queue().enqueue_feedback(normalized.payload)
+    except CaptureQueueError:
+        logger.exception("Failed to enqueue captured feedback event")
+        return error_result("capture queue unavailable")
 
     response = CaptureFeedbackResponse(
-        feedback_id=str(record.id),
-        ingested_at=serialize_datetime(record.ingested_at),
-        event_at=(
-            serialize_datetime(normalized.normalized_event_at)
-            if normalized.normalized_event_at is not None
-            else None
-        ),
+        request_id=str(receipt.request_id),
+        accepted_at=serialize_datetime(receipt.accepted_at),
     )
-    structured_content = response.model_dump(mode="json", exclude_none=True)
+    structured_content = response.model_dump(mode="json")
 
     return CallToolResult(
         content=[
             TextContent(
                 type="text",
-                text=f"Captured feedback {response.feedback_id}",
+                text=f"Accepted feedback capture {response.request_id}",
             )
         ],
         structuredContent=structured_content,

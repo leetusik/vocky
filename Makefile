@@ -5,16 +5,17 @@ include $(ENV_FILE)
 endif
 
 VOCKY_PORT ?= 8000
-ifneq ($(strip $(APP_BASE_URL)),)
-VOCKY_BASE_URL ?= $(APP_BASE_URL)
-endif
+VOCKY_PUBLISH_HOST ?= 127.0.0.1
+POSTGRES_PUBLISH_HOST ?= 127.0.0.1
+REDIS_PUBLISH_HOST ?= 127.0.0.1
 VOCKY_BASE_URL ?= http://127.0.0.1:$(VOCKY_PORT)
+VOCKY_EXTERNAL_BASE_URL ?=
 WAIT_READY_TIMEOUT ?= 60
 
-EXPORTED_ENV_VARS := DATABASE_URL TEST_DATABASE_URL VOCKY_HOST VOCKY_PORT VOCKY_LOG_LEVEL VOCKY_BASE_URL POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD POSTGRES_PORT WAIT_READY_TIMEOUT
+EXPORTED_ENV_VARS := DATABASE_URL REDIS_URL TEST_DATABASE_URL VOCKY_HOST VOCKY_PORT VOCKY_LOG_LEVEL VOCKY_BASE_URL VOCKY_EXTERNAL_BASE_URL VOCKY_PUBLISH_HOST POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD POSTGRES_PORT POSTGRES_PUBLISH_HOST REDIS_PORT REDIS_PUBLISH_HOST WAIT_READY_TIMEOUT
 export $(EXPORTED_ENV_VARS)
 
-.PHONY: sync test compose-up compose-down compose-logs migrate smoke wait-ready bootstrap verify check-test-db
+.PHONY: sync test compose-up compose-down compose-logs migrate wait-ready smoke-run smoke bootstrap verify check-test-db require-external-base-url tailscale-serve tailscale-serve-status tailscale-serve-reset tailscale-smoke tailscale-verify
 
 sync:
 	uv sync
@@ -28,13 +29,13 @@ test: check-test-db
 	uv run pytest
 
 compose-up:
-	docker compose up --build -d postgres app
+	docker compose up --build -d redis postgres app worker
 
 compose-down:
 	docker compose down --remove-orphans
 
 compose-logs:
-	docker compose logs -f postgres app
+	docker compose logs -f redis postgres app worker
 
 migrate:
 	uv run alembic upgrade head
@@ -42,9 +43,31 @@ migrate:
 wait-ready:
 	uv run python scripts/wait_for_health.py
 
-smoke: wait-ready
+smoke-run:
 	uv run vocky-smoke
+
+smoke: wait-ready
+	$(MAKE) smoke-run
 
 bootstrap: sync compose-up migrate
 
 verify: smoke test
+
+require-external-base-url:
+	@test -n "$(VOCKY_EXTERNAL_BASE_URL)" || { echo "VOCKY_EXTERNAL_BASE_URL must be set for external access checks."; exit 1; }
+
+tailscale-serve:
+	tailscale serve --bg $(VOCKY_PORT)
+
+tailscale-serve-status:
+	tailscale serve status
+
+tailscale-serve-reset:
+	tailscale serve reset
+
+tailscale-smoke: require-external-base-url
+	$(MAKE) smoke-run VOCKY_BASE_URL="$(VOCKY_EXTERNAL_BASE_URL)"
+
+tailscale-verify: require-external-base-url
+	$(MAKE) wait-ready VOCKY_BASE_URL="$(VOCKY_EXTERNAL_BASE_URL)"
+	$(MAKE) smoke-run VOCKY_BASE_URL="$(VOCKY_EXTERNAL_BASE_URL)"

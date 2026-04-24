@@ -2,23 +2,31 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+import fakeredis.aioredis
 import pytest
 from mcp import McpError
 from mcp.shared.memory import create_connected_server_and_client_session
 from sqlalchemy import text
 
+from vocky.capture_queue import CaptureQueue
 import vocky.tools.capture_feedback as capture_module
 import vocky.tools.list_feedback as list_module
 import vocky.tools.summarize_feedback as summarize_module
-from vocky.feedback import FeedbackPersistenceError
-from vocky.db import get_engine
+from vocky.db import get_engine, get_session_maker
+from vocky.feedback import FeedbackService
 from vocky.mcp_server import mcp
+from vocky.worker import CaptureWorker
 
 
 @pytest.mark.anyio
-async def test_capture_feedback_success(configured_database: str) -> None:
+async def test_capture_feedback_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    monkeypatch.setattr(capture_module, "get_capture_queue", lambda: CaptureQueue(redis_client))
+
     async with create_connected_server_and_client_session(mcp, raise_exceptions=True) as client_session:
         result = await client_session.call_tool(
             "capture_feedback",
@@ -34,12 +42,22 @@ async def test_capture_feedback_success(configured_database: str) -> None:
 
     assert result.isError is False
     assert result.structuredContent is not None
-    assert set(result.structuredContent) == {"feedback_id", "ingested_at", "event_at"}
-    assert result.structuredContent["event_at"] == "2026-04-23T05:00:00Z"
+    assert set(result.structuredContent) == {"request_id", "accepted_at", "status"}
+    assert result.structuredContent["status"] == "accepted"
+    assert await redis_client.llen("vocky:capture:feedback") == 1
+
+    queued_job = await CaptureQueue(redis_client).pop_job(timeout_seconds=1)
+    assert queued_job is not None
+    assert queued_job.payload.event_at == datetime(2026, 4, 23, 5, 0, tzinfo=UTC)
+    assert queued_job.payload.tags == ("billing", "bug")
+    assert queued_job.payload.source_metadata == {"channel": "pytest"}
+    assert queued_job.payload.attributes == {"priority": "high"}
+
+    await redis_client.aclose()
 
 
 @pytest.mark.anyio
-async def test_capture_feedback_validation_error(configured_database: str) -> None:
+async def test_capture_feedback_validation_error() -> None:
     async with create_connected_server_and_client_session(mcp, raise_exceptions=True) as client_session:
         result = await client_session.call_tool(
             "capture_feedback",
@@ -54,7 +72,7 @@ async def test_capture_feedback_validation_error(configured_database: str) -> No
 
 
 @pytest.mark.anyio
-async def test_capture_feedback_missing_source_product_is_error(configured_database: str) -> None:
+async def test_capture_feedback_missing_source_product_is_error() -> None:
     async with create_connected_server_and_client_session(mcp, raise_exceptions=True) as client_session:
         result = await client_session.call_tool(
             "capture_feedback",
@@ -69,15 +87,14 @@ async def test_capture_feedback_missing_source_product_is_error(configured_datab
 
 
 @pytest.mark.anyio
-async def test_capture_feedback_storage_failure_returns_tool_error(
-    configured_database: str,
+async def test_capture_feedback_queue_failure_returns_tool_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class BrokenService:
-        async def create_feedback_event(self, payload):
-            raise FeedbackPersistenceError("boom")
+    class BrokenQueue:
+        async def enqueue_feedback(self, payload):
+            raise capture_module.CaptureQueueError("boom")
 
-    monkeypatch.setattr(capture_module, "get_feedback_service", lambda: BrokenService())
+    monkeypatch.setattr(capture_module, "get_capture_queue", lambda: BrokenQueue())
 
     async with create_connected_server_and_client_session(mcp, raise_exceptions=True) as client_session:
         result = await client_session.call_tool(
@@ -89,7 +106,78 @@ async def test_capture_feedback_storage_failure_returns_tool_error(
         )
 
     assert result.isError is True
-    assert result.content[0].text == "storage write failed"
+    assert result.content[0].text == "capture queue unavailable"
+
+
+@pytest.mark.anyio
+async def test_capture_feedback_becomes_queryable_after_worker_processing(
+    configured_database: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    queue = CaptureQueue(redis_client)
+    worker = CaptureWorker(
+        queue=queue,
+        feedback_service=FeedbackService(get_session_maker()),
+    )
+    monkeypatch.setattr(capture_module, "get_capture_queue", lambda: queue)
+
+    async with create_connected_server_and_client_session(mcp, raise_exceptions=True) as client_session:
+        capture_result = await client_session.call_tool(
+            "capture_feedback",
+            {
+                "message": "Async capture should not block clients",
+                "source": {"product": "vocky-cli", "integration": "pytest"},
+                "session_id": "async-flow",
+                "tags": ["async"],
+            },
+        )
+
+        assert capture_result.isError is False
+        accepted_at = datetime.fromisoformat(
+            capture_result.structuredContent["accepted_at"].replace("Z", "+00:00")
+        ).astimezone(UTC)
+
+        pre_worker_list = await client_session.call_tool(
+            "list_feedback",
+            {
+                "source_product": "vocky-cli",
+                "session_id": "async-flow",
+            },
+        )
+        assert pre_worker_list.isError is False
+        assert pre_worker_list.structuredContent["records"] == []
+
+        assert await worker.process_next_job(timeout_seconds=1) is True
+
+        post_worker_list = await client_session.call_tool(
+            "list_feedback",
+            {
+                "source_product": "vocky-cli",
+                "session_id": "async-flow",
+            },
+        )
+        assert post_worker_list.isError is False
+        assert [record["message"] for record in post_worker_list.structuredContent["records"]] == [
+            "Async capture should not block clients"
+        ]
+
+        summary_result = await client_session.call_tool(
+            "summarize_feedback",
+            {
+                "start_ingested_at": accepted_at.isoformat().replace("+00:00", "Z"),
+                "end_ingested_at": (accepted_at + timedelta(minutes=5))
+                .isoformat()
+                .replace("+00:00", "Z"),
+                "source_product": "vocky-cli",
+                "session_id": "async-flow",
+                "tag": "async",
+            },
+        )
+        assert summary_result.isError is False
+        assert summary_result.structuredContent["total_count"] == 1
+
+    await redis_client.aclose()
 
 
 @pytest.mark.anyio

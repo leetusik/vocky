@@ -2,7 +2,7 @@
 
 ## Status
 
-This architecture is intentionally lightweight. Vocky is still pre-MVP, and the first runnable capture plus review/query service is now implemented against the runtime and storage shape defined in `P2` and `P3`.
+This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service now accepts capture work through Redis-backed queueing plus a dedicated worker while preserving the same review/query surface.
 
 ## Current Repo Shape
 
@@ -31,19 +31,22 @@ The current service uses these choices:
 
 - Python application managed with `uv`
 - Application package under `src/vocky`
-- A single Starlette ASGI host process
+- A Starlette ASGI host process for MCP and health traffic
+- A separate worker process for background capture persistence
+- Redis-backed queueing between the app and worker
 - Official MCP Python SDK `FastMCP` mounted on the host app at `/mcp` using Streamable HTTP
 - Stateless MCP operation with JSON responses enabled
 - A plain `/healthz` endpoint on the same host app for smoke checks
-- Transport-neutral service and persistence layers so `P3` can add review/query MCP tools to the same process without a second transport stack
+- Transport-neutral service and persistence layers so the worker can reuse the same persistence path as the MCP tools
 
 In the current Starlette mount setup, clients connect to `/mcp`; some will transparently follow a redirect to `/mcp/`.
 
 ## Configuration Surface
 
-The initial runtime configuration surface is intentionally small:
+The runtime configuration surface is intentionally small:
 
 - `DATABASE_URL`: PostgreSQL connection URL for the async SQLAlchemy engine and Alembic migrations
+- `REDIS_URL`: Redis connection URL shared by the app enqueue path and the background worker
 - `VOCKY_HOST`: application bind host
 - `VOCKY_PORT`: application bind port
 - `VOCKY_LOG_LEVEL`: application log level
@@ -51,9 +54,22 @@ The initial runtime configuration surface is intentionally small:
 The supported local operator workflow adds these host-side settings:
 
 - `TEST_DATABASE_URL`: dedicated disposable PostgreSQL database used by `make test`. It must not point at the same database as `DATABASE_URL`.
+- `VOCKY_PUBLISH_HOST`: host interface Docker Compose publishes the app port on. The default is `127.0.0.1` for local-only access.
+- `POSTGRES_PUBLISH_HOST`: host interface Docker Compose publishes PostgreSQL on. The default is `127.0.0.1`.
+- `REDIS_PUBLISH_HOST`: host interface Docker Compose publishes Redis on. The default is `127.0.0.1`.
 - `VOCKY_BASE_URL`: optional override for host-side smoke checks when the public base URL differs from `http://127.0.0.1:${VOCKY_PORT}`.
+- `VOCKY_EXTERNAL_BASE_URL`: optional external URL used by the Tailscale or reverse-proxy helper targets, for example `https://<your-node>.<your-tailnet>.ts.net`.
 
-The root `.env`, copied from `.env.example`, is the primary local configuration source for both Docker Compose and the Make-based host workflow. The supported self-hosted path is Compose-first: `make bootstrap` runs `sync`, `compose-up`, and `migrate`; `make verify` waits for readiness and then runs `smoke` plus `test`; `make compose-down` tears the stack back down.
+`VOCKY_HOST` remains the application bind address inside the process. The `*_PUBLISH_HOST` variables control which host interface Docker publishes to. `VOCKY_BASE_URL` remains the local verification target, while `VOCKY_EXTERNAL_BASE_URL` is reserved for optional external-access helpers and operator docs.
+
+The root `.env`, copied from `.env.example`, is the primary local configuration source for both Docker Compose and the Make-based host workflow. The supported self-hosted path remains Compose-first and now includes Redis plus the worker process. `make bootstrap` should bring up the service dependencies and apply migrations, `make verify` should wait for readiness and then verify the eventual write path plus the test suite, and `make compose-down` should tear the stack back down.
+
+The supported operator modes are:
+
+- Local or private self-hosting: Compose publishes on loopback by default and host-side checks use `VOCKY_BASE_URL`.
+- Optional Tailscale self-hosting: operators can run `make tailscale-serve`, inspect it with `make tailscale-serve-status`, reset it with `make tailscale-serve-reset`, and verify the externally reachable path with `make tailscale-smoke` or `make tailscale-verify`.
+
+For Tailscale users, the recommended external URL is the node's MagicDNS HTTPS name such as `https://<your-node>.<your-tailnet>.ts.net`, not a raw Tailscale IP.
 
 ## MVP Boundaries
 
@@ -62,6 +78,7 @@ The root `.env`, copied from `.env.example`, is the primary local configuration 
 - No automatic classification or summarization in the MVP
 - No dashboard UI in the MVP
 - No managed-cloud or multi-tenant architecture in the MVP
+- No public job-status API or dashboard in the MVP
 
 ## MVP Data Expectations
 
@@ -70,7 +87,7 @@ The root `.env`, copied from `.env.example`, is the primary local configuration 
 
 ## Capture Storage Model
 
-The implemented persistence layer uses PostgreSQL with SQLAlchemy async sessions and Alembic migrations.
+The completed-feedback persistence layer uses PostgreSQL with SQLAlchemy async sessions and Alembic migrations.
 
 The primary table is `feedback_events` with this hybrid shape:
 
@@ -97,14 +114,16 @@ Initial indexes should cover:
 
 The schema keeps the most important review dimensions queryable as first-class columns while leaving room for source-specific metadata in JSONB fields.
 
-The capture write path is layered as:
+The async capture path is layered as:
 
 - MCP tool input normalization and error mapping
+- Redis enqueue on the request path
+- A dedicated worker process
 - A transport-neutral feedback service
 - A repository backed by SQLAlchemy async sessions
 - PostgreSQL plus Alembic-managed schema
 
-The implemented `P3` read path reuses the same service and repository layers:
+The read path reuses the same service and repository layers:
 
 - MCP tool input normalization and error mapping for `list_feedback` and `summarize_feedback`
 - Transport-neutral read methods on the feedback service
@@ -122,6 +141,7 @@ The implemented `P3` query model uses these constraints:
 - `list_feedback` pagination uses an opaque base64url-encoded JSON cursor derived from the last returned record's `ingested_at` and `id`.
 - `summarize_feedback` returns only `total_count` plus UTC `daily_counts`, with zero-filled missing days inside the requested window.
 - The base phase does not add full-text search, JSONB filtering, new summary dimensions, or new storage indexes beyond the `P2` baseline.
+- Accepted capture jobs are not queryable until the background worker persists them into `feedback_events`.
 
 ## Architecture Constraints
 
@@ -130,13 +150,15 @@ The implemented `P3` query model uses these constraints:
 - Keep execution history under `works/`.
 - Keep currently scheduled work in `works/backlog.md` and intentionally deferred work in `works/deferred.md`.
 - Prefer small slices and explicit review loops over large untracked changes.
-- Keep the capture service runnable as a single self-hosted process for the MVP.
+- Keep the capture service self-hostable with one app process, one worker process, Redis, and PostgreSQL for the MVP.
 - Normalize capture timestamps to UTC before persistence.
 - Normalize query timestamps to UTC before filtering or aggregation.
 - Return capture validation failures and storage write failures as MCP tool execution errors instead of protocol errors.
+- Return queue-accept failures as MCP tool execution errors instead of protocol errors.
 - Return query validation failures and storage read failures as MCP tool execution errors instead of protocol errors.
 - Keep unknown-tool failures at the MCP protocol layer.
 
 ## Open Questions
 
 - Auth and permission boundaries for self-hosted deployments, including whether capture and review capabilities should eventually be separated
+- Whether completed-job receipts or dead-letter inspection should become part of a later public review surface

@@ -2,7 +2,7 @@
 
 ## Status
 
-Vocky is pre-MVP. The first MVP scope is now defined, but the product is not implemented yet.
+Vocky is pre-MVP. The first runnable self-hosted capture plus review service is implemented, but the contracts should still be treated as early-stage.
 
 ## Summary
 
@@ -14,6 +14,7 @@ The first MVP is intentionally narrow:
 
 - Self-hosted and single-tenant
 - MCP-only ingestion for feedback capture
+- Async MCP capture that accepts quickly and persists in the background
 - Raw feedback storage with basic metadata
 - A minimal review/query API for record retrieval and simple counts or trends
 
@@ -33,7 +34,7 @@ The MVP does not need automated classification, a dashboard UI, or managed-cloud
 
 ## Goals
 
-- Capture feedback events from agent interactions through MCP
+- Capture feedback events from agent interactions through MCP without making client agents wait on persistence
 - Store raw feedback with enough metadata for later review
 - Make stored feedback reviewable through a minimal query surface
 - Surface simple counts and trends without building a full analytics product
@@ -53,6 +54,7 @@ The MVP does not need automated classification, a dashboard UI, or managed-cloud
 
 - Community and self-hosted usage are part of the base direction.
 - The first MVP should optimize for self-hosted deployment before managed concerns.
+- The capture path should acknowledge accepted work quickly and complete persistence asynchronously in the background.
 - A managed offering may exist later around convenience, operations, and richer workflows.
 - The repo should stay honest about what is planned versus what is already implemented.
 

@@ -29,6 +29,7 @@ async def run_mcp_smoke(base_url: str) -> tuple[str, int, int]:
     """Call the MCP tools through the running app and verify the read/write loop."""
 
     smoke_session_id = f"smoke-{uuid4()}"
+    smoke_message = f"smoke test feedback {smoke_session_id}"
 
     async with streamable_http_client(f"{base_url}/mcp") as streams:
         read_stream, write_stream, _ = streams
@@ -37,7 +38,7 @@ async def run_mcp_smoke(base_url: str) -> tuple[str, int, int]:
             capture_result = await session.call_tool(
                 "capture_feedback",
                 {
-                    "message": "smoke test feedback",
+                    "message": smoke_message,
                     "source": {
                         "product": "vocky-smoke",
                         "integration": "make-smoke",
@@ -53,38 +54,57 @@ async def run_mcp_smoke(base_url: str) -> tuple[str, int, int]:
                 raise SystemExit(f"capture_feedback smoke failed: {capture_result.content[0].text}")
 
             capture_payload = capture_result.structuredContent or {}
-            feedback_id = capture_payload.get("feedback_id")
-            ingested_at_raw = capture_payload.get("ingested_at")
-            if not isinstance(feedback_id, str) or not isinstance(ingested_at_raw, str):
+            request_id = capture_payload.get("request_id")
+            accepted_at_raw = capture_payload.get("accepted_at")
+            status = capture_payload.get("status")
+            if (
+                not isinstance(request_id, str)
+                or not isinstance(accepted_at_raw, str)
+                or status != "accepted"
+            ):
                 raise SystemExit(f"capture_feedback smoke returned incomplete data: {capture_result}")
 
-            ingested_at = parse_timestamp(ingested_at_raw)
+            accepted_at = parse_timestamp(accepted_at_raw)
+            records: list[dict[str, object]] = []
+            matched_record: dict[str, object] | None = None
 
-            list_result = await session.call_tool(
-                "list_feedback",
-                {
-                    "source_product": "vocky-smoke",
-                    "session_id": smoke_session_id,
-                    "limit": 10,
-                },
-            )
-            if list_result.isError:
-                raise SystemExit(f"list_feedback smoke failed: {list_result.content[0].text}")
+            for _ in range(20):
+                list_result = await session.call_tool(
+                    "list_feedback",
+                    {
+                        "source_product": "vocky-smoke",
+                        "session_id": smoke_session_id,
+                        "limit": 10,
+                    },
+                )
+                if list_result.isError:
+                    raise SystemExit(f"list_feedback smoke failed: {list_result.content[0].text}")
 
-            list_payload = list_result.structuredContent or {}
-            records = list_payload.get("records")
-            if not isinstance(records, list):
-                raise SystemExit(f"list_feedback smoke returned no records: {list_result}")
+                list_payload = list_result.structuredContent or {}
+                records = list_payload.get("records")
+                if not isinstance(records, list):
+                    raise SystemExit(f"list_feedback smoke returned no records: {list_result}")
 
-            matching_records = [record for record in records if record.get("id") == feedback_id]
-            if len(matching_records) != 1:
-                raise SystemExit(f"list_feedback smoke did not return the captured record: {list_result}")
+                matching_records = [
+                    record
+                    for record in records
+                    if record.get("message") == smoke_message
+                    and record.get("session_id") == smoke_session_id
+                ]
+                if len(matching_records) == 1:
+                    matched_record = matching_records[0]
+                    break
+
+                await asyncio.sleep(0.5)
+
+            if matched_record is None:
+                raise SystemExit("list_feedback smoke did not return the worker-persisted record")
 
             summary_result = await session.call_tool(
                 "summarize_feedback",
                 {
-                    "start_ingested_at": serialize_timestamp(ingested_at),
-                    "end_ingested_at": serialize_timestamp(ingested_at + timedelta(minutes=1)),
+                    "start_ingested_at": serialize_timestamp(accepted_at),
+                    "end_ingested_at": serialize_timestamp(accepted_at + timedelta(minutes=5)),
                     "source_product": "vocky-smoke",
                     "session_id": smoke_session_id,
                     "tag": "smoke",
@@ -101,7 +121,13 @@ async def run_mcp_smoke(base_url: str) -> tuple[str, int, int]:
             if total_count != 1 or not isinstance(daily_counts, list):
                 raise SystemExit(f"summarize_feedback smoke returned unexpected data: {summary_result}")
 
-            ingested_day = ingested_at.date().isoformat()
+            ingested_at_raw = matched_record.get("ingested_at")
+            if not isinstance(ingested_at_raw, str):
+                raise SystemExit(
+                    f"list_feedback smoke returned a matched record without ingested_at: {list_result}"
+                )
+
+            ingested_day = parse_timestamp(ingested_at_raw).date().isoformat()
             if not any(
                 day_count.get("day") == ingested_day and day_count.get("count") == 1
                 for day_count in daily_counts
@@ -111,7 +137,7 @@ async def run_mcp_smoke(base_url: str) -> tuple[str, int, int]:
                     f"summarize_feedback smoke did not include the captured record day: {summary_result}"
                 )
 
-    return feedback_id, len(records), total_count
+    return request_id, len(records), total_count
 
 
 def main() -> None:
@@ -124,9 +150,9 @@ def main() -> None:
     if payload.get("status") != "ok":
         raise SystemExit(f"unexpected smoke response: {payload}")
 
-    feedback_id, listed_count, total_count = asyncio.run(run_mcp_smoke(base_url))
+    request_id, listed_count, total_count = asyncio.run(run_mcp_smoke(base_url))
 
     print(f"healthz ok at {base_url}")
-    print(f"capture_feedback ok: {feedback_id}")
+    print(f"capture_feedback accepted: {request_id}")
     print(f"list_feedback ok: {listed_count} record(s)")
     print(f"summarize_feedback ok: total_count={total_count}")

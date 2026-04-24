@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Vocky"
     database_url: str = Field(alias="DATABASE_URL")
+    redis_url: str = Field(default="redis://127.0.0.1:6379/0", alias="REDIS_URL")
     host: str = Field(default="0.0.0.0", alias="VOCKY_HOST")
     port: int = Field(default=8000, alias="VOCKY_PORT")
     log_level: str = Field(default="INFO", alias="VOCKY_LOG_LEVEL")
