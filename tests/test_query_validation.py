@@ -28,6 +28,8 @@ def make_list_input(**overrides: object) -> ListFeedbackInput:
         "source_integration": None,
         "conversation_id": None,
         "session_id": None,
+        "feedback_value": None,
+        "channel": None,
         "tag": None,
         "limit": None,
         "cursor": None,
@@ -46,6 +48,8 @@ def make_summary_input(**overrides: object) -> SummarizeFeedbackInput:
         "source_integration": None,
         "conversation_id": None,
         "session_id": None,
+        "feedback_value": None,
+        "channel": None,
         "tag": None,
     }
     data.update(overrides)
@@ -78,6 +82,14 @@ def test_invalid_limit_is_rejected_for_listing() -> None:
         normalize_payload(make_list_input(limit=0))
 
 
+def test_invalid_feedback_value_is_rejected_for_listing() -> None:
+    with pytest.raises(
+        FeedbackQueryValidationError,
+        match="feedback_value must be 1 for like or 2 for dislike",
+    ):
+        normalize_payload(make_list_input(feedback_value=4))
+
+
 def test_invalid_cursor_is_rejected_for_listing() -> None:
     with pytest.raises(
         FeedbackQueryValidationError,
@@ -93,6 +105,8 @@ def test_listing_normalization_collapses_blank_optional_filters() -> None:
             source_integration=" pytest ",
             conversation_id=" conv-1 ",
             session_id="   ",
+            feedback_value=1,
+            channel=" web ",
             limit=None,
         )
     )
@@ -101,6 +115,8 @@ def test_listing_normalization_collapses_blank_optional_filters() -> None:
     assert query.filters.source_integration == "pytest"
     assert query.filters.conversation_id == "conv-1"
     assert query.filters.session_id is None
+    assert query.filters.feedback_value == 1
+    assert query.filters.channel == "web"
     assert query.limit == DEFAULT_LIST_LIMIT
 
 
@@ -145,6 +161,14 @@ def test_summary_rejects_invalid_time_window() -> None:
         )
 
 
+def test_invalid_feedback_value_is_rejected_for_summary() -> None:
+    with pytest.raises(
+        FeedbackQueryValidationError,
+        match="feedback_value must be 1 for like or 2 for dislike",
+    ):
+        normalize_summary_payload(make_summary_input(feedback_value=0))
+
+
 def test_summary_normalization_trims_optional_filters() -> None:
     query = normalize_summary_payload(
         make_summary_input(
@@ -152,6 +176,8 @@ def test_summary_normalization_trims_optional_filters() -> None:
             source_integration=" ",
             conversation_id=" conv-1 ",
             session_id=" ",
+            feedback_value=2,
+            channel=" mobile ",
             tag=" billing ",
         )
     )
@@ -160,4 +186,6 @@ def test_summary_normalization_trims_optional_filters() -> None:
     assert query.filters.source_integration is None
     assert query.filters.conversation_id == "conv-1"
     assert query.filters.session_id is None
+    assert query.filters.feedback_value == 2
+    assert query.filters.channel == "mobile"
     assert query.filters.tag == "billing"

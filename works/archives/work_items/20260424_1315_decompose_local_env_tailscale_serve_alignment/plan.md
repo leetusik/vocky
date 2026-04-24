@@ -11,7 +11,7 @@
 
 - The active backlog was rotated after the last completed phase and is back on the template placeholder.
 - The checked-out `.env` is still on the older local shape and is missing the current repo defaults for `REDIS_URL`, `*_PUBLISH_HOST`, and `VOCKY_EXTERNAL_BASE_URL`.
-- Local `tailscale status --json` shows this node's MagicDNS name is `node.tailcb4e82.ts.net`, and `tailscale serve status` currently reports no serve config.
+- Local `tailscale status --json` shows this node's MagicDNS name is `<your-node>.<your-tailnet>.ts.net`, and `tailscale serve status` currently reports no serve config.
 
 ## Goal
 

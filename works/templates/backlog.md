@@ -7,8 +7,10 @@
 
 ## Usage Rules
 
-- Every phase starts with `decompose phase` and `phase review`.
-- Add phase-specific middle slices after `decompose phase` is completed.
+- Every newly created phase starts with only `decompose phase` and `phase review`.
+- Phase-level notes are allowed and encouraged; they do not count as slices.
+- Do not pre-seed phase-specific middle slices in a newly created backlog.
+- Add phase-specific middle slices only from the dedicated `decompose phase` slice.
 - Keep `phase review` open until the phase passes review.
 - If review fails, add dedicated fix slices and rerun review.
 - Keep this file limited to actively scheduled phases and slices.
@@ -27,11 +29,11 @@
 - Objective: <what this phase should accomplish>
 - Status: planned
 - Review outcome: pending
+- Notes: <intent, constraints, assumptions, or handoff context>
 - Work items:
   - None yet
 - Slices:
   - [ ] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
-  - [ ] Slice ID: `P1.S1` | Name: `<middle slice>` | Status: todo | Work item: none | Notes: Replace this line with the first phase-specific slice.
   - [ ] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
 
 ## Archive Notes

@@ -63,18 +63,24 @@ Examples:
 
 1. Read `docs/product.md`, `docs/architecture.md`, `docs/api.md`, and `works/backlog.md`.
 2. Choose or create the active phase in `works/backlog.md`.
-3. Ensure the phase starts with the two mandatory slices:
+3. If `works/backlog.md` is still a placeholder or the requested work is to create a dedicated backlog from scratch, treat backlog creation as its own complete job:
+   - Create only the phase entries and their mandatory `decompose phase` and `phase review` slices.
+   - Add phase-level notes where useful to capture intent, constraints, assumptions, or handoff context.
+   - Do not add phase-specific middle slices during backlog creation.
+   - Do not start implementation, code edits, docs edits, tests, review, or the first `decompose phase` slice in the same job.
+   - Stop after the backlog creation job is complete and report the new backlog.
+4. Ensure every newly created phase initially contains only the two mandatory slices:
    - `decompose phase`
    - `phase review`
-4. Run `scripts/start_work.sh <phase_id> <slice_id> <slug>` to create a timestamped work-item folder bound to the chosen phase and slice.
-5. Fill `plan.md` before making code changes.
-6. Implement the slice.
-7. Fill `result.md` when implementation ends.
-8. Run the `phase review` slice.
-9. If review finds problems, create dedicated fix slices, implement them, and rerun `phase review`.
-10. Mark the phase done only when review passes.
-11. Run `scripts/archive_work.sh <work_dir_name>` after the work item is complete.
-12. Run `scripts/rotate_backlog.sh` when the active backlog cycle is finished and a fresh backlog should start.
+5. Run `scripts/start_work.sh <phase_id> <slice_id> <slug>` to create a timestamped work-item folder bound to the chosen phase and slice.
+6. Fill `plan.md` before making code changes.
+7. Implement the slice.
+8. Fill `result.md` when implementation ends.
+9. Run the `phase review` slice.
+10. If review finds problems, create dedicated fix slices, implement them, and rerun `phase review`.
+11. Mark the phase done only when review passes.
+12. Run `scripts/archive_work.sh <work_dir_name>` after the work item is complete.
+13. Run `scripts/rotate_backlog.sh` when the active backlog cycle is finished and a fresh backlog should start.
 
 ## Execution Commands
 
@@ -86,8 +92,10 @@ Examples:
 - `do the next slice` selects the first slice in the current phase whose status is not `done`.
 - Do not skip fix slices or `phase review` slices when they are the next non-done work in the current phase.
 - Deferred jobs in `works/deferred.md` are not part of current-phase selection until they are promoted back into `works/backlog.md`.
-- `do the whole phase` stays in the current phase and works through each remaining slice in order until the phase is `done`, `blocked`, or paused for user input.
+- `do the whole phase` is limited to the current phase only. It must not continue into later phases or finish the whole backlog.
+- `do the whole phase` stays in the current phase and works through each remaining slice in order until that phase is `done`, `blocked`, or paused for user input.
 - If `do the whole phase` reaches review and the review finds problems, add explicit fix slices, complete them, and rerun review until the phase passes.
+- A `do the whole phase` command may create one work item per slice as needed. The initial `do the whole phase` coordination work item, if one exists, must remain open until all slice work items it initiated are complete, then record the phase-level result last.
 - If a matching active work item already exists for the selected phase and slice, continue it.
 - If no matching active work item exists and execution is allowed, create one with `scripts/start_work.sh <phase_id> <slice_id> <slug>` before editing.
 - If the agent is in Plan mode, do not implement the selected slice. Inspect the selected slice for `do the next slice`, or the full current phase for `do the whole phase`, then prepare the job plan. If no work item exists yet, say that it should be created when execution begins.
@@ -124,7 +132,10 @@ Rules:
 - Move intentionally deferred or parked work into `works/deferred.md` instead of leaving it in the active backlog.
 - Promote deferred work back into `works/backlog.md` when it is ready to re-enter execution order.
 - Every phase must include an objective, status, review outcome, work items, and slices.
-- `decompose phase` creates the middle slices needed to finish the phase.
+- When a phase is first created, its slice list must contain only `decompose phase` and `phase review`; no phase-specific middle slices may pre-exist.
+- Phase-level notes are allowed and encouraged when creating a phase. They do not count as slices and may capture constraints, intended decomposition direction, known risks, or handoff context.
+- `decompose phase` is the only slice allowed to create the phase-specific middle slices needed to finish the phase.
+- `phase review` must exist from phase creation so the review gate is visible, but it stays after the slices created by `decompose phase`.
 - `phase review` validates the phase and stays open until the bar is met.
 - Re-review is mandatory after fixes.
 - Prefix every slice entry with `[ ]` while it is not done and with `[x]` once it is done.

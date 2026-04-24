@@ -20,6 +20,7 @@ from vocky.mcp_server import mcp
 from vocky.tools.query_feedback_common import (
     FeedbackQueryValidationError,
     error_result,
+    normalize_feedback_value,
     normalize_optional_text,
     normalize_tag,
     parse_timestamp,
@@ -38,6 +39,8 @@ class SummarizeFeedbackInput(BaseModel):
     source_integration: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
+    feedback_value: int | None = None
+    channel: str | None = None
     tag: str | None = None
 
 
@@ -82,6 +85,8 @@ def normalize_payload(raw: SummarizeFeedbackInput) -> SummarizeFeedbackQuery:
             source_integration=normalize_optional_text(raw.source_integration),
             conversation_id=normalize_optional_text(raw.conversation_id),
             session_id=normalize_optional_text(raw.session_id),
+            feedback_value=normalize_feedback_value(raw.feedback_value),
+            channel=normalize_optional_text(raw.channel),
             tag=normalize_tag(raw.tag),
         )
     )
@@ -118,6 +123,8 @@ async def summarize_feedback(
     source_integration: str | None = None,
     conversation_id: str | None = None,
     session_id: str | None = None,
+    feedback_value: int | None = None,
+    channel: str | None = None,
     tag: str | None = None,
 ) -> CallToolResult:
     """Summarize stored feedback counts over an ingest-time window."""
@@ -129,6 +136,8 @@ async def summarize_feedback(
         source_integration=source_integration,
         conversation_id=conversation_id,
         session_id=session_id,
+        feedback_value=feedback_value,
+        channel=channel,
         tag=tag,
     )
 

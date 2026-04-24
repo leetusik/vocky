@@ -20,11 +20,16 @@ async def test_enqueue_and_pop_round_trip_preserves_payload() -> None:
         CreateFeedbackEvent(
             message="Need CSV export",
             source_product="vocky-cli",
+            feedback_value=1,
+            comment="This answer was useful",
+            channel="web",
             source_integration="pytest",
             conversation_id="conv-1",
             session_id="sess-1",
             event_at=datetime(2026, 4, 24, 2, 30, tzinfo=UTC),
             tags=("feature-request", "export"),
+            messages=({"role": "user", "content": "Export this"},),
+            used_context=({"source": "export-doc"},),
             source_metadata={"channel": "test"},
             attributes={"priority": "high"},
         )
@@ -37,11 +42,16 @@ async def test_enqueue_and_pop_round_trip_preserves_payload() -> None:
     assert job.accepted_at == receipt.accepted_at
     assert job.payload.message == "Need CSV export"
     assert job.payload.source_product == "vocky-cli"
+    assert job.payload.feedback_value == 1
+    assert job.payload.comment == "This answer was useful"
+    assert job.payload.channel == "web"
     assert job.payload.source_integration == "pytest"
     assert job.payload.conversation_id == "conv-1"
     assert job.payload.session_id == "sess-1"
     assert job.payload.event_at == datetime(2026, 4, 24, 2, 30, tzinfo=UTC)
     assert job.payload.tags == ("feature-request", "export")
+    assert job.payload.messages == ({"role": "user", "content": "Export this"},)
+    assert job.payload.used_context == ({"source": "export-doc"},)
     assert job.payload.source_metadata == {"channel": "test"}
     assert job.payload.attributes == {"priority": "high"}
 

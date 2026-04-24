@@ -13,6 +13,7 @@ from sqlalchemy import text
 from vocky.capture_queue import CaptureQueue
 import vocky.tools.capture_feedback as capture_module
 import vocky.tools.list_feedback as list_module
+import vocky.tools.list_liked_conversations as liked_module
 import vocky.tools.summarize_feedback as summarize_module
 from vocky.db import get_engine, get_session_maker
 from vocky.feedback import FeedbackService
@@ -33,8 +34,16 @@ async def test_capture_feedback_success(
             {
                 "message": "The export flow is broken",
                 "source": {"product": "vocky-cli", "integration": "pytest"},
+                "feedback_value": 2,
+                "comment": "The answer did not fix export",
+                "channel": "web",
                 "event_at": "2026-04-23T14:00:00+09:00",
                 "tags": ["billing", " bug "],
+                "messages": [
+                    {"role": "user", "content": "Export billing data"},
+                    {"role": "assistant", "content": "Click export"},
+                ],
+                "used_context": [{"source": "billing-doc", "snippet": "Export steps"}],
                 "source_metadata": {"channel": "pytest"},
                 "attributes": {"priority": "high"},
             },
@@ -48,8 +57,18 @@ async def test_capture_feedback_success(
 
     queued_job = await CaptureQueue(redis_client).pop_job(timeout_seconds=1)
     assert queued_job is not None
+    assert queued_job.payload.feedback_value == 2
+    assert queued_job.payload.comment == "The answer did not fix export"
+    assert queued_job.payload.channel == "web"
     assert queued_job.payload.event_at == datetime(2026, 4, 23, 5, 0, tzinfo=UTC)
     assert queued_job.payload.tags == ("billing", "bug")
+    assert queued_job.payload.messages == (
+        {"role": "user", "content": "Export billing data"},
+        {"role": "assistant", "content": "Click export"},
+    )
+    assert queued_job.payload.used_context == (
+        {"source": "billing-doc", "snippet": "Export steps"},
+    )
     assert queued_job.payload.source_metadata == {"channel": "pytest"}
     assert queued_job.payload.attributes == {"priority": "high"}
 
@@ -189,13 +208,18 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
             text(
                 "INSERT INTO feedback_events ("
                 "id, message, source_product, source_integration, conversation_id, "
-                "session_id, event_at, ingested_at, tags, source_metadata, attributes"
+                "session_id, feedback_value, comment, channel, event_at, ingested_at, "
+                "tags, messages, used_context, source_metadata, attributes"
                 ") VALUES "
                 "(:id1, :message1, :source_product1, :source_integration1, :conversation_id1, "
-                ":session_id1, :event_at1, :ingested_at1, :tags1, "
+                ":session_id1, :feedback_value1, :comment1, :channel1, "
+                ":event_at1, :ingested_at1, :tags1, "
+                "CAST(:messages1 AS jsonb), CAST(:used_context1 AS jsonb), "
                 "CAST(:source_metadata1 AS jsonb), CAST(:attributes1 AS jsonb)), "
                 "(:id2, :message2, :source_product2, :source_integration2, :conversation_id2, "
-                ":session_id2, :event_at2, :ingested_at2, :tags2, "
+                ":session_id2, :feedback_value2, :comment2, :channel2, "
+                ":event_at2, :ingested_at2, :tags2, "
+                "CAST(:messages2 AS jsonb), CAST(:used_context2 AS jsonb), "
                 "CAST(:source_metadata2 AS jsonb), CAST(:attributes2 AS jsonb))"
             ),
             {
@@ -205,9 +229,14 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
                 "source_integration1": "pytest",
                 "conversation_id1": "conv-1",
                 "session_id1": "sess-1",
+                "feedback_value1": 1,
+                "comment1": "older comment",
+                "channel1": "web",
                 "event_at1": datetime(2026, 4, 23, 0, 0, tzinfo=UTC),
                 "ingested_at1": datetime(2026, 4, 23, 0, 1, tzinfo=UTC),
                 "tags1": ["bug"],
+                "messages1": "[{\"role\": \"user\", \"content\": \"older\"}]",
+                "used_context1": "[{\"source\": \"doc-old\"}]",
                 "source_metadata1": "{}",
                 "attributes1": "{}",
                 "id2": "00000000-0000-0000-0000-000000000022",
@@ -216,9 +245,14 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
                 "source_integration2": "pytest",
                 "conversation_id2": "conv-1",
                 "session_id2": "sess-1",
+                "feedback_value2": 1,
+                "comment2": "newer comment",
+                "channel2": "web",
                 "event_at2": datetime(2026, 4, 23, 0, 2, tzinfo=UTC),
                 "ingested_at2": datetime(2026, 4, 23, 0, 3, tzinfo=UTC),
                 "tags2": ["bug", "billing"],
+                "messages2": "[{\"role\": \"user\", \"content\": \"newer\"}]",
+                "used_context2": "[{\"source\": \"doc-new\"}]",
                 "source_metadata2": "{\"channel\": \"pytest\"}",
                 "attributes2": "{\"priority\": \"high\"}",
             },
@@ -229,6 +263,8 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
             "list_feedback",
             {
                 "source_product": " vocky-cli ",
+                "feedback_value": 1,
+                "channel": " web ",
                 "tag": " bug ",
                 "limit": 1,
             },
@@ -240,6 +276,15 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
         "newer feedback"
     ]
     assert result.structuredContent["records"][0]["ingested_at"] == "2026-04-23T00:03:00Z"
+    assert result.structuredContent["records"][0]["feedback_value"] == 1
+    assert result.structuredContent["records"][0]["comment"] == "newer comment"
+    assert result.structuredContent["records"][0]["channel"] == "web"
+    assert result.structuredContent["records"][0]["messages"] == [
+        {"role": "user", "content": "newer"}
+    ]
+    assert result.structuredContent["records"][0]["used_context"] == [
+        {"source": "doc-new"}
+    ]
     assert "next_cursor" in result.structuredContent
 
 
@@ -289,13 +334,14 @@ async def test_summarize_feedback_success_returns_total_and_daily_counts(
             text(
                 "INSERT INTO feedback_events ("
                 "id, message, source_product, source_integration, conversation_id, "
-                "session_id, event_at, ingested_at, tags, source_metadata, attributes"
+                "session_id, feedback_value, channel, event_at, ingested_at, "
+                "tags, source_metadata, attributes"
                 ") VALUES "
                 "(:id1, :message1, :source_product1, :source_integration1, :conversation_id1, "
-                ":session_id1, :event_at1, :ingested_at1, :tags1, "
+                ":session_id1, :feedback_value1, :channel1, :event_at1, :ingested_at1, :tags1, "
                 "CAST(:source_metadata1 AS jsonb), CAST(:attributes1 AS jsonb)), "
                 "(:id2, :message2, :source_product2, :source_integration2, :conversation_id2, "
-                ":session_id2, :event_at2, :ingested_at2, :tags2, "
+                ":session_id2, :feedback_value2, :channel2, :event_at2, :ingested_at2, :tags2, "
                 "CAST(:source_metadata2 AS jsonb), CAST(:attributes2 AS jsonb))"
             ),
             {
@@ -305,6 +351,8 @@ async def test_summarize_feedback_success_returns_total_and_daily_counts(
                 "source_integration1": "pytest",
                 "conversation_id1": "conv-1",
                 "session_id1": "sess-1",
+                "feedback_value1": 2,
+                "channel1": "web",
                 "event_at1": None,
                 "ingested_at1": datetime(2026, 4, 23, 2, 0, tzinfo=UTC),
                 "tags1": ["bug", "billing"],
@@ -316,6 +364,8 @@ async def test_summarize_feedback_success_returns_total_and_daily_counts(
                 "source_integration2": "pytest",
                 "conversation_id2": "conv-1",
                 "session_id2": "sess-1",
+                "feedback_value2": 2,
+                "channel2": "web",
                 "event_at2": None,
                 "ingested_at2": datetime(2026, 4, 25, 6, 0, tzinfo=UTC),
                 "tags2": ["billing"],
@@ -334,6 +384,8 @@ async def test_summarize_feedback_success_returns_total_and_daily_counts(
                 "source_integration": "pytest",
                 "conversation_id": "conv-1",
                 "session_id": "sess-1",
+                "feedback_value": 2,
+                "channel": "web",
                 "tag": "billing",
             },
         )
@@ -383,6 +435,99 @@ async def test_summarize_feedback_storage_failure_returns_tool_error(
                 "end_ingested_at": "2026-04-24T00:00:00Z",
             },
         )
+
+    assert result.isError is True
+    assert result.content[0].text == "storage read failed"
+
+
+@pytest.mark.anyio
+async def test_list_liked_conversations_returns_only_likes_with_context(
+    configured_database: str,
+) -> None:
+    async with get_engine().begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO feedback_events ("
+                "id, message, source_product, source_integration, conversation_id, "
+                "session_id, feedback_value, comment, channel, event_at, ingested_at, "
+                "tags, messages, used_context, source_metadata, attributes"
+                ") VALUES "
+                "(:liked_id, :liked_message, :product, :integration, :conversation_id, "
+                ":session_id, 1, :liked_comment, :channel, :event_at, :liked_ingested_at, "
+                ":liked_tags, CAST(:liked_messages AS jsonb), CAST(:liked_context AS jsonb), "
+                "CAST(:liked_metadata AS jsonb), CAST(:liked_attributes AS jsonb)), "
+                "(:disliked_id, :disliked_message, :product, :integration, :conversation_id, "
+                ":session_id, 2, :disliked_comment, :channel, :event_at, :disliked_ingested_at, "
+                ":disliked_tags, CAST(:disliked_messages AS jsonb), CAST(:disliked_context AS jsonb), "
+                "CAST(:disliked_metadata AS jsonb), CAST(:disliked_attributes AS jsonb))"
+            ),
+            {
+                "liked_id": "00000000-0000-0000-0000-000000000061",
+                "liked_message": "liked answer",
+                "disliked_id": "00000000-0000-0000-0000-000000000062",
+                "disliked_message": "disliked answer",
+                "product": "agent-product",
+                "integration": "pytest",
+                "conversation_id": "conv-liked",
+                "session_id": "sess-liked",
+                "liked_comment": "use this pattern",
+                "disliked_comment": "do not use this pattern",
+                "channel": "web",
+                "event_at": datetime(2026, 4, 24, 1, 0, tzinfo=UTC),
+                "liked_ingested_at": datetime(2026, 4, 24, 1, 1, tzinfo=UTC),
+                "disliked_ingested_at": datetime(2026, 4, 24, 1, 2, tzinfo=UTC),
+                "liked_tags": ["few-shot"],
+                "disliked_tags": ["few-shot"],
+                "liked_messages": "[{\"role\": \"user\", \"content\": \"How should I respond?\"}]",
+                "disliked_messages": "[{\"role\": \"user\", \"content\": \"Bad response\"}]",
+                "liked_context": "[{\"source\": \"guide\", \"snippet\": \"Good answer\"}]",
+                "disliked_context": "[{\"source\": \"guide\", \"snippet\": \"Bad answer\"}]",
+                "liked_metadata": "{\"tenant\": \"test\"}",
+                "disliked_metadata": "{\"tenant\": \"test\"}",
+                "liked_attributes": "{\"quality\": \"good\"}",
+                "disliked_attributes": "{\"quality\": \"bad\"}",
+            },
+        )
+
+    async with create_connected_server_and_client_session(mcp, raise_exceptions=True) as client_session:
+        result = await client_session.call_tool(
+            "list_liked_conversations",
+            {
+                "source_product": "agent-product",
+                "channel": "web",
+                "tag": "few-shot",
+            },
+        )
+
+    assert result.isError is False
+    assert result.structuredContent is not None
+    assert [item["message"] for item in result.structuredContent["conversations"]] == [
+        "liked answer"
+    ]
+    liked = result.structuredContent["conversations"][0]
+    assert liked["comment"] == "use this pattern"
+    assert liked["messages"] == [
+        {"role": "user", "content": "How should I respond?"}
+    ]
+    assert liked["used_context"] == [
+        {"source": "guide", "snippet": "Good answer"}
+    ]
+    assert liked["attributes"] == {"quality": "good"}
+
+
+@pytest.mark.anyio
+async def test_list_liked_conversations_storage_failure_returns_tool_error(
+    configured_database: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class BrokenService:
+        async def list_feedback(self, query):
+            raise liked_module.FeedbackReadError("boom")
+
+    monkeypatch.setattr(liked_module, "get_feedback_service", lambda: BrokenService())
+
+    async with create_connected_server_and_client_session(mcp, raise_exceptions=True) as client_session:
+        result = await client_session.call_tool("list_liked_conversations", {})
 
     assert result.isError is True
     assert result.content[0].text == "storage read failed"

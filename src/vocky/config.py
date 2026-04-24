@@ -6,6 +6,18 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def parse_csv_setting(value: str) -> tuple[str, ...]:
+    """Parse a comma-separated env setting into non-empty unique values."""
+
+    values: list[str] = []
+    for raw_value in value.split(","):
+        parsed_value = raw_value.strip()
+        if parsed_value and parsed_value not in values:
+            values.append(parsed_value)
+
+    return tuple(values)
+
+
 class Settings(BaseSettings):
     """Runtime configuration for the Vocky service."""
 
@@ -22,6 +34,34 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0", alias="VOCKY_HOST")
     port: int = Field(default=8000, alias="VOCKY_PORT")
     log_level: str = Field(default="INFO", alias="VOCKY_LOG_LEVEL")
+    mcp_allowed_hosts: str = Field(default="", alias="VOCKY_MCP_ALLOWED_HOSTS")
+    mcp_allowed_origins: str = Field(default="", alias="VOCKY_MCP_ALLOWED_ORIGINS")
+    mcp_auth_token: str = Field(default="", alias="VOCKY_MCP_AUTH_TOKEN")
+    admin_auth_token: str = Field(default="", alias="VOCKY_ADMIN_AUTH_TOKEN")
+
+    @property
+    def mcp_allowed_host_values(self) -> tuple[str, ...]:
+        """Return configured MCP Host allowlist additions."""
+
+        return parse_csv_setting(self.mcp_allowed_hosts)
+
+    @property
+    def mcp_allowed_origin_values(self) -> tuple[str, ...]:
+        """Return configured MCP Origin allowlist additions."""
+
+        return parse_csv_setting(self.mcp_allowed_origins)
+
+    @property
+    def mcp_auth_token_value(self) -> str:
+        """Return the configured MCP bearer token, or an empty string when disabled."""
+
+        return self.mcp_auth_token.strip()
+
+    @property
+    def admin_auth_token_value(self) -> str:
+        """Return the configured Admin REST bearer token, or an empty string when disabled."""
+
+        return self.admin_auth_token.strip()
 
 
 @lru_cache(maxsize=1)

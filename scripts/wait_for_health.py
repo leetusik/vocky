@@ -7,7 +7,19 @@ import json
 import os
 import time
 from urllib.error import HTTPError, URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
+
+
+DEFAULT_USER_AGENT = "VockySmoke/0.1"
+
+
+def make_health_request(url: str) -> Request:
+    """Build a health-check request with an explicit user agent."""
+
+    return Request(
+        url,
+        headers={"User-Agent": os.getenv("VOCKY_HTTP_USER_AGENT", DEFAULT_USER_AGENT)},
+    )
 
 
 def main() -> None:
@@ -25,7 +37,7 @@ def main() -> None:
 
     while time.monotonic() < deadline:
         try:
-            with urlopen(f"{base_url}/healthz", timeout=5) as response:
+            with urlopen(make_health_request(f"{base_url}/healthz"), timeout=5) as response:
                 payload = json.loads(response.read().decode("utf-8"))
 
             if payload.get("status") == "ok":

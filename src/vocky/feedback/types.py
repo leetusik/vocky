@@ -14,11 +14,16 @@ class CreateFeedbackEvent:
 
     message: str
     source_product: str
+    feedback_value: int | None = None
+    comment: str | None = None
+    channel: str | None = None
     source_integration: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
     event_at: datetime | None = None
     tags: tuple[str, ...] = ()
+    messages: tuple[Any, ...] = ()
+    used_context: tuple[Any, ...] = ()
     source_metadata: dict[str, Any] = field(default_factory=dict)
     attributes: dict[str, Any] = field(default_factory=dict)
 
@@ -30,12 +35,17 @@ class FeedbackEventRecord:
     id: UUID
     message: str
     source_product: str
+    feedback_value: int | None
+    comment: str | None
+    channel: str | None
     source_integration: str | None
     conversation_id: str | None
     session_id: str | None
     event_at: datetime | None
     ingested_at: datetime
     tags: tuple[str, ...]
+    messages: tuple[Any, ...]
+    used_context: tuple[Any, ...]
     source_metadata: dict[str, Any]
     attributes: dict[str, Any]
 
@@ -50,6 +60,8 @@ class FeedbackQueryFilters:
     source_integration: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
+    feedback_value: int | None = None
+    channel: str | None = None
     tag: str | None = None
 
 

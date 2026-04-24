@@ -15,7 +15,7 @@ The first MVP is intentionally narrow:
 - Self-hosted and single-tenant
 - MCP-only ingestion for feedback capture
 - Async MCP capture that accepts quickly and persists in the background
-- Raw feedback storage with basic metadata
+- Explicit user action feedback capture, including like/dislike values, optional comments, conversation context, and basic metadata
 - A minimal review/query API for record retrieval and simple counts or trends
 
 The MVP does not need automated classification, a dashboard UI, or managed-cloud capabilities.
@@ -35,7 +35,7 @@ The MVP does not need automated classification, a dashboard UI, or managed-cloud
 ## Goals
 
 - Capture feedback events from agent interactions through MCP without making client agents wait on persistence
-- Store raw feedback with enough metadata for later review
+- Store explicit user action feedback with enough message, context, comment, and metadata detail for later review
 - Make stored feedback reviewable through a minimal query surface
 - Surface simple counts and trends without building a full analytics product
 - Keep the first release practical for community and self-hosted use
@@ -54,7 +54,9 @@ The MVP does not need automated classification, a dashboard UI, or managed-cloud
 
 - Community and self-hosted usage are part of the base direction.
 - The first MVP should optimize for self-hosted deployment before managed concerns.
+- Self-hosted deployments may be local/private or publicly reachable behind an operator-managed custom domain, provided public MCP access is protected.
 - The capture path should acknowledge accepted work quickly and complete persistence asynchronously in the background.
+- The initial high-signal capture path should focus on explicit user actions, such as like/dislike clicks and optional comments, rather than trying to infer feedback from every conversation turn.
 - A managed offering may exist later around convenience, operations, and richer workflows.
 - The repo should stay honest about what is planned versus what is already implemented.
 

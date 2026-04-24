@@ -22,6 +22,7 @@ from vocky.tools.query_feedback_common import (
     decode_cursor,
     encode_cursor,
     error_result,
+    normalize_feedback_value,
     normalize_limit,
     normalize_optional_text,
     normalize_tag,
@@ -42,6 +43,8 @@ class ListFeedbackInput(BaseModel):
     source_integration: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
+    feedback_value: int | None = None
+    channel: str | None = None
     tag: str | None = None
     limit: int | None = None
     cursor: str | None = None
@@ -53,12 +56,17 @@ class ListFeedbackRecordResponse(BaseModel):
     id: str
     message: str
     source_product: str
+    feedback_value: int | None = None
+    comment: str | None = None
+    channel: str | None = None
     source_integration: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
     event_at: str | None = None
     ingested_at: str
     tags: list[str]
+    messages: list[Any]
+    used_context: list[Any]
     source_metadata: dict[str, Any]
     attributes: dict[str, Any]
 
@@ -91,6 +99,8 @@ def normalize_payload(raw: ListFeedbackInput) -> ListFeedbackQuery:
             source_integration=normalize_optional_text(raw.source_integration),
             conversation_id=normalize_optional_text(raw.conversation_id),
             session_id=normalize_optional_text(raw.session_id),
+            feedback_value=normalize_feedback_value(raw.feedback_value),
+            channel=normalize_optional_text(raw.channel),
             tag=normalize_tag(raw.tag),
         ),
         limit=normalize_limit(raw.limit),
@@ -105,6 +115,9 @@ def serialize_record(record: FeedbackEventRecord) -> ListFeedbackRecordResponse:
         id=str(record.id),
         message=record.message,
         source_product=record.source_product,
+        feedback_value=record.feedback_value,
+        comment=record.comment,
+        channel=record.channel,
         source_integration=record.source_integration,
         conversation_id=record.conversation_id,
         session_id=record.session_id,
@@ -115,6 +128,8 @@ def serialize_record(record: FeedbackEventRecord) -> ListFeedbackRecordResponse:
         ),
         ingested_at=serialize_datetime(record.ingested_at),
         tags=list(record.tags),
+        messages=list(record.messages),
+        used_context=list(record.used_context),
         source_metadata=dict(record.source_metadata),
         attributes=dict(record.attributes),
     )
@@ -128,6 +143,8 @@ async def list_feedback(
     source_integration: str | None = None,
     conversation_id: str | None = None,
     session_id: str | None = None,
+    feedback_value: int | None = None,
+    channel: str | None = None,
     tag: str | None = None,
     limit: int | None = None,
     cursor: str | None = None,
@@ -141,6 +158,8 @@ async def list_feedback(
         source_integration=source_integration,
         conversation_id=conversation_id,
         session_id=session_id,
+        feedback_value=feedback_value,
+        channel=channel,
         tag=tag,
         limit=limit,
         cursor=cursor,

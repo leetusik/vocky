@@ -11,7 +11,7 @@
 
 - `P1.DECOMP` is complete and archived, so `P1.S1` is now the active slice.
 - The local `.env` still uses older `5432` defaults, does not define `REDIS_URL`, and does not expose the current repo's `*_PUBLISH_HOST` or `VOCKY_EXTERNAL_BASE_URL` settings.
-- Local `tailscale status --json` reports this node's MagicDNS name as `node.tailcb4e82.ts.net`.
+- Local `tailscale status --json` reports this node's MagicDNS name as `<your-node>.<your-tailnet>.ts.net`.
 
 ## Goal
 
@@ -30,7 +30,7 @@ Update the checked-out local `.env` so it matches the current repo config surfac
 
 ## Approach
 
-Bring `.env` up to date with `.env.example`, keep all Docker-published services loopback-only by default, and set the external base URL to `https://node.tailcb4e82.ts.net` so the Tailscale helper targets have a concrete target.
+Bring `.env` up to date with `.env.example`, keep all Docker-published services loopback-only by default, and set the external base URL to `https://<your-node>.<your-tailnet>.ts.net` so the Tailscale helper targets have a concrete target.
 
 ## Affected Files
 

@@ -20,10 +20,15 @@ def make_input(**overrides: object) -> CaptureFeedbackInput:
     data = {
         "message": "Helpful feedback",
         "source": CaptureFeedbackSourceInput(product="vocky-cli"),
+        "feedback_value": None,
+        "comment": None,
+        "channel": None,
         "conversation_id": None,
         "session_id": None,
         "event_at": None,
         "tags": None,
+        "messages": None,
+        "used_context": None,
         "source_metadata": {},
         "attributes": {},
     }
@@ -56,11 +61,27 @@ def test_duplicate_tags_are_rejected_after_normalization() -> None:
         normalize_payload(make_input(tags=["bug", " bug "]))
 
 
-def test_json_metadata_is_accepted_and_event_at_is_normalized() -> None:
+def test_invalid_feedback_value_is_rejected() -> None:
+    with pytest.raises(
+        CaptureFeedbackValidationError,
+        match="feedback_value must be 1 for like or 2 for dislike",
+    ):
+        normalize_payload(make_input(feedback_value=3))
+
+
+def test_action_feedback_context_is_accepted_and_event_at_is_normalized() -> None:
     normalized = normalize_payload(
         make_input(
+            feedback_value=2,
+            comment="  The answer ignored my billing context  ",
+            channel=" web ",
             event_at="2026-04-23T14:00:00+09:00",
             tags=[" billing ", "bug"],
+            messages=[
+                {"role": "user", "content": "Why did export fail?"},
+                {"role": "assistant", "content": "Try again later."},
+            ],
+            used_context=[{"source": "billing-doc", "snippet": "CSV export"}],
             source_metadata={"channel": "mcp"},
             attributes={"priority": "high"},
             conversation_id="  conv-123  ",
@@ -69,6 +90,16 @@ def test_json_metadata_is_accepted_and_event_at_is_normalized() -> None:
     )
 
     assert normalized.payload.tags == ("billing", "bug")
+    assert normalized.payload.feedback_value == 2
+    assert normalized.payload.comment == "The answer ignored my billing context"
+    assert normalized.payload.channel == "web"
+    assert normalized.payload.messages == (
+        {"role": "user", "content": "Why did export fail?"},
+        {"role": "assistant", "content": "Try again later."},
+    )
+    assert normalized.payload.used_context == (
+        {"source": "billing-doc", "snippet": "CSV export"},
+    )
     assert normalized.payload.source_metadata == {"channel": "mcp"}
     assert normalized.payload.attributes == {"priority": "high"}
     assert normalized.payload.conversation_id == "conv-123"

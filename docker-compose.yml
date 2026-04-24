@@ -42,6 +42,9 @@ services:
       VOCKY_HOST: 0.0.0.0
       VOCKY_PORT: 8000
       VOCKY_LOG_LEVEL: ${VOCKY_LOG_LEVEL:-INFO}
+      VOCKY_MCP_ALLOWED_HOSTS: ${VOCKY_MCP_ALLOWED_HOSTS:-}
+      VOCKY_MCP_ALLOWED_ORIGINS: ${VOCKY_MCP_ALLOWED_ORIGINS:-}
+      VOCKY_MCP_AUTH_TOKEN: ${VOCKY_MCP_AUTH_TOKEN:-}
     command: ["sh", "-lc", "uv sync --frozen && uv run vocky"]
     healthcheck:
       test:

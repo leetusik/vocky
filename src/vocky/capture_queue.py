@@ -59,6 +59,9 @@ def _serialize_payload(payload: CreateFeedbackEvent) -> dict[str, Any]:
     return {
         "message": payload.message,
         "source_product": payload.source_product,
+        "feedback_value": payload.feedback_value,
+        "comment": payload.comment,
+        "channel": payload.channel,
         "source_integration": payload.source_integration,
         "conversation_id": payload.conversation_id,
         "session_id": payload.session_id,
@@ -68,6 +71,8 @@ def _serialize_payload(payload: CreateFeedbackEvent) -> dict[str, Any]:
             else None
         ),
         "tags": list(payload.tags),
+        "messages": list(payload.messages),
+        "used_context": list(payload.used_context),
         "source_metadata": dict(payload.source_metadata),
         "attributes": dict(payload.attributes),
     }
@@ -79,6 +84,21 @@ def _deserialize_payload(raw: dict[str, Any]) -> CreateFeedbackEvent:
     return CreateFeedbackEvent(
         message=str(raw["message"]),
         source_product=str(raw["source_product"]),
+        feedback_value=(
+            int(raw["feedback_value"])
+            if raw.get("feedback_value") is not None
+            else None
+        ),
+        comment=(
+            str(raw["comment"])
+            if raw.get("comment") is not None
+            else None
+        ),
+        channel=(
+            str(raw["channel"])
+            if raw.get("channel") is not None
+            else None
+        ),
         source_integration=(
             str(raw["source_integration"])
             if raw.get("source_integration") is not None
@@ -100,6 +120,8 @@ def _deserialize_payload(raw: dict[str, Any]) -> CreateFeedbackEvent:
             else None
         ),
         tags=tuple(str(tag) for tag in raw.get("tags", [])),
+        messages=tuple(raw.get("messages", [])),
+        used_context=tuple(raw.get("used_context", [])),
         source_metadata=dict(raw.get("source_metadata", {})),
         attributes=dict(raw.get("attributes", {})),
     )

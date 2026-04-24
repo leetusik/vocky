@@ -31,7 +31,7 @@ Updated the operator docs so local-only self-hosting and optional Tailscale acce
 
 ## Verification Performed
 
-- `rg -n "tailscale|MagicDNS|VOCKY_EXTERNAL_BASE_URL|PUBLISH_HOST|100\\.71\\.247\\.59|tailcb4e82|ts\\.net" README.md docs/architecture.md .env.example Makefile docker-compose.yml`
+- `rg -n "tailscale|MagicDNS|VOCKY_EXTERNAL_BASE_URL|PUBLISH_HOST|100\\.71\\.247\\.59|<tailnet>|ts\\.net" README.md docs/architecture.md .env.example Makefile docker-compose.yml`
 - Re-read the updated README and architecture sections to confirm the local-only and optional Tailscale paths match the implemented env and Make targets.
 
 ## Review Findings

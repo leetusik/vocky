@@ -42,6 +42,16 @@ def normalize_tag(value: str | None) -> str | None:
     return trimmed
 
 
+def normalize_feedback_value(value: int | None) -> int | None:
+    """Validate an optional explicit action feedback value filter."""
+
+    if value is None:
+        return None
+    if isinstance(value, bool) or value not in (1, 2):
+        raise FeedbackQueryValidationError("feedback_value must be 1 for like or 2 for dislike")
+    return value
+
+
 def parse_timestamp(value: str | None, *, field_name: str) -> datetime | None:
     """Parse an optional ISO 8601 timestamp and normalize it to UTC."""
 

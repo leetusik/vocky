@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from uuid import UUID
 
 from vocky.db import get_session_maker
 from vocky.feedback.repository import FeedbackRepository
@@ -65,6 +68,54 @@ class FeedbackService:
             except SQLAlchemyError as exc:
                 await session.rollback()
                 raise FeedbackReadError("failed to read feedback records") from exc
+
+    async def get_feedback_event(self, feedback_id: UUID) -> FeedbackEventRecord | None:
+        """Return one feedback record by ID."""
+
+        async with self._session_maker() as session:
+            repository = FeedbackRepository(session)
+
+            try:
+                return await repository.get_feedback_event(feedback_id)
+            except SQLAlchemyError as exc:
+                await session.rollback()
+                raise FeedbackReadError("failed to read feedback records") from exc
+
+    async def update_feedback_event(
+        self,
+        feedback_id: UUID,
+        updates: Mapping[str, Any],
+    ) -> FeedbackEventRecord | None:
+        """Update one feedback record by ID."""
+
+        async with self._session_maker() as session:
+            repository = FeedbackRepository(session)
+
+            try:
+                record = await repository.update_feedback_event(feedback_id, updates)
+                await session.commit()
+                return record
+            except SQLAlchemyError as exc:
+                await session.rollback()
+                raise FeedbackPersistenceError(
+                    "failed to persist feedback event"
+                ) from exc
+
+    async def delete_feedback_event(self, feedback_id: UUID) -> bool:
+        """Delete one feedback record by ID."""
+
+        async with self._session_maker() as session:
+            repository = FeedbackRepository(session)
+
+            try:
+                deleted = await repository.delete_feedback_event(feedback_id)
+                await session.commit()
+                return deleted
+            except SQLAlchemyError as exc:
+                await session.rollback()
+                raise FeedbackPersistenceError(
+                    "failed to persist feedback event"
+                ) from exc
 
     async def summarize_feedback(
         self,

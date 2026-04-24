@@ -18,8 +18,8 @@ The name comes from VoC, short for voice of customer.
 
 ## What It Will Do First
 
-- Accept feedback events from agent interactions through MCP without blocking on database writes
-- Store raw feedback with basic metadata for later review
+- Accept explicit user action feedback from agent interactions through MCP without blocking on database writes
+- Store like/dislike values, optional comments, conversation context, and metadata for later review
 - Expose minimal MCP review/query tools for retrieving records and simple counts
 - Run as a self-hosted, single-tenant MVP
 
@@ -36,8 +36,10 @@ Vocky is intended to follow a light open-core direction: a community, self-hosta
 
 ## Current Status
 
-- MCP feedback capture is implemented through the `capture_feedback` tool and now accepts requests quickly through a Redis-backed background worker path.
+- MCP feedback capture is implemented through the `capture_feedback` tool and now accepts explicit action feedback requests quickly through a Redis-backed background worker path.
 - MCP review/query tools are implemented through `list_feedback` and `summarize_feedback`.
+- AI-agent liked conversation retrieval is implemented through `list_liked_conversations`.
+- Human/operator review is available through separate Admin REST endpoints under `/admin/api`.
 - Completed feedback events persist to PostgreSQL with Alembic migrations.
 - Self-hosted runtime now includes PostgreSQL, Redis, the MCP app process, and a dedicated worker process.
 - The project is still pre-MVP and the contracts should be treated as early-stage.
@@ -65,7 +67,14 @@ The default `.env` values publish the app at `http://127.0.0.1:8000`, PostgreSQL
 
 `TEST_DATABASE_URL` must point at a separate disposable database. `make test` refuses to run if it matches `DATABASE_URL`, and the pytest fixtures reset only the database named in `TEST_DATABASE_URL`.
 
-If you need different host ports or interfaces, edit `.env` before you run the workflow. `VOCKY_PORT`, `POSTGRES_PORT`, and `REDIS_PORT` change the published ports. `VOCKY_PUBLISH_HOST`, `POSTGRES_PUBLISH_HOST`, and `REDIS_PUBLISH_HOST` change which host interface Docker publishes on. `VOCKY_BASE_URL` remains the local smoke-check target, and `VOCKY_EXTERNAL_BASE_URL` is optional for remote access through Tailscale Serve or another reverse proxy.
+If you need different host ports or interfaces, edit `.env` before you run the workflow. `VOCKY_PORT`, `POSTGRES_PORT`, and `REDIS_PORT` change the published ports. `VOCKY_PUBLISH_HOST`, `POSTGRES_PUBLISH_HOST`, and `REDIS_PUBLISH_HOST` change which host interface Docker publishes on. `VOCKY_BASE_URL` remains the local smoke-check target, and `VOCKY_EXTERNAL_BASE_URL` is optional for public custom-domain access through Cloudflare Tunnel or another HTTPS reverse proxy.
+
+Public custom-domain access has these additional settings:
+
+- `VOCKY_MCP_ALLOWED_HOSTS`: comma-separated public Host headers accepted by FastMCP DNS rebinding protection, for example `vocky.example.com`.
+- `VOCKY_MCP_ALLOWED_ORIGINS`: comma-separated browser Origin values, for example `https://vocky.example.com`.
+- `VOCKY_MCP_AUTH_TOKEN`: bearer token required for `/mcp` when set. Set this before exposing Vocky publicly.
+- `VOCKY_ADMIN_AUTH_TOKEN`: bearer token required for `/admin/api/*` when set. Set this before exposing Admin REST endpoints.
 
 Granular fallback commands remain available:
 
@@ -76,17 +85,7 @@ Granular fallback commands remain available:
 - `make test`
 - `make compose-down`
 
-The smoke target checks `GET /healthz` plus MCP `capture_feedback`, `list_feedback`, and `summarize_feedback`, and it waits for readiness before the MCP calls.
-
-Optional external-access helpers are also available for operators who use Tailscale:
-
-- `make tailscale-serve`
-- `make tailscale-serve-status`
-- `make tailscale-serve-reset`
-- `make tailscale-smoke`
-- `make tailscale-verify`
-
-These helpers are not part of the required local workflow. They only use `VOCKY_EXTERNAL_BASE_URL` when you want to verify the service through an external URL.
+The smoke target checks `GET /healthz` plus MCP `capture_feedback`, `list_feedback`, and `summarize_feedback`, and it waits for readiness before the MCP calls. If `VOCKY_MCP_AUTH_TOKEN` is set, the smoke MCP client sends `Authorization: Bearer <token>`.
 
 ## Running The App Directly
 
@@ -99,30 +98,103 @@ The supported self-hosted flow is Compose-first. If PostgreSQL and Redis are alr
 The Starlette host app exposes:
 
 - `GET /healthz`
+- Admin REST under `/admin/api/*`
 - MCP Streamable HTTP at `/mcp`
 
-Some clients may follow the framework redirect from `/mcp` to `/mcp/` automatically.
+Use `/mcp` exactly as the canonical MCP endpoint.
 
 There is no dashboard UI in the current MVP. Vocky is an MCP service plus background worker, not a browser app.
 
-## Self-Hosted Access Modes
+## Access Modes
 
 Vocky supports two clean operator modes:
 
-- Local or private self-hosting: keep the default `*_PUBLISH_HOST=127.0.0.1` values and use `VOCKY_BASE_URL` for host-side smoke and verification.
-- Optional Tailscale self-hosting: run `make tailscale-serve`, set `VOCKY_EXTERNAL_BASE_URL`, and let remote devices reach the service through that external URL.
+- Internal self-hosting: keep the default `*_PUBLISH_HOST=127.0.0.1` values, use `VOCKY_BASE_URL` for host-side smoke and verification, and connect from the same machine or trusted private network.
+- Public custom-domain deploy: publish Vocky through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL`, allow the public Host and Origin, and require `VOCKY_MCP_AUTH_TOKEN`. Set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*`.
 
-For Tailscale users, the recommended `VOCKY_EXTERNAL_BASE_URL` is your node's MagicDNS HTTPS name, for example `https://<your-node>.<your-tailnet>.ts.net`. Prefer that over a raw Tailscale IP so the remote URL stays stable and certificate-friendly.
+For public custom-domain access, set `VOCKY_EXTERNAL_BASE_URL` to the external HTTPS origin after DNS and proxying are active.
+
+## Public Custom Domain With Cloudflare
+
+Use Cloudflare Tunnel for `vocky.example.com`. This keeps the Vocky origin private: `cloudflared` opens outbound tunnel connections to Cloudflare, and Cloudflare forwards public HTTPS traffic to your local `http://127.0.0.1:8000` service.
+
+1. Add your apex domain to Cloudflare:
+   - In Cloudflare, choose **Onboard a domain** and enter your apex domain, for example `example.com`.
+   - Use the normal full DNS setup and choose a plan.
+   - Review any DNS records Cloudflare imports. Do not delete existing email records unless you know they are unused.
+2. Point your registrar at Cloudflare:
+   - In your registrar, find the domain nameserver settings.
+   - Replace the current nameservers with the two Cloudflare nameservers assigned to your domain.
+   - If DNSSEC is enabled at your registrar, disable it before the nameserver change, then re-enable DNSSEC from Cloudflare after the zone is active.
+   - Nameserver changes can take time to propagate; Cloudflare will show when the zone is active.
+3. Create and route the tunnel:
+   - Install `cloudflared` on the machine running Vocky.
+   - Run `cloudflared tunnel login`.
+   - Run `cloudflared tunnel create vocky`.
+   - Create `~/.cloudflared/config.yml`:
+
+```yaml
+tunnel: <Tunnel-UUID>
+credentials-file: /Users/<you>/.cloudflared/<Tunnel-UUID>.json
+
+ingress:
+  - hostname: vocky.example.com
+    service: http://127.0.0.1:8000
+  - service: http_status:404
+```
+
+4. Create the DNS route and run the tunnel:
+
+```sh
+cloudflared tunnel route dns vocky vocky.example.com
+cloudflared tunnel ingress validate
+cloudflared tunnel run vocky
+```
+
+5. Configure Vocky for public access in `.env`:
+
+```env
+VOCKY_EXTERNAL_BASE_URL=https://vocky.example.com
+VOCKY_MCP_ALLOWED_HOSTS=vocky.example.com
+VOCKY_MCP_ALLOWED_ORIGINS=https://vocky.example.com
+VOCKY_MCP_AUTH_TOKEN=<long-random-secret>
+```
+
+6. Restart the Vocky app after changing `.env`, then verify:
+
+```sh
+make wait-ready VOCKY_BASE_URL=https://vocky.example.com
+make smoke-run VOCKY_BASE_URL=https://vocky.example.com
+```
+
+Public MCP clients should use `https://vocky.example.com/mcp` with `Authorization: Bearer <token>`.
 
 ## MCP Surface
 
 The implemented MCP tools are:
 
-- `capture_feedback`: validate one feedback event, enqueue it for background persistence, and return a receipt with `request_id`, `accepted_at`, and `status="accepted"`.
-- `list_feedback`: retrieve stored feedback records with ingest-time filters, exact tag matching, newest-first ordering, and opaque cursor pagination. The default page size is `50` and the maximum is `100`.
+- `capture_feedback`: validate one feedback event, including optional action feedback fields, enqueue it for background persistence, and return a receipt with `request_id`, `accepted_at`, and `status="accepted"`.
+- `list_feedback`: retrieve stored feedback records with ingest-time, source, action value, channel, exact tag, newest-first ordering, and opaque cursor pagination. The default page size is `50` and the maximum is `100`.
 - `summarize_feedback`: return `total_count` plus zero-filled UTC `daily_counts` for an explicit ingest-time window and the supported review filters.
+- `list_liked_conversations`: retrieve only liked conversations with stored messages and used context for AI-agent few-shot use.
 
 `capture_feedback` success means the request was accepted for background processing, not that the feedback record is immediately queryable. `list_feedback` and `summarize_feedback` surface completed records only after the worker persists them.
+
+For client integration guidance, see [docs/action-feedback-integration.md](docs/action-feedback-integration.md).
+
+## Admin REST Surface
+
+The Admin REST API is separate from MCP and is intended for human operators, scripts, and future dashboards. It can query and manage all feedback records, including likes, dislikes, comments, metadata, messages, and used context.
+
+Implemented endpoints:
+
+- `GET /admin/api/healthz`
+- `GET /admin/api/feedback`
+- `GET /admin/api/feedback/{feedback_id}`
+- `PATCH /admin/api/feedback/{feedback_id}`
+- `DELETE /admin/api/feedback/{feedback_id}`
+
+Set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*` outside a trusted local/private environment.
 
 ## Self-Hosted Usage
 
@@ -130,11 +202,11 @@ For local or private-network access, point your MCP-capable client or agent runt
 
 `http://<host>:<port>/mcp`
 
-If you expose the service through Tailscale Serve, point remote devices at:
+For public custom-domain access, point clients at:
 
-`https://<your-node>.<your-tailnet>.ts.net/mcp`
+`https://vocky.example.com/mcp`
 
-In the Tailscale case, set `VOCKY_EXTERNAL_BASE_URL=https://<your-node>.<your-tailnet>.ts.net` in `.env` and use `make tailscale-serve-status`, `make tailscale-smoke`, or `make tailscale-verify` when you want to check the externally reachable path.
+Set `VOCKY_EXTERNAL_BASE_URL=https://<external-host>` in `.env` when you want clients or operator scripts to refer to the public origin.
 
 Example Python client:
 
@@ -153,8 +225,18 @@ async def main() -> None:
                 {
                     "message": "Users keep asking for CSV export",
                     "source": {"product": "my-agent", "integration": "web-chat"},
+                    "feedback_value": 1,
+                    "comment": "Helpful answer",
+                    "channel": "web",
                     "conversation_id": "conv_123",
                     "session_id": "sess_123",
+                    "messages": [
+                        {"role": "user", "content": "Can I export this as CSV?"},
+                        {"role": "assistant", "content": "Yes, use the export menu."},
+                    ],
+                    "used_context": [
+                        {"source": "help-center", "snippet": "CSV export is available."}
+                    ],
                     "tags": ["feature-request"],
                     "source_metadata": {"channel": "support"},
                 },
@@ -162,7 +244,30 @@ async def main() -> None:
             print(result.structuredContent)
 ```
 
-The example above uses the default local loopback URL. If you connect through Tailscale or another reverse proxy, replace it with `${VOCKY_EXTERNAL_BASE_URL}/mcp`.
+The example above uses the default local loopback URL. If you connect through a public custom domain or another reverse proxy, replace it with `${VOCKY_EXTERNAL_BASE_URL}/mcp`.
+
+For public token-protected access, pass a bearer header through your MCP client's HTTP client. With the MCP Python SDK:
+
+```python
+import httpx
+from mcp.client.session import ClientSession
+from mcp.client.streamable_http import streamable_http_client
+
+
+async def main() -> None:
+    async with httpx.AsyncClient(
+        headers={"Authorization": "Bearer <VOCKY_MCP_AUTH_TOKEN>"}
+    ) as http_client:
+        async with streamable_http_client(
+            "https://vocky.example.com/mcp",
+            http_client=http_client,
+        ) as streams:
+            read_stream, write_stream, _ = streams
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                tools = await session.list_tools()
+                print([tool.name for tool in tools.tools])
+```
 
 The worker persists accepted jobs in the background. If you need to verify that the record landed, poll `list_feedback` or `summarize_feedback` using your own source or session filters.
 
@@ -174,7 +279,7 @@ vocky.example.com {
 }
 ```
 
-If you publish Vocky through Caddy or another reverse proxy instead of Tailscale Serve, set `VOCKY_EXTERNAL_BASE_URL` to that external `https://...` URL and keep `VOCKY_BASE_URL` pointed at the local verification target.
+If you publish Vocky through Caddy or another reverse proxy, set `VOCKY_EXTERNAL_BASE_URL` to that external `https://...` URL and keep `VOCKY_BASE_URL` pointed at the local verification target.
 
 ## License
 

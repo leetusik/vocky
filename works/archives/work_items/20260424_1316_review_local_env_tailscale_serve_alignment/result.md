@@ -18,7 +18,7 @@ Reviewed the updated local `.env` and found no issues. It now matches the repo's
 
 - Re-checked the edited `.env` values directly.
 - Re-confirmed the Makefile resolves the updated local URLs, ports, and publish-host settings from `.env`.
-- Re-confirmed the Tailscale helper targets expand to `https://node.tailcb4e82.ts.net` without mutating current serve state.
+- Re-confirmed the Tailscale helper targets expand to `https://<your-node>.<your-tailnet>.ts.net` without mutating current serve state.
 
 ## Files Changed
 

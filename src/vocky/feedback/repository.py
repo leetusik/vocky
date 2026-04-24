@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from collections.abc import Mapping
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,11 +39,16 @@ class FeedbackRepository:
         model = FeedbackEventModel(
             message=payload.message,
             source_product=payload.source_product,
+            feedback_value=payload.feedback_value,
+            comment=payload.comment,
+            channel=payload.channel,
             source_integration=payload.source_integration,
             conversation_id=payload.conversation_id,
             session_id=payload.session_id,
             event_at=payload.event_at,
             tags=list(payload.tags),
+            messages=list(payload.messages),
+            used_context=list(payload.used_context),
             source_metadata=dict(payload.source_metadata),
             attributes=dict(payload.attributes),
         )
@@ -49,6 +56,43 @@ class FeedbackRepository:
         await self._session.flush()
         await self._session.refresh(model)
         return self._to_record(model)
+
+    async def get_feedback_event(self, feedback_id: UUID) -> FeedbackEventRecord | None:
+        """Return one stored feedback record by ID."""
+
+        model = await self._session.get(FeedbackEventModel, feedback_id)
+        if model is None:
+            return None
+        return self._to_record(model)
+
+    async def update_feedback_event(
+        self,
+        feedback_id: UUID,
+        updates: Mapping[str, Any],
+    ) -> FeedbackEventRecord | None:
+        """Update a stored feedback record and return it."""
+
+        model = await self._session.get(FeedbackEventModel, feedback_id)
+        if model is None:
+            return None
+
+        for field_name, value in updates.items():
+            setattr(model, field_name, value)
+
+        await self._session.flush()
+        await self._session.refresh(model)
+        return self._to_record(model)
+
+    async def delete_feedback_event(self, feedback_id: UUID) -> bool:
+        """Delete a stored feedback record by ID."""
+
+        model = await self._session.get(FeedbackEventModel, feedback_id)
+        if model is None:
+            return False
+
+        await self._session.delete(model)
+        await self._session.flush()
+        return True
 
     async def list_feedback(
         self,
@@ -154,6 +198,12 @@ class FeedbackRepository:
             statement = statement.where(
                 FeedbackEventModel.source_product == filters.source_product
             )
+        if filters.feedback_value is not None:
+            statement = statement.where(
+                FeedbackEventModel.feedback_value == filters.feedback_value
+            )
+        if filters.channel is not None:
+            statement = statement.where(FeedbackEventModel.channel == filters.channel)
         if filters.source_integration is not None:
             statement = statement.where(
                 FeedbackEventModel.source_integration == filters.source_integration
@@ -176,12 +226,17 @@ class FeedbackRepository:
             id=model.id,
             message=model.message,
             source_product=model.source_product,
+            feedback_value=model.feedback_value,
+            comment=model.comment,
+            channel=model.channel,
             source_integration=model.source_integration,
             conversation_id=model.conversation_id,
             session_id=model.session_id,
             event_at=model.event_at,
             ingested_at=model.ingested_at,
             tags=tuple(model.tags),
+            messages=tuple(model.messages),
+            used_context=tuple(model.used_context),
             source_metadata=dict(model.source_metadata),
             attributes=dict(model.attributes),
         )

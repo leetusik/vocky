@@ -34,10 +34,15 @@ class CaptureFeedbackInput(BaseModel):
 
     message: str
     source: CaptureFeedbackSourceInput
+    feedback_value: int | None = None
+    comment: str | None = None
+    channel: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
     event_at: str | None = None
     tags: list[str] | None = None
+    messages: list[Any] | None = None
+    used_context: list[Any] | None = None
     source_metadata: dict[str, Any] = Field(default_factory=dict)
     attributes: dict[str, Any] = Field(default_factory=dict)
 
@@ -119,6 +124,26 @@ def normalize_tags(tags: list[str] | None) -> tuple[str, ...]:
     return tuple(normalized)
 
 
+def normalize_feedback_value(value: int | None) -> int | None:
+    """Validate an optional explicit action feedback value."""
+
+    if value is None:
+        return None
+    if isinstance(value, bool) or value not in (1, 2):
+        raise CaptureFeedbackValidationError("feedback_value must be 1 for like or 2 for dislike")
+    return value
+
+
+def normalize_json_array(value: list[Any] | None, *, field_name: str) -> tuple[Any, ...]:
+    """Normalize an optional JSON array field."""
+
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise CaptureFeedbackValidationError(f"{field_name} must be a JSON array")
+    return tuple(value)
+
+
 def normalize_payload(raw: CaptureFeedbackInput) -> NormalizedCaptureFeedback:
     """Normalize and validate the raw tool payload."""
 
@@ -126,11 +151,16 @@ def normalize_payload(raw: CaptureFeedbackInput) -> NormalizedCaptureFeedback:
     payload = CreateFeedbackEvent(
         message=require_non_blank(raw.message, "message"),
         source_product=require_non_blank(raw.source.product, "source.product"),
+        feedback_value=normalize_feedback_value(raw.feedback_value),
+        comment=normalize_optional_text(raw.comment),
+        channel=normalize_optional_text(raw.channel),
         source_integration=normalize_optional_text(raw.source.integration),
         conversation_id=normalize_optional_text(raw.conversation_id),
         session_id=normalize_optional_text(raw.session_id),
         event_at=normalized_event_at,
         tags=normalize_tags(raw.tags),
+        messages=normalize_json_array(raw.messages, field_name="messages"),
+        used_context=normalize_json_array(raw.used_context, field_name="used_context"),
         source_metadata=dict(raw.source_metadata),
         attributes=dict(raw.attributes),
     )
@@ -159,10 +189,15 @@ def error_result(message: str) -> CallToolResult:
 async def capture_feedback(
     message: str,
     source: CaptureFeedbackSourceInput,
+    feedback_value: int | None = None,
+    comment: str | None = None,
+    channel: str | None = None,
     conversation_id: str | None = None,
     session_id: str | None = None,
     event_at: str | None = None,
     tags: list[str] | None = None,
+    messages: list[Any] | None = None,
+    used_context: list[Any] | None = None,
     source_metadata: dict[str, Any] | None = None,
     attributes: dict[str, Any] | None = None,
 ) -> CallToolResult:
@@ -171,10 +206,15 @@ async def capture_feedback(
     raw_payload = CaptureFeedbackInput(
         message=message,
         source=source,
+        feedback_value=feedback_value,
+        comment=comment,
+        channel=channel,
         conversation_id=conversation_id,
         session_id=session_id,
         event_at=event_at,
         tags=tags,
+        messages=messages,
+        used_context=used_context,
         source_metadata=source_metadata or {},
         attributes=attributes or {},
     )

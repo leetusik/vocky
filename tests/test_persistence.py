@@ -38,10 +38,12 @@ async def test_migration_applies_and_expected_indexes_exist(configured_database:
             )
         ).scalars().all()
 
-    assert migration_version == "20260423_2337"
+    assert migration_version == "20260424_1633"
     assert index_rows == [
+        "ix_feedback_events_channel",
         "ix_feedback_events_conversation_id",
         "ix_feedback_events_event_at",
+        "ix_feedback_events_feedback_value",
         "ix_feedback_events_ingested_at",
         "ix_feedback_events_session_id",
         "ix_feedback_events_source_product",
@@ -57,11 +59,19 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
         CreateFeedbackEvent(
             message="Billing export broke",
             source_product="vocky-cli",
+            feedback_value=2,
+            comment="CSV export failed after I clicked download",
+            channel="web",
             source_integration="pytest",
             conversation_id="conv-1",
             session_id="sess-1",
             event_at=datetime(2026, 4, 23, 5, 0, tzinfo=UTC),
             tags=("billing", "bug"),
+            messages=(
+                {"role": "user", "content": "Export my billing data"},
+                {"role": "assistant", "content": "Click the export button"},
+            ),
+            used_context=({"source": "billing-export-doc", "snippet": "CSV export"},),
             source_metadata={"channel": "pytest"},
             attributes={"priority": "high"},
         )
@@ -72,7 +82,8 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
             await connection.execute(
                 text(
                     "SELECT message, source_product, source_integration, conversation_id, "
-                    "session_id, event_at, tags, source_metadata, attributes, ingested_at "
+                    "session_id, feedback_value, comment, channel, event_at, tags, "
+                    "messages, used_context, source_metadata, attributes, ingested_at "
                     "FROM feedback_events WHERE id = :id"
                 ),
                 {"id": record.id},
@@ -84,7 +95,8 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
                 text(
                     "INSERT INTO feedback_events (id, message, source_product) "
                     "VALUES (:id, :message, :source_product) "
-                    "RETURNING tags, source_metadata, attributes, ingested_at"
+                    "RETURNING feedback_value, comment, channel, tags, messages, "
+                    "used_context, source_metadata, attributes, ingested_at"
                 ),
                 {
                     "id": uuid4(),
@@ -99,13 +111,28 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
     assert persisted["source_integration"] == "pytest"
     assert persisted["conversation_id"] == "conv-1"
     assert persisted["session_id"] == "sess-1"
+    assert persisted["feedback_value"] == 2
+    assert persisted["comment"] == "CSV export failed after I clicked download"
+    assert persisted["channel"] == "web"
     assert persisted["event_at"] == datetime(2026, 4, 23, 5, 0, tzinfo=UTC)
     assert persisted["tags"] == ["billing", "bug"]
+    assert persisted["messages"] == [
+        {"role": "user", "content": "Export my billing data"},
+        {"role": "assistant", "content": "Click the export button"},
+    ]
+    assert persisted["used_context"] == [
+        {"source": "billing-export-doc", "snippet": "CSV export"}
+    ]
     assert persisted["source_metadata"] == {"channel": "pytest"}
     assert persisted["attributes"] == {"priority": "high"}
     assert persisted["ingested_at"] is not None
 
+    assert defaults["feedback_value"] is None
+    assert defaults["comment"] is None
+    assert defaults["channel"] is None
     assert defaults["tags"] == []
+    assert defaults["messages"] == []
+    assert defaults["used_context"] == []
     assert defaults["source_metadata"] == {}
     assert defaults["attributes"] == {}
     assert defaults["ingested_at"] is not None
@@ -217,6 +244,8 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
             "message": "matching row",
             "source_product": "vocky-cli",
             "source_integration": "pytest",
+            "feedback_value": 1,
+            "channel": "web",
             "conversation_id": "conv-1",
             "session_id": "sess-1",
             "event_at": None,
@@ -230,6 +259,8 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
             "message": "wrong tag",
             "source_product": "vocky-cli",
             "source_integration": "pytest",
+            "feedback_value": 1,
+            "channel": "web",
             "conversation_id": "conv-1",
             "session_id": "sess-1",
             "event_at": None,
@@ -243,6 +274,8 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
             "message": "wrong conversation",
             "source_product": "vocky-cli",
             "source_integration": "pytest",
+            "feedback_value": 2,
+            "channel": "web",
             "conversation_id": "conv-2",
             "session_id": "sess-1",
             "event_at": None,
@@ -258,10 +291,12 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
             await connection.execute(
                 text(
                     "INSERT INTO feedback_events ("
-                    "id, message, source_product, source_integration, conversation_id, "
+                    "id, message, source_product, source_integration, feedback_value, "
+                    "channel, conversation_id, "
                     "session_id, event_at, ingested_at, tags, source_metadata, attributes"
                     ") VALUES ("
-                    ":id, :message, :source_product, :source_integration, :conversation_id, "
+                    ":id, :message, :source_product, :source_integration, :feedback_value, "
+                    ":channel, :conversation_id, "
                     ":session_id, :event_at, :ingested_at, :tags, "
                     "CAST(:source_metadata AS jsonb), CAST(:attributes AS jsonb)"
                     ")"
@@ -282,6 +317,8 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
                 source_integration="pytest",
                 conversation_id="conv-1",
                 session_id="sess-1",
+                feedback_value=1,
+                channel="web",
                 tag="billing",
             ),
             limit=10,

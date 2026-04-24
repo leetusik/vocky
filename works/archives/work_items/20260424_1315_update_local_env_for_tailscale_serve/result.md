@@ -19,7 +19,7 @@ Aligned the checked-out local `.env` with the repo's current config surface and 
 - Updated `DATABASE_URL` and `TEST_DATABASE_URL` to the repo's current PostgreSQL port `55432`.
 - Added the missing `REDIS_URL`, `REDIS_PORT`, and `REDIS_PUBLISH_HOST` settings for the async capture stack.
 - Added `VOCKY_PUBLISH_HOST`, `POSTGRES_PUBLISH_HOST`, and `VOCKY_EXTERNAL_BASE_URL`.
-- Set `VOCKY_EXTERNAL_BASE_URL` to `https://node.tailcb4e82.ts.net` based on the current local `tailscale status`.
+- Set `VOCKY_EXTERNAL_BASE_URL` to `https://<your-node>.<your-tailnet>.ts.net` based on the current local `tailscale status`.
 - Kept all host publish interfaces on loopback with `127.0.0.1`, which is compatible with Tailscale Serve running on the same node.
 
 ## Files Changed

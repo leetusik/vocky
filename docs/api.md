@@ -12,6 +12,8 @@ Use this file to record real public-facing contracts once they exist. Until then
 
 - MCP tool contract for feedback capture
 - MCP tool contracts for review and query access
+- MCP tool contract for liked-conversation retrieval
+- Admin REST API contract for human/operator review
 
 ## Documentation Rules
 
@@ -47,10 +49,15 @@ Use this file to record real public-facing contracts once they exist. Until then
     - `source: object` required.
     - `source.product: string` required. Leading and trailing whitespace is trimmed. The value must not be blank after trimming.
     - `source.integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike.
+    - `comment: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`. Comments are recommended for dislikes but are not required.
+    - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `event_at: string` optional. Must be a timezone-aware ISO 8601 timestamp. Naive timestamps are rejected. Accepted values are normalized to UTC before persistence and in responses.
     - `tags: string[]` optional. Tags are trimmed. Blank tags are rejected. Duplicate tags after normalization are rejected. Persisted tag order follows the client-supplied order after normalization.
+    - `messages: array` optional. JSON array of caller-provided conversation messages persisted as supplied.
+    - `used_context: array` optional. JSON array of caller-provided context used by the agent persisted as supplied.
     - `source_metadata: object` optional. Arbitrary JSON object persisted to `source_metadata`.
     - `attributes: object` optional. Arbitrary JSON object persisted to `attributes`.
 - Outputs:
@@ -68,6 +75,7 @@ Use this file to record real public-facing contracts once they exist. Until then
 - Auth or permissions:
   - Deployment-specific for the self-hosted MVP
   - No managed-cloud auth model is defined yet
+  - Public self-hosted deployments should require `Authorization: Bearer <VOCKY_MCP_AUTH_TOKEN>` on the MCP HTTP request
 - Notes:
   - MCP is the only ingestion surface in the first MVP
   - The MVP stores raw feedback and metadata; it does not auto-classify events
@@ -90,6 +98,8 @@ Use this file to record real public-facing contracts once they exist. Until then
     - `source_integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike.
+    - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `tag: string` optional. Leading and trailing whitespace is trimmed. Blank values are rejected.
     - `limit: integer` optional. When omitted, the server applies a default page size of `50`. Values must be between `1` and `100`.
     - `cursor: string` optional. Must be an opaque base64url-encoded JSON cursor returned from an earlier `list_feedback` call. Invalid cursor payloads are rejected.
@@ -104,12 +114,17 @@ Use this file to record real public-facing contracts once they exist. Until then
     - `id: string` UUID of the stored record
     - `message: string`
     - `source_product: string`
+    - `feedback_value: integer | null`
+    - `comment: string | null`
+    - `channel: string | null`
     - `source_integration: string | null`
     - `conversation_id: string | null`
     - `session_id: string | null`
     - `event_at: string | null` UTC ISO 8601 timestamp when present
     - `ingested_at: string` UTC ISO 8601 timestamp
     - `tags: string[]`
+    - `messages: array`
+    - `used_context: array`
     - `source_metadata: object`
     - `attributes: object`
 - Errors:
@@ -118,6 +133,7 @@ Use this file to record real public-facing contracts once they exist. Until then
   - Unknown-tool and protocol-level failures remain MCP protocol errors
 - Auth or permissions:
   - Deployment-specific for the self-hosted MVP
+  - Public self-hosted deployments should require `Authorization: Bearer <VOCKY_MCP_AUTH_TOKEN>` on the MCP HTTP request
 - Notes:
   - Time filtering is based on `ingested_at` only, not `event_at`
   - `start_ingested_at` is inclusive and `end_ingested_at` is exclusive
@@ -140,6 +156,8 @@ Use this file to record real public-facing contracts once they exist. Until then
     - `source_integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike.
+    - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `tag: string` optional. Leading and trailing whitespace is trimmed. Blank values are rejected.
 - Outputs:
   - Success MCP tool result:
@@ -157,8 +175,112 @@ Use this file to record real public-facing contracts once they exist. Until then
   - Unknown-tool and protocol-level failures remain MCP protocol errors
 - Auth or permissions:
   - Deployment-specific for the self-hosted MVP
+  - Public self-hosted deployments should require `Authorization: Bearer <VOCKY_MCP_AUTH_TOKEN>` on the MCP HTTP request
 - Notes:
   - Time filtering is based on `ingested_at` only, not `event_at`
   - `daily_counts` is a zero-filled UTC day series across the requested window
   - Accepted capture jobs are not counted until the background worker persists them
   - The MVP summary surface does not include by-product, by-tag, or by-integration breakdowns
+
+### Liked Conversation Listing MCP Tool
+
+- Status: implemented in `P2`
+- Consumers: AI agents retrieving liked conversations for few-shot examples or response guidance
+- Purpose: Retrieve only liked feedback records with stored messages and used context
+- Inputs:
+  - Tool name: `list_liked_conversations`
+  - Request body:
+    - `start_ingested_at: string` optional. Must be a timezone-aware UTC-capable ISO 8601 timestamp. When provided, records are filtered with `ingested_at >= start_ingested_at` after normalization to UTC.
+    - `end_ingested_at: string` optional. Must be a timezone-aware UTC-capable ISO 8601 timestamp. When provided, records are filtered with `ingested_at < end_ingested_at` after normalization to UTC.
+    - `source_product: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `source_integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `tag: string` optional. Leading and trailing whitespace is trimmed. Blank values are rejected.
+    - `limit: integer` optional. When omitted, the server applies a default page size of `50`. Values must be between `1` and `100`.
+    - `cursor: string` optional. Must be an opaque base64url-encoded JSON cursor returned from an earlier `list_liked_conversations` call.
+- Outputs:
+  - Success MCP tool result:
+    - A text acknowledgement in `content`
+    - A structured response object in `structuredContent`
+  - Structured response object:
+    - `conversations: object[]` liked records sorted newest-first
+    - `next_cursor: string` opaque pagination cursor for the next page when more liked records exist. The field is omitted when no further page exists.
+  - Conversation shape:
+    - `id: string`
+    - `message: string`
+    - `comment: string | null`
+    - `channel: string | null`
+    - `source_product: string`
+    - `source_integration: string | null`
+    - `conversation_id: string | null`
+    - `session_id: string | null`
+    - `event_at: string | null`
+    - `ingested_at: string`
+    - `tags: string[]`
+    - `messages: array`
+    - `used_context: array`
+    - `source_metadata: object`
+    - `attributes: object`
+- Errors:
+  - Invalid timestamps, invalid time windows, invalid limits, blank `tag`, and invalid cursors return MCP tool execution errors with `isError: true`
+  - Storage read failures return MCP tool execution errors with `isError: true`
+- Auth or permissions:
+  - Deployment-specific for the self-hosted MVP
+  - Public self-hosted deployments should require `Authorization: Bearer <VOCKY_MCP_AUTH_TOKEN>` on the MCP HTTP request
+- Notes:
+  - This tool always enforces `feedback_value = 1` server-side.
+  - Disliked records are stored but intentionally not returned here.
+  - This is an AI-agent few-shot retrieval surface, not a human admin review API.
+
+### Admin Feedback REST API
+
+- Status: implemented in `P3`
+- Consumers: Human operators, scripts, and future admin dashboards
+- Purpose: Query, inspect, and manage all feedback records through REST endpoints separate from MCP tools
+- Base path: `/admin/api`
+- Auth or permissions:
+  - Deployment-specific for the self-hosted MVP
+  - When `VOCKY_ADMIN_AUTH_TOKEN` is set, Admin REST requests must include `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`
+  - Public deployments should protect or avoid exposing `/admin/api`
+- Endpoints:
+  - `GET /admin/api/healthz`
+    - Returns `{"service":"vocky","surface":"admin","status":"ok"}`
+  - `GET /admin/api/feedback`
+    - Lists all feedback records by default, not only liked records
+    - Supports `start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `feedback_value`, `channel`, `tag`, `limit`, and `cursor`
+    - Returns `records` and optional `next_cursor`
+  - `GET /admin/api/feedback/{feedback_id}`
+    - Returns one full feedback record or `404` when missing
+  - `PATCH /admin/api/feedback/{feedback_id}`
+    - Updates review-oriented fields: `feedback_value`, `comment`, `channel`, `tags`, `source_metadata`, and `attributes`
+    - Captured `messages` and `used_context` are immutable in this MVP
+    - Returns the updated record
+  - `DELETE /admin/api/feedback/{feedback_id}`
+    - Deletes one feedback record and returns `204` on success
+- Record shape:
+  - `id: string`
+  - `message: string`
+  - `source_product: string`
+  - `feedback_value: integer | null`
+  - `comment: string | null`
+  - `channel: string | null`
+  - `source_integration: string | null`
+  - `conversation_id: string | null`
+  - `session_id: string | null`
+  - `event_at: string | null`
+  - `ingested_at: string`
+  - `tags: string[]`
+  - `messages: array`
+  - `used_context: array`
+  - `source_metadata: object`
+  - `attributes: object`
+- Errors:
+  - Validation failures return JSON `400` responses with `detail`
+  - Missing records return JSON `404` responses with `detail`
+  - Storage read or write failures return JSON `500` responses with `detail`
+- Notes:
+  - Admin REST is the human/operator review surface.
+  - The Admin REST API and MCP tools share the same `feedback_events` schema and service/repository layer.
+  - The liked-conversation MCP tool remains AI-agent-only and does not replace Admin REST review.
