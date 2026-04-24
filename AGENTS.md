@@ -3,6 +3,7 @@
 ## Purpose
 
 This repository defaults to agentic delivery. Use planning, tracked work items, and review gates for almost all coding work.
+Backlog-scheduled work uses the full phase/slice workflow. Unrelated user requests may use the standalone path described below.
 
 ## Commit Convention
 
@@ -34,12 +35,13 @@ Examples:
 
 1. Almost all coding is done through a planning and implementation workflow, not direct edits.
 2. `works/backlog.md` is the active queue of phases and slices.
-3. `works/deferred.md` is the deferred-jobs queue for work intentionally parked outside the active execution order.
-4. Active work-item folders live under `works/current/`.
-5. Completed work-item folders move to `works/archives/work_items/`.
-6. Archived backlog snapshots move to `works/archives/backlogs/`.
-7. Every work item contains `plan.md` and `result.md`.
-8. Long-lived reference docs live under `docs/` and transient execution notes live under `works/`.
+3. Standalone unrelated requests are not part of the active backlog queue and do not require a phase, slice, or work-item folder.
+4. `works/deferred.md` is the deferred-jobs queue for work intentionally parked outside the active execution order.
+5. Active work-item folders live under `works/current/`.
+6. Completed work-item folders move to `works/archives/work_items/`.
+7. Archived backlog snapshots move to `works/archives/backlogs/`.
+8. Every backlog work item contains `plan.md` and `result.md`.
+9. Long-lived reference docs live under `docs/` and transient execution notes live under `works/`.
 
 ## Python Development
 
@@ -62,31 +64,44 @@ Examples:
 ## Required Flow
 
 1. Read `docs/product.md`, `docs/architecture.md`, `docs/api.md`, and `works/backlog.md`.
-2. Choose or create the active phase in `works/backlog.md`.
-3. If `works/backlog.md` is still a placeholder or the requested work is to create a dedicated backlog from scratch, treat backlog creation as its own complete job:
+2. Before selecting backlog work, check whether the documented backlog cycle is complete. If every documented phase has `Status: done` and every documented slice has `Status: done`, run `scripts/rotate_backlog.sh`.
+3. If the user request qualifies as Standalone Work, follow that section and do not choose or create a backlog phase for the request.
+4. Choose or create the active phase in `works/backlog.md`.
+5. If `works/backlog.md` is still a placeholder or the requested work is to create a dedicated backlog from scratch, treat backlog creation as its own complete job:
    - Create only the phase entries and their mandatory `decompose phase` and `phase review` slices.
    - Add phase-level notes where useful to capture intent, constraints, assumptions, or handoff context.
    - Do not add phase-specific middle slices during backlog creation.
    - Do not start implementation, code edits, docs edits, tests, review, or the first `decompose phase` slice in the same job.
    - Stop after the backlog creation job is complete and report the new backlog.
-4. Ensure every newly created phase initially contains only the two mandatory slices:
+6. Ensure every newly created phase initially contains only the two mandatory slices:
    - `decompose phase`
    - `phase review`
-5. Run `scripts/start_work.sh <phase_id> <slice_id> <slug>` to create a timestamped work-item folder bound to the chosen phase and slice.
-6. Fill `plan.md` before making code changes.
-7. Implement the slice.
-8. Fill `result.md` when implementation ends.
-9. Run the `phase review` slice.
-10. If review finds problems, create dedicated fix slices, implement them, and rerun `phase review`.
-11. Mark the phase done only when review passes.
-12. Run `scripts/archive_work.sh <work_dir_name>` after the work item is complete.
-13. Run `scripts/rotate_backlog.sh` when the active backlog cycle is finished and a fresh backlog should start.
+7. Run `scripts/start_work.sh <phase_id> <slice_id> <slug>` to create a timestamped work-item folder bound to the chosen phase and slice.
+8. Fill `plan.md` before making code changes.
+9. Implement the slice.
+10. Fill `result.md` when implementation ends.
+11. Run the `phase review` slice.
+12. If review finds problems, create dedicated fix slices, implement them, and rerun `phase review`.
+13. Mark the phase done only when review passes.
+14. Run `scripts/archive_work.sh <work_dir_name>` after the work item is complete.
+15. Run `scripts/rotate_backlog.sh` when the active backlog cycle is finished and a fresh backlog should start.
+
+## Standalone Work
+
+- Standalone Work applies when the user request is unrelated to active backlog execution and does not explicitly ask to create or update backlog scheduling.
+- Standalone Work does not require a phase, slice, or `works/current/` work-item folder.
+- Do not run `scripts/start_work.sh` for Standalone Work, and do not add backlog entries just to track it.
+- If the current backlog is already complete, run `scripts/rotate_backlog.sh` first as housekeeping. Rotation archives `works/backlog.md` to `works/archives/backlogs/<timestamp>_backlog.md` and copies `works/templates/backlog.md` to `works/backlog.md`.
+- If the next request is standalone, completed-backlog rotation remains housekeeping only; do not create a fresh phase or slice for that standalone request.
+- Still inspect the relevant docs and code, make focused changes, run appropriate verification, and report the result.
+- For standalone changes that trigger reference-doc updates, update the relevant `docs/` files and summarize the planned and completed doc changes in agent updates and the final report instead of `plan.md` and `result.md`.
 
 ## Execution Commands
 
 - Use `do the next slice` to continue the current phase one slice at a time.
 - Use `do the whole phase` to finish the current phase end-to-end.
 - Do not use `go`, `go next slice`, or `go next phase`.
+- These commands are backlog-driven only. Standalone Work does not change how they resolve the current phase or slice.
 - Resolve the current phase by scanning `works/backlog.md` from top to bottom and selecting the first phase whose status is not `done`.
 - If the current phase is `blocked`, stop and surface the blocker instead of skipping ahead.
 - `do the next slice` selects the first slice in the current phase whose status is not `done`.
@@ -129,8 +144,13 @@ Rules:
 
 - Organize the backlog by phase, not as a flat task list.
 - Keep `works/backlog.md` limited to actively scheduled phases and slices.
+- Do not add standalone unrelated requests to `works/backlog.md`.
 - Move intentionally deferred or parked work into `works/deferred.md` instead of leaving it in the active backlog.
 - Promote deferred work back into `works/backlog.md` when it is ready to re-enter execution order.
+- When every documented phase is `done` and every slice is `done`, rotate the completed backlog with `scripts/rotate_backlog.sh` before starting new backlog-scheduled work.
+- Rotation moves the completed backlog to `works/archives/backlogs/<timestamp>_backlog.md` and copies `works/templates/backlog.md` to `works/backlog.md`.
+- Fresh backlog contents come from `works/templates/backlog.md`.
+- If the next user request is standalone, rotate the completed backlog as housekeeping but do not create a new phase or slice for that standalone request.
 - Every phase must include an objective, status, review outcome, work items, and slices.
 - When a phase is first created, its slice list must contain only `decompose phase` and `phase review`; no phase-specific middle slices may pre-exist.
 - Phase-level notes are allowed and encouraged when creating a phase. They do not count as slices and may capture constraints, intended decomposition direction, known risks, or handoff context.
@@ -165,7 +185,8 @@ If there is any doubt, use the full workflow.
 - Update `docs/product.md` when goals, users, terminology, scope, or product direction changes.
 - Update `docs/architecture.md` when component boundaries, data flow, storage shape, runtime choices, or repo structure changes.
 - Update `docs/api.md` when a public-facing or MCP-facing contract is introduced, changed, stabilized, or deprecated.
-- Record planned reference-doc updates in `plan.md` and actual reference-doc updates in `result.md`.
+- For backlog work items, record planned reference-doc updates in `plan.md` and actual reference-doc updates in `result.md`.
+- For Standalone Work, record planned and actual reference-doc updates in agent updates and the final report.
 
 ## Reference Files
 
