@@ -68,4 +68,4 @@ Disliked conversations are stored for review and future learning workflows, but 
 
 ## Human Review Boundary
 
-MCP tools are optimized for agent workflows. Human operators and dashboards should use dedicated Admin REST API endpoints once enabled, not the liked-only MCP few-shot tool.
+MCP tools are optimized for agent workflows. Human operators and dashboards should use the dedicated Admin REST API endpoints, not the liked-only MCP few-shot tool. When `VOCKY_ADMIN_AUTH_TOKEN` is set, Admin REST clients must send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`.

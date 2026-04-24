@@ -2,7 +2,7 @@
 
 ## Status
 
-Vocky is pre-MVP. The first runnable self-hosted capture plus review service is implemented, but the contracts should still be treated as early-stage.
+Vocky is pre-MVP. The first runnable self-hosted capture plus review service is implemented with MCP capture/read tools, liked-conversation retrieval, Admin REST, PostgreSQL persistence, Redis-backed queueing, and a background worker. The contracts should still be treated as early-stage.
 
 ## Summary
 
@@ -16,7 +16,9 @@ The first MVP is intentionally narrow:
 - MCP-only ingestion for feedback capture
 - Async MCP capture that accepts quickly and persists in the background
 - Explicit user action feedback capture, including like/dislike values, optional comments, conversation context, and basic metadata
-- A minimal review/query API for record retrieval and simple counts or trends
+- MCP review/query tools for record retrieval, simple counts, trends, and liked-conversation retrieval
+- Dedicated Admin REST endpoints for human/operator review of stored feedback
+- PostgreSQL storage with Redis-backed background persistence
 
 The MVP does not need automated classification, a dashboard UI, or managed-cloud capabilities.
 

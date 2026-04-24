@@ -2,7 +2,7 @@
 
 ## Status
 
-This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service now accepts capture work through Redis-backed queueing plus a dedicated worker while preserving the same review/query surface.
+This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through Redis-backed queueing plus a dedicated worker while exposing MCP read tools, liked-conversation retrieval, and separate Admin REST endpoints over the same PostgreSQL feedback store.
 
 ## Current Repo Shape
 
@@ -79,7 +79,7 @@ The supported local operator workflow adds these host-side settings:
 
 `VOCKY_HOST` remains the application bind address inside the process. The `*_PUBLISH_HOST` variables control which host interface Docker publishes to. `VOCKY_BASE_URL` remains the local verification target, while `VOCKY_EXTERNAL_BASE_URL` is reserved for public custom-domain operator docs and client examples. Public MCP hosts must be present in `VOCKY_MCP_ALLOWED_HOSTS`; otherwise FastMCP rejects them with `421 Invalid Host header`.
 
-The root `.env`, copied from `.env.example`, is the primary local configuration source for both Docker Compose and the Make-based host workflow. The supported self-hosted path remains Compose-first and now includes Redis plus the worker process. `make bootstrap` should bring up the service dependencies and apply migrations, `make verify` should wait for readiness and then verify the eventual write path plus the test suite, and `make compose-down` should tear the stack back down.
+The root `.env`, copied from `.env.example`, is the primary local configuration source for both Docker Compose and the Make-based host workflow. The Compose app service receives MCP and Admin auth settings from this file, including `VOCKY_MCP_AUTH_TOKEN` and `VOCKY_ADMIN_AUTH_TOKEN`. The supported self-hosted path remains Compose-first and now includes Redis plus the worker process. `make bootstrap` should bring up the service dependencies and apply migrations, `make verify` should wait for readiness and then verify the eventual write path plus the test suite, and `make compose-down` should tear the stack back down.
 
 The supported operator modes are:
 

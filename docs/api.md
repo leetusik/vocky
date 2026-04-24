@@ -6,7 +6,7 @@ The feedback capture MCP tool and the `P3` read tools are implemented. They shou
 
 ## Purpose
 
-Use this file to record real public-facing contracts once they exist. Until then, treat this document as a place to define how contracts should be documented, not as a promise of shipped interfaces.
+Use this file to record public-facing contracts as they are implemented. The current contracts are usable for the pre-MVP service, but they are still early-stage and should not be treated as long-term stable commitments.
 
 ## MVP Surfaces
 

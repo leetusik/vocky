@@ -16,11 +16,13 @@ The name comes from VoC, short for voice of customer.
 - Most of that feedback gets lost in logs, transcripts, or support noise.
 - Teams need a simple way to turn conversational feedback into product insight.
 
-## What It Will Do First
+## What The Current Pre-MVP Does
 
 - Accept explicit user action feedback from agent interactions through MCP without blocking on database writes
 - Store like/dislike values, optional comments, conversation context, and metadata for later review
 - Expose minimal MCP review/query tools for retrieving records and simple counts
+- Retrieve liked conversations through MCP for AI-agent few-shot use
+- Expose separate Admin REST endpoints for human/operator review
 - Run as a self-hosted, single-tenant MVP
 
 ## What The First MVP Will Not Do
@@ -158,6 +160,7 @@ VOCKY_EXTERNAL_BASE_URL=https://vocky.example.com
 VOCKY_MCP_ALLOWED_HOSTS=vocky.example.com
 VOCKY_MCP_ALLOWED_ORIGINS=https://vocky.example.com
 VOCKY_MCP_AUTH_TOKEN=<long-random-secret>
+VOCKY_ADMIN_AUTH_TOKEN=<different-long-random-secret>
 ```
 
 6. Restart the Vocky app after changing `.env`, then verify:
@@ -168,6 +171,7 @@ make smoke-run VOCKY_BASE_URL=https://vocky.example.com
 ```
 
 Public MCP clients should use `https://vocky.example.com/mcp` with `Authorization: Bearer <token>`.
+Public Admin REST requests should use `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>` when `/admin/api/*` is exposed.
 
 ## MCP Surface
 

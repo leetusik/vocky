@@ -45,6 +45,7 @@ services:
       VOCKY_MCP_ALLOWED_HOSTS: ${VOCKY_MCP_ALLOWED_HOSTS:-}
       VOCKY_MCP_ALLOWED_ORIGINS: ${VOCKY_MCP_ALLOWED_ORIGINS:-}
       VOCKY_MCP_AUTH_TOKEN: ${VOCKY_MCP_AUTH_TOKEN:-}
+      VOCKY_ADMIN_AUTH_TOKEN: ${VOCKY_ADMIN_AUTH_TOKEN:-}
     command: ["sh", "-lc", "uv sync --frozen && uv run vocky"]
     healthcheck:
       test:
