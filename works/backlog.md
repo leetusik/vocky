@@ -27,18 +27,57 @@
 
 ## Active Phases
 
-### Phase P1: <phase name>
+### Phase P1: Feedback context and target semantics
 
 - Phase ID: `P1`
-- Objective: <what this phase should accomplish>
+- Objective: Clarify feedback context identifiers and make the exact message or product surface being reviewed explicit instead of assuming the latest message.
 - Status: planned
 - Review outcome: pending
-- Notes: <intent, constraints, assumptions, or handoff context>
+- Notes: Treat `conversation_id` as conversation/thread scope and `session_id` as optional runtime or user-session scope unless decomposition finds a better naming model. Message-specific feedback should identify the exact user or assistant message, selected message context, or explicit non-message feedback target.
 - Work items:
   - None yet
 - Slices:
   - [ ] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
   - [ ] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+
+### Phase P2: Separate REST and MCP capture intent
+
+- Phase ID: `P2`
+- Objective: Make REST capture support general website or product feedback while MCP capture remains optimized for message-specific agent feedback.
+- Status: planned
+- Review outcome: pending
+- Notes: REST capture remains server-to-server. Do not add browser-direct unauthenticated ingestion in this backlog. Decomposition should decide backward compatibility for existing `POST /api/feedback`, including whether the existing contract is adapted in place or versioned.
+- Work items:
+  - None yet
+- Slices:
+  - [ ] Slice ID: `P2.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
+  - [ ] Slice ID: `P2.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+
+### Phase P3: Channel categories and Admin adjustability
+
+- Phase ID: `P3`
+- Objective: Replace free-text-only `channel` handling with nullable, default-none category behavior that operators can adjust in Admin.
+- Status: planned
+- Review outcome: pending
+- Notes: Decomposition should cover storage and migration shape, API validation, query filters, Admin list/detail/edit behavior, and how allowed categories are represented or managed.
+- Work items:
+  - None yet
+- Slices:
+  - [ ] Slice ID: `P3.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
+  - [ ] Slice ID: `P3.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+
+### Phase P4: Working REST capture Try docs
+
+- Phase ID: `P4`
+- Objective: Add Swagger-like in-app REST capture documentation with a real try-it request flow.
+- Status: planned
+- Review outcome: pending
+- Notes: Build this after REST semantics are stable. The try feature should call the real REST capture endpoint, support the configured bearer token, show request, response, and error output, and include examples for general website feedback such as `피드백을 보내주세요!`.
+- Work items:
+  - None yet
+- Slices:
+  - [ ] Slice ID: `P4.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
+  - [ ] Slice ID: `P4.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
 
 ## Archive Notes
 
