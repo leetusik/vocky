@@ -2,7 +2,7 @@
 
 ## Status
 
-Vocky is pre-MVP. The first runnable self-hosted capture plus review service is implemented with MCP capture/read tools, server-to-server REST capture, liked-conversation retrieval, Admin REST, a self-hosted operator Admin Web UI with dashboard metrics, feedback review management, and in-app documentation, PostgreSQL persistence, Redis-backed queueing, and a background worker. The contracts should still be treated as early-stage.
+Vocky is pre-MVP. The first runnable self-hosted capture plus review service is implemented with MCP capture/read tools, server-to-server REST capture, liked-conversation retrieval, Admin REST, a self-hosted operator Admin Web UI with dashboard metrics, feedback review management, and in-app documentation, PostgreSQL persistence, Redis-backed queueing, a background worker, and Compose-first local verification. The contracts should still be treated as early-stage.
 
 ## Summary
 
@@ -43,6 +43,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - Surface simple counts and trends without building a full analytics product
 - Provide a first browser-based operator entry point for self-hosted review and documentation workflows
 - Keep the first release practical for community and self-hosted use
+- Keep the self-hosted release path verifiable with local smoke checks, packaged Admin UI asset checks, and public custom-domain smoke checks when an external URL is configured
 
 ## Non-Goals for Now
 
@@ -61,6 +62,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - The first MVP should optimize for self-hosted deployment before managed concerns.
 - Self-hosted deployments may be local/private or publicly reachable behind an operator-managed custom domain, provided public MCP, REST capture, and Admin REST access are protected where exposed.
 - The Admin Web UI is an operator surface for self-hosted deployments. It should stay same-origin with the app, use Admin REST for protected data, include practical dashboard metrics, feedback review management, and operator documentation, and avoid managed-SaaS assumptions.
+- The default local workflow should stay loopback-first and Compose-first, while public custom-domain access should be operator-managed through an HTTPS reverse proxy such as Cloudflare Tunnel and verified separately from local checks.
 - The capture path should acknowledge accepted work quickly and complete persistence asynchronously in the background.
 - The initial high-signal capture path should focus on explicit user actions, such as like/dislike clicks and optional comments, rather than trying to infer feedback from every conversation turn.
 - A managed offering may exist later around convenience, operations, and richer workflows.

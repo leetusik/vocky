@@ -18,7 +18,10 @@ def make_health_request(url: str) -> Request:
 
     return Request(
         url,
-        headers={"User-Agent": os.getenv("VOCKY_HTTP_USER_AGENT", DEFAULT_USER_AGENT)},
+        headers={
+            "User-Agent": os.getenv("VOCKY_HTTP_USER_AGENT", "").strip()
+            or DEFAULT_USER_AGENT
+        },
     )
 
 

@@ -58,7 +58,7 @@ The supported local workflow is Compose-first and uses the copied repo-root `.en
    `cp .env.example .env`
 2. Bootstrap the stack on the default local ports from `.env`:
    `make bootstrap`
-3. Verify the running stack:
+3. Verify the package and running stack:
    `make verify`
 4. Inspect logs if needed:
    `make compose-logs`
@@ -69,9 +69,9 @@ The default `.env` values publish the app at `http://127.0.0.1:8000`, PostgreSQL
 
 Open the Admin Web UI at `http://127.0.0.1:8000/admin`. The Dashboard view shows feedback metrics, the Feedback view supports list/filter/detail/edit/delete review workflows, and the Docs view includes the in-app operator reference for API/auth, local self-hosting, and public custom-domain setup. If `VOCKY_ADMIN_AUTH_TOKEN` is set, paste that token into the Admin UI token field before checking protected Admin REST data.
 
-`make bootstrap` runs `make sync`, `make compose-up`, and the explicit migration step `make migrate`. The Compose stack now includes `redis`, `postgres`, `app`, and `worker`.
+`make bootstrap` runs `make sync`, `make compose-up`, the explicit migration step `make migrate`, and a final readiness check. The Compose stack includes `redis`, `postgres`, `app`, and `worker`. The app and worker images install dependencies during the Docker build and run with `uv run --no-sync` at container startup.
 
-`make verify` waits for `GET /healthz`, then runs the MCP smoke flow and the full pytest suite. The smoke path now verifies that an accepted `capture_feedback` call becomes queryable only after the worker persists it.
+`make verify` builds a fresh wheel and checks the packaged Admin UI assets, waits for `GET /healthz`, runs the MCP smoke flow, and then runs the full pytest suite. The smoke path verifies that an accepted `capture_feedback` call becomes queryable only after the worker persists it.
 
 `TEST_DATABASE_URL` must point at a separate disposable database. `make test` refuses to run if it matches `DATABASE_URL`, and the pytest fixtures reset only the database named in `TEST_DATABASE_URL`.
 
@@ -88,6 +88,7 @@ Public custom-domain access has these additional settings:
 Granular fallback commands remain available:
 
 - `make sync`
+- `make package-check`
 - `make compose-up`
 - `make migrate`
 - `make smoke`
@@ -121,7 +122,7 @@ The Admin Web UI includes dashboard metrics, recent activity, feedback list/filt
 Vocky supports two clean operator modes:
 
 - Internal self-hosting: keep the default `*_PUBLISH_HOST=127.0.0.1` values, use `VOCKY_BASE_URL` for host-side smoke and verification, and connect from the same machine or trusted private network.
-- Public custom-domain deploy: publish Vocky through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL`, allow the public Host and Origin, and require `VOCKY_MCP_AUTH_TOKEN`. Set `VOCKY_API_AUTH_TOKEN` before exposing `/api/*`, and set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*`.
+- Public custom-domain deploy: publish Vocky through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL`, allow the public Host and Origin, and require `VOCKY_MCP_AUTH_TOKEN`. Set `VOCKY_API_AUTH_TOKEN` before exposing `/api/*`, set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*`, and use `make external-verify` for public readiness and smoke checks.
 
 For public custom-domain access, set `VOCKY_EXTERNAL_BASE_URL` to the external HTTPS origin after DNS and proxying are active.
 
@@ -176,13 +177,20 @@ VOCKY_ADMIN_AUTH_TOKEN=<different-long-random-secret>
 6. Restart the Vocky app after changing `.env`, then verify:
 
 ```sh
-make wait-ready VOCKY_BASE_URL=https://vocky.example.com
-make smoke-run VOCKY_BASE_URL=https://vocky.example.com
+make external-verify
+```
+
+If you prefer not to store the external origin in `.env`, pass it on the command line:
+
+```sh
+make external-verify VOCKY_EXTERNAL_BASE_URL=https://vocky.example.com
 ```
 
 Public MCP clients should use `https://vocky.example.com/mcp` with `Authorization: Bearer <token>`.
 Public REST capture clients should use `https://vocky.example.com/api/feedback` with `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>`.
 Public Admin REST requests should use `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>` when `/admin/api/*` is exposed.
+
+`make external-smoke` runs only the public MCP smoke flow, while `make external-verify` waits for public health first and then runs the same smoke flow. Existing `tailscale-smoke` and `tailscale-verify` targets remain as aliases for the generic external targets.
 
 ## MCP Surface
 
@@ -334,7 +342,7 @@ vocky.example.com {
 }
 ```
 
-If you publish Vocky through Caddy or another reverse proxy, set `VOCKY_EXTERNAL_BASE_URL` to that external `https://...` URL and keep `VOCKY_BASE_URL` pointed at the local verification target.
+If you publish Vocky through Caddy or another reverse proxy, set `VOCKY_EXTERNAL_BASE_URL` to that external `https://...` URL, keep `VOCKY_BASE_URL` pointed at the local verification target, and use `make external-verify` for the public path.
 
 ## License
 

@@ -47,7 +47,7 @@ services:
       VOCKY_MCP_AUTH_TOKEN: ${VOCKY_MCP_AUTH_TOKEN:-}
       VOCKY_API_AUTH_TOKEN: ${VOCKY_API_AUTH_TOKEN:-}
       VOCKY_ADMIN_AUTH_TOKEN: ${VOCKY_ADMIN_AUTH_TOKEN:-}
-    command: ["sh", "-lc", "uv sync --frozen && uv run vocky"]
+    command: ["uv", "run", "--no-sync", "vocky"]
     healthcheck:
       test:
         [
@@ -74,7 +74,7 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-vocky}:${POSTGRES_PASSWORD:-vocky}@postgres:5432/${POSTGRES_DB:-vocky}
       REDIS_URL: redis://redis:6379/0
       VOCKY_LOG_LEVEL: ${VOCKY_LOG_LEVEL:-INFO}
-    command: ["sh", "-lc", "uv sync --frozen && uv run vocky-worker"]
+    command: ["uv", "run", "--no-sync", "vocky-worker"]
 
 volumes:
   postgres-data:

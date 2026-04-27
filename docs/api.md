@@ -335,5 +335,6 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Admin REST is the human/operator review surface.
   - The Admin REST API and MCP tools share the same `feedback_events` schema and service/repository layer.
   - The packaged Admin Web UI consumes this same-origin Admin REST surface for dashboard metrics, feedback list/filter/detail review, review-field editing, and guarded delete.
+  - `/admin` and `/admin/assets/*` are static Admin Web UI routes rather than Admin REST endpoints. They can load without an Admin bearer token, while protected data remains under `/admin/api/*`.
   - Browser editing intentionally exposes only `feedback_value`, `comment`, `channel`, and `tags`, even though Admin REST can also patch `source_metadata` and `attributes`.
   - The liked-conversation MCP tool remains AI-agent-only and does not replace Admin REST review.

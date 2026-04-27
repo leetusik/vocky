@@ -20,7 +20,7 @@ DEFAULT_USER_AGENT = "VockySmoke/0.1"
 def make_http_user_agent() -> str:
     """Return the user agent used by smoke HTTP clients."""
 
-    return os.getenv("VOCKY_HTTP_USER_AGENT", DEFAULT_USER_AGENT)
+    return os.getenv("VOCKY_HTTP_USER_AGENT", "").strip() or DEFAULT_USER_AGENT
 
 
 def parse_timestamp(value: str) -> datetime:

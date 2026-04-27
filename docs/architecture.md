@@ -12,7 +12,7 @@ This architecture is intentionally lightweight. Vocky is still pre-MVP, and the 
 - `src/vocky/`: service code, MCP server wiring, Admin REST and Web UI routing, persistence layer, and smoke script
 - `alembic/` and `alembic.ini`: database migration environment
 - `tests/`: validation, persistence, and MCP integration coverage
-- `Dockerfile`, `docker-compose.yml`, `.env.example`, `Makefile`: local run and self-hosted development workflow
+- `Dockerfile`, `docker-compose.yml`, `.env.example`, `Makefile`: local run, package verification, external smoke checks, and self-hosted development workflow
 - `docs/`: stable reference documents
 - `works/`: active backlog, deferred queue, active work items, archives, and templates
 - `scripts/`: workflow helpers
@@ -45,6 +45,7 @@ The current service uses these choices:
 - Optional bearer-token protection for MCP traffic when public access is enabled
 - Optional bearer-token protection for public REST capture traffic when `VOCKY_API_AUTH_TOKEN` is set
 - Optional bearer-token protection for Admin REST traffic when `VOCKY_ADMIN_AUTH_TOKEN` is set
+- Docker builds install runtime dependencies and the local project into the image, while Compose app and worker commands use `uv run --no-sync` so container startup does not repeat dependency sync
 - Transport-neutral validation, service, and persistence layers so the worker can reuse the same persistence path as the capture adapters
 
 Clients should use `/mcp` as the canonical MCP endpoint. Server-to-server product integrations that cannot use MCP should use `/api/feedback` for capture-only ingestion. Human/operator tools should use `/admin/api/*`, while browser operators can load the packaged UI from `/admin`. The app avoids relying on a `/mcp` to `/mcp/` redirect so reverse proxies do not need to repair redirect schemes.
@@ -85,12 +86,12 @@ The supported local operator workflow adds these host-side settings:
 
 `VOCKY_HOST` remains the application bind address inside the process. The `*_PUBLISH_HOST` variables control which host interface Docker publishes to. `VOCKY_BASE_URL` remains the local verification target, while `VOCKY_EXTERNAL_BASE_URL` is reserved for public custom-domain operator docs and client examples. Public MCP hosts must be present in `VOCKY_MCP_ALLOWED_HOSTS`; otherwise FastMCP rejects them with `421 Invalid Host header`.
 
-The root `.env`, copied from `.env.example`, is the primary local configuration source for both Docker Compose and the Make-based host workflow. The Compose app service receives MCP, public REST, and Admin auth settings from this file, including `VOCKY_MCP_AUTH_TOKEN`, `VOCKY_API_AUTH_TOKEN`, and `VOCKY_ADMIN_AUTH_TOKEN`. The supported self-hosted path remains Compose-first and now includes Redis plus the worker process. `make bootstrap` should bring up the service dependencies and apply migrations, `make verify` should wait for readiness and then verify the eventual write path plus the test suite, and `make compose-down` should tear the stack back down.
+The root `.env`, copied from `.env.example`, is the primary local configuration source for both Docker Compose and the Make-based host workflow. The Compose app service receives MCP, public REST, and Admin auth settings from this file, including `VOCKY_MCP_AUTH_TOKEN`, `VOCKY_API_AUTH_TOKEN`, and `VOCKY_ADMIN_AUTH_TOKEN`. The supported self-hosted path remains Compose-first and includes Redis plus the worker process. `make bootstrap` should bring up the service dependencies, apply migrations, and wait for readiness. `make verify` should build and inspect a fresh wheel for packaged Admin UI assets, wait for readiness, verify the eventual write path with the MCP smoke flow, and run the test suite. `make compose-down` should tear the stack back down.
 
 The supported operator modes are:
 
 - Internal self-hosting: Compose publishes on loopback by default and host-side checks use `VOCKY_BASE_URL`.
-- Public custom-domain deploy: operators can publish the app through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL` to the public origin such as `https://vocky.example.com`, allow that Host and Origin through `VOCKY_MCP_ALLOWED_HOSTS` and `VOCKY_MCP_ALLOWED_ORIGINS`, and require `VOCKY_MCP_AUTH_TOKEN`. Operators should also require `VOCKY_API_AUTH_TOKEN` before exposing `/api/*` and `VOCKY_ADMIN_AUTH_TOKEN` before exposing Admin REST.
+- Public custom-domain deploy: operators can publish the app through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL` to the public origin such as `https://vocky.example.com`, allow that Host and Origin through `VOCKY_MCP_ALLOWED_HOSTS` and `VOCKY_MCP_ALLOWED_ORIGINS`, and require `VOCKY_MCP_AUTH_TOKEN`. Operators should also require `VOCKY_API_AUTH_TOKEN` before exposing `/api/*` and `VOCKY_ADMIN_AUTH_TOKEN` before exposing Admin REST. `make external-smoke` and `make external-verify` run the public checks against `VOCKY_EXTERNAL_BASE_URL`; the older `tailscale-smoke` and `tailscale-verify` names remain compatibility aliases.
 
 The `/admin` shell and `/admin/assets/*` static assets, including packaged operator docs, can load without server-side auth, but protected Admin data remains unavailable unless the browser supplies the configured Admin bearer token to `/admin/api/*`.
 

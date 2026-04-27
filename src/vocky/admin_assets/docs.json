@@ -226,7 +226,7 @@
                 },
                 {
                   "title": "Bootstrap",
-                  "text": "Run make bootstrap to sync dependencies, start redis/postgres/app/worker, and apply migrations."
+                  "text": "Run make bootstrap to sync host dependencies, start redis/postgres/app/worker, apply migrations, and wait for health."
                 },
                 {
                   "title": "Open Admin UI",
@@ -238,7 +238,7 @@
                 },
                 {
                   "title": "Verify",
-                  "text": "Run make verify to wait for health, run the MCP smoke flow, and execute the pytest suite."
+                  "text": "Run make verify to inspect packaged Admin UI assets, wait for health, run the MCP smoke flow, and execute the pytest suite."
                 },
                 {
                   "title": "Tear down",
@@ -256,6 +256,10 @@
                 {
                   "term": "Local smoke target",
                   "description": "VOCKY_BASE_URL controls host-side readiness and smoke checks."
+                },
+                {
+                  "term": "Package check",
+                  "description": "make package-check builds a fresh wheel and verifies index.html, app.css, app.js, and docs.json are packaged for /admin."
                 },
                 {
                   "term": "Test database",
@@ -302,6 +306,10 @@
                 {
                   "term": "Proxy target",
                   "description": "Point the public HTTPS hostname at the local Vocky service, for example http://127.0.0.1:8000."
+                },
+                {
+                  "term": "External verification",
+                  "description": "Run make external-verify after VOCKY_EXTERNAL_BASE_URL points at the live public origin. It waits for public health and then runs the MCP smoke flow."
                 }
               ]
             },
@@ -318,6 +326,11 @@
                 ["REST capture client", "https://vocky.example.com/api/feedback", "VOCKY_API_AUTH_TOKEN"],
                 ["Admin REST client", "https://vocky.example.com/admin/api/*", "VOCKY_ADMIN_AUTH_TOKEN"]
               ]
+            },
+            {
+              "type": "code",
+              "language": "sh",
+              "text": "make external-verify\nmake external-smoke"
             },
             {
               "type": "callout",

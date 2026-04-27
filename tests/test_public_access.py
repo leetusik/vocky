@@ -20,7 +20,7 @@ from vocky.auth import (
 )
 from vocky.config import Settings, get_settings, parse_csv_setting
 from vocky.mcp_server import make_transport_security_settings
-from vocky.smoke import make_mcp_client_headers
+from vocky.smoke import make_http_user_agent, make_mcp_client_headers
 
 
 def make_settings(
@@ -75,11 +75,23 @@ def test_mcp_auth_helpers_match_only_mcp_paths_and_bearer_headers() -> None:
     assert is_authorized_bearer(None, "secret") is False
 
 
-def test_smoke_mcp_client_headers_use_optional_bearer_token() -> None:
+def test_smoke_mcp_client_headers_use_optional_bearer_token(monkeypatch) -> None:
+    monkeypatch.delenv("VOCKY_HTTP_USER_AGENT", raising=False)
+
     assert make_mcp_client_headers("") == {"User-Agent": "VockySmoke/0.1"}
     assert make_mcp_client_headers("  ") == {"User-Agent": "VockySmoke/0.1"}
     assert make_mcp_client_headers(" public-secret ") == {
         "User-Agent": "VockySmoke/0.1",
+        "Authorization": "Bearer public-secret",
+    }
+
+    monkeypatch.setenv("VOCKY_HTTP_USER_AGENT", "  ")
+    assert make_http_user_agent() == "VockySmoke/0.1"
+    assert make_mcp_client_headers("") == {"User-Agent": "VockySmoke/0.1"}
+
+    monkeypatch.setenv("VOCKY_HTTP_USER_AGENT", " PublicSmoke/1.0 ")
+    assert make_mcp_client_headers(" public-secret ") == {
+        "User-Agent": "PublicSmoke/1.0",
         "Authorization": "Bearer public-secret",
     }
 
