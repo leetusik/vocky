@@ -15,7 +15,7 @@ WAIT_READY_TIMEOUT ?= 60
 EXPORTED_ENV_VARS := DATABASE_URL REDIS_URL TEST_DATABASE_URL VOCKY_HOST VOCKY_PORT VOCKY_LOG_LEVEL VOCKY_HTTP_USER_AGENT VOCKY_MCP_ALLOWED_HOSTS VOCKY_MCP_ALLOWED_ORIGINS VOCKY_MCP_AUTH_TOKEN VOCKY_API_AUTH_TOKEN VOCKY_ADMIN_AUTH_TOKEN VOCKY_BASE_URL VOCKY_EXTERNAL_BASE_URL VOCKY_PUBLISH_HOST POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD POSTGRES_PORT POSTGRES_PUBLISH_HOST REDIS_PORT REDIS_PUBLISH_HOST WAIT_READY_TIMEOUT
 export $(EXPORTED_ENV_VARS)
 
-.PHONY: sync test package-check compose-up compose-down compose-logs migrate wait-ready smoke-run smoke bootstrap verify check-test-db require-external-base-url external-smoke external-verify tailscale-serve tailscale-serve-status tailscale-serve-reset tailscale-smoke tailscale-verify
+.PHONY: sync test package-check compose-up compose-down compose-logs migrate wait-ready smoke-run smoke bootstrap verify check-test-db require-external-base-url external-smoke external-verify
 
 sync:
 	uv sync
@@ -70,16 +70,3 @@ external-smoke: require-external-base-url
 external-verify: require-external-base-url
 	$(MAKE) wait-ready VOCKY_BASE_URL="$(VOCKY_EXTERNAL_BASE_URL)"
 	$(MAKE) smoke-run VOCKY_BASE_URL="$(VOCKY_EXTERNAL_BASE_URL)"
-
-tailscale-serve:
-	tailscale serve --bg $(VOCKY_PORT)
-
-tailscale-serve-status:
-	tailscale serve status
-
-tailscale-serve-reset:
-	tailscale serve reset
-
-tailscale-smoke: external-smoke
-
-tailscale-verify: external-verify

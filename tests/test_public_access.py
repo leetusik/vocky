@@ -48,9 +48,9 @@ def make_configured_mcp_auth_headers() -> dict[str, str]:
 
 
 def test_parse_csv_setting_trims_blanks_and_deduplicates() -> None:
-    assert parse_csv_setting(" vocky.example.com, ,vocky.example.com,node.example.ts.net ") == (
+    assert parse_csv_setting(" vocky.example.com, ,vocky.example.com,feedback.example.com ") == (
         "vocky.example.com",
-        "node.example.ts.net",
+        "feedback.example.com",
     )
 
 
@@ -99,14 +99,14 @@ def test_smoke_mcp_client_headers_use_optional_bearer_token(monkeypatch) -> None
 def test_transport_security_allows_configured_public_host_and_origin() -> None:
     security_settings = make_transport_security_settings(
         make_settings(
-            allowed_hosts="vocky.example.com,node.example.ts.net",
+            allowed_hosts="vocky.example.com,feedback.example.com",
             allowed_origins="https://vocky.example.com",
         )
     )
     middleware = TransportSecurityMiddleware(security_settings)
 
     assert middleware._validate_host("vocky.example.com") is True
-    assert middleware._validate_host("node.example.ts.net") is True
+    assert middleware._validate_host("feedback.example.com") is True
     assert middleware._validate_host("example.invalid") is False
     assert middleware._validate_origin("https://vocky.example.com") is True
     assert middleware._validate_origin("https://example.invalid") is False

@@ -193,7 +193,7 @@ Public MCP clients should use `https://vocky.example.com/mcp` with `Authorizatio
 Public REST capture clients should use `https://vocky.example.com/api/feedback` with `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>`.
 Public Admin REST requests should use `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>` when `/admin/api/*` is exposed.
 
-`make external-smoke` runs only the public MCP smoke flow, while `make external-verify` waits for public health first and then runs the same smoke flow. Existing `tailscale-smoke` and `tailscale-verify` targets remain as aliases for the generic external targets.
+`make external-smoke` runs only the public MCP smoke flow, while `make external-verify` waits for public health first and then runs the same smoke flow.
 
 ## MCP Surface
 
