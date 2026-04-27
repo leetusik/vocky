@@ -11,6 +11,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from vocky.channel import ChannelValidationError, normalize_channel_write
 from vocky.feedback import (
     FeedbackDailyMetricCount,
     FeedbackEventRecord,
@@ -97,6 +98,15 @@ def normalize_tags(tags: list[str] | None) -> list[str] | None:
         normalized.append(cleaned)
 
     return normalized
+
+
+def normalize_admin_channel_write(value: str | None) -> str | None:
+    """Normalize and validate a channel write from Admin REST."""
+
+    try:
+        return normalize_channel_write(value)
+    except ChannelValidationError as exc:
+        raise FeedbackQueryValidationError(str(exc)) from exc
 
 
 def serialize_record(record: FeedbackEventRecord) -> dict[str, object]:
@@ -323,7 +333,7 @@ async def patch_admin_feedback(request: Request) -> Response:
         if "comment" in patch.model_fields_set:
             updates["comment"] = normalize_optional_text(patch.comment)
         if "channel" in patch.model_fields_set:
-            updates["channel"] = normalize_optional_text(patch.channel)
+            updates["channel"] = normalize_admin_channel_write(patch.channel)
         if "tags" in patch.model_fields_set:
             updates["tags"] = normalize_tags(patch.tags) or []
         if "source_metadata" in patch.model_fields_set:

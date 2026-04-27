@@ -78,6 +78,7 @@
               "type": "list",
               "items": [
                 "feedback_value is optional and uses 1 for like or 2 for dislike.",
+                "channel is optional on capture; omitted or null means no category, and accepted non-null channel categories are web, mobile, and support.",
                 "target_type, target_id, target_role, and target_text are optional captured context for the exact reviewed message, conversation, or surface.",
                 "list_feedback and summarize_feedback filter by ingested_at, source fields, conversation/session IDs, feedback_value, channel, and exact tag.",
                 "list_liked_conversations always enforces feedback_value = 1 server-side."
@@ -112,6 +113,10 @@
                 {
                   "term": "Auth",
                   "description": "When VOCKY_API_AUTH_TOKEN is set, /api/* requests must include Authorization: Bearer <VOCKY_API_AUTH_TOKEN>."
+                },
+                {
+                  "term": "Channel",
+                  "description": "The channel field can be omitted, null, or one of web, mobile, and support. Blank channel input clears to null."
                 }
               ]
             },
@@ -152,8 +157,8 @@
               "type": "list",
               "items": [
                 "List filters match the MCP read filters: ingest-time window, source_product, source_integration, conversation_id, session_id, feedback_value, channel, tag, limit, and cursor.",
-                "Admin REST editable fields are feedback_value, comment, channel, tags, source_metadata, and attributes.",
-                "The Admin UI Feedback view supports list, filter, detail inspection, editing feedback_value/comment/channel/tags, and guarded delete.",
+                "Admin REST editable fields are feedback_value, comment, channel, tags, source_metadata, and attributes. Channel patch writes accept null, web, mobile, or support.",
+                "The Admin UI Feedback view supports list, filter, detail inspection, editing feedback_value/comment/channel/tags, and guarded delete. Channel controls use Any/None plus web, mobile, and support.",
                 "source_metadata and attributes are visible as read-only JSON in the Admin UI even though Admin REST can patch them.",
                 "target fields, messages, and used_context are captured context and remain immutable in this MVP."
               ]

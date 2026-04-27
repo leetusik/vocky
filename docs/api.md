@@ -2,7 +2,7 @@
 
 ## Status
 
-The feedback capture MCP tool, Web Feedback Capture REST API, and the `P3` read tools are implemented. They should still be treated as early-stage MVP contracts rather than long-term stable commitments.
+The feedback capture MCP tool, Web Feedback Capture REST API, `P3` read tools, Admin REST channel validation, and Admin UI channel category workflows are implemented. These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
 
 ## Purpose
 
@@ -38,6 +38,23 @@ Use this file to record public-facing contracts as they are implemented. The cur
 
 ## Contracts
 
+### Shared Channel Category Rules
+
+- Status: implemented
+- Applies to: MCP capture, Web Feedback Capture REST API, MCP read filters, liked-conversation filters, summary filters, Admin REST list filters, and Admin REST patch
+- Values:
+  - `null` or omitted means no channel category is assigned
+  - `web`, `mobile`, and `support` are the built-in MVP categories
+- Write behavior:
+  - New capture writes and Admin REST patch writes trim leading and trailing whitespace
+  - Blank write values are normalized to `null`
+  - Non-null write values outside `web`, `mobile`, and `support` are rejected
+  - The service does not infer a default channel category
+- Read/filter behavior:
+  - Response records return the stored channel value or `null`
+  - Older stored arbitrary channel strings remain readable
+  - Channel filters are exact-match filters after trimming blank input to absence, so legacy stored values remain discoverable
+
 ### Feedback Capture MCP Tool
 
 - Status: implemented in `P1`
@@ -52,7 +69,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source.integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike.
     - `comment: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`. Comments are recommended for dislikes but are not required.
-    - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`. Non-null values must be one of the built-in channel categories: `web`, `mobile`, or `support`.
     - `conversation_id: string` optional. Caller-provided conversation or thread identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `session_id: string` optional. Caller-provided runtime, browser, or user-session identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `target_type: string` optional. Identifies the exact reviewed target category. Allowed values are `message`, `conversation`, and `surface`. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
@@ -74,7 +91,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `accepted_at: string` UTC ISO 8601 timestamp generated when the queue accepts the job
     - `status: string` fixed to `accepted`
 - Errors:
-  - Validation failures return an MCP tool execution error with `isError: true`
+  - Validation failures, including invalid non-null `channel` values, return an MCP tool execution error with `isError: true`
   - Queue-accept failures return an MCP tool execution error with `isError: true`
   - Unknown-tool and protocol-level failures remain MCP protocol errors
 - Auth or permissions:
@@ -109,7 +126,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source.integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike. General REST feedback may omit this when there is no explicit like/dislike action.
     - `comment: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
-    - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`. Non-null values must be one of the built-in channel categories: `web`, `mobile`, or `support`.
     - `conversation_id: string` optional. Caller-provided conversation or thread identifier when the REST feedback belongs to a conversation. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `session_id: string` optional. Caller-provided runtime, browser, or user-session identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `target_type: string` optional. Allowed values are `message`, `conversation`, and `surface`. Use `surface` for page, widget, screen, or other non-message product-surface feedback when the exact target is known.
@@ -130,7 +147,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `status: string` fixed to `accepted`
 - Errors:
   - Missing or invalid bearer token when auth is configured returns `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`
-  - Malformed JSON, non-object request bodies, schema errors, and semantic validation failures return `400 {"detail":"..."}`
+  - Malformed JSON, non-object request bodies, schema errors, invalid non-null `channel` values, and semantic validation failures return `400 {"detail":"..."}`
   - Queue-accept failures return `503 {"detail":"capture queue unavailable"}`
 - Notes:
   - This REST API is capture-only. It does not add public REST review, query, summary, job-status, or management endpoints.
@@ -154,7 +171,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike.
-    - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `channel: string` optional. Exact channel filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Built-in and legacy stored channel values can be filtered exactly.
     - `tag: string` optional. Leading and trailing whitespace is trimmed. Blank values are rejected.
     - `limit: integer` optional. When omitted, the server applies a default page size of `50`. Values must be between `1` and `100`.
     - `cursor: string` optional. Must be an opaque base64url-encoded JSON cursor returned from an earlier `list_feedback` call. Invalid cursor payloads are rejected.
@@ -171,7 +188,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source_product: string`
     - `feedback_value: integer | null`
     - `comment: string | null`
-    - `channel: string | null`
+    - `channel: string | null` stored channel value. New records should use `web`, `mobile`, `support`, or `null`; older records may contain legacy arbitrary strings.
     - `source_integration: string | null`
     - `conversation_id: string | null`
     - `session_id: string | null`
@@ -217,7 +234,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike.
-    - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `channel: string` optional. Exact channel filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Built-in and legacy stored channel values can be filtered exactly.
     - `tag: string` optional. Leading and trailing whitespace is trimmed. Blank values are rejected.
 - Outputs:
   - Success MCP tool result:
@@ -256,7 +273,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source_integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
-    - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `channel: string` optional. Exact channel filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Built-in and legacy stored channel values can be filtered exactly.
     - `tag: string` optional. Leading and trailing whitespace is trimmed. Blank values are rejected.
     - `limit: integer` optional. When omitted, the server applies a default page size of `50`. Values must be between `1` and `100`.
     - `cursor: string` optional. Must be an opaque base64url-encoded JSON cursor returned from an earlier `list_liked_conversations` call.
@@ -271,7 +288,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `id: string`
     - `message: string`
     - `comment: string | null`
-    - `channel: string | null`
+    - `channel: string | null` stored channel value. New records should use `web`, `mobile`, `support`, or `null`; older records may contain legacy arbitrary strings.
     - `source_product: string`
     - `source_integration: string | null`
     - `conversation_id: string | null`
@@ -314,7 +331,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - Returns `{"service":"vocky","surface":"admin","status":"ok"}`
   - `GET /admin/api/feedback`
     - Lists all feedback records by default, not only liked records
-    - Supports `start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `feedback_value`, `channel`, `tag`, `limit`, and `cursor`
+    - Supports `start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `feedback_value`, exact `channel`, `tag`, `limit`, and `cursor`
     - Returns `records` and optional `next_cursor`
   - `GET /admin/api/feedback/metrics`
     - Returns dashboard metrics for a required ingest-time window
@@ -326,6 +343,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - Returns one full feedback record or `404` when missing
   - `PATCH /admin/api/feedback/{feedback_id}`
     - Updates review-oriented fields: `feedback_value`, `comment`, `channel`, `tags`, `source_metadata`, and `attributes`
+    - `channel`, when patched, is trimmed; blank values clear the category to `null`; non-null values must be `web`, `mobile`, or `support`
     - Captured target fields, `messages`, and `used_context` are immutable in this MVP
     - Returns the updated record
   - `DELETE /admin/api/feedback/{feedback_id}`
@@ -336,7 +354,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - `source_product: string`
   - `feedback_value: integer | null`
   - `comment: string | null`
-  - `channel: string | null`
+  - `channel: string | null` stored channel value. New records should use `web`, `mobile`, `support`, or `null`; older records may contain legacy arbitrary strings.
   - `source_integration: string | null`
   - `conversation_id: string | null`
   - `session_id: string | null`
@@ -361,7 +379,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - `daily_counts: object[]` UTC day buckets spanning the requested window, including zero-count days
   - Each daily bucket includes `day`, `total`, `liked`, `disliked`, and `unrated`
 - Errors:
-  - Validation failures return JSON `400` responses with `detail`
+  - Validation failures, including invalid non-null `channel` patch values, return JSON `400` responses with `detail`
   - Missing records return JSON `404` responses with `detail`
   - Storage read or write failures return JSON `500` responses with `detail`
 - Notes:

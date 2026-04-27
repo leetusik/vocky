@@ -9,6 +9,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from vocky.channel import ChannelValidationError, normalize_channel_write
 from vocky.feedback import CreateFeedbackEvent
 
 ALLOWED_TARGET_TYPES = frozenset({"message", "conversation", "surface"})
@@ -169,6 +170,15 @@ def normalize_target_role(value: str | None) -> str | None:
     return normalized
 
 
+def normalize_capture_channel(value: str | None) -> str | None:
+    """Normalize and validate a channel write from a capture transport."""
+
+    try:
+        return normalize_channel_write(value)
+    except ChannelValidationError as exc:
+        raise CaptureFeedbackValidationError(str(exc)) from exc
+
+
 def normalize_json_array(value: list[Any] | None, *, field_name: str) -> tuple[Any, ...]:
     """Normalize an optional JSON array field."""
 
@@ -188,7 +198,7 @@ def _normalize_capture_payload(raw: BaseCaptureFeedbackInput) -> NormalizedCaptu
         source_product=require_non_blank(raw.source.product, "source.product"),
         feedback_value=normalize_feedback_value(raw.feedback_value),
         comment=normalize_optional_text(raw.comment),
-        channel=normalize_optional_text(raw.channel),
+        channel=normalize_capture_channel(raw.channel),
         source_integration=normalize_optional_text(raw.source.integration),
         conversation_id=normalize_optional_text(raw.conversation_id),
         session_id=normalize_optional_text(raw.session_id),

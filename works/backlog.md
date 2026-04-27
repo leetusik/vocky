@@ -73,18 +73,23 @@
 
 - Phase ID: `P3`
 - Objective: Replace free-text-only `channel` handling with nullable, default-none category behavior that operators can adjust in Admin.
-- Status: in_progress
-- Review outcome: pending
+- Status: done
+- Review outcome: passed
 - Notes: Decomposition should cover storage and migration shape, API validation, query filters, Admin list/detail/edit behavior, and how allowed categories are represented or managed.
 - Work items:
   - `works/archives/work_items/20260427_1829_decompose_channel_categories_admin_adjustability`
+  - `works/archives/work_items/20260427_1849_lock_channel_category_contract`
+  - `works/archives/work_items/20260427_2306_apply_channel_category_validation_storage_policy`
+  - `works/archives/work_items/20260427_2309_update_admin_channel_category_workflows`
+  - `works/archives/work_items/20260427_2311_update_channel_examples_compatibility_coverage`
+  - `works/archives/work_items/20260427_2314_phase_review_channel_categories_admin_adjustability`
 - Slices:
   - [x] Slice ID: `P3.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_1829_decompose_channel_categories_admin_adjustability` | Notes: Added contract, validation/storage, Admin workflow, guidance/coverage, and review slices for P3.
-  - [ ] Slice ID: `P3.S1` | Name: `lock channel category contract` | Status: todo | Work item: none | Notes: Define nullable default-none semantics, allowed category representation or management, existing-record compatibility, and public/Admin contract changes in durable docs before code changes.
-  - [ ] Slice ID: `P3.S2` | Name: `apply channel category validation and storage policy` | Status: todo | Work item: none | Notes: Implement the P3.S1 channel policy across capture validation, queue/service types, persistence or migration handling, read filters, and Admin REST patch validation.
-  - [ ] Slice ID: `P3.S3` | Name: `update Admin channel category workflows` | Status: todo | Work item: none | Notes: Replace free-text Admin channel filter and edit controls with category-aware nullable UI behavior while preserving list/detail readability.
-  - [ ] Slice ID: `P3.S4` | Name: `update channel examples and compatibility coverage` | Status: todo | Work item: none | Notes: Update README/operator examples and tests for null default, accepted categories, rejected invalid categories, query filters, Admin edits, and existing payload compatibility.
-  - [ ] Slice ID: `P3.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+  - [x] Slice ID: `P3.S1` | Name: `lock channel category contract` | Status: done | Work item: `works/archives/work_items/20260427_1849_lock_channel_category_contract` | Notes: Defined nullable default-none semantics, built-in `web`/`mobile`/`support` categories, legacy stored-value compatibility, and public/Admin contract changes in durable docs before code changes.
+  - [x] Slice ID: `P3.S2` | Name: `apply channel category validation and storage policy` | Status: done | Work item: `works/archives/work_items/20260427_2306_apply_channel_category_validation_storage_policy` | Notes: Added shared write validation for built-in channel categories across MCP capture, REST capture, and Admin REST patch while preserving legacy read/filter compatibility.
+  - [x] Slice ID: `P3.S3` | Name: `update Admin channel category workflows` | Status: done | Work item: `works/archives/work_items/20260427_2309_update_admin_channel_category_workflows` | Notes: Replaced Admin channel filter/edit text inputs with category selects and legacy-preserve edit behavior.
+  - [x] Slice ID: `P3.S4` | Name: `update channel examples and compatibility coverage` | Status: done | Work item: `works/archives/work_items/20260427_2311_update_channel_examples_compatibility_coverage` | Notes: Updated public and packaged docs plus compatibility tests for nullable built-in channel categories and blank-to-null writes.
+  - [x] Slice ID: `P3.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260427_2314_phase_review_channel_categories_admin_adjustability` | Notes: Review passed with full pytest, package-check, bootstrap, Compose-backed verify, stale wording scans, and no fix slices needed.
 
 ### Phase P4: Working REST capture Try docs
 

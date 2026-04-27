@@ -3,6 +3,8 @@ const ADMIN_API_PREFIX = "/admin/api/";
 const DOCS_ASSET_PATH = "/admin/assets/docs.json";
 const DEFAULT_DASHBOARD_WINDOW_DAYS = 30;
 const DASHBOARD_WINDOW_PRESETS = [7, 30, 90];
+const CHANNEL_CATEGORIES = ["web", "mobile", "support"];
+const LEGACY_CHANNEL_VALUE = "__legacy_channel__";
 
 const state = {
   token: sessionStorage.getItem(TOKEN_STORAGE_KEY) || "",
@@ -750,6 +752,10 @@ function getEditableTagsValue(record) {
   return Array.isArray(record.tags) ? record.tags.join(", ") : "";
 }
 
+function isAllowedChannel(value) {
+  return CHANNEL_CATEGORIES.includes(normalizeText(value));
+}
+
 function parseEditableTags(value) {
   return normalizeText(value)
     .split(",")
@@ -857,13 +863,18 @@ async function deleteSelectedFeedbackRecord() {
 function getFeedbackPatchPayload(form) {
   const formData = new FormData(form);
   const feedbackValue = normalizeText(formData.get("feedback_value")).trim();
-
-  return {
+  const channelValue = normalizeText(formData.get("channel")).trim();
+  const payload = {
     feedback_value: feedbackValue ? Number(feedbackValue) : null,
     comment: normalizeText(formData.get("comment")).trim() || null,
-    channel: normalizeText(formData.get("channel")).trim() || null,
     tags: parseEditableTags(formData.get("tags")),
   };
+
+  if (channelValue !== LEGACY_CHANNEL_VALUE) {
+    payload.channel = channelValue || null;
+  }
+
+  return payload;
 }
 
 function setFeedbackEditFormSaving(form, saving) {
@@ -952,13 +963,7 @@ function buildFeedbackEditForm(record) {
 
   const channelLabel = document.createElement("label");
   appendTextElement(channelLabel, "span", "", "Channel");
-  const channelInput = document.createElement("input");
-  channelInput.name = "channel";
-  channelInput.type = "text";
-  channelInput.autocomplete = "off";
-  channelInput.spellcheck = false;
-  channelInput.value = normalizeText(record.channel);
-  channelLabel.append(channelInput);
+  channelLabel.append(buildChannelSelect(record));
 
   const commentLabel = document.createElement("label");
   commentLabel.className = "feedback-edit-wide";
@@ -1005,6 +1010,34 @@ function buildFeedbackEditForm(record) {
   });
 
   return form;
+}
+
+function appendChannelOption(select, value, label, selectedValue) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  if (value === selectedValue) {
+    option.selected = true;
+  }
+  select.append(option);
+}
+
+function buildChannelSelect(record) {
+  const select = document.createElement("select");
+  const channel = normalizeText(record.channel);
+  const selectedValue = channel && !isAllowedChannel(channel) ? LEGACY_CHANNEL_VALUE : channel;
+  select.name = "channel";
+
+  if (channel && !isAllowedChannel(channel)) {
+    appendChannelOption(select, LEGACY_CHANNEL_VALUE, `Legacy: ${channel}`, selectedValue);
+  }
+
+  appendChannelOption(select, "", "None", selectedValue);
+  CHANNEL_CATEGORIES.forEach((category) => {
+    appendChannelOption(select, category, category, selectedValue);
+  });
+
+  return select;
 }
 
 function renderFeedbackDetailRecord(record) {
@@ -1826,6 +1859,7 @@ window.VockyAdmin = {
   DOCS_ASSET_PATH,
   DEFAULT_DASHBOARD_WINDOW_DAYS,
   DASHBOARD_WINDOW_PRESETS,
+  CHANNEL_CATEGORIES,
   adminFetch,
   getDashboardWindow,
   makeDashboardMetricsPath,

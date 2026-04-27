@@ -19,7 +19,7 @@ Recommended payload fields:
 - `source.integration`: client integration name, such as `web-chat`
 - `feedback_value`: optional; `1` for like, `2` for dislike
 - `comment`: optional user comment; recommended for dislikes when available
-- `channel`: user-facing channel, such as `web`, `mobile`, or `support`
+- `channel`: optional nullable review category; omit it by default, or set `web`, `mobile`, or `support` when the integration can assign one
 - `conversation_id`: stable caller-side conversation or thread ID when available
 - `session_id`: optional caller-side runtime, browser, or user-session ID
 - `target_type`: optional reviewed target category: `message`, `conversation`, or `surface`
@@ -32,6 +32,8 @@ Recommended payload fields:
 - `tags`, `source_metadata`, and `attributes`: optional caller-provided metadata; REST product integrations can use these for URL, page, widget, account, locale, rollout, or backend context
 
 Target fields are optional. Existing integrations can omit them, but integrations with message-level feedback should send them so reviewers do not have to infer which message the user judged. REST integrations with product-surface feedback should use `target_type: "surface"` when the exact page, widget, screen, or feature is known.
+
+Channel categories are intentionally narrow in the MVP. Blank channel values normalize to `null`, non-null capture values outside `web`, `mobile`, and `support` are rejected, and no default channel is inferred.
 
 MCP message-feedback example:
 

@@ -75,6 +75,37 @@ def test_invalid_feedback_value_is_rejected() -> None:
         normalize_mcp_payload(make_input(feedback_value=3))
 
 
+@pytest.mark.parametrize(
+    ("raw_channel", "expected_channel"),
+    [
+        ("web", "web"),
+        (" mobile ", "mobile"),
+        ("support", "support"),
+    ],
+)
+def test_allowed_channel_categories_are_accepted(
+    raw_channel: str,
+    expected_channel: str,
+) -> None:
+    normalized = normalize_mcp_payload(make_input(channel=raw_channel))
+
+    assert normalized.payload.channel == expected_channel
+
+
+def test_blank_channel_normalizes_to_none() -> None:
+    normalized = normalize_mcp_payload(make_input(channel="   "))
+
+    assert normalized.payload.channel is None
+
+
+def test_invalid_channel_is_rejected() -> None:
+    with pytest.raises(
+        CaptureFeedbackValidationError,
+        match="channel must be one of: web, mobile, support",
+    ):
+        normalize_mcp_payload(make_input(channel="email"))
+
+
 def test_invalid_target_type_is_rejected() -> None:
     with pytest.raises(
         CaptureFeedbackValidationError,

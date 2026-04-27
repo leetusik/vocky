@@ -24,6 +24,7 @@ The name comes from VoC, short for voice of customer.
 - Retrieve liked conversations through MCP for AI-agent few-shot use
 - Expose separate Admin REST endpoints for human/operator review and management
 - Provide a self-hosted Admin Web UI served by the Vocky app, including dashboard metrics, feedback list/filter/detail/edit/delete workflows, and in-app operator documentation for API/auth and self-hosting setup
+- Support nullable channel category assignment with the built-in MVP categories `web`, `mobile`, and `support`
 - Run as a self-hosted, single-tenant MVP
 
 ## What The First MVP Will Not Do
@@ -117,6 +118,8 @@ Use `/mcp` exactly as the canonical MCP endpoint.
 
 The Admin Web UI includes dashboard metrics, recent activity, feedback list/filter/detail inspection, review-field editing, guarded delete, and in-app documentation pages. Browser editing is intentionally limited to `feedback_value`, `comment`, `channel`, and `tags`; use Admin REST directly for broader patchable metadata fields.
 
+`channel` is optional and defaults to no category when omitted or blank. New capture and Admin edit writes accept only `web`, `mobile`, `support`, or `null`; older stored channel values remain visible and exact-filterable for review.
+
 ## Access Modes
 
 Vocky supports two clean operator modes:
@@ -209,6 +212,8 @@ For client integration guidance, see [docs/action-feedback-integration.md](docs/
 
 Use REST capture from server-side web or product code when the integration is not an MCP client. REST uses the same core capture fields as MCP, but it is intended for broader website and product feedback. For page, widget, or product-surface feedback, set `target_type` to `surface` when the exact surface is known and put product-specific context in `source_metadata` or `attributes`.
 
+The optional `channel` field is a nullable review category. Omit it by default unless the caller can explicitly assign `web`, `mobile`, or `support`.
+
 Implemented endpoint:
 
 - `POST /api/feedback`
@@ -253,6 +258,8 @@ Implemented endpoints:
 Set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*` outside a trusted local/private environment.
 
 The Admin Web UI consumes these endpoints same-origin. Its edit form only patches `feedback_value`, `comment`, `channel`, and `tags`; captured target fields, messages, used context, `source_metadata`, and `attributes` remain read-only in the browser.
+
+Admin REST patch writes apply the same channel category rule as capture: blank clears to `null`, and non-null values must be `web`, `mobile`, or `support`. Admin list filters still exact-match stored channel text, including older legacy values.
 
 ## Self-Hosted Usage
 

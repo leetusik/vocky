@@ -99,6 +99,22 @@ async def test_capture_feedback_validation_error() -> None:
 
 
 @pytest.mark.anyio
+async def test_capture_feedback_invalid_channel_returns_tool_error() -> None:
+    async with create_connected_server_and_client_session(mcp, raise_exceptions=True) as client_session:
+        result = await client_session.call_tool(
+            "capture_feedback",
+            {
+                "message": "Invalid channel",
+                "source": {"product": "vocky-cli"},
+                "channel": "email",
+            },
+        )
+
+    assert result.isError is True
+    assert result.content[0].text == "channel must be one of: web, mobile, support"
+
+
+@pytest.mark.anyio
 async def test_capture_feedback_missing_source_product_is_error() -> None:
     async with create_connected_server_and_client_session(mcp, raise_exceptions=True) as client_session:
         result = await client_session.call_tool(

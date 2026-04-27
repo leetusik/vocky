@@ -58,7 +58,7 @@ Vocky now has three public-facing tracks over the same feedback schema:
 - Public REST capture track for server-to-server product integrations: `POST /api/feedback`. REST capture uses the existing capture field set for general website or product feedback, including surface feedback represented with `target_type="surface"` when applicable.
 - Admin REST track for humans and dashboards: `/admin/api/feedback` list/detail, `/admin/api/feedback/metrics` dashboard metrics, plus patch/delete management endpoints.
 
-The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data, feedback review management, and packaged static docs assets for operator reference content. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, or management endpoints. REST does not add a separate wire shape in this phase; website and product context should be represented with `target_type`, `target_id`, `target_text`, `channel`, `tags`, `source_metadata`, and `attributes`. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, metadata, target context, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
+The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data, feedback review management, and packaged static docs assets for operator reference content. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, or management endpoints. REST does not add a separate wire shape in this phase; website and product context should be represented with `target_type`, `target_id`, `target_text`, nullable `channel`, `tags`, `source_metadata`, and `attributes`. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, channel category, metadata, target context, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
 
 ## Configuration Surface
 
@@ -103,16 +103,18 @@ For Cloudflare Tunnel users, the recommended public shape is a hostname-to-servi
 - Capture ingestion is limited to MCP and server-to-server REST in the MVP; browser-direct unauthenticated ingestion is outside scope
 - No automatic classification or summarization in the MVP
 - Admin Web UI includes a same-origin self-hosted operator shell, dashboard metrics, recent activity, feedback list/filter/detail inspection, review-field editing, guarded delete, and in-app operator docs
+- Channel handling uses the built-in nullable MVP categories `web`, `mobile`, and `support`; custom category management and deployment-configured category lists are outside the MVP
 - No separate Admin REST database or MCP-specific feedback store
 - No managed-cloud or multi-tenant architecture in the MVP
 - No public job-status API or dashboard in the MVP
 
 ## MVP Data Expectations
 
-- Each stored record should preserve raw feedback content plus the metadata needed for review, such as source identity, explicit feedback value, optional comment, channel, the exact reviewed target when available, surrounding conversation messages, used context, creation time, and optional caller-provided tags or attributes.
+- Each stored record should preserve raw feedback content plus the metadata needed for review, such as source identity, explicit feedback value, optional comment, nullable channel category, the exact reviewed target when available, surrounding conversation messages, used context, creation time, and optional caller-provided tags or attributes.
 - `message` is the required human-readable feedback summary or display text. It is not an implicit target selector.
 - `conversation_id` identifies the conversation or thread that the feedback belongs to.
 - `session_id` is optional runtime, browser, or user-session scope that can correlate repeated interactions without replacing `conversation_id`.
+- `channel` is an optional nullable review category. New captures and Admin edits should only assign `web`, `mobile`, `support`, or `null`; blank input is normalized to `null`, and no channel is inferred by default.
 - Target fields identify the exact reviewed item when known: `target_type` describes whether the target is a `message`, `conversation`, or `surface`; `target_id` stores the caller's stable identifier; `target_role` stores the reviewed message role when applicable; and `target_text` stores a snapshot of the exact reviewed text.
 - `messages` stores surrounding conversation context supplied by the caller. `used_context` stores context that the agent used while producing the reviewed response.
 - REST product or website feedback can omit conversation-specific fields and store page, widget, URL, account, or runtime context in `target_*`, `source_metadata`, and `attributes`.
@@ -129,7 +131,7 @@ The primary table is `feedback_events` with this hybrid shape:
 - `source_product TEXT` not null
 - `feedback_value INTEGER` null, where `1` represents like and `2` represents dislike for explicit action feedback
 - `comment TEXT` null
-- `channel TEXT` null
+- `channel TEXT` null, where new writes should contain only `web`, `mobile`, `support`, or `null`
 - `source_integration TEXT` null
 - `conversation_id TEXT` null
 - `session_id TEXT` null
@@ -156,7 +158,7 @@ Initial indexes should cover:
 - `session_id`
 - GIN on `tags`
 
-The schema keeps the most important review dimensions visible as first-class columns while leaving room for source-specific metadata in JSONB fields. Target fields are captured review context in this phase; they do not add query filters or indexes.
+The schema keeps the most important review dimensions visible as first-class columns while leaving room for source-specific metadata in JSONB fields. `channel` remains nullable `TEXT` rather than a database enum so older arbitrary channel values can stay readable and exact-filterable without destructive migration; write validation prevents new arbitrary channel values on capture and Admin edits. Target fields are captured review context in this phase; they do not add query filters or indexes.
 
 The async capture path is layered as:
 
@@ -187,6 +189,7 @@ The Admin dashboard metrics path uses the same read layers:
 The implemented `P3` query model uses these constraints:
 
 - Read filters are limited to `ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `feedback_value`, `channel`, and exact single-tag membership.
+- Channel read filters use exact matching after trimming blank input to absence. They should continue to support legacy stored channel strings even though new capture and Admin edit writes are limited to `web`, `mobile`, `support`, or `null`.
 - Time filtering uses `ingested_at` only. `start_ingested_at` is inclusive and `end_ingested_at` is exclusive after normalization to UTC.
 - `list_feedback` returns full stored records ordered newest-first by `(ingested_at desc, id desc)`.
 - `list_feedback` defaults to `50` records per page and rejects values outside `1` through `100`.
@@ -208,6 +211,7 @@ The implemented `P3` query model uses these constraints:
 - Normalize query timestamps to UTC before filtering or aggregation.
 - Return MCP capture validation failures and storage write failures as MCP tool execution errors instead of protocol errors.
 - Return REST capture validation failures as `400` JSON responses.
+- Reject non-null channel values outside `web`, `mobile`, and `support` on new MCP capture, REST capture, and Admin REST patch writes.
 - Return MCP queue-accept failures as MCP tool execution errors instead of protocol errors.
 - Return REST queue-accept failures as `503` JSON responses.
 - Return query validation failures and storage read failures as MCP tool execution errors instead of protocol errors.

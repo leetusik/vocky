@@ -20,6 +20,7 @@ The first MVP is intentionally narrow:
 - Optional exact-target metadata for the message, conversation, or product surface being reviewed
 - Dedicated Admin REST endpoints for human/operator review and management of stored feedback
 - A self-hosted operator Admin Web UI that loads from the Vocky app, uses Admin REST as its protected data boundary, and includes dashboard metrics, feedback list/filter/detail/edit/delete workflows, and in-app operator documentation
+- Nullable channel category assignment for review workflows, using the built-in MVP categories `web`, `mobile`, and `support`
 - PostgreSQL storage with Redis-backed background persistence
 
 The MVP does not need automated classification, managed-cloud capabilities, or a production-grade analytics workspace.
@@ -52,6 +53,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - A production-ready analytics suite
 - Browser-direct unauthenticated ingestion paths
 - Public REST review, query, summary, or management APIs outside the dedicated Admin REST surface
+- Custom channel category management, deployment-configured channel lists, or automatic channel classification
 - Multi-tenant managed-cloud architecture
 - Enterprise-grade compliance or admin workflows
 - SaaS account, organization, billing, or tenant-selection UI concepts
@@ -69,6 +71,8 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - The REST capture path should support broader server-to-server website and product feedback, such as page, widget, or product-surface feedback, using the existing capture fields instead of REST-only aliases or a separate endpoint.
 - The initial high-signal capture path should focus on explicit user actions, such as like/dislike clicks and optional comments, rather than trying to infer feedback from every conversation turn.
 - Feedback capture should not assume that the latest message is the reviewed item. Callers should identify the exact reviewed message, conversation, or product surface when that information is available.
+- `channel` should be a nullable review category, not open-ended free text. New captures and Admin edits should leave it unset by default unless the caller or operator explicitly selects one of the built-in MVP categories: `web`, `mobile`, or `support`.
+- Existing stored records with older arbitrary channel text should remain reviewable and filterable, but new writes should not create new arbitrary channel values.
 - A managed offering may exist later around convenience, operations, and richer workflows.
 - The repo should stay honest about what is planned versus what is already implemented.
 
@@ -78,6 +82,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - `message`: the required human-readable feedback summary or display text. It is the text Vocky shows as the primary feedback record label, not an implicit pointer to the reviewed agent message.
 - `conversation_id`: caller-provided conversation or thread identifier used to group feedback from the same conversation.
 - `session_id`: optional caller-provided runtime, browser, or user-session identifier. It can help correlate repeated interactions without replacing `conversation_id`.
+- `channel`: optional nullable review category for where the feedback came from. The MVP built-in categories are `web`, `mobile`, and `support`; `null` means no channel category was assigned.
 - `feedback target`: the exact reviewed item, when known. It may be a message, a whole conversation, or a non-message product surface.
 - `target_type`: optional feedback target category. The MVP target categories are `message`, `conversation`, and `surface`.
 - `target_id`: optional stable caller-provided identifier for the target, such as a message id or UI surface id.

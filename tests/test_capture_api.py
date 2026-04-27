@@ -154,6 +154,50 @@ async def test_capture_feedback_validation_error_returns_400() -> None:
 
 
 @pytest.mark.anyio
+async def test_capture_feedback_invalid_channel_returns_400() -> None:
+    transport = httpx.ASGITransport(app=make_api_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/feedback",
+            json={
+                "message": "Invalid channel",
+                "source": {"product": "vocky-cli"},
+                "channel": "email",
+            },
+        )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "channel must be one of: web, mobile, support"}
+
+
+@pytest.mark.anyio
+async def test_capture_feedback_blank_channel_enqueues_null(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    queue = CaptureQueue(redis_client)
+    monkeypatch.setattr(api_module, "get_capture_queue", lambda: queue)
+
+    transport = httpx.ASGITransport(app=make_api_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/feedback",
+            json={
+                "message": "Blank channel",
+                "source": {"product": "vocky-cli"},
+                "channel": "   ",
+            },
+        )
+
+    assert response.status_code == 202
+    queued_job = await queue.pop_job(timeout_seconds=1)
+    assert queued_job is not None
+    assert queued_job.payload.channel is None
+
+    await redis_client.aclose()
+
+
+@pytest.mark.anyio
 async def test_capture_feedback_body_shape_errors_return_400() -> None:
     transport = httpx.ASGITransport(app=make_api_app())
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:

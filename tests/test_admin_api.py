@@ -364,6 +364,14 @@ async def test_admin_patch_feedback_updates_review_fields(configured_database: s
                 "attributes": {"reviewed": True},
             },
         )
+        clear_channel_response = await client.patch(
+            f"/admin/api/feedback/{feedback_id}",
+            json={"channel": "   "},
+        )
+        invalid_channel_response = await client.patch(
+            f"/admin/api/feedback/{feedback_id}",
+            json={"channel": "email"},
+        )
         empty_response = await client.patch(f"/admin/api/feedback/{feedback_id}", json={})
         invalid_response = await client.patch(
             f"/admin/api/feedback/{feedback_id}",
@@ -383,6 +391,13 @@ async def test_admin_patch_feedback_updates_review_fields(configured_database: s
     assert record["source_metadata"] == {"source": "admin"}
     assert record["attributes"] == {"reviewed": True}
 
+    assert clear_channel_response.status_code == 200
+    assert clear_channel_response.json()["record"]["channel"] is None
+    assert invalid_channel_response.status_code == 400
+    assert invalid_channel_response.json() == {
+        "detail": "channel must be one of: web, mobile, support"
+    }
+
     assert empty_response.status_code == 400
     assert empty_response.json() == {
         "detail": "request body must include at least one editable field"
@@ -395,6 +410,62 @@ async def test_admin_patch_feedback_updates_review_fields(configured_database: s
     assert target_only_response.json() == {
         "detail": "request body must include at least one editable field"
     }
+
+
+@pytest.mark.anyio
+async def test_admin_list_feedback_preserves_legacy_channel_filter(
+    configured_database: str,
+) -> None:
+    async with get_engine().begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO feedback_events ("
+                "id, message, source_product, channel, ingested_at"
+                ") VALUES ("
+                ":id, :message, :source_product, :channel, :ingested_at"
+                ")"
+            ),
+            {
+                "id": "00000000-0000-0000-0000-000000000092",
+                "message": "legacy channel row",
+                "source_product": "admin-product",
+                "channel": "email",
+                "ingested_at": datetime(2026, 4, 24, 5, 0, tzinfo=UTC),
+            },
+        )
+
+    transport = httpx.ASGITransport(app=make_admin_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get(
+            "/admin/api/feedback",
+            params={"channel": " email "},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["records"] == [
+        {
+            "id": "00000000-0000-0000-0000-000000000092",
+            "message": "legacy channel row",
+            "source_product": "admin-product",
+            "feedback_value": None,
+            "comment": None,
+            "channel": "email",
+            "source_integration": None,
+            "conversation_id": None,
+            "session_id": None,
+            "target_type": None,
+            "target_id": None,
+            "target_role": None,
+            "target_text": None,
+            "event_at": None,
+            "ingested_at": "2026-04-24T05:00:00Z",
+            "tags": [],
+            "messages": [],
+            "used_context": [],
+            "source_metadata": {},
+            "attributes": {},
+        }
+    ]
 
 
 @pytest.mark.anyio

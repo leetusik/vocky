@@ -47,6 +47,10 @@ def test_admin_ui_index_routes_serve_packaged_html() -> None:
     assert 'data-feedback-filter="conversation_id"' in response.text
     assert 'data-feedback-filter="session_id"' in response.text
     assert 'data-feedback-filter="channel"' in response.text
+    assert '<select name="channel" data-feedback-filter="channel">' in response.text
+    assert '<option value="web">web</option>' in response.text
+    assert '<option value="mobile">mobile</option>' in response.text
+    assert '<option value="support">support</option>' in response.text
     assert 'data-feedback-filter="tag"' in response.text
     assert 'data-feedback-filter="limit"' in response.text
     assert 'data-feedback-list' in response.text
@@ -105,6 +109,8 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     assert 'DOCS_ASSET_PATH = "/admin/assets/docs.json"' in js_response.text
     assert "DEFAULT_DASHBOARD_WINDOW_DAYS = 30" in js_response.text
     assert "DASHBOARD_WINDOW_PRESETS = [7, 30, 90]" in js_response.text
+    assert 'CHANNEL_CATEGORIES = ["web", "mobile", "support"]' in js_response.text
+    assert 'LEGACY_CHANNEL_VALUE = "__legacy_channel__"' in js_response.text
     assert 'requestAdminJson("/admin/api/healthz"' in js_response.text
     assert "/admin/api/feedback/metrics?" in js_response.text
     assert '"/admin/api/feedback?limit=5"' in js_response.text
@@ -124,6 +130,10 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     assert "target_text" in js_response.text
     assert 'appendDetailSection(container, "Target")' in js_response.text
     assert "dataset.feedbackEditForm" in js_response.text
+    assert "buildChannelSelect" in js_response.text
+    assert "Legacy: ${channel}" in js_response.text
+    assert "payload.channel = channelValue || null" in js_response.text
+    assert "channelValue !== LEGACY_CHANNEL_VALUE" in js_response.text
     assert 'method: "PATCH"' in js_response.text
     assert '"Content-Type": "application/json"' in js_response.text
     assert "feedback_value: feedbackValue ? Number(feedbackValue) : null" in js_response.text
@@ -179,6 +189,8 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
         "GET /admin/api/feedback/metrics",
         "Browser edit scope",
         "guarded delete",
+        "channel categories",
+        "web, mobile, and support",
         "target_type",
         "target_text",
         "target fields",
