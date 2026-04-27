@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vocky Admin</title>
+    <link rel="stylesheet" href="/admin/assets/app.css">
+    <script src="/admin/assets/app.js" defer></script>
+  </head>
+  <body>
+    <div id="app" class="admin-app" data-admin-shell>
+      <header class="topbar">
+        <a class="brand" href="/admin" aria-label="Vocky Admin home">
+          <span class="brand-mark" aria-hidden="true">V</span>
+          <span class="brand-text">
+            <strong>Vocky</strong>
+            <span>Admin</span>
+          </span>
+        </a>
+        <div class="health-pill" data-health-state="checking" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span data-health-label>Checking Admin API</span>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <aside class="sidebar">
+          <nav class="nav-list" aria-label="Admin sections">
+            <button class="nav-item is-active" type="button" data-view-tab="dashboard" aria-current="page">
+              Dashboard
+            </button>
+            <button class="nav-item" type="button" data-view-tab="feedback">
+              Feedback
+            </button>
+            <button class="nav-item" type="button" data-view-tab="docs">
+              Docs
+            </button>
+          </nav>
+
+          <form class="token-panel" data-token-form>
+            <label for="admin-token">Admin token</label>
+            <div class="token-row">
+              <input id="admin-token" name="admin-token" type="password" autocomplete="off" spellcheck="false" data-token-input>
+              <button class="primary-button" type="submit">Save</button>
+            </div>
+            <div class="token-actions">
+              <button type="button" data-health-check>Check</button>
+              <button type="button" data-token-clear>Clear</button>
+            </div>
+            <p class="token-status" data-token-status>Session token empty</p>
+          </form>
+        </aside>
+
+        <main class="content">
+          <section class="view is-active" data-view-panel="dashboard" aria-labelledby="dashboard-title">
+            <div class="view-header">
+              <div>
+                <p class="section-kicker">Overview</p>
+                <h1 id="dashboard-title">Dashboard</h1>
+              </div>
+              <button type="button" class="secondary-button" data-refresh-health>Refresh</button>
+            </div>
+
+            <div class="metric-grid">
+              <article class="metric-card">
+                <span class="metric-label">Admin API</span>
+                <strong data-health-value>Checking</strong>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">Auth</span>
+                <strong data-auth-summary>Session token empty</strong>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">Runtime</span>
+                <strong>MCP + REST + Worker</strong>
+              </article>
+            </div>
+
+            <section class="panel" aria-labelledby="activity-title">
+              <div class="panel-header">
+                <h2 id="activity-title">Activity</h2>
+                <span class="panel-meta" data-last-check>Not checked</span>
+              </div>
+              <ul class="event-list" data-event-list>
+                <li>Waiting for Admin API health.</li>
+              </ul>
+            </section>
+          </section>
+
+          <section class="view" data-view-panel="feedback" aria-labelledby="feedback-title" hidden>
+            <div class="view-header">
+              <div>
+                <p class="section-kicker">Review</p>
+                <h1 id="feedback-title">Feedback</h1>
+              </div>
+              <span class="status-chip">Foundation</span>
+            </div>
+
+            <section class="panel" aria-labelledby="feedback-surface-title">
+              <div class="panel-header">
+                <h2 id="feedback-surface-title">Review Surface</h2>
+                <span class="panel-meta">Admin REST</span>
+              </div>
+              <div class="surface-grid">
+                <span>Records</span>
+                <strong>Queued</strong>
+                <span>Filters</span>
+                <strong>Queued</strong>
+                <span>Detail</span>
+                <strong>Queued</strong>
+              </div>
+            </section>
+          </section>
+
+          <section class="view" data-view-panel="docs" aria-labelledby="docs-title" hidden>
+            <div class="view-header">
+              <div>
+                <p class="section-kicker">Reference</p>
+                <h1 id="docs-title">Docs</h1>
+              </div>
+              <span class="status-chip">Foundation</span>
+            </div>
+
+            <section class="panel" aria-labelledby="docs-surface-title">
+              <div class="panel-header">
+                <h2 id="docs-surface-title">Surfaces</h2>
+                <span class="panel-meta">Self-hosted</span>
+              </div>
+              <div class="surface-grid">
+                <span>MCP</span>
+                <strong>/mcp</strong>
+                <span>REST Capture</span>
+                <strong>/api/feedback</strong>
+                <span>Admin REST</span>
+                <strong>/admin/api</strong>
+              </div>
+            </section>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

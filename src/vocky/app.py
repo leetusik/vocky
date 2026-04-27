@@ -11,6 +11,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
 from vocky.admin_api import routes as admin_routes
+from vocky.admin_ui import routes as admin_ui_routes
 from vocky.api import routes as api_routes
 from vocky.auth import APIBearerAuthMiddleware, AdminBearerAuthMiddleware, MCPBearerAuthMiddleware
 from vocky.config import get_settings
@@ -46,6 +47,7 @@ def create_app() -> Starlette:
         routes=[
             Route("/healthz", healthz),
             *admin_routes,
+            *admin_ui_routes,
             *api_routes,
             Mount("/", app=mcp.streamable_http_app()),
         ],

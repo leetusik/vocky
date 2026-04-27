@@ -2,14 +2,14 @@
 
 ## Status
 
-This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through MCP or server-to-server REST using Redis-backed queueing plus a dedicated worker while exposing MCP read tools, liked-conversation retrieval, and separate Admin REST endpoints over the same PostgreSQL feedback store.
+This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through MCP or server-to-server REST using Redis-backed queueing plus a dedicated worker while exposing MCP read tools, liked-conversation retrieval, separate Admin REST endpoints, and a same-origin self-hosted Admin Web UI foundation over the same PostgreSQL feedback store.
 
 ## Current Repo Shape
 
 - `README.md`: product-facing project overview
 - `AGENTS.md`: coding-agent workflow rules
 - `pyproject.toml`: Python project metadata and dependencies
-- `src/vocky/`: service code, MCP server wiring, persistence layer, and smoke script
+- `src/vocky/`: service code, MCP server wiring, Admin REST and Web UI routing, persistence layer, and smoke script
 - `alembic/` and `alembic.ini`: database migration environment
 - `tests/`: validation, persistence, and MCP integration coverage
 - `Dockerfile`, `docker-compose.yml`, `.env.example`, `Makefile`: local run and self-hosted development workflow
@@ -25,6 +25,7 @@ The first MVP should be built from these parts:
 - A storage layer that preserves raw feedback plus the metadata needed for retrieval and basic aggregates
 - MCP read tools that return stored records, simple counts or trends, and liked examples for AI-agent workflows
 - Dedicated Admin REST endpoints for human operators and dashboards
+- A packaged same-origin Admin Web UI foundation for self-hosted operators, backed by Admin REST rather than a separate browser-facing data API
 
 ## Runtime Shape
 
@@ -38,6 +39,7 @@ The current service uses these choices:
 - Official MCP Python SDK `FastMCP` served by the host app at `/mcp` using Streamable HTTP
 - Public REST capture route under `/api/*`
 - Starlette Admin REST routes under `/admin/api/*`
+- Starlette Admin Web UI routes under `/admin` and packaged static assets under `/admin/assets/*`
 - Stateless MCP operation with JSON responses enabled
 - A plain `/healthz` endpoint on the same host app for smoke checks
 - Optional bearer-token protection for MCP traffic when public access is enabled
@@ -45,7 +47,7 @@ The current service uses these choices:
 - Optional bearer-token protection for Admin REST traffic when `VOCKY_ADMIN_AUTH_TOKEN` is set
 - Transport-neutral validation, service, and persistence layers so the worker can reuse the same persistence path as the capture adapters
 
-Clients should use `/mcp` as the canonical MCP endpoint. Server-to-server product integrations that cannot use MCP should use `/api/feedback` for capture-only ingestion. Human/operator tools should use `/admin/api/*`. The app avoids relying on a `/mcp` to `/mcp/` redirect so reverse proxies do not need to repair redirect schemes.
+Clients should use `/mcp` as the canonical MCP endpoint. Server-to-server product integrations that cannot use MCP should use `/api/feedback` for capture-only ingestion. Human/operator tools should use `/admin/api/*`, while browser operators can load the packaged UI from `/admin`. The app avoids relying on a `/mcp` to `/mcp/` redirect so reverse proxies do not need to repair redirect schemes.
 
 ## Three-Track API Shape
 
@@ -55,7 +57,7 @@ Vocky now has three public-facing tracks over the same feedback schema:
 - Public REST capture track for server-to-server product integrations: `POST /api/feedback`.
 - Admin REST track for humans and dashboards: `/admin/api/feedback` list/detail plus patch/delete management endpoints.
 
-All tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, or management endpoints. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, metadata, messages, and used context.
+The Admin Web UI is a same-origin browser surface layered over the Admin REST track. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, or management endpoints. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, metadata, messages, and used context.
 
 ## Configuration Surface
 
@@ -90,6 +92,8 @@ The supported operator modes are:
 - Internal self-hosting: Compose publishes on loopback by default and host-side checks use `VOCKY_BASE_URL`.
 - Public custom-domain deploy: operators can publish the app through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL` to the public origin such as `https://vocky.example.com`, allow that Host and Origin through `VOCKY_MCP_ALLOWED_HOSTS` and `VOCKY_MCP_ALLOWED_ORIGINS`, and require `VOCKY_MCP_AUTH_TOKEN`. Operators should also require `VOCKY_API_AUTH_TOKEN` before exposing `/api/*` and `VOCKY_ADMIN_AUTH_TOKEN` before exposing Admin REST.
 
+The `/admin` shell can load without server-side auth, but protected Admin data remains unavailable unless the browser supplies the configured Admin bearer token to `/admin/api/*`.
+
 For Cloudflare Tunnel users, the recommended public shape is a hostname-to-service mapping from `vocky.example.com` to `http://127.0.0.1:8000`, with the local Vocky process still bound behind the tunnel and no inbound origin port requirement.
 
 ## MVP Boundaries
@@ -97,7 +101,7 @@ For Cloudflare Tunnel users, the recommended public shape is a hostname-to-servi
 - Self-hosted and single-tenant
 - Capture ingestion is limited to MCP and server-to-server REST in the MVP
 - No automatic classification or summarization in the MVP
-- No dashboard UI in the MVP
+- Admin Web UI starts as a same-origin self-hosted operator foundation; full dashboard metrics and feedback management workflows are later UI layers
 - No separate Admin REST database or MCP-specific feedback store
 - No managed-cloud or multi-tenant architecture in the MVP
 - No public job-status API or dashboard in the MVP

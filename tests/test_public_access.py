@@ -62,6 +62,7 @@ def test_mcp_auth_helpers_match_only_mcp_paths_and_bearer_headers() -> None:
     assert is_admin_api_path("/admin/api") is True
     assert is_admin_api_path("/admin/api/feedback") is True
     assert is_admin_api_path("/admin") is False
+    assert is_admin_api_path("/admin/assets/app.js") is False
     assert is_api_path("/api") is True
     assert is_api_path("/api/feedback") is True
     assert is_api_path("/admin/api/feedback") is False
@@ -224,6 +225,8 @@ def test_admin_healthz_route_is_not_handled_by_mcp_mount() -> None:
     route_paths = [getattr(route, "path", None) for route in app.routes]
 
     assert route_paths.index("/admin/api/healthz") < route_paths.index("")
+    assert route_paths.index("/admin") < route_paths.index("")
+    assert route_paths.index("/admin/assets/app.js") < route_paths.index("")
     assert route_paths.index("/api/feedback") < route_paths.index("")
 
 

@@ -23,12 +23,13 @@ The name comes from VoC, short for voice of customer.
 - Expose minimal MCP review/query tools for retrieving records and simple counts
 - Retrieve liked conversations through MCP for AI-agent few-shot use
 - Expose separate Admin REST endpoints for human/operator review
+- Provide the foundation for a self-hosted Admin Web UI served by the Vocky app
 - Run as a self-hosted, single-tenant MVP
 
 ## What The First MVP Will Not Do
 
 - Automatic classification or taxonomy assignment
-- A dashboard UI
+- A full analytics dashboard or polished feedback management workspace
 - Browser-direct unauthenticated ingestion
 - Public REST review, query, summary, or management endpoints outside Admin REST
 - Managed multi-tenant SaaS features
@@ -44,6 +45,7 @@ Vocky is intended to follow a light open-core direction: a community, self-hosta
 - MCP review/query tools are implemented through `list_feedback` and `summarize_feedback`.
 - AI-agent liked conversation retrieval is implemented through `list_liked_conversations`.
 - Human/operator review is available through separate Admin REST endpoints under `/admin/api`.
+- A same-origin Admin Web UI foundation is available under `/admin` for self-hosted operators.
 - Completed feedback events persist to PostgreSQL with Alembic migrations.
 - Self-hosted runtime now includes PostgreSQL, Redis, the MCP app process, and a dedicated worker process.
 - The project is still pre-MVP and the contracts should be treated as early-stage.
@@ -105,11 +107,12 @@ The Starlette host app exposes:
 - `GET /healthz`
 - Public REST capture at `POST /api/feedback`
 - Admin REST under `/admin/api/*`
+- Admin Web UI under `/admin`
 - MCP Streamable HTTP at `/mcp`
 
 Use `/mcp` exactly as the canonical MCP endpoint.
 
-There is no dashboard UI in the current MVP. Vocky is an MCP and REST service plus background worker, not a browser app.
+The Admin Web UI is a self-hosted operator foundation. Full dashboard metrics, in-app documentation pages, and feedback management workflows are planned as later UI layers.
 
 ## Access Modes
 

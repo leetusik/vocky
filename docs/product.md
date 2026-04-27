@@ -2,7 +2,7 @@
 
 ## Status
 
-Vocky is pre-MVP. The first runnable self-hosted capture plus review service is implemented with MCP capture/read tools, server-to-server REST capture, liked-conversation retrieval, Admin REST, PostgreSQL persistence, Redis-backed queueing, and a background worker. The contracts should still be treated as early-stage.
+Vocky is pre-MVP. The first runnable self-hosted capture plus review service is implemented with MCP capture/read tools, server-to-server REST capture, liked-conversation retrieval, Admin REST, a self-hosted operator Admin Web UI foundation, PostgreSQL persistence, Redis-backed queueing, and a background worker. The contracts should still be treated as early-stage.
 
 ## Summary
 
@@ -18,9 +18,10 @@ The first MVP is intentionally narrow:
 - Explicit user action feedback capture, including like/dislike values, optional comments, conversation context, and basic metadata
 - MCP review/query tools for record retrieval, simple counts, trends, and liked-conversation retrieval
 - Dedicated Admin REST endpoints for human/operator review of stored feedback
+- A self-hosted operator Admin Web UI foundation that loads from the Vocky app and uses Admin REST as its protected data boundary
 - PostgreSQL storage with Redis-backed background persistence
 
-The MVP does not need automated classification, a dashboard UI, or managed-cloud capabilities.
+The MVP does not need automated classification, managed-cloud capabilities, or a production-grade analytics workspace.
 
 ## Target Users
 
@@ -40,17 +41,18 @@ The MVP does not need automated classification, a dashboard UI, or managed-cloud
 - Store explicit user action feedback with enough message, context, comment, and metadata detail for later review
 - Make stored feedback reviewable through a minimal query surface
 - Surface simple counts and trends without building a full analytics product
+- Provide a first browser-based operator entry point for self-hosted review and documentation workflows
 - Keep the first release practical for community and self-hosted use
 
 ## Non-Goals for Now
 
 - Automatic classification or taxonomy assignment
-- A human-facing dashboard UI
 - A production-ready analytics suite
 - Browser-direct unauthenticated ingestion paths
 - Public REST review, query, summary, or management APIs outside the dedicated Admin REST surface
 - Multi-tenant managed-cloud architecture
 - Enterprise-grade compliance or admin workflows
+- SaaS account, organization, billing, or tenant-selection UI concepts
 - Finalized public API commitments
 
 ## Product Direction
@@ -58,6 +60,7 @@ The MVP does not need automated classification, a dashboard UI, or managed-cloud
 - Community and self-hosted usage are part of the base direction.
 - The first MVP should optimize for self-hosted deployment before managed concerns.
 - Self-hosted deployments may be local/private or publicly reachable behind an operator-managed custom domain, provided public MCP, REST capture, and Admin REST access are protected where exposed.
+- The Admin Web UI is an operator surface for self-hosted deployments. It should stay same-origin with the app, use Admin REST for protected data, and avoid managed-SaaS assumptions.
 - The capture path should acknowledge accepted work quickly and complete persistence asynchronously in the background.
 - The initial high-signal capture path should focus on explicit user actions, such as like/dislike clicks and optional comments, rather than trying to infer feedback from every conversation turn.
 - A managed offering may exist later around convenience, operations, and richer workflows.

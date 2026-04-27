@@ -31,14 +31,21 @@
 
 - Phase ID: `P1`
 - Objective: Establish the integrated browser UI surface, routing, auth model, navigation shell, and reference-doc direction for self-hosted operators.
-- Status: planned
-- Review outcome: pending
+- Status: done
+- Review outcome: passed
 - Notes: Serve the first Web UI from the existing Starlette app under an admin-oriented path such as `/admin`, while preserving `/mcp`, `/api/*`, and `/admin/api/*`. This phase should update product and architecture docs to move dashboard UI out of current non-goals and clarify that the UI is for self-hosted operators, not SaaS tenants.
 - Work items:
-  - None yet
+  - `works/archives/work_items/20260427_1114_decompose_web_ui_foundation` (`P1.DECOMP`)
+  - `works/archives/work_items/20260427_1120_lock_web_ui_scope_and_docs_direction` (`P1.S1`)
+  - `works/archives/work_items/20260427_1123_add_admin_web_ui_route_and_static_assets` (`P1.S2`)
+  - `works/archives/work_items/20260427_1125_build_operator_navigation_shell_and_token_client` (`P1.S3`)
+  - `works/archives/work_items/20260427_1130_phase_review_web_ui_foundation` (`P1.REVIEW`)
 - Slices:
-  - [ ] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
-  - [ ] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+  - [x] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_1114_decompose_web_ui_foundation` | Notes: Added implementation slices for Web UI scope/docs direction, Admin UI route/static serving, and the operator navigation/token client.
+  - [x] Slice ID: `P1.S1` | Name: `lock Web UI scope and docs direction` | Status: done | Work item: `works/archives/work_items/20260427_1120_lock_web_ui_scope_and_docs_direction` | Notes: Updated product, architecture, and README wording for the self-hosted operator Admin Web UI foundation and Admin REST data boundary.
+  - [x] Slice ID: `P1.S2` | Name: `add Admin Web UI route and static assets` | Status: done | Work item: `works/archives/work_items/20260427_1123_add_admin_web_ui_route_and_static_assets` | Notes: Added packaged `/admin` HTML and `/admin/assets/*` routes before the MCP mount while preserving Admin REST, public REST, and MCP route behavior.
+  - [x] Slice ID: `P1.S3` | Name: `build operator navigation shell and token client` | Status: done | Work item: `works/archives/work_items/20260427_1125_build_operator_navigation_shell_and_token_client` | Notes: Built the first Admin Web UI operator shell with Dashboard, Feedback, and Docs views plus a session-stored Admin bearer token client for `/admin/api/*`.
+  - [x] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260427_1130_phase_review_web_ui_foundation` | Notes: Review passed for route safety, auth behavior, docs consistency, package resource serving, and UI baseline. No fix slices were needed.
 
 ### Phase P2: In-app operator documentation
 
