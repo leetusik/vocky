@@ -26,8 +26,8 @@ class CaptureFeedbackSourceInput(BaseModel):
     integration: str | None = None
 
 
-class CaptureFeedbackInput(BaseModel):
-    """Raw feedback capture input."""
+class BaseCaptureFeedbackInput(BaseModel):
+    """Shared raw capture fields before transport-specific normalization."""
 
     message: str
     source: CaptureFeedbackSourceInput
@@ -46,6 +46,14 @@ class CaptureFeedbackInput(BaseModel):
     used_context: list[Any] | None = None
     source_metadata: dict[str, Any] = Field(default_factory=dict)
     attributes: dict[str, Any] = Field(default_factory=dict)
+
+
+class McpCaptureFeedbackInput(BaseCaptureFeedbackInput):
+    """Raw feedback capture input received through MCP."""
+
+
+class RestCaptureFeedbackInput(BaseCaptureFeedbackInput):
+    """Raw feedback capture input received through public REST."""
 
 
 class CaptureFeedbackResponse(BaseModel):
@@ -171,8 +179,8 @@ def normalize_json_array(value: list[Any] | None, *, field_name: str) -> tuple[A
     return tuple(value)
 
 
-def normalize_payload(raw: CaptureFeedbackInput) -> NormalizedCaptureFeedback:
-    """Normalize and validate a raw capture payload."""
+def _normalize_capture_payload(raw: BaseCaptureFeedbackInput) -> NormalizedCaptureFeedback:
+    """Normalize and validate a raw capture payload into the shared service type."""
 
     normalized_event_at = parse_event_at(raw.event_at)
     payload = CreateFeedbackEvent(
@@ -199,6 +207,28 @@ def normalize_payload(raw: CaptureFeedbackInput) -> NormalizedCaptureFeedback:
         payload=payload,
         normalized_event_at=normalized_event_at,
     )
+
+
+def normalize_mcp_payload(raw: McpCaptureFeedbackInput) -> NormalizedCaptureFeedback:
+    """Normalize and validate a raw MCP capture payload."""
+
+    return _normalize_capture_payload(raw)
+
+
+def normalize_rest_payload(raw: RestCaptureFeedbackInput) -> NormalizedCaptureFeedback:
+    """Normalize and validate a raw REST capture payload."""
+
+    return _normalize_capture_payload(raw)
+
+
+def normalize_payload(raw: BaseCaptureFeedbackInput) -> NormalizedCaptureFeedback:
+    """Backward-compatible capture payload normalizer."""
+
+    return _normalize_capture_payload(raw)
+
+
+# Backward-compatible import name for older internal tests or integrations.
+CaptureFeedbackInput = McpCaptureFeedbackInput
 
 
 def serialize_datetime(value: datetime) -> str:

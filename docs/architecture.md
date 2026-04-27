@@ -21,7 +21,7 @@ This architecture is intentionally lightweight. Vocky is still pre-MVP, and the 
 
 The first MVP should be built from these parts:
 
-- MCP-facing and server-to-server REST feedback capture layers that accept explicit user action feedback from agent products
+- MCP-facing feedback capture for agent/message workflows and server-to-server REST feedback capture for broader website or product feedback
 - A storage layer that preserves raw feedback plus the metadata needed for retrieval and basic aggregates
 - MCP read tools that return stored records, simple counts or trends, and liked examples for AI-agent workflows
 - Dedicated Admin REST endpoints for human operators, dashboard metrics, and review workflows
@@ -46,19 +46,19 @@ The current service uses these choices:
 - Optional bearer-token protection for public REST capture traffic when `VOCKY_API_AUTH_TOKEN` is set
 - Optional bearer-token protection for Admin REST traffic when `VOCKY_ADMIN_AUTH_TOKEN` is set
 - Docker builds install runtime dependencies and the local project into the image, while Compose app and worker commands use `uv run --no-sync` so container startup does not repeat dependency sync
-- Transport-neutral validation, service, and persistence layers so the worker can reuse the same persistence path as the capture adapters
+- Transport-specific capture adapters with shared validation helpers, service, and persistence layers so MCP and REST can express different integration intent while the worker reuses the same persistence path
 
-Clients should use `/mcp` as the canonical MCP endpoint. Server-to-server product integrations that cannot use MCP should use `/api/feedback` for capture-only ingestion. Human/operator tools should use `/admin/api/*`, while browser operators can load the packaged UI from `/admin`. The app avoids relying on a `/mcp` to `/mcp/` redirect so reverse proxies do not need to repair redirect schemes.
+Clients should use `/mcp` as the canonical MCP endpoint for agent workflows. Server-to-server product integrations should use `/api/feedback` for capture-only ingestion, including non-agent website or product-surface feedback. Human/operator tools should use `/admin/api/*`, while browser operators can load the packaged UI from `/admin`. The app avoids relying on a `/mcp` to `/mcp/` redirect so reverse proxies do not need to repair redirect schemes.
 
 ## Three-Track API Shape
 
 Vocky now has three public-facing tracks over the same feedback schema:
 
-- MCP track for AI-agent workflows: `capture_feedback`, `list_feedback`, `summarize_feedback`, and `list_liked_conversations`.
-- Public REST capture track for server-to-server product integrations: `POST /api/feedback`.
+- MCP track for AI-agent workflows: `capture_feedback`, `list_feedback`, `summarize_feedback`, and `list_liked_conversations`. MCP capture is optimized for message, conversation, and agent-context feedback.
+- Public REST capture track for server-to-server product integrations: `POST /api/feedback`. REST capture uses the existing capture field set for general website or product feedback, including surface feedback represented with `target_type="surface"` when applicable.
 - Admin REST track for humans and dashboards: `/admin/api/feedback` list/detail, `/admin/api/feedback/metrics` dashboard metrics, plus patch/delete management endpoints.
 
-The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data, feedback review management, and packaged static docs assets for operator reference content. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, or management endpoints. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, metadata, target context, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
+The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data, feedback review management, and packaged static docs assets for operator reference content. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, or management endpoints. REST does not add a separate wire shape in this phase; website and product context should be represented with `target_type`, `target_id`, `target_text`, `channel`, `tags`, `source_metadata`, and `attributes`. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, metadata, target context, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
 
 ## Configuration Surface
 
@@ -100,7 +100,7 @@ For Cloudflare Tunnel users, the recommended public shape is a hostname-to-servi
 ## MVP Boundaries
 
 - Self-hosted and single-tenant
-- Capture ingestion is limited to MCP and server-to-server REST in the MVP
+- Capture ingestion is limited to MCP and server-to-server REST in the MVP; browser-direct unauthenticated ingestion is outside scope
 - No automatic classification or summarization in the MVP
 - Admin Web UI includes a same-origin self-hosted operator shell, dashboard metrics, recent activity, feedback list/filter/detail inspection, review-field editing, guarded delete, and in-app operator docs
 - No separate Admin REST database or MCP-specific feedback store
@@ -115,6 +115,7 @@ For Cloudflare Tunnel users, the recommended public shape is a hostname-to-servi
 - `session_id` is optional runtime, browser, or user-session scope that can correlate repeated interactions without replacing `conversation_id`.
 - Target fields identify the exact reviewed item when known: `target_type` describes whether the target is a `message`, `conversation`, or `surface`; `target_id` stores the caller's stable identifier; `target_role` stores the reviewed message role when applicable; and `target_text` stores a snapshot of the exact reviewed text.
 - `messages` stores surrounding conversation context supplied by the caller. `used_context` stores context that the agent used while producing the reviewed response.
+- REST product or website feedback can omit conversation-specific fields and store page, widget, URL, account, or runtime context in `target_*`, `source_metadata`, and `attributes`.
 - The storage layer only needs to support the retrieval and aggregate queries required by the MCP review tools; it does not need analytics-warehouse style modeling for the first MVP.
 
 ## Capture Storage Model
@@ -211,7 +212,7 @@ The implemented `P3` query model uses these constraints:
 - Return REST queue-accept failures as `503` JSON responses.
 - Return query validation failures and storage read failures as MCP tool execution errors instead of protocol errors.
 - Keep unknown-tool failures at the MCP protocol layer.
-- Keep public REST capture and Admin REST handlers separate from MCP tool handlers while sharing transport-neutral validation, service, and repository layers where appropriate.
+- Keep public REST capture and Admin REST handlers separate from MCP tool handlers while sharing validation helpers, service, queue, and repository layers where appropriate.
 
 ## Open Questions
 

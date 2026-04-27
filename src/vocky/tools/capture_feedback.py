@@ -8,11 +8,11 @@ from typing import Any
 from mcp.types import CallToolResult, TextContent
 
 from vocky.capture import (
-    CaptureFeedbackInput,
     CaptureFeedbackSourceInput,
     CaptureFeedbackValidationError,
+    McpCaptureFeedbackInput,
+    normalize_mcp_payload,
     serialize_capture_receipt,
-    normalize_payload,
 )
 from vocky.capture_queue import CaptureQueueError, get_capture_queue
 from vocky.mcp_server import mcp
@@ -51,7 +51,7 @@ async def capture_feedback(
 ) -> CallToolResult:
     """Capture a single feedback event for later review."""
 
-    raw_payload = CaptureFeedbackInput(
+    raw_payload = McpCaptureFeedbackInput(
         message=message,
         source=source,
         feedback_value=feedback_value,
@@ -72,7 +72,7 @@ async def capture_feedback(
     )
 
     try:
-        normalized = normalize_payload(raw_payload)
+        normalized = normalize_mcp_payload(raw_payload)
     except CaptureFeedbackValidationError as exc:
         return error_result(str(exc))
 

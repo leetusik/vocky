@@ -21,7 +21,7 @@ def make_api_app() -> Starlette:
 
 
 @pytest.mark.anyio
-async def test_capture_feedback_accepts_payload_and_enqueues(
+async def test_capture_feedback_accepts_message_action_payload_and_enqueues(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
@@ -79,6 +79,60 @@ async def test_capture_feedback_accepts_payload_and_enqueues(
     )
     assert queued_job.payload.source_metadata == {"channel": "pytest"}
     assert queued_job.payload.attributes == {"priority": "high"}
+
+    await redis_client.aclose()
+
+
+@pytest.mark.anyio
+async def test_capture_feedback_accepts_surface_product_payload_and_enqueues(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    queue = CaptureQueue(redis_client)
+    monkeypatch.setattr(api_module, "get_capture_queue", lambda: queue)
+
+    transport = httpx.ASGITransport(app=make_api_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/feedback",
+            json={
+                "message": "Pricing page feedback button was hard to find",
+                "source": {"product": "marketing-site", "integration": "web-backend"},
+                "comment": "I wanted to send feedback but did not notice the button",
+                "channel": "web",
+                "session_id": "sess_123",
+                "target_type": "surface",
+                "target_id": "pricing-page-feedback-button",
+                "target_text": "Feedback",
+                "tags": ["website", "pricing"],
+                "source_metadata": {"path": "/pricing", "referrer": "/"},
+                "attributes": {"plan": "team", "locale": "en-US"},
+            },
+        )
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "accepted"
+    assert await redis_client.llen("vocky:capture:feedback") == 1
+
+    queued_job = await queue.pop_job(timeout_seconds=1)
+    assert queued_job is not None
+    assert queued_job.payload.message == "Pricing page feedback button was hard to find"
+    assert queued_job.payload.source_product == "marketing-site"
+    assert queued_job.payload.source_integration == "web-backend"
+    assert queued_job.payload.feedback_value is None
+    assert queued_job.payload.comment == "I wanted to send feedback but did not notice the button"
+    assert queued_job.payload.channel == "web"
+    assert queued_job.payload.conversation_id is None
+    assert queued_job.payload.session_id == "sess_123"
+    assert queued_job.payload.target_type == "surface"
+    assert queued_job.payload.target_id == "pricing-page-feedback-button"
+    assert queued_job.payload.target_role is None
+    assert queued_job.payload.target_text == "Feedback"
+    assert queued_job.payload.tags == ("website", "pricing")
+    assert queued_job.payload.messages == ()
+    assert queued_job.payload.used_context == ()
+    assert queued_job.payload.source_metadata == {"path": "/pricing", "referrer": "/"}
+    assert queued_job.payload.attributes == {"plan": "team", "locale": "en-US"}
 
     await redis_client.aclose()
 

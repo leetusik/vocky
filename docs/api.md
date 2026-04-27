@@ -11,7 +11,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 ## MVP Surfaces
 
 - MCP tool contract for feedback capture
-- Web Feedback Capture REST API contract for server-to-server ingestion
+- Web Feedback Capture REST API contract for server-to-server website and product feedback ingestion
 - MCP tool contracts for review and query access
 - MCP tool contract for liked-conversation retrieval
 - Admin REST API contract for human/operator review and dashboard metrics
@@ -41,8 +41,8 @@ Use this file to record public-facing contracts as they are implemented. The cur
 ### Feedback Capture MCP Tool
 
 - Status: implemented in `P1`
-- Consumers: Agent products and agent-runtime integrations sending feedback into Vocky
-- Purpose: Submit a single feedback event from an agent interaction for asynchronous persistence
+- Consumers: Agent products and agent-runtime integrations sending agent workflow feedback into Vocky
+- Purpose: Submit a single feedback event from an agent interaction, usually about an exact message, conversation, or agent response, for asynchronous persistence
 - Inputs:
   - Tool name: `capture_feedback`
   - Request body:
@@ -82,7 +82,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - No managed-cloud auth model is defined yet
   - Public self-hosted deployments should require `Authorization: Bearer <VOCKY_MCP_AUTH_TOKEN>` on the MCP HTTP request
 - Notes:
-  - MCP capture is the agent-workflow ingestion surface. Server-to-server product integrations that cannot use MCP may use the Web Feedback Capture REST API.
+  - MCP capture is the agent-workflow ingestion surface. Server-to-server website and product integrations should use the Web Feedback Capture REST API.
   - Target fields are optional captured context. Omitting them preserves the legacy capture behavior and stores `null` target values.
   - The MVP stores raw feedback and metadata; it does not auto-classify events
   - The persisted record shape is defined in `docs/architecture.md` under `Capture Storage Model`
@@ -93,8 +93,8 @@ Use this file to record public-facing contracts as they are implemented. The cur
 ### Web Feedback Capture REST API
 
 - Status: implemented in `P1`
-- Consumers: Server-to-server web and product integrations sending feedback into Vocky without using MCP
-- Purpose: Submit a single feedback event for asynchronous persistence
+- Consumers: Server-to-server web and product integrations sending website, product-surface, or agent-product feedback into Vocky without using MCP
+- Purpose: Submit a single general feedback event for asynchronous persistence through the existing capture field set
 - Base path: `/api`
 - Auth or permissions:
   - Deployment-specific for the self-hosted MVP
@@ -103,13 +103,25 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Endpoint:
   - `POST /api/feedback`
 - Inputs:
-  - JSON request body with the same fields and validation semantics as the `capture_feedback` MCP tool:
-    - `message: string` required
-    - `source.product: string` required
-    - `source.integration: string` optional
-    - `feedback_value: integer` optional, `1` for like or `2` for dislike
-    - `comment`, `channel`, `conversation_id`, `session_id`, `target_type`, `target_id`, `target_role`, `target_text`, and timezone-aware `event_at` optional
-    - `tags`, `messages`, `used_context`, `source_metadata`, and `attributes` optional
+  - JSON request body using the shared capture fields:
+    - `message: string` required. Leading and trailing whitespace is trimmed. The value must not be blank after trimming. For REST, this may summarize website, page, widget, product-surface, or agent-product feedback.
+    - `source.product: string` required. Leading and trailing whitespace is trimmed. The value must not be blank after trimming.
+    - `source.integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike. General REST feedback may omit this when there is no explicit like/dislike action.
+    - `comment: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `conversation_id: string` optional. Caller-provided conversation or thread identifier when the REST feedback belongs to a conversation. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `session_id: string` optional. Caller-provided runtime, browser, or user-session identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `target_type: string` optional. Allowed values are `message`, `conversation`, and `surface`. Use `surface` for page, widget, screen, or other non-message product-surface feedback when the exact target is known.
+    - `target_id: string` optional. Caller-provided stable identifier for the target, such as a message id, page id, widget id, or UI surface id. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `target_role: string` optional. Role for message targets. Allowed values are `user`, `assistant`, `system`, and `tool`. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `target_text: string` optional. Snapshot of the exact reviewed message or product surface text. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `event_at: string` optional. Must be a timezone-aware ISO 8601 timestamp. Naive timestamps are rejected. Accepted values are normalized to UTC before persistence and in responses.
+    - `tags: string[]` optional. Tags are trimmed. Blank tags are rejected. Duplicate tags after normalization are rejected.
+    - `messages: array` optional. JSON array of caller-provided surrounding conversation messages when relevant.
+    - `used_context: array` optional. JSON array of caller-provided context used by the agent when relevant.
+    - `source_metadata: object` optional. Arbitrary JSON object for source context such as URL, path, referrer, browser, page, widget, or backend integration detail.
+    - `attributes: object` optional. Arbitrary JSON object for product-specific dimensions such as account plan, environment, locale, or rollout cohort.
 - Outputs:
   - Success status: `202 Accepted`
   - Response body:
@@ -123,6 +135,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Notes:
   - This REST API is capture-only. It does not add public REST review, query, summary, job-status, or management endpoints.
   - Target fields are optional captured context. Omitting them preserves the legacy capture behavior and stores `null` target values.
+  - REST capture supports broader website and product feedback through the existing fields; this phase does not add REST-only aliases, a versioned endpoint, or separate storage.
   - Success means the job was accepted for background processing, not that the feedback record is already queryable.
   - Accepted REST capture jobs use the same Redis queue, worker, feedback service, and PostgreSQL table as MCP capture jobs.
 

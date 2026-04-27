@@ -7,14 +7,16 @@ from datetime import UTC, datetime
 import pytest
 
 from vocky.capture import (
-    CaptureFeedbackInput,
     CaptureFeedbackSourceInput,
     CaptureFeedbackValidationError,
-    normalize_payload,
+    McpCaptureFeedbackInput,
+    RestCaptureFeedbackInput,
+    normalize_mcp_payload,
+    normalize_rest_payload,
 )
 
 
-def make_input(**overrides: object) -> CaptureFeedbackInput:
+def make_input(**overrides: object) -> McpCaptureFeedbackInput:
     """Create a default raw capture input for tests."""
 
     data = {
@@ -37,32 +39,32 @@ def make_input(**overrides: object) -> CaptureFeedbackInput:
         "attributes": {},
     }
     data.update(overrides)
-    return CaptureFeedbackInput(**data)
+    return McpCaptureFeedbackInput(**data)
 
 
 def test_blank_message_is_rejected() -> None:
     with pytest.raises(CaptureFeedbackValidationError, match="message must not be blank"):
-        normalize_payload(make_input(message="   "))
+        normalize_mcp_payload(make_input(message="   "))
 
 
 def test_blank_source_product_is_rejected() -> None:
     with pytest.raises(CaptureFeedbackValidationError, match="source.product must not be blank"):
-        normalize_payload(make_input(source=CaptureFeedbackSourceInput(product="  ")))
+        normalize_mcp_payload(make_input(source=CaptureFeedbackSourceInput(product="  ")))
 
 
 def test_naive_event_at_is_rejected() -> None:
     with pytest.raises(CaptureFeedbackValidationError, match="event_at must include a timezone offset"):
-        normalize_payload(make_input(event_at="2026-04-23T14:00:00"))
+        normalize_mcp_payload(make_input(event_at="2026-04-23T14:00:00"))
 
 
 def test_blank_tag_is_rejected() -> None:
     with pytest.raises(CaptureFeedbackValidationError, match="tags must not contain blank values"):
-        normalize_payload(make_input(tags=["valid", "   "]))
+        normalize_mcp_payload(make_input(tags=["valid", "   "]))
 
 
 def test_duplicate_tags_are_rejected_after_normalization() -> None:
     with pytest.raises(CaptureFeedbackValidationError, match="tags must not contain duplicates"):
-        normalize_payload(make_input(tags=["bug", " bug "]))
+        normalize_mcp_payload(make_input(tags=["bug", " bug "]))
 
 
 def test_invalid_feedback_value_is_rejected() -> None:
@@ -70,7 +72,7 @@ def test_invalid_feedback_value_is_rejected() -> None:
         CaptureFeedbackValidationError,
         match="feedback_value must be 1 for like or 2 for dislike",
     ):
-        normalize_payload(make_input(feedback_value=3))
+        normalize_mcp_payload(make_input(feedback_value=3))
 
 
 def test_invalid_target_type_is_rejected() -> None:
@@ -78,7 +80,7 @@ def test_invalid_target_type_is_rejected() -> None:
         CaptureFeedbackValidationError,
         match="target_type must be one of: message, conversation, surface",
     ):
-        normalize_payload(make_input(target_type="answer"))
+        normalize_mcp_payload(make_input(target_type="answer"))
 
 
 def test_invalid_target_role_is_rejected() -> None:
@@ -86,11 +88,11 @@ def test_invalid_target_role_is_rejected() -> None:
         CaptureFeedbackValidationError,
         match="target_role must be one of: user, assistant, system, tool",
     ):
-        normalize_payload(make_input(target_role="bot"))
+        normalize_mcp_payload(make_input(target_role="bot"))
 
 
 def test_action_feedback_context_is_accepted_and_event_at_is_normalized() -> None:
-    normalized = normalize_payload(
+    normalized = normalize_mcp_payload(
         make_input(
             feedback_value=2,
             comment="  The answer ignored my billing context  ",
@@ -136,7 +138,7 @@ def test_action_feedback_context_is_accepted_and_event_at_is_normalized() -> Non
 
 
 def test_blank_target_fields_normalize_to_none() -> None:
-    normalized = normalize_payload(
+    normalized = normalize_mcp_payload(
         make_input(
             target_type="   ",
             target_id=" ",
@@ -149,3 +151,27 @@ def test_blank_target_fields_normalize_to_none() -> None:
     assert normalized.payload.target_id is None
     assert normalized.payload.target_role is None
     assert normalized.payload.target_text is None
+
+
+def test_rest_payload_uses_shared_capture_normalization() -> None:
+    normalized = normalize_rest_payload(
+        RestCaptureFeedbackInput(
+            message="  Pricing page feedback  ",
+            source=CaptureFeedbackSourceInput(product="product-site", integration="feedback-api"),
+            target_type=" surface ",
+            target_id=" pricing-page ",
+            target_text="  Pricing page  ",
+            source_metadata={"path": "/pricing"},
+            attributes={"plan": "team"},
+        )
+    )
+
+    assert normalized.payload.message == "Pricing page feedback"
+    assert normalized.payload.source_product == "product-site"
+    assert normalized.payload.source_integration == "feedback-api"
+    assert normalized.payload.feedback_value is None
+    assert normalized.payload.target_type == "surface"
+    assert normalized.payload.target_id == "pricing-page"
+    assert normalized.payload.target_text == "Pricing page"
+    assert normalized.payload.source_metadata == {"path": "/pricing"}
+    assert normalized.payload.attributes == {"plan": "team"}

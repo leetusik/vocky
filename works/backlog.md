@@ -53,17 +53,21 @@
 
 - Phase ID: `P2`
 - Objective: Make REST capture support general website or product feedback while MCP capture remains optimized for message-specific agent feedback.
-- Status: in_progress
-- Review outcome: pending
+- Status: done
+- Review outcome: passed
 - Notes: REST capture remains server-to-server. Do not add browser-direct unauthenticated ingestion in this backlog. Adapt the existing `POST /api/feedback` contract in place for broader website/product feedback while preserving compatibility for current accepted REST payloads; do not add a versioned or split REST endpoint in P2.
 - Work items:
   - `works/archives/work_items/20260427_1800_decompose_rest_mcp_capture_intent`
+  - `works/archives/work_items/20260427_1806_lock_rest_mcp_capture_contract_split`
+  - `works/archives/work_items/20260427_1808_separate_transport_capture_input_paths`
+  - `works/archives/work_items/20260427_1811_update_rest_general_feedback_examples_and_compatibility`
+  - `works/archives/work_items/20260427_1813_review_rest_mcp_capture_intent`
 - Slices:
   - [x] Slice ID: `P2.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_1800_decompose_rest_mcp_capture_intent` | Notes: Added contract, transport-separation, guidance, and compatibility slices for P2.
-  - [ ] Slice ID: `P2.S1` | Name: `lock REST and MCP capture contract split` | Status: todo | Work item: none | Notes: Update durable docs to define the in-place REST compatibility direction, broader server-to-server website/product feedback semantics, and MCP's agent/message-oriented capture intent before code changes.
-  - [ ] Slice ID: `P2.S2` | Name: `separate transport capture input paths` | Status: todo | Work item: none | Notes: Split MCP and REST adapter/input handling enough to express their different intent while preserving the shared queue, service, persistence model, async receipt shape, and existing accepted REST payload compatibility.
-  - [ ] Slice ID: `P2.S3` | Name: `update REST general-feedback examples and compatibility coverage` | Status: todo | Work item: none | Notes: Add website/product REST examples and tests that prove current REST payloads and broader general-feedback payloads remain accepted without exposing new public review endpoints.
-  - [ ] Slice ID: `P2.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+  - [x] Slice ID: `P2.S1` | Name: `lock REST and MCP capture contract split` | Status: done | Work item: `works/archives/work_items/20260427_1806_lock_rest_mcp_capture_contract_split` | Notes: Durable docs now define REST as broader server-to-server website/product feedback through the existing fields, while MCP remains agent/message-oriented.
+  - [x] Slice ID: `P2.S2` | Name: `separate transport capture input paths` | Status: done | Work item: `works/archives/work_items/20260427_1808_separate_transport_capture_input_paths` | Notes: Added explicit MCP and REST capture input models/normalizers while preserving shared queue, service, persistence, validation behavior, and receipt shape.
+  - [x] Slice ID: `P2.S3` | Name: `update REST general-feedback examples and compatibility coverage` | Status: done | Work item: `works/archives/work_items/20260427_1811_update_rest_general_feedback_examples_and_compatibility` | Notes: Added website/product REST examples and tests proving current message/action payloads and broader surface feedback payloads are accepted without exposing new public review endpoints.
+  - [x] Slice ID: `P2.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260427_1813_review_rest_mcp_capture_intent` | Notes: Review passed with full pytest, package asset checks, and Compose-backed verify after rebuilding the stale app/worker containers; no fix slices were needed.
 
 ### Phase P3: Channel categories and Admin adjustability
 

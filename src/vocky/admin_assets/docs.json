@@ -92,7 +92,7 @@
           "blocks": [
             {
               "type": "paragraph",
-              "text": "Use POST /api/feedback from trusted server-side product code. The payload shape matches capture_feedback."
+              "text": "Use POST /api/feedback from trusted server-side product code. REST uses the shared capture fields for website and product feedback, including page, widget, or product-surface feedback with target_type surface."
             },
             {
               "type": "definition_list",
@@ -118,7 +118,7 @@
             {
               "type": "code",
               "language": "sh",
-              "text": "curl -X POST \"http://127.0.0.1:8000/api/feedback\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer <VOCKY_API_AUTH_TOKEN>\" \\\n  -d '{\"message\":\"Assistant answer was helpful\",\"source\":{\"product\":\"my-agent\",\"integration\":\"web-chat\"},\"feedback_value\":1,\"conversation_id\":\"conv_123\",\"target_type\":\"message\",\"target_id\":\"msg_assistant_789\",\"target_role\":\"assistant\",\"target_text\":\"Use the export menu and choose CSV.\"}'"
+              "text": "curl -X POST \"http://127.0.0.1:8000/api/feedback\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer <VOCKY_API_AUTH_TOKEN>\" \\\n  -d '{\"message\":\"Pricing page feedback button was hard to find\",\"source\":{\"product\":\"marketing-site\",\"integration\":\"web-backend\"},\"comment\":\"I wanted to send feedback but did not notice the button\",\"channel\":\"web\",\"session_id\":\"sess_123\",\"target_type\":\"surface\",\"target_id\":\"pricing-page-feedback-button\",\"target_text\":\"Feedback\",\"tags\":[\"website\",\"pricing\"],\"source_metadata\":{\"path\":\"/pricing\",\"referrer\":\"/\"},\"attributes\":{\"plan\":\"team\",\"locale\":\"en-US\"}}'"
             },
             {
               "type": "callout",

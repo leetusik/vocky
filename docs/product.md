@@ -6,14 +6,14 @@ Vocky is pre-MVP. The first runnable self-hosted capture plus review service is 
 
 ## Summary
 
-Vocky is a feedback layer for agent products. It aims to capture user feedback from agent conversations, structure it into usable signals, and help teams understand what customers are asking for, praising, or struggling with.
+Vocky is a feedback layer for agent products and the product surfaces around them. It aims to capture user feedback from agent conversations, websites, and product experiences, structure it into usable signals, and help teams understand what customers are asking for, praising, or struggling with.
 
 ## First MVP
 
 The first MVP is intentionally narrow:
 
 - Self-hosted and single-tenant
-- MCP and server-to-server REST ingestion for feedback capture
+- MCP ingestion for agent/message feedback and server-to-server REST ingestion for broader website or product feedback
 - Async capture that accepts quickly over MCP or REST and persists in the background
 - Explicit user action feedback capture, including like/dislike values, optional comments, conversation context, and basic metadata
 - MCP review/query tools for record retrieval, simple counts, trends, and liked-conversation retrieval
@@ -38,7 +38,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 
 ## Goals
 
-- Capture feedback events from agent interactions through MCP or server-to-server REST without making clients wait on persistence
+- Capture feedback events from agent interactions through MCP and from server-side product integrations through REST without making clients wait on persistence
 - Store explicit user action feedback with enough summary text, exact target, surrounding context, comment, and metadata detail for later review
 - Make stored feedback reviewable through a minimal query surface
 - Surface simple counts and trends without building a full analytics product
@@ -65,6 +65,8 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - The Admin Web UI is an operator surface for self-hosted deployments. It should stay same-origin with the app, use Admin REST for protected data, include practical dashboard metrics, feedback review management, and operator documentation, and avoid managed-SaaS assumptions.
 - The default local workflow should stay loopback-first and Compose-first, while public custom-domain access should be operator-managed through an HTTPS reverse proxy such as Cloudflare Tunnel and verified separately from local checks.
 - The capture path should acknowledge accepted work quickly and complete persistence asynchronously in the background.
+- The MCP capture path should stay optimized for agent workflows, especially explicit feedback on an exact message, conversation, or context-bearing agent response.
+- The REST capture path should support broader server-to-server website and product feedback, such as page, widget, or product-surface feedback, using the existing capture fields instead of REST-only aliases or a separate endpoint.
 - The initial high-signal capture path should focus on explicit user actions, such as like/dislike clicks and optional comments, rather than trying to infer feedback from every conversation turn.
 - Feedback capture should not assume that the latest message is the reviewed item. Callers should identify the exact reviewed message, conversation, or product surface when that information is available.
 - A managed offering may exist later around convenience, operations, and richer workflows.
@@ -83,6 +85,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - `target_text`: optional snapshot of the exact reviewed message or product surface text at capture time.
 - `messages`: optional surrounding conversation context supplied by the caller. It is context for review, not the authoritative target by itself.
 - `used_context`: optional context the agent used while generating the reviewed response, such as retrieved documents, snippets, or tool context.
+- `surface feedback`: REST-captured website or product feedback about a page, widget, screen, or other non-message product surface. It should use `target_type="surface"` when the exact surface is known, plus optional `target_id`, `target_text`, `source_metadata`, and `attributes` for product-specific context.
 - `phase`: a grouped unit of work in `works/backlog.md`
 - `slice`: a concrete step inside a phase
 - `work item`: a timestamped execution folder under `works/current/` or `works/archives/work_items/`

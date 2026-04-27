@@ -207,32 +207,31 @@ For client integration guidance, see [docs/action-feedback-integration.md](docs/
 
 ## Web Capture REST Surface
 
-Use REST capture from server-side web or product code when the integration is not an MCP client. The REST payload shape matches `capture_feedback`, and success returns the same accepted receipt object with `request_id`, `accepted_at`, and `status`.
+Use REST capture from server-side web or product code when the integration is not an MCP client. REST uses the same core capture fields as MCP, but it is intended for broader website and product feedback. For page, widget, or product-surface feedback, set `target_type` to `surface` when the exact surface is known and put product-specific context in `source_metadata` or `attributes`.
 
 Implemented endpoint:
 
 - `POST /api/feedback`
 
-Example REST capture:
+Example REST surface-feedback capture:
 
 ```sh
 curl -X POST "http://127.0.0.1:8000/api/feedback" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <VOCKY_API_AUTH_TOKEN>" \
   -d '{
-    "message": "Assistant answer was helpful for CSV export",
-    "source": {"product": "my-agent", "integration": "web-chat"},
-    "feedback_value": 1,
-    "comment": "This fixed the issue",
+    "message": "Pricing page feedback button was hard to find",
+    "source": {"product": "marketing-site", "integration": "web-backend"},
+    "comment": "I wanted to send feedback but did not notice the button",
     "channel": "web",
-    "conversation_id": "conv_123",
     "session_id": "sess_123",
-    "target_type": "message",
-    "target_id": "msg_assistant_789",
-    "target_role": "assistant",
-    "target_text": "Use the export menu and choose CSV.",
+    "target_type": "surface",
+    "target_id": "pricing-page-feedback-button",
+    "target_text": "Feedback",
     "event_at": "2026-04-24T09:30:00Z",
-    "tags": ["export"]
+    "tags": ["website", "pricing"],
+    "source_metadata": {"path": "/pricing", "referrer": "/"},
+    "attributes": {"plan": "team", "locale": "en-US"}
   }'
 ```
 

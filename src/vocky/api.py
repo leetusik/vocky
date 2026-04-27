@@ -11,9 +11,9 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from vocky.capture import (
-    CaptureFeedbackInput,
     CaptureFeedbackValidationError,
-    normalize_payload,
+    RestCaptureFeedbackInput,
+    normalize_rest_payload,
     serialize_capture_receipt,
 )
 from vocky.capture_queue import CaptureQueueError, get_capture_queue
@@ -36,7 +36,7 @@ def format_pydantic_error(exc: ValidationError) -> str:
     return message
 
 
-async def parse_capture_request(request: Request) -> CaptureFeedbackInput:
+async def parse_capture_request(request: Request) -> RestCaptureFeedbackInput:
     """Parse and validate the JSON request body shape."""
 
     try:
@@ -48,7 +48,7 @@ async def parse_capture_request(request: Request) -> CaptureFeedbackInput:
         raise CaptureAPIValidationError("request body must be a JSON object")
 
     try:
-        return CaptureFeedbackInput.model_validate(raw_body)
+        return RestCaptureFeedbackInput.model_validate(raw_body)
     except ValidationError as exc:
         raise CaptureAPIValidationError(format_pydantic_error(exc)) from exc
 
@@ -58,7 +58,7 @@ async def capture_feedback(request: Request) -> JSONResponse:
 
     try:
         raw_payload = await parse_capture_request(request)
-        normalized = normalize_payload(raw_payload)
+        normalized = normalize_rest_payload(raw_payload)
     except (CaptureAPIValidationError, CaptureFeedbackValidationError) as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 

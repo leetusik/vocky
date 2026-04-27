@@ -4,9 +4,9 @@ This guide describes how an agent product can integrate Vocky for explicit user 
 
 ## Choose A Capture Surface
 
-Use MCP when the integration already runs inside an agent workflow or wants to call Vocky's MCP read tools. Use REST when a normal server-side web or product backend needs to forward like/dislike clicks without becoming an MCP client.
+Use MCP when the integration already runs inside an agent workflow or wants to call Vocky's MCP read tools. Use REST when a normal server-side web or product backend needs to forward feedback without becoming an MCP client.
 
-Both capture surfaces use the same payload shape and asynchronous queue. Successful capture means Vocky accepted the job for background persistence; the record becomes queryable after the worker writes it to PostgreSQL.
+Both capture surfaces use the same core field set and asynchronous queue, but their integration intent is different. MCP is optimized for agent/message feedback. REST is server-to-server capture for website and product feedback, including page, widget, or product-surface feedback. Successful capture means Vocky accepted the job for background persistence; the record becomes queryable after the worker writes it to PostgreSQL.
 
 ## Capture Explicit Actions
 
@@ -17,7 +17,7 @@ Recommended payload fields:
 - `message`: concise human-readable feedback summary displayed in Vocky
 - `source.product`: stable product or app name
 - `source.integration`: client integration name, such as `web-chat`
-- `feedback_value`: `1` for like, `2` for dislike
+- `feedback_value`: optional; `1` for like, `2` for dislike
 - `comment`: optional user comment; recommended for dislikes when available
 - `channel`: user-facing channel, such as `web`, `mobile`, or `support`
 - `conversation_id`: stable caller-side conversation or thread ID when available
@@ -29,11 +29,11 @@ Recommended payload fields:
 - `event_at`: user action timestamp with timezone
 - `messages`: JSON array of surrounding conversation messages for review context
 - `used_context`: JSON array of context or retrieval results used by the agent
-- `tags`, `source_metadata`, and `attributes`: optional caller-provided metadata
+- `tags`, `source_metadata`, and `attributes`: optional caller-provided metadata; REST product integrations can use these for URL, page, widget, account, locale, rollout, or backend context
 
-Target fields are optional. Existing integrations can omit them, but integrations with message-level feedback should send them so reviewers do not have to infer which message the user judged.
+Target fields are optional. Existing integrations can omit them, but integrations with message-level feedback should send them so reviewers do not have to infer which message the user judged. REST integrations with product-surface feedback should use `target_type: "surface"` when the exact page, widget, screen, or feature is known.
 
-Example:
+MCP message-feedback example:
 
 ```json
 {
@@ -64,26 +64,25 @@ Example:
 
 Successful capture means Vocky accepted the job for background persistence. The record becomes queryable after the worker writes it to PostgreSQL.
 
-MCP clients send this object as the `capture_feedback` tool input. REST clients send it to `POST /api/feedback`:
+MCP clients send this object as the `capture_feedback` tool input. REST clients send general website or product feedback to `POST /api/feedback`:
 
 ```sh
 curl -X POST "https://vocky.example.com/api/feedback" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <VOCKY_API_AUTH_TOKEN>" \
   -d '{
-    "message": "Assistant answer was helpful for CSV export",
-    "source": {"product": "my-agent", "integration": "web-chat"},
-    "feedback_value": 1,
-    "comment": "This fixed the issue",
+    "message": "Pricing page feedback button was hard to find",
+    "source": {"product": "marketing-site", "integration": "web-backend"},
+    "comment": "I wanted to send feedback but did not notice the button",
     "channel": "web",
-    "conversation_id": "conv_123",
     "session_id": "sess_456",
-    "target_type": "message",
-    "target_id": "msg_assistant_789",
-    "target_role": "assistant",
-    "target_text": "Use the export menu and choose CSV.",
+    "target_type": "surface",
+    "target_id": "pricing-page-feedback-button",
+    "target_text": "Feedback",
     "event_at": "2026-04-24T09:30:00Z",
-    "tags": ["export"]
+    "tags": ["website", "pricing"],
+    "source_metadata": {"path": "/pricing", "referrer": "/"},
+    "attributes": {"plan": "team", "locale": "en-US"}
   }'
 ```
 
