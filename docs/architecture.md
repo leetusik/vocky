@@ -2,7 +2,7 @@
 
 ## Status
 
-This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through MCP or server-to-server REST using Redis-backed queueing plus a dedicated worker while exposing MCP read tools, liked-conversation retrieval, separate Admin REST endpoints, and a same-origin self-hosted Admin Web UI with in-app operator documentation over the same PostgreSQL feedback store.
+This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through MCP or server-to-server REST using Redis-backed queueing plus a dedicated worker while exposing MCP read tools, liked-conversation retrieval, separate Admin REST endpoints, and a same-origin self-hosted Admin Web UI with dashboard metrics and in-app operator documentation over the same PostgreSQL feedback store.
 
 ## Current Repo Shape
 
@@ -24,8 +24,8 @@ The first MVP should be built from these parts:
 - MCP-facing and server-to-server REST feedback capture layers that accept explicit user action feedback from agent products
 - A storage layer that preserves raw feedback plus the metadata needed for retrieval and basic aggregates
 - MCP read tools that return stored records, simple counts or trends, and liked examples for AI-agent workflows
-- Dedicated Admin REST endpoints for human operators and dashboards
-- A packaged same-origin Admin Web UI for self-hosted operators, including in-app operator docs and backed by Admin REST rather than a separate browser-facing data API
+- Dedicated Admin REST endpoints for human operators, dashboard metrics, and review workflows
+- A packaged same-origin Admin Web UI for self-hosted operators, including dashboard metrics and in-app operator docs backed by Admin REST rather than a separate browser-facing data API
 
 ## Runtime Shape
 
@@ -55,9 +55,9 @@ Vocky now has three public-facing tracks over the same feedback schema:
 
 - MCP track for AI-agent workflows: `capture_feedback`, `list_feedback`, `summarize_feedback`, and `list_liked_conversations`.
 - Public REST capture track for server-to-server product integrations: `POST /api/feedback`.
-- Admin REST track for humans and dashboards: `/admin/api/feedback` list/detail plus patch/delete management endpoints.
+- Admin REST track for humans and dashboards: `/admin/api/feedback` list/detail, `/admin/api/feedback/metrics` dashboard metrics, plus patch/delete management endpoints.
 
-The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected data and packaged static docs assets for operator reference content. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, or management endpoints. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, metadata, messages, and used context.
+The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data and packaged static docs assets for operator reference content. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, or management endpoints. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, metadata, messages, and used context.
 
 ## Configuration Surface
 
@@ -101,7 +101,7 @@ For Cloudflare Tunnel users, the recommended public shape is a hostname-to-servi
 - Self-hosted and single-tenant
 - Capture ingestion is limited to MCP and server-to-server REST in the MVP
 - No automatic classification or summarization in the MVP
-- Admin Web UI includes a same-origin self-hosted operator shell and in-app operator docs; full dashboard metrics and feedback management workflows are later UI layers
+- Admin Web UI includes a same-origin self-hosted operator shell, dashboard metrics, recent activity, and in-app operator docs; full feedback management workflows are later UI layers
 - No separate Admin REST database or MCP-specific feedback store
 - No managed-cloud or multi-tenant architecture in the MVP
 - No public job-status API or dashboard in the MVP
@@ -162,6 +162,14 @@ The read path reuses the same service and repository layers:
 - Transport-neutral read methods on the feedback service
 - Repository queries against `feedback_events`
 - No public REST query stack in the base MVP
+
+The Admin dashboard metrics path uses the same read layers:
+
+- Admin REST query normalization and JSON error mapping for `GET /admin/api/feedback/metrics`
+- Required timezone-aware `start_ingested_at` and `end_ingested_at` query parameters normalized to UTC
+- A transport-neutral feedback service metrics method backed by repository aggregates over `feedback_events`
+- UTC day bucketing with zero-filled daily buckets for the requested inclusive-start/exclusive-end ingest-time window
+- Aggregate counts for total records, likes (`feedback_value = 1`), dislikes (`feedback_value = 2`), and unrated records (`feedback_value is null`)
 
 ## Query Read Model
 

@@ -13,9 +13,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vocky.feedback.types import (
     CreateFeedbackEvent,
     FeedbackDailyCount,
+    FeedbackDailyMetricCount,
     FeedbackEventRecord,
     FeedbackListCursor,
     FeedbackListPage,
+    FeedbackMetricCounts,
+    FeedbackMetrics,
+    FeedbackMetricsQuery,
     FeedbackQueryFilters,
     FeedbackSummary,
     ListFeedbackQuery,
@@ -178,6 +182,64 @@ class FeedbackRepository:
 
         return FeedbackSummary(
             total_count=total_count,
+            daily_counts=daily_counts,
+        )
+
+    async def get_feedback_metrics(
+        self,
+        query: FeedbackMetricsQuery,
+    ) -> FeedbackMetrics:
+        """Return dashboard metrics over a requested ingest window."""
+
+        utc_day = func.date(func.timezone("UTC", FeedbackEventModel.ingested_at))
+        daily_statement = (
+            select(
+                utc_day.label("day"),
+                func.count().label("total"),
+                func.count().filter(FeedbackEventModel.feedback_value == 1).label("liked"),
+                func.count().filter(FeedbackEventModel.feedback_value == 2).label("disliked"),
+                func.count().filter(FeedbackEventModel.feedback_value.is_(None)).label("unrated"),
+            )
+            .select_from(FeedbackEventModel)
+        )
+        daily_statement = self._apply_query_filters(daily_statement, query.filters)
+        daily_statement = daily_statement.group_by(utc_day).order_by(utc_day)
+
+        daily_rows = (await self._session.execute(daily_statement)).all()
+        counts_by_day = {
+            row.day: FeedbackMetricCounts(
+                total=int(row.total),
+                liked=int(row.liked),
+                disliked=int(row.disliked),
+                unrated=int(row.unrated),
+            )
+            for row in daily_rows
+        }
+
+        start_ingested_at = query.filters.start_ingested_at
+        end_ingested_at = query.filters.end_ingested_at
+        assert start_ingested_at is not None
+        assert end_ingested_at is not None
+
+        zero_counts = FeedbackMetricCounts(total=0, liked=0, disliked=0, unrated=0)
+        daily_counts = tuple(
+            FeedbackDailyMetricCount(
+                day=day,
+                total=counts_by_day.get(day, zero_counts).total,
+                liked=counts_by_day.get(day, zero_counts).liked,
+                disliked=counts_by_day.get(day, zero_counts).disliked,
+                unrated=counts_by_day.get(day, zero_counts).unrated,
+            )
+            for day in self._iter_requested_days(start_ingested_at.date(), end_ingested_at)
+        )
+
+        return FeedbackMetrics(
+            totals=FeedbackMetricCounts(
+                total=sum(daily_count.total for daily_count in daily_counts),
+                liked=sum(daily_count.liked for daily_count in daily_counts),
+                disliked=sum(daily_count.disliked for daily_count in daily_counts),
+                unrated=sum(daily_count.unrated for daily_count in daily_counts),
+            ),
             daily_counts=daily_counts,
         )
 

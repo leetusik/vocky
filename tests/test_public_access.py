@@ -61,6 +61,7 @@ def test_mcp_auth_helpers_match_only_mcp_paths_and_bearer_headers() -> None:
     assert is_mcp_path("/mcp-tools") is False
     assert is_admin_api_path("/admin/api") is True
     assert is_admin_api_path("/admin/api/feedback") is True
+    assert is_admin_api_path("/admin/api/feedback/metrics") is True
     assert is_admin_api_path("/admin") is False
     assert is_admin_api_path("/admin/assets/app.js") is False
     assert is_api_path("/api") is True
@@ -148,6 +149,7 @@ def test_admin_bearer_auth_middleware_requires_configured_token() -> None:
         routes=[
             Route("/healthz", endpoint, methods=["GET"]),
             Route("/admin/api/healthz", endpoint, methods=["GET"]),
+            Route("/admin/api/feedback/metrics", endpoint, methods=["GET"]),
         ]
     )
     app.add_middleware(AdminBearerAuthMiddleware, token="secret")
@@ -155,9 +157,14 @@ def test_admin_bearer_auth_middleware_requires_configured_token() -> None:
 
     health_response = client.get("/healthz")
     missing_response = client.get("/admin/api/healthz")
+    missing_metrics_response = client.get("/admin/api/feedback/metrics")
     wrong_response = client.get(
         "/admin/api/healthz",
         headers={"Authorization": "Bearer wrong"},
+    )
+    allowed_metrics_response = client.get(
+        "/admin/api/feedback/metrics",
+        headers={"Authorization": "Bearer secret"},
     )
     allowed_response = client.get(
         "/admin/api/healthz",
@@ -168,7 +175,10 @@ def test_admin_bearer_auth_middleware_requires_configured_token() -> None:
     assert missing_response.status_code == 401
     assert missing_response.headers["www-authenticate"] == "Bearer"
     assert missing_response.json() == {"detail": "Unauthorized"}
+    assert missing_metrics_response.status_code == 401
     assert wrong_response.status_code == 401
+    assert allowed_metrics_response.status_code == 200
+    assert allowed_metrics_response.text == "ok"
     assert allowed_response.status_code == 200
     assert allowed_response.text == "ok"
 
@@ -225,6 +235,7 @@ def test_admin_healthz_route_is_not_handled_by_mcp_mount() -> None:
     route_paths = [getattr(route, "path", None) for route in app.routes]
 
     assert route_paths.index("/admin/api/healthz") < route_paths.index("")
+    assert route_paths.index("/admin/api/feedback/metrics") < route_paths.index("")
     assert route_paths.index("/admin") < route_paths.index("")
     assert route_paths.index("/admin/assets/app.js") < route_paths.index("")
     assert route_paths.index("/admin/assets/docs.json") < route_paths.index("")

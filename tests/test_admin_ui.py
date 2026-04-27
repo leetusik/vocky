@@ -24,6 +24,20 @@ def test_admin_ui_index_routes_serve_packaged_html() -> None:
     assert 'data-view-tab="feedback"' in response.text
     assert 'data-view-tab="docs"' in response.text
     assert 'data-token-form' in response.text
+    assert 'data-refresh-dashboard' in response.text
+    assert 'data-dashboard-status' in response.text
+    assert 'data-dashboard-window-controls' in response.text
+    assert 'data-dashboard-window-days="7"' in response.text
+    assert 'data-dashboard-window-days="30"' in response.text
+    assert 'data-dashboard-window-days="90"' in response.text
+    assert 'data-dashboard-updated' in response.text
+    assert 'data-metric-total' in response.text
+    assert 'data-metric-liked' in response.text
+    assert 'data-metric-disliked' in response.text
+    assert 'data-metric-unrated' in response.text
+    assert 'data-trend-chart' in response.text
+    assert 'data-recent-list' in response.text
+    assert 'Recent activity' in response.text
     assert 'data-docs-root' in response.text
     assert 'data-docs-nav' in response.text
     assert 'data-docs-article' in response.text
@@ -45,6 +59,14 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     assert css_response.headers["content-type"].startswith("text/css")
     assert ".admin-app" in css_response.text
     assert ".metric-grid" in css_response.text
+    assert ".dashboard-toolbar" in css_response.text
+    assert ".window-controls" in css_response.text
+    assert ".dashboard-status" in css_response.text
+    assert ".dashboard-grid" in css_response.text
+    assert ".trend-chart" in css_response.text
+    assert ".trend-row" in css_response.text
+    assert ".recent-list" in css_response.text
+    assert ".feedback-badge" in css_response.text
     assert ".docs-layout" in css_response.text
     assert ".docs-topic-button" in css_response.text
     assert js_response.status_code == 200
@@ -53,7 +75,18 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     assert 'TOKEN_STORAGE_KEY = "vocky.adminToken"' in js_response.text
     assert 'ADMIN_API_PREFIX = "/admin/api/"' in js_response.text
     assert 'DOCS_ASSET_PATH = "/admin/assets/docs.json"' in js_response.text
-    assert 'adminFetch("/admin/api/healthz"' in js_response.text
+    assert "DEFAULT_DASHBOARD_WINDOW_DAYS = 30" in js_response.text
+    assert "DASHBOARD_WINDOW_PRESETS = [7, 30, 90]" in js_response.text
+    assert 'requestAdminJson("/admin/api/healthz"' in js_response.text
+    assert "/admin/api/feedback/metrics?" in js_response.text
+    assert '"/admin/api/feedback?limit=5"' in js_response.text
+    assert "Promise.all" in js_response.text
+    assert "error.status === 401" in js_response.text
+    assert "No feedback in the last" in js_response.text
+    assert "renderTrendChart" in js_response.text
+    assert "renderRecentActivity" in js_response.text
+    assert "formatFeedbackValue" in js_response.text
+    assert "data-metric-total" in js_response.text
     assert 'headers.set("Authorization"' in js_response.text
     assert "fetch(DOCS_ASSET_PATH" in js_response.text
     assert "document.createElement" in js_response.text
@@ -112,6 +145,7 @@ def test_admin_ui_routes_are_registered_before_mcp_mount() -> None:
 
     for path in (
         "/admin/api/healthz",
+        "/admin/api/feedback/metrics",
         "/admin",
         "/admin/",
         "/admin/assets/app.css",
@@ -121,6 +155,9 @@ def test_admin_ui_routes_are_registered_before_mcp_mount() -> None:
         assert route_paths.index(path) < mcp_mount_index
 
     assert route_paths.index("/admin/api/healthz") < route_paths.index("/admin")
+    assert route_paths.index("/admin/api/feedback/metrics") < route_paths.index(
+        "/admin/api/feedback/{feedback_id}"
+    )
 
 
 def test_admin_ui_paths_do_not_require_admin_api_bearer_token() -> None:

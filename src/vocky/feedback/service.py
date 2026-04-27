@@ -14,6 +14,8 @@ from vocky.feedback.types import (
     CreateFeedbackEvent,
     FeedbackEventRecord,
     FeedbackListPage,
+    FeedbackMetrics,
+    FeedbackMetricsQuery,
     FeedbackSummary,
     ListFeedbackQuery,
     SummarizeFeedbackQuery,
@@ -128,6 +130,21 @@ class FeedbackService:
 
             try:
                 return await repository.summarize_feedback(query)
+            except SQLAlchemyError as exc:
+                await session.rollback()
+                raise FeedbackReadError("failed to read feedback records") from exc
+
+    async def get_feedback_metrics(
+        self,
+        query: FeedbackMetricsQuery,
+    ) -> FeedbackMetrics:
+        """Return dashboard feedback metrics over a requested window."""
+
+        async with self._session_maker() as session:
+            repository = FeedbackRepository(session)
+
+            try:
+                return await repository.get_feedback_metrics(query)
             except SQLAlchemyError as exc:
                 await session.rollback()
                 raise FeedbackReadError("failed to read feedback records") from exc

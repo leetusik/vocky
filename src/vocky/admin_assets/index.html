@@ -58,33 +58,63 @@
                 <p class="section-kicker">Overview</p>
                 <h1 id="dashboard-title">Dashboard</h1>
               </div>
-              <button type="button" class="secondary-button" data-refresh-health>Refresh</button>
+              <div class="dashboard-toolbar">
+                <div class="window-controls" role="group" aria-label="Dashboard time window" data-dashboard-window-controls>
+                  <button type="button" data-dashboard-window-days="7">7 days</button>
+                  <button type="button" data-dashboard-window-days="30">30 days</button>
+                  <button type="button" data-dashboard-window-days="90">90 days</button>
+                </div>
+                <span class="dashboard-status" data-dashboard-status data-dashboard-state="loading">Loading dashboard</span>
+                <button type="button" class="secondary-button" data-refresh-dashboard>Refresh</button>
+              </div>
             </div>
 
             <div class="metric-grid">
-              <article class="metric-card">
-                <span class="metric-label">Admin API</span>
-                <strong data-health-value>Checking</strong>
+              <article class="metric-card" data-metric-card="total">
+                <span class="metric-label">Feedback volume</span>
+                <strong data-metric-total>0</strong>
+                <small data-metric-window-label>Last 30 days</small>
               </article>
-              <article class="metric-card">
-                <span class="metric-label">Auth</span>
-                <strong data-auth-summary>Session token empty</strong>
+              <article class="metric-card" data-metric-card="liked">
+                <span class="metric-label">Likes</span>
+                <strong data-metric-liked>0</strong>
+                <small>Positive action feedback</small>
               </article>
-              <article class="metric-card">
-                <span class="metric-label">Runtime</span>
-                <strong>MCP + REST + Worker</strong>
+              <article class="metric-card" data-metric-card="disliked">
+                <span class="metric-label">Dislikes</span>
+                <strong data-metric-disliked>0</strong>
+                <small>Negative action feedback</small>
+              </article>
+              <article class="metric-card" data-metric-card="unrated">
+                <span class="metric-label">Unrated</span>
+                <strong data-metric-unrated>0</strong>
+                <small>Records without action value</small>
               </article>
             </div>
 
-            <section class="panel" aria-labelledby="activity-title">
-              <div class="panel-header">
-                <h2 id="activity-title">Activity</h2>
-                <span class="panel-meta" data-last-check>Not checked</span>
-              </div>
-              <ul class="event-list" data-event-list>
-                <li>Waiting for Admin API health.</li>
-              </ul>
-            </section>
+            <p class="dashboard-message" data-dashboard-message>Loading dashboard.</p>
+
+            <div class="dashboard-grid">
+              <section class="panel trend-panel" aria-labelledby="trend-title">
+                <div class="panel-header">
+                  <h2 id="trend-title">Daily trend</h2>
+                  <span class="panel-meta">UTC buckets</span>
+                </div>
+                <div class="trend-chart" data-trend-chart aria-live="polite">
+                  <p class="dashboard-empty-state" data-trend-state>Loading trend.</p>
+                </div>
+              </section>
+
+              <section class="panel recent-panel" aria-labelledby="activity-title">
+                <div class="panel-header">
+                  <h2 id="activity-title">Recent activity</h2>
+                  <span class="panel-meta" data-last-check data-dashboard-updated>Not checked</span>
+                </div>
+                <ul class="event-list recent-list" data-event-list data-recent-list>
+                  <li class="dashboard-empty-state" data-recent-state>Loading recent feedback.</li>
+                </ul>
+              </section>
+            </div>
           </section>
 
           <section class="view" data-view-panel="feedback" aria-labelledby="feedback-title" hidden>

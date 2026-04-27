@@ -13,8 +13,12 @@ from vocky.db import get_engine, get_session_maker
 from vocky.feedback import (
     CreateFeedbackEvent,
     FeedbackDailyCount,
+    FeedbackDailyMetricCount,
     FeedbackListCursor,
     FeedbackQueryFilters,
+    FeedbackMetricCounts,
+    FeedbackMetrics,
+    FeedbackMetricsQuery,
     FeedbackSummary,
     FeedbackService,
     ListFeedbackQuery,
@@ -430,5 +434,98 @@ async def test_service_summarize_feedback_zero_fills_utc_day_series(
             FeedbackDailyCount(day=datetime(2026, 4, 23, tzinfo=UTC).date(), count=2),
             FeedbackDailyCount(day=datetime(2026, 4, 24, tzinfo=UTC).date(), count=0),
             FeedbackDailyCount(day=datetime(2026, 4, 25, tzinfo=UTC).date(), count=1),
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_service_feedback_metrics_counts_feedback_values_and_zero_fills_days(
+    configured_database: str,
+) -> None:
+    service = FeedbackService(get_session_maker())
+
+    rows = [
+        {
+            "id": "00000000-0000-0000-0000-0000000000c1",
+            "message": "liked",
+            "feedback_value": 1,
+            "ingested_at": datetime(2026, 4, 23, 10, 0, tzinfo=UTC),
+        },
+        {
+            "id": "00000000-0000-0000-0000-0000000000c2",
+            "message": "disliked",
+            "feedback_value": 2,
+            "ingested_at": datetime(2026, 4, 25, 1, 0, tzinfo=UTC),
+        },
+        {
+            "id": "00000000-0000-0000-0000-0000000000c3",
+            "message": "unrated",
+            "feedback_value": None,
+            "ingested_at": datetime(2026, 4, 25, 2, 0, tzinfo=UTC),
+        },
+        {
+            "id": "00000000-0000-0000-0000-0000000000c4",
+            "message": "exclusive end",
+            "feedback_value": 1,
+            "ingested_at": datetime(2026, 4, 27, 0, 0, tzinfo=UTC),
+        },
+    ]
+
+    async with get_engine().begin() as connection:
+        for row in rows:
+            await connection.execute(
+                text(
+                    "INSERT INTO feedback_events ("
+                    "id, message, source_product, feedback_value, ingested_at"
+                    ") VALUES ("
+                    ":id, :message, :source_product, :feedback_value, :ingested_at"
+                    ")"
+                ),
+                {
+                    **row,
+                    "source_product": "vocky-cli",
+                },
+            )
+
+    metrics = await service.get_feedback_metrics(
+        FeedbackMetricsQuery(
+            filters=FeedbackQueryFilters(
+                start_ingested_at=datetime(2026, 4, 23, 0, 0, tzinfo=UTC),
+                end_ingested_at=datetime(2026, 4, 27, 0, 0, tzinfo=UTC),
+            )
+        )
+    )
+
+    assert metrics == FeedbackMetrics(
+        totals=FeedbackMetricCounts(total=3, liked=1, disliked=1, unrated=1),
+        daily_counts=(
+            FeedbackDailyMetricCount(
+                day=datetime(2026, 4, 23, tzinfo=UTC).date(),
+                total=1,
+                liked=1,
+                disliked=0,
+                unrated=0,
+            ),
+            FeedbackDailyMetricCount(
+                day=datetime(2026, 4, 24, tzinfo=UTC).date(),
+                total=0,
+                liked=0,
+                disliked=0,
+                unrated=0,
+            ),
+            FeedbackDailyMetricCount(
+                day=datetime(2026, 4, 25, tzinfo=UTC).date(),
+                total=2,
+                liked=0,
+                disliked=1,
+                unrated=1,
+            ),
+            FeedbackDailyMetricCount(
+                day=datetime(2026, 4, 26, tzinfo=UTC).date(),
+                total=0,
+                liked=0,
+                disliked=0,
+                unrated=0,
+            ),
         ),
     )

@@ -98,6 +98,13 @@ class SummarizeFeedbackQuery:
 
 
 @dataclass(slots=True, kw_only=True)
+class FeedbackMetricsQuery:
+    """Input for dashboard feedback metrics."""
+
+    filters: FeedbackQueryFilters
+
+
+@dataclass(slots=True, kw_only=True)
 class FeedbackDailyCount:
     """Daily UTC count returned by a feedback summary."""
 
@@ -106,8 +113,37 @@ class FeedbackDailyCount:
 
 
 @dataclass(slots=True, kw_only=True)
+class FeedbackMetricCounts:
+    """Feedback value counts for one metrics bucket."""
+
+    total: int
+    liked: int
+    disliked: int
+    unrated: int
+
+
+@dataclass(slots=True, kw_only=True)
+class FeedbackDailyMetricCount:
+    """Daily UTC counts returned by dashboard metrics."""
+
+    day: date
+    total: int
+    liked: int
+    disliked: int
+    unrated: int
+
+
+@dataclass(slots=True, kw_only=True)
 class FeedbackSummary:
     """Aggregate feedback summary over a requested window."""
 
     total_count: int
     daily_counts: tuple[FeedbackDailyCount, ...]
+
+
+@dataclass(slots=True, kw_only=True)
+class FeedbackMetrics:
+    """Dashboard aggregate feedback metrics over a requested window."""
+
+    totals: FeedbackMetricCounts
+    daily_counts: tuple[FeedbackDailyMetricCount, ...]

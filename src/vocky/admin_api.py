@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ValidationError
@@ -11,7 +12,11 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from vocky.feedback import (
+    FeedbackDailyMetricCount,
     FeedbackEventRecord,
+    FeedbackMetricCounts,
+    FeedbackMetrics,
+    FeedbackMetricsQuery,
     FeedbackPersistenceError,
     FeedbackQueryFilters,
     FeedbackReadError,
@@ -154,6 +159,88 @@ def normalize_list_query(request: Request) -> ListFeedbackQuery:
     )
 
 
+def parse_required_timestamp(request: Request, *, field_name: str) -> datetime:
+    """Parse a required timestamp query parameter."""
+
+    parsed = parse_timestamp(
+        request.query_params.get(field_name),
+        field_name=field_name,
+    )
+    if parsed is None:
+        raise FeedbackQueryValidationError(f"{field_name} is required")
+    return parsed
+
+
+def normalize_metrics_query(request: Request) -> FeedbackMetricsQuery:
+    """Normalize Admin feedback metrics query parameters."""
+
+    start_ingested_at = parse_required_timestamp(
+        request,
+        field_name="start_ingested_at",
+    )
+    end_ingested_at = parse_required_timestamp(
+        request,
+        field_name="end_ingested_at",
+    )
+    validate_time_window(start_ingested_at, end_ingested_at)
+
+    return FeedbackMetricsQuery(
+        filters=FeedbackQueryFilters(
+            start_ingested_at=start_ingested_at,
+            end_ingested_at=end_ingested_at,
+        )
+    )
+
+
+def serialize_metric_counts(counts: FeedbackMetricCounts) -> dict[str, int]:
+    """Serialize aggregate metric counts."""
+
+    return {
+        "total": counts.total,
+        "liked": counts.liked,
+        "disliked": counts.disliked,
+        "unrated": counts.unrated,
+    }
+
+
+def serialize_daily_metric_count(
+    daily_count: FeedbackDailyMetricCount,
+) -> dict[str, object]:
+    """Serialize one daily metric bucket."""
+
+    return {
+        "day": daily_count.day.isoformat(),
+        "total": daily_count.total,
+        "liked": daily_count.liked,
+        "disliked": daily_count.disliked,
+        "unrated": daily_count.unrated,
+    }
+
+
+def serialize_metrics(
+    metrics: FeedbackMetrics,
+    query: FeedbackMetricsQuery,
+) -> dict[str, object]:
+    """Serialize dashboard feedback metrics."""
+
+    start_ingested_at = query.filters.start_ingested_at
+    end_ingested_at = query.filters.end_ingested_at
+    assert start_ingested_at is not None
+    assert end_ingested_at is not None
+
+    return {
+        "window": {
+            "start_ingested_at": serialize_datetime(start_ingested_at),
+            "end_ingested_at": serialize_datetime(end_ingested_at),
+        },
+        "totals": serialize_metric_counts(metrics.totals),
+        "daily_counts": [
+            serialize_daily_metric_count(daily_count)
+            for daily_count in metrics.daily_counts
+        ],
+    }
+
+
 async def list_admin_feedback(request: Request) -> JSONResponse:
     """List all feedback records for human/operator review."""
 
@@ -174,6 +261,22 @@ async def list_admin_feedback(request: Request) -> JSONResponse:
         payload["next_cursor"] = encode_cursor(page.next_cursor)
 
     return JSONResponse(payload)
+
+
+async def get_admin_feedback_metrics(request: Request) -> JSONResponse:
+    """Return dashboard metrics for human/operator review."""
+
+    try:
+        query = normalize_metrics_query(request)
+    except FeedbackQueryValidationError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    try:
+        metrics = await get_feedback_service().get_feedback_metrics(query)
+    except FeedbackReadError:
+        return JSONResponse({"detail": "storage read failed"}, status_code=500)
+
+    return JSONResponse(serialize_metrics(metrics, query))
 
 
 async def get_admin_feedback(request: Request) -> Response:
@@ -262,6 +365,7 @@ async def delete_admin_feedback(request: Request) -> Response:
 routes = [
     Route("/admin/api/healthz", admin_healthz, methods=["GET"]),
     Route("/admin/api/feedback", list_admin_feedback, methods=["GET"]),
+    Route("/admin/api/feedback/metrics", get_admin_feedback_metrics, methods=["GET"]),
     Route("/admin/api/feedback/{feedback_id}", get_admin_feedback, methods=["GET"]),
     Route("/admin/api/feedback/{feedback_id}", patch_admin_feedback, methods=["PATCH"]),
     Route("/admin/api/feedback/{feedback_id}", delete_admin_feedback, methods=["DELETE"]),

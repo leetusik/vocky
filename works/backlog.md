@@ -74,14 +74,21 @@
 
 - Phase ID: `P3`
 - Objective: Add dashboard metrics and trend views for feedback volume, likes, dislikes, unrated feedback, recent activity, and filterable time windows.
-- Status: planned
-- Review outcome: pending
+- Status: done
+- Review outcome: passed
 - Notes: Reuse existing Admin REST data where practical. Add a minimal Admin REST metrics endpoint only if the UI cannot efficiently derive the needed dashboard state from existing list and summary contracts.
 - Work items:
-  - None yet
+  - `works/archives/work_items/20260427_1332_decompose_dashboard_metrics` (`P3.DECOMP`)
+  - `works/archives/work_items/20260427_1347_add_admin_dashboard_metrics_api` (`P3.S1`)
+  - `works/archives/work_items/20260427_1351_build_dashboard_data_and_time_window_controls` (`P3.S2`)
+  - `works/archives/work_items/20260427_1355_render_dashboard_metrics_trend_and_recent_activity` (`P3.S3`)
+  - `works/archives/work_items/20260427_1359_phase_review_dashboard_metrics` (`P3.REVIEW`)
 - Slices:
-  - [ ] Slice ID: `P3.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
-  - [ ] Slice ID: `P3.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+  - [x] Slice ID: `P3.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_1332_decompose_dashboard_metrics` | Notes: Added implementation slices for the Admin dashboard metrics API, dashboard data/time-window controls, and metric/trend/recent-activity rendering.
+  - [x] Slice ID: `P3.S1` | Name: `add Admin dashboard metrics API` | Status: done | Work item: `works/archives/work_items/20260427_1347_add_admin_dashboard_metrics_api` | Notes: Added protected `GET /admin/api/feedback/metrics` with required UTC-normalized ingest-time windows, totals, and zero-filled daily counts for total, liked, disliked, and unrated records; updated Admin REST/architecture docs and focused tests.
+  - [x] Slice ID: `P3.S2` | Name: `build dashboard data and time-window controls` | Status: done | Work item: `works/archives/work_items/20260427_1351_build_dashboard_data_and_time_window_controls` | Notes: Added token-aware dashboard refresh state, Admin health/metrics/recent-record fetches, loading/unauthorized/error/empty/refreshed states, and 7/30/90-day UTC window presets with 30 days as the default.
+  - [x] Slice ID: `P3.S3` | Name: `render dashboard metrics, trend, and recent activity` | Status: done | Work item: `works/archives/work_items/20260427_1355_render_dashboard_metrics_trend_and_recent_activity` | Notes: Replaced dashboard placeholders with feedback volume, like, dislike, unrated, UTC daily trend, and read-only recent activity views backed by Admin REST metrics and list endpoints; updated responsive UI tests and product/architecture docs.
+  - [x] Slice ID: `P3.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260427_1359_phase_review_dashboard_metrics` | Notes: Review passed for route/auth boundaries, Admin REST metrics contract, UTC count behavior, dashboard data flow, responsive asset hooks, docs consistency, and full test suite. No fix slices were needed.
 
 ### Phase P4: Feedback review and management
 

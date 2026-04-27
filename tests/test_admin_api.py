@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import text
 from starlette.applications import Starlette
 
+import vocky.admin_api as admin_api_module
 from vocky.admin_api import routes as admin_routes
 from vocky.db import get_engine
 
@@ -99,6 +100,158 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
     assert [record["message"] for record in dislike_response.json()["records"]] == [
         "disliked answer"
     ]
+
+
+@pytest.mark.anyio
+async def test_admin_feedback_metrics_returns_totals_and_daily_counts(
+    configured_database: str,
+) -> None:
+    async with get_engine().begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO feedback_events ("
+                "id, message, source_product, feedback_value, ingested_at"
+                ") VALUES "
+                "(:liked_id, :liked_message, :product, 1, :liked_ingested_at), "
+                "(:disliked_id, :disliked_message, :product, 2, :disliked_ingested_at), "
+                "(:unrated_id, :unrated_message, :product, NULL, :unrated_ingested_at), "
+                "(:excluded_id, :excluded_message, :product, 1, :excluded_ingested_at)"
+            ),
+            {
+                "liked_id": "00000000-0000-0000-0000-0000000000b1",
+                "liked_message": "liked metric",
+                "disliked_id": "00000000-0000-0000-0000-0000000000b2",
+                "disliked_message": "disliked metric",
+                "unrated_id": "00000000-0000-0000-0000-0000000000b3",
+                "unrated_message": "unrated metric",
+                "excluded_id": "00000000-0000-0000-0000-0000000000b4",
+                "excluded_message": "excluded metric",
+                "product": "admin-product",
+                "liked_ingested_at": datetime(2026, 4, 23, 10, 0, tzinfo=UTC),
+                "disliked_ingested_at": datetime(2026, 4, 25, 1, 0, tzinfo=UTC),
+                "unrated_ingested_at": datetime(2026, 4, 25, 2, 0, tzinfo=UTC),
+                "excluded_ingested_at": datetime(2026, 4, 27, 0, 0, tzinfo=UTC),
+            },
+        )
+
+    transport = httpx.ASGITransport(app=make_admin_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get(
+            "/admin/api/feedback/metrics",
+            params={
+                "start_ingested_at": "2026-04-23T09:00:00+09:00",
+                "end_ingested_at": "2026-04-27T09:00:00+09:00",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "window": {
+            "start_ingested_at": "2026-04-23T00:00:00Z",
+            "end_ingested_at": "2026-04-27T00:00:00Z",
+        },
+        "totals": {
+            "total": 3,
+            "liked": 1,
+            "disliked": 1,
+            "unrated": 1,
+        },
+        "daily_counts": [
+            {
+                "day": "2026-04-23",
+                "total": 1,
+                "liked": 1,
+                "disliked": 0,
+                "unrated": 0,
+            },
+            {
+                "day": "2026-04-24",
+                "total": 0,
+                "liked": 0,
+                "disliked": 0,
+                "unrated": 0,
+            },
+            {
+                "day": "2026-04-25",
+                "total": 2,
+                "liked": 0,
+                "disliked": 1,
+                "unrated": 1,
+            },
+            {
+                "day": "2026-04-26",
+                "total": 0,
+                "liked": 0,
+                "disliked": 0,
+                "unrated": 0,
+            },
+        ],
+    }
+
+
+@pytest.mark.anyio
+async def test_admin_feedback_metrics_validation_errors(configured_database: str) -> None:
+    transport = httpx.ASGITransport(app=make_admin_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        missing_start_response = await client.get(
+            "/admin/api/feedback/metrics",
+            params={"end_ingested_at": "2026-04-24T00:00:00Z"},
+        )
+        missing_end_response = await client.get(
+            "/admin/api/feedback/metrics",
+            params={"start_ingested_at": "2026-04-24T00:00:00Z"},
+        )
+        naive_response = await client.get(
+            "/admin/api/feedback/metrics",
+            params={
+                "start_ingested_at": "2026-04-24T00:00:00",
+                "end_ingested_at": "2026-04-25T00:00:00Z",
+            },
+        )
+        invalid_window_response = await client.get(
+            "/admin/api/feedback/metrics",
+            params={
+                "start_ingested_at": "2026-04-25T00:00:00Z",
+                "end_ingested_at": "2026-04-24T00:00:00Z",
+            },
+        )
+
+    assert missing_start_response.status_code == 400
+    assert missing_start_response.json() == {"detail": "start_ingested_at is required"}
+    assert missing_end_response.status_code == 400
+    assert missing_end_response.json() == {"detail": "end_ingested_at is required"}
+    assert naive_response.status_code == 400
+    assert naive_response.json() == {
+        "detail": "start_ingested_at must include a timezone offset"
+    }
+    assert invalid_window_response.status_code == 400
+    assert invalid_window_response.json() == {
+        "detail": "start_ingested_at must be before end_ingested_at"
+    }
+
+
+@pytest.mark.anyio
+async def test_admin_feedback_metrics_storage_failure_returns_500(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class BrokenService:
+        async def get_feedback_metrics(self, query):
+            raise admin_api_module.FeedbackReadError("boom")
+
+    monkeypatch.setattr(admin_api_module, "get_feedback_service", lambda: BrokenService())
+
+    transport = httpx.ASGITransport(app=make_admin_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get(
+            "/admin/api/feedback/metrics",
+            params={
+                "start_ingested_at": "2026-04-23T00:00:00Z",
+                "end_ingested_at": "2026-04-24T00:00:00Z",
+            },
+        )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "storage read failed"}
 
 
 @pytest.mark.anyio

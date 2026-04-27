@@ -276,6 +276,62 @@ input:focus {
   gap: 16px;
 }
 
+.dashboard-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.window-controls {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(68px, 1fr));
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  background: #ffffff;
+}
+
+.window-controls button {
+  min-height: 30px;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 0.82rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.window-controls button.is-active {
+  color: #ffffff;
+  background: var(--ink);
+}
+
+.dashboard-status {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: var(--muted);
+  background: #eef2f3;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.dashboard-status[data-dashboard-state="refreshed"],
+.dashboard-status[data-dashboard-state="empty"] {
+  color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.dashboard-status[data-dashboard-state="unauthorized"],
+.dashboard-status[data-dashboard-state="error"] {
+  color: var(--red);
+  background: var(--red-soft);
+}
+
 .section-kicker,
 .panel-meta,
 .metric-label {
@@ -309,7 +365,7 @@ h2 {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -326,8 +382,77 @@ h2 {
   line-height: 1.2;
 }
 
+.metric-card small {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
 .panel {
   padding: 18px;
+}
+
+.dashboard-message {
+  min-height: 22px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.trend-panel,
+.recent-panel {
+  min-height: 420px;
+}
+
+.trend-chart {
+  display: grid;
+  gap: 8px;
+  max-height: 520px;
+  margin-top: 16px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.trend-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
+}
+
+.trend-row time,
+.trend-row strong {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.trend-row strong {
+  color: var(--ink);
+  text-align: right;
+}
+
+.trend-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e9eef1;
+}
+
+.trend-bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--teal);
 }
 
 .event-list {
@@ -341,6 +466,81 @@ h2 {
 .event-list li {
   border-top: 1px solid var(--border);
   padding-top: 10px;
+  color: var(--muted);
+}
+
+.recent-list {
+  gap: 12px;
+}
+
+.recent-item {
+  display: grid;
+  gap: 8px;
+}
+
+.recent-item-header,
+.recent-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recent-item-header {
+  justify-content: space-between;
+}
+
+.recent-item-header time,
+.recent-meta,
+.recent-comment {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.recent-message,
+.recent-comment {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.recent-message {
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.recent-comment {
+  border-left: 3px solid var(--border);
+  padding-left: 10px;
+}
+
+.feedback-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.feedback-badge.is-liked {
+  color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.feedback-badge.is-disliked {
+  color: var(--red);
+  background: var(--red-soft);
+}
+
+.feedback-badge.is-unrated {
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.dashboard-empty-state {
+  margin: 0;
   color: var(--muted);
 }
 
@@ -607,7 +807,7 @@ h2 {
   }
 
   .metric-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .view-header,
@@ -616,7 +816,16 @@ h2 {
     flex-direction: column;
   }
 
+  .dashboard-toolbar {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .docs-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-grid {
     grid-template-columns: 1fr;
   }
 
@@ -633,6 +842,7 @@ h2 {
   .nav-list,
   .token-row,
   .token-actions,
+  .metric-grid,
   .docs-nav {
     grid-template-columns: 1fr;
   }

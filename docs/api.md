@@ -14,7 +14,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Web Feedback Capture REST API contract for server-to-server ingestion
 - MCP tool contracts for review and query access
 - MCP tool contract for liked-conversation retrieval
-- Admin REST API contract for human/operator review
+- Admin REST API contract for human/operator review and dashboard metrics
 
 ## Documentation Rules
 
@@ -273,8 +273,8 @@ Use this file to record public-facing contracts as they are implemented. The cur
 ### Admin Feedback REST API
 
 - Status: implemented in `P3`
-- Consumers: Human operators, scripts, and future admin dashboards
-- Purpose: Query, inspect, and manage all feedback records through REST endpoints separate from MCP tools
+- Consumers: Human operators, scripts, and admin dashboards
+- Purpose: Query, inspect, manage, and summarize feedback records through REST endpoints separate from MCP tools
 - Base path: `/admin/api`
 - Auth or permissions:
   - Deployment-specific for the self-hosted MVP
@@ -287,6 +287,12 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - Lists all feedback records by default, not only liked records
     - Supports `start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `feedback_value`, `channel`, `tag`, `limit`, and `cursor`
     - Returns `records` and optional `next_cursor`
+  - `GET /admin/api/feedback/metrics`
+    - Returns dashboard metrics for a required ingest-time window
+    - Requires `start_ingested_at` and `end_ingested_at` timezone-aware ISO 8601 query parameters
+    - Normalizes the requested window to UTC
+    - Counts records with `ingested_at >= start_ingested_at` and `ingested_at < end_ingested_at`
+    - Returns `window`, `totals`, and zero-filled UTC `daily_counts`
   - `GET /admin/api/feedback/{feedback_id}`
     - Returns one full feedback record or `404` when missing
   - `PATCH /admin/api/feedback/{feedback_id}`
@@ -312,6 +318,15 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - `used_context: array`
   - `source_metadata: object`
   - `attributes: object`
+- Metrics response shape:
+  - `window.start_ingested_at: string` UTC ISO 8601 timestamp
+  - `window.end_ingested_at: string` UTC ISO 8601 timestamp
+  - `totals.total: integer`
+  - `totals.liked: integer` count of records where `feedback_value` is `1`
+  - `totals.disliked: integer` count of records where `feedback_value` is `2`
+  - `totals.unrated: integer` count of records where `feedback_value` is `null`
+  - `daily_counts: object[]` UTC day buckets spanning the requested window, including zero-count days
+  - Each daily bucket includes `day`, `total`, `liked`, `disliked`, and `unrated`
 - Errors:
   - Validation failures return JSON `400` responses with `detail`
   - Missing records return JSON `404` responses with `detail`
