@@ -73,13 +73,17 @@
 
 - Phase ID: `P3`
 - Objective: Replace free-text-only `channel` handling with nullable, default-none category behavior that operators can adjust in Admin.
-- Status: planned
+- Status: in_progress
 - Review outcome: pending
 - Notes: Decomposition should cover storage and migration shape, API validation, query filters, Admin list/detail/edit behavior, and how allowed categories are represented or managed.
 - Work items:
-  - None yet
+  - `works/archives/work_items/20260427_1829_decompose_channel_categories_admin_adjustability`
 - Slices:
-  - [ ] Slice ID: `P3.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
+  - [x] Slice ID: `P3.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_1829_decompose_channel_categories_admin_adjustability` | Notes: Added contract, validation/storage, Admin workflow, guidance/coverage, and review slices for P3.
+  - [ ] Slice ID: `P3.S1` | Name: `lock channel category contract` | Status: todo | Work item: none | Notes: Define nullable default-none semantics, allowed category representation or management, existing-record compatibility, and public/Admin contract changes in durable docs before code changes.
+  - [ ] Slice ID: `P3.S2` | Name: `apply channel category validation and storage policy` | Status: todo | Work item: none | Notes: Implement the P3.S1 channel policy across capture validation, queue/service types, persistence or migration handling, read filters, and Admin REST patch validation.
+  - [ ] Slice ID: `P3.S3` | Name: `update Admin channel category workflows` | Status: todo | Work item: none | Notes: Replace free-text Admin channel filter and edit controls with category-aware nullable UI behavior while preserving list/detail readability.
+  - [ ] Slice ID: `P3.S4` | Name: `update channel examples and compatibility coverage` | Status: todo | Work item: none | Notes: Update README/operator examples and tests for null default, accepted categories, rejected invalid categories, query filters, Admin edits, and existing payload compatibility.
   - [ ] Slice ID: `P3.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
 
 ### Phase P4: Working REST capture Try docs
