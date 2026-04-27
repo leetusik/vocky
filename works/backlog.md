@@ -27,18 +27,70 @@
 
 ## Active Phases
 
-### Phase P1: <phase name>
+### Phase P1: Self-hosted Web UI foundation
 
 - Phase ID: `P1`
-- Objective: <what this phase should accomplish>
+- Objective: Establish the integrated browser UI surface, routing, auth model, navigation shell, and reference-doc direction for self-hosted operators.
 - Status: planned
 - Review outcome: pending
-- Notes: <intent, constraints, assumptions, or handoff context>
+- Notes: Serve the first Web UI from the existing Starlette app under an admin-oriented path such as `/admin`, while preserving `/mcp`, `/api/*`, and `/admin/api/*`. This phase should update product and architecture docs to move dashboard UI out of current non-goals and clarify that the UI is for self-hosted operators, not SaaS tenants.
 - Work items:
   - None yet
 - Slices:
   - [ ] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
   - [ ] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+
+### Phase P2: In-app operator documentation
+
+- Phase ID: `P2`
+- Objective: Add Web UI documentation pages for MCP tools, REST capture, Admin REST, auth tokens, local self-hosting, and public custom-domain setup.
+- Status: planned
+- Review outcome: pending
+- Notes: Keep the documentation operator-focused and maintainable. Prefer content sourced from durable docs or small structured documentation modules rather than duplicated long-form strings spread through UI code.
+- Work items:
+  - None yet
+- Slices:
+  - [ ] Slice ID: `P2.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
+  - [ ] Slice ID: `P2.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+
+### Phase P3: Dashboard metrics
+
+- Phase ID: `P3`
+- Objective: Add dashboard metrics and trend views for feedback volume, likes, dislikes, unrated feedback, recent activity, and filterable time windows.
+- Status: planned
+- Review outcome: pending
+- Notes: Reuse existing Admin REST data where practical. Add a minimal Admin REST metrics endpoint only if the UI cannot efficiently derive the needed dashboard state from existing list and summary contracts.
+- Work items:
+  - None yet
+- Slices:
+  - [ ] Slice ID: `P3.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
+  - [ ] Slice ID: `P3.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+
+### Phase P4: Feedback review and management
+
+- Phase ID: `P4`
+- Objective: Build the feedback review workflow with list, filtering, detail, tag/comment/channel editing, feedback value editing, and delete flows.
+- Status: planned
+- Review outcome: pending
+- Notes: Use the existing Admin REST list, detail, patch, and delete contracts as the backing API. Keep the experience single-tenant and operator-focused, with no SaaS account, organization, billing, or tenant-selection concepts.
+- Work items:
+  - None yet
+- Slices:
+  - [ ] Slice ID: `P4.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
+  - [ ] Slice ID: `P4.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+
+### Phase P5: Self-hosted packaging and polish
+
+- Phase ID: `P5`
+- Objective: Make the Web UI reliable in Compose and local workflows, public custom-domain deployments, docs, tests, and release-facing README messaging.
+- Status: planned
+- Review outcome: pending
+- Notes: Preserve the self-hosted default operational model. Verification should include UI route behavior, Admin auth behavior, Compose/local usability, public custom-domain guidance, and updated README messaging.
+- Work items:
+  - None yet
+- Slices:
+  - [ ] Slice ID: `P5.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
+  - [ ] Slice ID: `P5.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
 
 ## Archive Notes
 
