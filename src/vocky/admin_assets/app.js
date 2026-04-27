@@ -16,6 +16,39 @@ const state = {
     refreshedAt: null,
     error: "",
   },
+  feedback: {
+    filters: {
+      start_ingested_at: "",
+      end_ingested_at: "",
+      source_product: "",
+      source_integration: "",
+      conversation_id: "",
+      session_id: "",
+      feedback_value: "",
+      channel: "",
+      tag: "",
+      limit: "50",
+    },
+    loading: false,
+    status: "idle",
+    records: [],
+    nextCursor: "",
+    cursors: [""],
+    pageIndex: 0,
+    detail: {
+      selectedId: "",
+      loading: false,
+      status: "idle",
+      record: null,
+      editing: false,
+      saving: false,
+      confirmingDelete: false,
+      deleting: false,
+      error: "",
+    },
+    refreshedAt: null,
+    error: "",
+  },
   docs: {
     activeTopicId: "",
     loaded: false,
@@ -45,6 +78,16 @@ const metricUnrated = document.querySelector("[data-metric-unrated]");
 const metricWindowLabel = document.querySelector("[data-metric-window-label]");
 const trendChart = document.querySelector("[data-trend-chart]");
 const recentList = document.querySelector("[data-recent-list]");
+const feedbackStatus = document.querySelector("[data-feedback-status]");
+const feedbackMessage = document.querySelector("[data-feedback-message]");
+const feedbackUpdated = document.querySelector("[data-feedback-updated]");
+const feedbackForm = document.querySelector("[data-feedback-filter-form]");
+const feedbackList = document.querySelector("[data-feedback-list]");
+const feedbackPrevButton = document.querySelector("[data-feedback-prev]");
+const feedbackNextButton = document.querySelector("[data-feedback-next]");
+const feedbackPageLabel = document.querySelector("[data-feedback-page-label]");
+const feedbackDetail = document.querySelector("[data-feedback-detail]");
+const feedbackDetailMeta = document.querySelector("[data-feedback-detail-meta]");
 const docsNav = document.querySelector("[data-docs-nav]");
 const docsArticle = document.querySelector("[data-docs-article]");
 const docsMeta = document.querySelector("[data-docs-meta]");
@@ -70,19 +113,36 @@ function adminFetch(path, options = {}) {
   });
 }
 
-function createAdminApiError(response) {
+function createAdminApiError(response, payload = null) {
   const error = new Error(`Admin API ${response.status}`);
   error.status = response.status;
+  error.detail = payload && typeof payload.detail === "string" ? payload.detail : "";
   return error;
 }
 
-async function requestAdminJson(path) {
+async function requestAdminJson(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json");
+  }
+
   const response = await adminFetch(path, {
-    headers: { Accept: "application/json" },
+    ...options,
+    headers,
   });
 
   if (!response.ok) {
-    throw createAdminApiError(response);
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    throw createAdminApiError(response, payload);
+  }
+
+  if (response.status === 204) {
+    return null;
   }
 
   return response.json();
@@ -296,6 +356,14 @@ function formatDateTime(value) {
   });
 }
 
+function formatUtcDateTime(value) {
+  const date = new Date(normalizeText(value));
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown time";
+  }
+  return date.toISOString().replace(".000Z", "Z");
+}
+
 function formatFeedbackValue(value) {
   if (value === 1) {
     return "Liked";
@@ -467,6 +535,794 @@ function renderDashboardUnavailable(label) {
   renderTrendState(label);
   renderRecentState(label);
   pushEvent(label);
+}
+
+function setFeedbackStatus(statusName, label) {
+  state.feedback.status = statusName;
+  state.feedback.error = statusName === "error" ? label : "";
+
+  if (feedbackStatus) {
+    feedbackStatus.dataset.feedbackState = statusName;
+    feedbackStatus.textContent = label;
+  }
+
+  setText(feedbackMessage, label);
+}
+
+function getFeedbackFilterInput(name) {
+  return feedbackForm ? feedbackForm.querySelector(`[data-feedback-filter="${name}"]`) : null;
+}
+
+function toUtcIngestedParam(value) {
+  const cleaned = normalizeText(value).trim();
+  if (!cleaned) {
+    return "";
+  }
+
+  const withSeconds = cleaned.length === 16 ? `${cleaned}:00` : cleaned;
+  const candidate = `${withSeconds}Z`;
+  const parsed = new Date(candidate);
+  if (Number.isNaN(parsed.getTime())) {
+    return candidate;
+  }
+  return parsed.toISOString();
+}
+
+function readFeedbackFiltersFromForm() {
+  const nextFilters = { ...state.feedback.filters };
+
+  Object.keys(nextFilters).forEach((name) => {
+    const input = getFeedbackFilterInput(name);
+    if (input) {
+      nextFilters[name] = input.value.trim();
+    }
+  });
+
+  if (!nextFilters.limit) {
+    nextFilters.limit = "50";
+  }
+
+  return nextFilters;
+}
+
+function appendTrimmedParam(params, name, value) {
+  const cleaned = normalizeText(value).trim();
+  if (cleaned) {
+    params.set(name, cleaned);
+  }
+}
+
+function makeFeedbackListPath(cursor = "") {
+  const params = new URLSearchParams();
+  const filters = state.feedback.filters;
+
+  appendTrimmedParam(
+    params,
+    "start_ingested_at",
+    toUtcIngestedParam(filters.start_ingested_at),
+  );
+  appendTrimmedParam(
+    params,
+    "end_ingested_at",
+    toUtcIngestedParam(filters.end_ingested_at),
+  );
+  appendTrimmedParam(params, "source_product", filters.source_product);
+  appendTrimmedParam(params, "source_integration", filters.source_integration);
+  appendTrimmedParam(params, "conversation_id", filters.conversation_id);
+  appendTrimmedParam(params, "session_id", filters.session_id);
+  appendTrimmedParam(params, "feedback_value", filters.feedback_value);
+  appendTrimmedParam(params, "channel", filters.channel);
+  appendTrimmedParam(params, "tag", filters.tag);
+  appendTrimmedParam(params, "limit", filters.limit);
+  appendTrimmedParam(params, "cursor", cursor);
+
+  const query = params.toString();
+  return query ? `/admin/api/feedback?${query}` : "/admin/api/feedback";
+}
+
+function renderFeedbackState(label) {
+  if (!feedbackList) {
+    return;
+  }
+
+  const item = document.createElement("li");
+  item.className = "feedback-empty-state";
+  item.dataset.feedbackListState = "";
+  item.textContent = label;
+  feedbackList.replaceChildren(item);
+}
+
+function renderFeedbackPaging() {
+  const isLoading = state.feedback.loading;
+  if (feedbackPrevButton) {
+    feedbackPrevButton.disabled = isLoading || state.feedback.pageIndex === 0;
+  }
+  if (feedbackNextButton) {
+    feedbackNextButton.disabled = isLoading || !state.feedback.nextCursor;
+  }
+  setText(feedbackPageLabel, `Page ${state.feedback.pageIndex + 1}`);
+}
+
+function appendFeedbackTagList(parent, tags) {
+  const normalizedTags = Array.isArray(tags) ? tags : [];
+  if (!normalizedTags.length) {
+    return;
+  }
+
+  const list = document.createElement("ul");
+  list.className = "feedback-tag-list";
+  normalizedTags.forEach((tag) => {
+    const item = document.createElement("li");
+    item.textContent = normalizeText(tag);
+    if (item.textContent) {
+      list.append(item);
+    }
+  });
+
+  if (list.children.length) {
+    parent.append(list);
+  }
+}
+
+function setFeedbackDetailMeta(label) {
+  setText(feedbackDetailMeta, label);
+}
+
+function renderFeedbackDetailState(label) {
+  if (!feedbackDetail) {
+    return;
+  }
+
+  const item = document.createElement("p");
+  item.className = "feedback-empty-state";
+  item.dataset.feedbackDetailState = "";
+  item.textContent = label;
+  feedbackDetail.replaceChildren(item);
+}
+
+function clearFeedbackDetail(label = "Select a record.") {
+  state.feedback.detail.selectedId = "";
+  state.feedback.detail.loading = false;
+  state.feedback.detail.status = "idle";
+  state.feedback.detail.record = null;
+  state.feedback.detail.editing = false;
+  state.feedback.detail.saving = false;
+  state.feedback.detail.confirmingDelete = false;
+  state.feedback.detail.deleting = false;
+  state.feedback.detail.error = "";
+  setFeedbackDetailMeta("Read only");
+  renderFeedbackDetailState(label);
+}
+
+function getDisplayValue(value) {
+  const normalized = normalizeText(value);
+  return normalized || "None";
+}
+
+function appendDetailField(list, term, value) {
+  const label = document.createElement("dt");
+  label.textContent = term;
+  const detail = document.createElement("dd");
+  detail.textContent = getDisplayValue(value);
+  list.append(label, detail);
+}
+
+function appendDetailSection(parent, title) {
+  const section = document.createElement("section");
+  section.className = "feedback-detail-section";
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  section.append(heading);
+  parent.append(section);
+  return section;
+}
+
+function appendJsonSection(parent, title, value) {
+  const section = appendDetailSection(parent, title);
+  const pre = document.createElement("pre");
+  pre.className = "feedback-json-block";
+  const code = document.createElement("code");
+  code.textContent = JSON.stringify(value ?? null, null, 2);
+  pre.append(code);
+  section.append(pre);
+}
+
+function getEditableTagsValue(record) {
+  return Array.isArray(record.tags) ? record.tags.join(", ") : "";
+}
+
+function parseEditableTags(value) {
+  return normalizeText(value)
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function updateCurrentFeedbackRecord(record) {
+  const index = state.feedback.records.findIndex(
+    (candidate) => normalizeText(candidate.id) === normalizeText(record.id),
+  );
+  if (index >= 0) {
+    state.feedback.records[index] = record;
+    renderFeedbackList(state.feedback.records);
+  }
+}
+
+function enterFeedbackEditMode() {
+  if (!state.feedback.detail.record || state.feedback.detail.saving) {
+    return;
+  }
+
+  state.feedback.detail.editing = true;
+  state.feedback.detail.error = "";
+  renderFeedbackDetailRecord(state.feedback.detail.record);
+}
+
+function cancelFeedbackEditMode() {
+  if (!state.feedback.detail.record || state.feedback.detail.saving) {
+    return;
+  }
+
+  state.feedback.detail.editing = false;
+  state.feedback.detail.error = "";
+  renderFeedbackDetailRecord(state.feedback.detail.record);
+}
+
+function beginFeedbackDelete() {
+  if (
+    !state.feedback.detail.record ||
+    state.feedback.detail.saving ||
+    state.feedback.detail.deleting
+  ) {
+    return;
+  }
+
+  state.feedback.detail.editing = false;
+  state.feedback.detail.confirmingDelete = true;
+  state.feedback.detail.error = "";
+  renderFeedbackDetailRecord(state.feedback.detail.record);
+}
+
+function cancelFeedbackDelete() {
+  if (!state.feedback.detail.record || state.feedback.detail.deleting) {
+    return;
+  }
+
+  state.feedback.detail.confirmingDelete = false;
+  state.feedback.detail.error = "";
+  renderFeedbackDetailRecord(state.feedback.detail.record);
+}
+
+async function deleteSelectedFeedbackRecord() {
+  const recordId = state.feedback.detail.selectedId;
+  if (!recordId || state.feedback.detail.deleting) {
+    return;
+  }
+
+  state.feedback.detail.deleting = true;
+  state.feedback.detail.error = "";
+  setFeedbackDetailMeta("Deleting");
+  renderFeedbackDetailRecord(state.feedback.detail.record);
+
+  try {
+    await requestAdminJson(`/admin/api/feedback/${encodeURIComponent(recordId)}`, {
+      method: "DELETE",
+    });
+    state.feedback.records = state.feedback.records.filter(
+      (record) => normalizeText(record.id) !== recordId,
+    );
+    clearFeedbackDetail("Feedback record deleted.");
+    renderFeedbackList(state.feedback.records);
+    renderFeedbackPaging();
+    await refreshFeedback();
+    setFeedbackStatus("loaded", "Feedback record deleted");
+  } catch (error) {
+    state.feedback.detail.deleting = false;
+    state.feedback.detail.error = error.detail || "Feedback record could not be deleted.";
+
+    if (error.status === 401) {
+      setFeedbackDetailMeta("Unauthorized");
+      setFeedbackStatus("unauthorized", "Admin API unauthorized");
+    } else if (error.status === 404) {
+      setFeedbackDetailMeta("Missing");
+      setFeedbackStatus("error", "Feedback record was not found");
+    } else {
+      setFeedbackDetailMeta("Error");
+      setFeedbackStatus("error", "Feedback record could not be deleted");
+    }
+
+    renderFeedbackDetailRecord(state.feedback.detail.record);
+  }
+}
+
+function getFeedbackPatchPayload(form) {
+  const formData = new FormData(form);
+  const feedbackValue = normalizeText(formData.get("feedback_value")).trim();
+
+  return {
+    feedback_value: feedbackValue ? Number(feedbackValue) : null,
+    comment: normalizeText(formData.get("comment")).trim() || null,
+    channel: normalizeText(formData.get("channel")).trim() || null,
+    tags: parseEditableTags(formData.get("tags")),
+  };
+}
+
+function setFeedbackEditFormSaving(form, saving) {
+  form.querySelectorAll("input, select, textarea, button").forEach((field) => {
+    field.disabled = saving;
+  });
+}
+
+async function saveFeedbackReviewFields(form) {
+  const recordId = state.feedback.detail.selectedId;
+  if (!recordId || state.feedback.detail.saving) {
+    return;
+  }
+
+  const payload = getFeedbackPatchPayload(form);
+  state.feedback.detail.saving = true;
+  state.feedback.detail.error = "";
+  setFeedbackDetailMeta("Saving");
+  setFeedbackEditFormSaving(form, true);
+
+  try {
+    const responsePayload = await requestAdminJson(
+      `/admin/api/feedback/${encodeURIComponent(recordId)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
+
+    state.feedback.detail.record = responsePayload.record || null;
+    state.feedback.detail.editing = false;
+    state.feedback.detail.saving = false;
+    state.feedback.detail.status = "loaded";
+    state.feedback.detail.error = "";
+
+    if (state.feedback.detail.record) {
+      updateCurrentFeedbackRecord(state.feedback.detail.record);
+      renderFeedbackDetailRecord(state.feedback.detail.record);
+      setFeedbackStatus("loaded", "Feedback record saved");
+    } else {
+      renderFeedbackDetailState("Feedback detail unavailable.");
+    }
+  } catch (error) {
+    state.feedback.detail.saving = false;
+    state.feedback.detail.error = error.detail || "Feedback record could not be saved.";
+    setFeedbackDetailMeta(error.status === 401 ? "Unauthorized" : "Error");
+    setFeedbackEditFormSaving(form, false);
+
+    const errorMessage = form.querySelector("[data-feedback-edit-error]");
+    setText(errorMessage, state.feedback.detail.error);
+
+    if (error.status === 401) {
+      setFeedbackStatus("unauthorized", "Admin API unauthorized");
+    } else if (error.status === 404) {
+      setFeedbackStatus("error", "Feedback record was not found");
+    } else {
+      setFeedbackStatus("error", "Feedback record could not be saved");
+    }
+  }
+}
+
+function buildFeedbackEditForm(record) {
+  const form = document.createElement("form");
+  form.className = "feedback-edit-form";
+  form.dataset.feedbackEditForm = "";
+
+  const valueLabel = document.createElement("label");
+  appendTextElement(valueLabel, "span", "", "Feedback value");
+  const valueSelect = document.createElement("select");
+  valueSelect.name = "feedback_value";
+  [
+    ["", "Unrated"],
+    ["1", "Liked"],
+    ["2", "Disliked"],
+  ].forEach(([value, label]) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    if (String(record.feedback_value || "") === value) {
+      option.selected = true;
+    }
+    valueSelect.append(option);
+  });
+  valueLabel.append(valueSelect);
+
+  const channelLabel = document.createElement("label");
+  appendTextElement(channelLabel, "span", "", "Channel");
+  const channelInput = document.createElement("input");
+  channelInput.name = "channel";
+  channelInput.type = "text";
+  channelInput.autocomplete = "off";
+  channelInput.spellcheck = false;
+  channelInput.value = normalizeText(record.channel);
+  channelLabel.append(channelInput);
+
+  const commentLabel = document.createElement("label");
+  commentLabel.className = "feedback-edit-wide";
+  appendTextElement(commentLabel, "span", "", "Comment");
+  const commentInput = document.createElement("textarea");
+  commentInput.name = "comment";
+  commentInput.rows = 4;
+  commentInput.value = normalizeText(record.comment);
+  commentLabel.append(commentInput);
+
+  const tagsLabel = document.createElement("label");
+  tagsLabel.className = "feedback-edit-wide";
+  appendTextElement(tagsLabel, "span", "", "Tags");
+  const tagsInput = document.createElement("input");
+  tagsInput.name = "tags";
+  tagsInput.type = "text";
+  tagsInput.autocomplete = "off";
+  tagsInput.spellcheck = false;
+  tagsInput.value = getEditableTagsValue(record);
+  tagsLabel.append(tagsInput);
+
+  const error = document.createElement("p");
+  error.className = "feedback-edit-error";
+  error.dataset.feedbackEditError = "";
+  error.textContent = state.feedback.detail.error;
+
+  const actions = document.createElement("div");
+  actions.className = "feedback-detail-actions";
+  const saveButton = document.createElement("button");
+  saveButton.className = "primary-button";
+  saveButton.type = "submit";
+  saveButton.textContent = "Save";
+  const cancelButton = document.createElement("button");
+  cancelButton.className = "secondary-button";
+  cancelButton.type = "button";
+  cancelButton.textContent = "Cancel";
+  cancelButton.addEventListener("click", cancelFeedbackEditMode);
+  actions.append(saveButton, cancelButton);
+
+  form.append(valueLabel, channelLabel, commentLabel, tagsLabel, error, actions);
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void saveFeedbackReviewFields(form);
+  });
+
+  return form;
+}
+
+function renderFeedbackDetailRecord(record) {
+  if (!feedbackDetail) {
+    return;
+  }
+
+  const container = document.createDocumentFragment();
+  const header = document.createElement("header");
+  header.className = "feedback-detail-header";
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "feedback-detail-title-row";
+  const titleMeta = document.createElement("div");
+  titleMeta.className = "feedback-detail-source-row";
+  const badge = document.createElement("span");
+  badge.className = `feedback-badge is-${getFeedbackTone(record.feedback_value)}`;
+  badge.textContent = formatFeedbackValue(record.feedback_value);
+  const ingested = document.createElement("time");
+  ingested.dateTime = normalizeText(record.ingested_at);
+  ingested.textContent = formatUtcDateTime(record.ingested_at);
+  titleMeta.append(badge, ingested);
+
+  const titleActions = document.createElement("div");
+  titleActions.className = "feedback-detail-actions";
+  if (!state.feedback.detail.editing) {
+    if (state.feedback.detail.confirmingDelete) {
+      const confirmButton = document.createElement("button");
+      confirmButton.className = "danger-button";
+      confirmButton.type = "button";
+      confirmButton.dataset.feedbackDeleteConfirm = "";
+      confirmButton.textContent = state.feedback.detail.deleting ? "Deleting" : "Confirm delete";
+      confirmButton.disabled = state.feedback.detail.deleting;
+      confirmButton.addEventListener("click", () => {
+        void deleteSelectedFeedbackRecord();
+      });
+
+      const cancelButton = document.createElement("button");
+      cancelButton.className = "secondary-button";
+      cancelButton.type = "button";
+      cancelButton.dataset.feedbackDeleteCancel = "";
+      cancelButton.textContent = "Cancel";
+      cancelButton.disabled = state.feedback.detail.deleting;
+      cancelButton.addEventListener("click", cancelFeedbackDelete);
+      titleActions.append(confirmButton, cancelButton);
+    } else {
+      const editButton = document.createElement("button");
+      editButton.className = "secondary-button";
+      editButton.type = "button";
+      editButton.dataset.feedbackEdit = "";
+      editButton.textContent = "Edit";
+      editButton.addEventListener("click", enterFeedbackEditMode);
+
+      const deleteButton = document.createElement("button");
+      deleteButton.className = "danger-button";
+      deleteButton.type = "button";
+      deleteButton.dataset.feedbackDelete = "";
+      deleteButton.textContent = "Delete";
+      deleteButton.addEventListener("click", beginFeedbackDelete);
+      titleActions.append(editButton, deleteButton);
+    }
+  }
+  titleRow.append(titleMeta, titleActions);
+
+  const message = document.createElement("p");
+  message.className = "feedback-detail-message";
+  message.textContent = normalizeText(record.message) || "Untitled feedback";
+
+  const sourceRow = document.createElement("div");
+  sourceRow.className = "feedback-detail-source-row";
+  appendRecentMeta(sourceRow, normalizeText(record.source_product));
+  appendRecentMeta(sourceRow, normalizeText(record.source_integration));
+  appendRecentMeta(sourceRow, normalizeText(record.channel));
+
+  header.append(titleRow, message);
+  if (sourceRow.children.length) {
+    header.append(sourceRow);
+  }
+  if (normalizeText(record.comment)) {
+    const comment = document.createElement("p");
+    comment.className = "feedback-detail-comment";
+    comment.textContent = record.comment;
+    header.append(comment);
+  }
+  appendFeedbackTagList(header, record.tags);
+  if (state.feedback.detail.confirmingDelete) {
+    const deletePrompt = document.createElement("p");
+    deletePrompt.className = "feedback-delete-prompt";
+    deletePrompt.textContent = "Confirm deletion before this record is removed.";
+    header.append(deletePrompt);
+  }
+  container.append(header);
+
+  if (state.feedback.detail.editing) {
+    container.append(buildFeedbackEditForm(record));
+    setFeedbackDetailMeta("Editing");
+  } else if (state.feedback.detail.deleting) {
+    setFeedbackDetailMeta("Deleting");
+  } else if (state.feedback.detail.confirmingDelete) {
+    setFeedbackDetailMeta("Confirm delete");
+  } else {
+    setFeedbackDetailMeta("Read only");
+  }
+
+  const fieldsSection = appendDetailSection(container, "Fields");
+  const fields = document.createElement("dl");
+  fields.className = "feedback-detail-grid";
+  appendDetailField(fields, "ID", record.id);
+  appendDetailField(fields, "Source product", record.source_product);
+  appendDetailField(fields, "Source integration", record.source_integration);
+  appendDetailField(fields, "Conversation ID", record.conversation_id);
+  appendDetailField(fields, "Session ID", record.session_id);
+  appendDetailField(fields, "Channel", record.channel);
+  appendDetailField(fields, "Feedback value", formatFeedbackValue(record.feedback_value));
+  appendDetailField(fields, "Event at", record.event_at ? formatUtcDateTime(record.event_at) : "");
+  appendDetailField(fields, "Ingested at", formatUtcDateTime(record.ingested_at));
+  fieldsSection.append(fields);
+
+  appendJsonSection(container, "Messages", Array.isArray(record.messages) ? record.messages : []);
+  appendJsonSection(
+    container,
+    "Used context",
+    Array.isArray(record.used_context) ? record.used_context : [],
+  );
+  appendJsonSection(container, "Source metadata", record.source_metadata || {});
+  appendJsonSection(container, "Attributes", record.attributes || {});
+
+  feedbackDetail.replaceChildren(container);
+}
+
+function syncSelectedFeedbackListItem() {
+  if (!feedbackList) {
+    return;
+  }
+
+  feedbackList.querySelectorAll("[data-feedback-select]").forEach((button) => {
+    const isSelected = button.dataset.feedbackRecordId === state.feedback.detail.selectedId;
+    button.classList.toggle("is-selected", isSelected);
+    if (isSelected) {
+      button.setAttribute("aria-current", "true");
+    } else {
+      button.removeAttribute("aria-current");
+    }
+  });
+}
+
+async function selectFeedbackRecord(recordId) {
+  const selectedId = normalizeText(recordId);
+  if (!selectedId || state.feedback.detail.loading) {
+    return;
+  }
+
+  state.feedback.detail.selectedId = selectedId;
+  state.feedback.detail.loading = true;
+  state.feedback.detail.status = "loading";
+  state.feedback.detail.record = null;
+  state.feedback.detail.editing = false;
+  state.feedback.detail.saving = false;
+  state.feedback.detail.confirmingDelete = false;
+  state.feedback.detail.deleting = false;
+  state.feedback.detail.error = "";
+  syncSelectedFeedbackListItem();
+  setFeedbackDetailMeta("Loading");
+  renderFeedbackDetailState("Loading feedback detail.");
+
+  try {
+    const payload = await requestAdminJson(`/admin/api/feedback/${encodeURIComponent(selectedId)}`);
+    state.feedback.detail.record = payload.record || null;
+    state.feedback.detail.loading = false;
+    state.feedback.detail.status = "loaded";
+    if (state.feedback.detail.record) {
+      renderFeedbackDetailRecord(state.feedback.detail.record);
+    } else {
+      state.feedback.detail.status = "error";
+      renderFeedbackDetailState("Feedback detail unavailable.");
+    }
+  } catch (error) {
+    state.feedback.detail.loading = false;
+    state.feedback.detail.record = null;
+    syncSelectedFeedbackListItem();
+
+    if (error.status === 401) {
+      state.feedback.detail.status = "unauthorized";
+      setFeedbackDetailMeta("Unauthorized");
+      renderFeedbackDetailState("Admin API unauthorized.");
+      return;
+    }
+
+    if (error.status === 404) {
+      state.feedback.detail.status = "missing";
+      setFeedbackDetailMeta("Missing");
+      renderFeedbackDetailState("Feedback record was not found.");
+      return;
+    }
+
+    state.feedback.detail.status = "error";
+    setFeedbackDetailMeta("Error");
+    renderFeedbackDetailState("Feedback detail unavailable.");
+  }
+}
+
+function renderFeedbackList(records) {
+  if (!feedbackList) {
+    return;
+  }
+
+  const feedbackRecords = Array.isArray(records) ? records : [];
+  if (!feedbackRecords.length) {
+    renderFeedbackState("No feedback records match these filters.");
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  feedbackRecords.forEach((record) => {
+    const item = document.createElement("li");
+    item.className = "feedback-list-item";
+    const recordId = normalizeText(record.id);
+
+    const button = document.createElement("button");
+    button.className = "feedback-list-button";
+    button.type = "button";
+    button.dataset.feedbackSelect = "";
+    button.dataset.feedbackRecordId = recordId;
+    if (recordId === state.feedback.detail.selectedId) {
+      button.classList.add("is-selected");
+      button.setAttribute("aria-current", "true");
+    }
+    button.addEventListener("click", () => {
+      void selectFeedbackRecord(recordId);
+    });
+
+    const header = document.createElement("div");
+    header.className = "feedback-list-item-header";
+
+    const badge = document.createElement("span");
+    badge.className = `feedback-badge is-${getFeedbackTone(record.feedback_value)}`;
+    badge.textContent = formatFeedbackValue(record.feedback_value);
+
+    const time = document.createElement("time");
+    time.dateTime = normalizeText(record.ingested_at);
+    time.textContent = formatUtcDateTime(record.ingested_at);
+
+    header.append(badge, time);
+
+    const message = document.createElement("p");
+    message.className = "feedback-list-message";
+    message.textContent = normalizeText(record.message) || "Untitled feedback";
+
+    const meta = document.createElement("div");
+    meta.className = "feedback-list-meta";
+    appendRecentMeta(meta, normalizeText(record.source_product));
+    appendRecentMeta(meta, normalizeText(record.source_integration));
+    appendRecentMeta(meta, normalizeText(record.channel));
+    appendRecentMeta(meta, normalizeText(record.conversation_id));
+    appendRecentMeta(meta, normalizeText(record.session_id));
+
+    button.append(header, message);
+    if (meta.children.length) {
+      button.append(meta);
+    }
+
+    appendFeedbackTagList(button, record.tags);
+
+    if (normalizeText(record.comment)) {
+      const comment = document.createElement("p");
+      comment.className = "feedback-comment";
+      comment.textContent = record.comment;
+      button.append(comment);
+    }
+
+    item.append(button);
+    fragment.append(item);
+  });
+
+  feedbackList.replaceChildren(fragment);
+}
+
+function renderFeedbackLoadedState() {
+  const count = state.feedback.records.length;
+  state.feedback.refreshedAt = new Date();
+  state.feedback.loading = false;
+  if (
+    state.feedback.detail.selectedId &&
+    !state.feedback.records.some((record) => normalizeText(record.id) === state.feedback.detail.selectedId)
+  ) {
+    clearFeedbackDetail();
+  }
+  renderFeedbackList(state.feedback.records);
+  renderFeedbackPaging();
+  setText(
+    feedbackUpdated,
+    state.feedback.refreshedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  );
+
+  if (count === 0) {
+    setFeedbackStatus("empty", "No feedback records found");
+    return;
+  }
+
+  setFeedbackStatus("loaded", `${formatCount(count)} feedback records loaded`);
+}
+
+async function refreshFeedback(options = {}) {
+  if (options.resetPage) {
+    state.feedback.cursors = [""];
+    state.feedback.pageIndex = 0;
+    state.feedback.nextCursor = "";
+    clearFeedbackDetail();
+  }
+
+  state.feedback.loading = true;
+  setFeedbackStatus("loading", "Loading feedback records");
+  renderFeedbackState("Loading feedback records.");
+  renderFeedbackPaging();
+
+  const cursor = state.feedback.cursors[state.feedback.pageIndex] || "";
+
+  try {
+    const payload = await requestAdminJson(makeFeedbackListPath(cursor));
+    state.feedback.records = Array.isArray(payload.records) ? payload.records : [];
+    state.feedback.nextCursor = normalizeText(payload.next_cursor);
+    renderFeedbackLoadedState();
+  } catch (error) {
+    state.feedback.loading = false;
+    state.feedback.records = [];
+    state.feedback.nextCursor = "";
+    renderFeedbackPaging();
+
+    if (error.status === 401) {
+      setFeedbackStatus("unauthorized", "Admin API unauthorized");
+      renderFeedbackState("Admin API unauthorized.");
+      return;
+    }
+
+    setFeedbackStatus("error", "Feedback records unavailable");
+    renderFeedbackState("Feedback records unavailable.");
+  }
 }
 
 function getDocsTopics(payload) {
@@ -807,6 +1663,10 @@ function activateView(viewName) {
   if (viewName === "docs") {
     void loadDocs();
   }
+
+  if (viewName === "feedback" && state.feedback.status === "idle") {
+    void refreshFeedback({ resetPage: true });
+  }
 }
 
 document.querySelectorAll("[data-view-tab]").forEach((tab) => {
@@ -839,6 +1699,54 @@ dashboardWindowButtons.forEach((button) => {
   });
 });
 
+document.querySelectorAll("[data-refresh-feedback]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.feedback.filters = readFeedbackFiltersFromForm();
+    void refreshFeedback({ resetPage: true });
+  });
+});
+
+if (feedbackForm) {
+  feedbackForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    state.feedback.filters = readFeedbackFiltersFromForm();
+    void refreshFeedback({ resetPage: true });
+  });
+
+  feedbackForm.addEventListener("reset", () => {
+    window.setTimeout(() => {
+      state.feedback.filters = readFeedbackFiltersFromForm();
+      void refreshFeedback({ resetPage: true });
+    }, 0);
+  });
+}
+
+if (feedbackPrevButton) {
+  feedbackPrevButton.addEventListener("click", () => {
+    if (state.feedback.pageIndex === 0 || state.feedback.loading) {
+      return;
+    }
+
+    state.feedback.pageIndex -= 1;
+    state.feedback.nextCursor = "";
+    void refreshFeedback();
+  });
+}
+
+if (feedbackNextButton) {
+  feedbackNextButton.addEventListener("click", () => {
+    if (!state.feedback.nextCursor || state.feedback.loading) {
+      return;
+    }
+
+    state.feedback.cursors = state.feedback.cursors.slice(0, state.feedback.pageIndex + 1);
+    state.feedback.cursors.push(state.feedback.nextCursor);
+    state.feedback.pageIndex += 1;
+    state.feedback.nextCursor = "";
+    void refreshFeedback();
+  });
+}
+
 if (tokenForm) {
   tokenForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -852,6 +1760,9 @@ if (tokenForm) {
 
     renderTokenState();
     void refreshDashboard();
+    if (state.activeView === "feedback") {
+      void refreshFeedback({ resetPage: true });
+    }
   });
 }
 
@@ -864,6 +1775,9 @@ document.querySelectorAll("[data-token-clear]").forEach((button) => {
     }
     renderTokenState();
     void refreshDashboard();
+    if (state.activeView === "feedback") {
+      void refreshFeedback({ resetPage: true });
+    }
   });
 });
 
@@ -887,5 +1801,9 @@ window.VockyAdmin = {
   getDashboardWindow,
   makeDashboardMetricsPath,
   makeRecentFeedbackPath,
+  makeFeedbackListPath,
+  selectFeedbackRecord,
+  deleteSelectedFeedbackRecord,
+  refreshFeedback,
   refreshDashboard,
 };

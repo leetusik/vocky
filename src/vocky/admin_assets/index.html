@@ -123,23 +123,96 @@
                 <p class="section-kicker">Review</p>
                 <h1 id="feedback-title">Feedback</h1>
               </div>
-              <span class="status-chip">Foundation</span>
+              <div class="feedback-toolbar">
+                <span class="status-chip" data-feedback-status data-feedback-state="idle">Not loaded</span>
+                <button type="button" class="secondary-button" data-refresh-feedback>Refresh</button>
+              </div>
             </div>
 
-            <section class="panel" aria-labelledby="feedback-surface-title">
+            <section class="panel feedback-filters-panel" aria-labelledby="feedback-filters-title">
               <div class="panel-header">
-                <h2 id="feedback-surface-title">Review Surface</h2>
-                <span class="panel-meta">Admin REST</span>
+                <h2 id="feedback-filters-title">Filters</h2>
+                <span class="panel-meta">Admin REST list</span>
               </div>
-              <div class="surface-grid">
-                <span>Records</span>
-                <strong>Queued</strong>
-                <span>Filters</span>
-                <strong>Queued</strong>
-                <span>Detail</span>
-                <strong>Queued</strong>
-              </div>
+              <form class="feedback-filter-form" data-feedback-filter-form>
+                <label>
+                  <span>Start ingest UTC</span>
+                  <input name="start_ingested_at" type="datetime-local" data-feedback-filter="start_ingested_at">
+                </label>
+                <label>
+                  <span>End ingest UTC</span>
+                  <input name="end_ingested_at" type="datetime-local" data-feedback-filter="end_ingested_at">
+                </label>
+                <label>
+                  <span>Feedback value</span>
+                  <select name="feedback_value" data-feedback-filter="feedback_value">
+                    <option value="">Any</option>
+                    <option value="1">Liked</option>
+                    <option value="2">Disliked</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Limit</span>
+                  <input name="limit" type="number" min="1" max="100" value="50" inputmode="numeric" data-feedback-filter="limit">
+                </label>
+                <label>
+                  <span>Source product</span>
+                  <input name="source_product" type="text" autocomplete="off" spellcheck="false" data-feedback-filter="source_product">
+                </label>
+                <label>
+                  <span>Source integration</span>
+                  <input name="source_integration" type="text" autocomplete="off" spellcheck="false" data-feedback-filter="source_integration">
+                </label>
+                <label>
+                  <span>Conversation ID</span>
+                  <input name="conversation_id" type="text" autocomplete="off" spellcheck="false" data-feedback-filter="conversation_id">
+                </label>
+                <label>
+                  <span>Session ID</span>
+                  <input name="session_id" type="text" autocomplete="off" spellcheck="false" data-feedback-filter="session_id">
+                </label>
+                <label>
+                  <span>Channel</span>
+                  <input name="channel" type="text" autocomplete="off" spellcheck="false" data-feedback-filter="channel">
+                </label>
+                <label>
+                  <span>Tag</span>
+                  <input name="tag" type="text" autocomplete="off" spellcheck="false" data-feedback-filter="tag">
+                </label>
+                <div class="feedback-filter-actions">
+                  <button class="primary-button" type="submit">Apply</button>
+                  <button type="reset" class="secondary-button" data-feedback-reset>Reset</button>
+                </div>
+              </form>
             </section>
+
+            <div class="feedback-review-layout">
+              <section class="panel feedback-list-panel" aria-labelledby="feedback-list-title">
+                <div class="panel-header">
+                  <h2 id="feedback-list-title">Records</h2>
+                  <span class="panel-meta" data-feedback-updated>Not loaded</span>
+                </div>
+                <p class="feedback-message" data-feedback-message>Feedback records have not been loaded.</p>
+                <ul class="feedback-list" data-feedback-list aria-live="polite">
+                  <li class="feedback-empty-state" data-feedback-list-state>Feedback records have not been loaded.</li>
+                </ul>
+                <div class="feedback-pagination" data-feedback-pagination>
+                  <button type="button" class="secondary-button" data-feedback-prev disabled>Previous</button>
+                  <span data-feedback-page-label>Page 1</span>
+                  <button type="button" class="secondary-button" data-feedback-next disabled>Next</button>
+                </div>
+              </section>
+
+              <section class="panel feedback-detail-panel" aria-labelledby="feedback-detail-title">
+                <div class="panel-header">
+                  <h2 id="feedback-detail-title">Detail</h2>
+                  <span class="panel-meta" data-feedback-detail-meta>Read only</span>
+                </div>
+                <div class="feedback-detail" data-feedback-detail aria-live="polite">
+                  <p class="feedback-empty-state" data-feedback-detail-state>Select a record.</p>
+                </div>
+              </section>
+            </div>
           </section>
 
           <section class="view" data-view-panel="docs" aria-labelledby="docs-title" hidden>

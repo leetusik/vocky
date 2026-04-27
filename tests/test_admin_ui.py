@@ -38,6 +38,24 @@ def test_admin_ui_index_routes_serve_packaged_html() -> None:
     assert 'data-trend-chart' in response.text
     assert 'data-recent-list' in response.text
     assert 'Recent activity' in response.text
+    assert 'data-feedback-filter-form' in response.text
+    assert 'data-feedback-filter="start_ingested_at"' in response.text
+    assert 'data-feedback-filter="end_ingested_at"' in response.text
+    assert 'data-feedback-filter="feedback_value"' in response.text
+    assert 'data-feedback-filter="source_product"' in response.text
+    assert 'data-feedback-filter="source_integration"' in response.text
+    assert 'data-feedback-filter="conversation_id"' in response.text
+    assert 'data-feedback-filter="session_id"' in response.text
+    assert 'data-feedback-filter="channel"' in response.text
+    assert 'data-feedback-filter="tag"' in response.text
+    assert 'data-feedback-filter="limit"' in response.text
+    assert 'data-feedback-list' in response.text
+    assert 'data-feedback-prev' in response.text
+    assert 'data-feedback-next' in response.text
+    assert 'data-refresh-feedback' in response.text
+    assert 'data-feedback-detail' in response.text
+    assert 'data-feedback-detail-meta' in response.text
+    assert 'Select a record.' in response.text
     assert 'data-docs-root' in response.text
     assert 'data-docs-nav' in response.text
     assert 'data-docs-article' in response.text
@@ -67,6 +85,16 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     assert ".trend-row" in css_response.text
     assert ".recent-list" in css_response.text
     assert ".feedback-badge" in css_response.text
+    assert ".feedback-filter-form" in css_response.text
+    assert ".feedback-list" in css_response.text
+    assert ".feedback-review-layout" in css_response.text
+    assert ".feedback-detail" in css_response.text
+    assert ".feedback-json-block" in css_response.text
+    assert ".feedback-edit-form" in css_response.text
+    assert ".feedback-edit-error" in css_response.text
+    assert ".danger-button" in css_response.text
+    assert ".feedback-delete-prompt" in css_response.text
+    assert ".feedback-pagination" in css_response.text
     assert ".docs-layout" in css_response.text
     assert ".docs-topic-button" in css_response.text
     assert js_response.status_code == 200
@@ -80,6 +108,30 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     assert 'requestAdminJson("/admin/api/healthz"' in js_response.text
     assert "/admin/api/feedback/metrics?" in js_response.text
     assert '"/admin/api/feedback?limit=5"' in js_response.text
+    assert "makeFeedbackListPath" in js_response.text
+    assert 'start_ingested_at' in js_response.text
+    assert 'feedback_value' in js_response.text
+    assert 'cursor' in js_response.text
+    assert "refreshFeedback" in js_response.text
+    assert "selectFeedbackRecord" in js_response.text
+    assert "/admin/api/feedback/${encodeURIComponent(selectedId)}" in js_response.text
+    assert "renderFeedbackDetailRecord" in js_response.text
+    assert "dataset.feedbackEditForm" in js_response.text
+    assert 'method: "PATCH"' in js_response.text
+    assert '"Content-Type": "application/json"' in js_response.text
+    assert "feedback_value: feedbackValue ? Number(feedbackValue) : null" in js_response.text
+    assert "comment:" in js_response.text
+    assert "channel:" in js_response.text
+    assert "tags:" in js_response.text
+    assert "cancelFeedbackEditMode" in js_response.text
+    assert "deleteSelectedFeedbackRecord" in js_response.text
+    assert 'method: "DELETE"' in js_response.text
+    assert "dataset.feedbackDeleteConfirm" in js_response.text
+    assert "Feedback record deleted." in js_response.text
+    assert "source_metadata" in js_response.text
+    assert "used_context" in js_response.text
+    assert "Admin API unauthorized" in js_response.text
+    assert "No feedback records match these filters." in js_response.text
     assert "Promise.all" in js_response.text
     assert "error.status === 401" in js_response.text
     assert "No feedback in the last" in js_response.text
@@ -117,6 +169,9 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
         "list_liked_conversations",
         "POST /api/feedback",
         "/admin/api/*",
+        "GET /admin/api/feedback/metrics",
+        "Browser edit scope",
+        "guarded delete",
         "202 Accepted",
         "204 No Content",
         "VOCKY_MCP_AUTH_TOKEN",

@@ -14,7 +14,7 @@
           "blocks": [
             {
               "type": "paragraph",
-              "text": "The Admin UI is served from /admin and uses Admin REST only for protected operator data."
+              "text": "The Admin UI is served from /admin and uses Admin REST only for protected dashboard, feedback review, and management data."
             },
             {
               "type": "table",
@@ -22,13 +22,19 @@
               "rows": [
                 ["MCP", "/mcp", "Agent feedback capture and read tools"],
                 ["REST capture", "POST /api/feedback", "Server-to-server feedback ingestion"],
-                ["Admin REST", "/admin/api/*", "Human/operator review and management"]
+                ["Admin REST", "/admin/api/*", "Human/operator review and management"],
+                ["Admin UI", "/admin", "Dashboard metrics plus feedback list, filter, detail, edit, and delete workflows"]
               ]
             },
             {
               "type": "callout",
               "title": "Auth boundary",
               "text": "Static Admin UI assets load without a bearer token. Protected Admin data stays behind /admin/api/*."
+            },
+            {
+              "type": "callout",
+              "title": "Browser edit scope",
+              "text": "The Feedback view edits feedback_value, comment, channel, and tags. Captured messages, used context, source_metadata, and attributes stay read-only in the browser."
             }
           ]
         },
@@ -135,6 +141,7 @@
               "rows": [
                 ["GET /admin/api/healthz", "200 OK", "Returns service, surface admin, and status ok"],
                 ["GET /admin/api/feedback", "200 OK", "Returns records and optional next_cursor"],
+                ["GET /admin/api/feedback/metrics", "200 OK", "Returns dashboard totals and UTC daily buckets"],
                 ["GET /admin/api/feedback/{feedback_id}", "200 OK", "Returns one record or 404 when missing"],
                 ["PATCH /admin/api/feedback/{feedback_id}", "200 OK", "Updates review fields and returns the record"],
                 ["DELETE /admin/api/feedback/{feedback_id}", "204 No Content", "Deletes one record or returns 404 when missing"]
@@ -144,7 +151,9 @@
               "type": "list",
               "items": [
                 "List filters match the MCP read filters: ingest-time window, source_product, source_integration, conversation_id, session_id, feedback_value, channel, tag, limit, and cursor.",
-                "Editable fields are feedback_value, comment, channel, tags, source_metadata, and attributes.",
+                "Admin REST editable fields are feedback_value, comment, channel, tags, source_metadata, and attributes.",
+                "The Admin UI Feedback view supports list, filter, detail inspection, editing feedback_value/comment/channel/tags, and guarded delete.",
+                "source_metadata and attributes are visible as read-only JSON in the Admin UI even though Admin REST can patch them.",
                 "messages and used_context are captured context and remain immutable in this MVP."
               ]
             },
@@ -221,7 +230,7 @@
                 },
                 {
                   "title": "Open Admin UI",
-                  "text": "Load /admin from the Vocky app. Static UI assets load without a token."
+                  "text": "Load /admin from the Vocky app. Static UI assets load without a token, while Dashboard and Feedback data use Admin REST."
                 },
                 {
                   "title": "Use an Admin token",

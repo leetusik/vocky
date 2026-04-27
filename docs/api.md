@@ -123,7 +123,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 ### Feedback Listing MCP Tool
 
 - Status: implemented in `P3`
-- Consumers: Operators, scripts, or future UI layers reviewing stored feedback through MCP
+- Consumers: Operators, scripts, or MCP clients reviewing stored feedback through MCP
 - Purpose: Retrieve stored feedback records with a small, explicit filter set and cursor pagination
 - Inputs:
   - Tool name: `list_feedback`
@@ -181,7 +181,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 ### Feedback Summary MCP Tool
 
 - Status: implemented in `P3`
-- Consumers: Operators, scripts, or future UI layers reviewing stored feedback trends through MCP
+- Consumers: Operators, scripts, or MCP clients reviewing stored feedback trends through MCP
 - Purpose: Return total feedback volume and UTC daily counts for an explicit ingest-time window
 - Inputs:
   - Tool name: `summarize_feedback`
@@ -334,4 +334,6 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Notes:
   - Admin REST is the human/operator review surface.
   - The Admin REST API and MCP tools share the same `feedback_events` schema and service/repository layer.
+  - The packaged Admin Web UI consumes this same-origin Admin REST surface for dashboard metrics, feedback list/filter/detail review, review-field editing, and guarded delete.
+  - Browser editing intentionally exposes only `feedback_value`, `comment`, `channel`, and `tags`, even though Admin REST can also patch `source_metadata` and `attributes`.
   - The liked-conversation MCP tool remains AI-agent-only and does not replace Admin REST review.

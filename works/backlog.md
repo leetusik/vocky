@@ -94,18 +94,23 @@
 
 - Phase ID: `P4`
 - Objective: Build the feedback review workflow with list, filtering, detail, tag/comment/channel editing, feedback value editing, and delete flows.
-- Status: in_progress
-- Review outcome: pending
+- Status: done
+- Review outcome: passed
 - Notes: Use the existing Admin REST list, detail, patch, and delete contracts as the backing API. Keep the experience single-tenant and operator-focused, with no SaaS account, organization, billing, or tenant-selection concepts.
 - Work items:
   - `works/archives/work_items/20260427_1407_decompose_feedback_review_management` (`P4.DECOMP`)
+  - `works/archives/work_items/20260427_1417_build_feedback_list_and_filters` (`P4.S1`)
+  - `works/archives/work_items/20260427_1421_add_feedback_detail_inspection` (`P4.S2`)
+  - `works/archives/work_items/20260427_1424_add_review_field_editing` (`P4.S3`)
+  - `works/archives/work_items/20260427_1427_add_delete_flow_and_docs_polish` (`P4.S4`)
+  - `works/archives/work_items/20260427_1431_phase_review_feedback_review_management` (`P4.REVIEW`)
 - Slices:
   - [x] Slice ID: `P4.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_1407_decompose_feedback_review_management` | Notes: Added implementation slices for feedback list/filtering, detail inspection, review-field editing, and guarded delete/docs polish.
-  - [ ] Slice ID: `P4.S1` | Name: `build feedback list and filters` | Status: todo | Work item: none | Notes: Replace the Feedback placeholder with token-aware `GET /admin/api/feedback` loading, supported filters, cursor paging, and loading/empty/error/unauthorized states.
-  - [ ] Slice ID: `P4.S2` | Name: `add feedback detail inspection` | Status: todo | Work item: none | Notes: Add record selection and detail rendering for full Admin REST records, including messages, used context, metadata, attributes, timestamps, and source fields.
-  - [ ] Slice ID: `P4.S3` | Name: `add review-field editing` | Status: todo | Work item: none | Notes: Add `PATCH /admin/api/feedback/{feedback_id}` flows for `feedback_value`, `comment`, `channel`, and `tags`; keep captured evidence and JSON metadata read-only.
-  - [ ] Slice ID: `P4.S4` | Name: `add delete flow and docs polish` | Status: todo | Work item: none | Notes: Add a guarded `DELETE /admin/api/feedback/{feedback_id}` flow, refresh affected UI state, and update README, durable docs, and in-app docs wording for the implemented review workflow.
-  - [ ] Slice ID: `P4.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+  - [x] Slice ID: `P4.S1` | Name: `build feedback list and filters` | Status: done | Work item: `works/archives/work_items/20260427_1417_build_feedback_list_and_filters` | Notes: Replaced the Feedback placeholder with token-aware `GET /admin/api/feedback` loading, supported filters, cursor paging, and loading/empty/error/unauthorized states.
+  - [x] Slice ID: `P4.S2` | Name: `add feedback detail inspection` | Status: done | Work item: `works/archives/work_items/20260427_1421_add_feedback_detail_inspection` | Notes: Added record selection and detail rendering for full Admin REST records, including messages, used context, metadata, attributes, timestamps, and source fields.
+  - [x] Slice ID: `P4.S3` | Name: `add review-field editing` | Status: done | Work item: `works/archives/work_items/20260427_1424_add_review_field_editing` | Notes: Added `PATCH /admin/api/feedback/{feedback_id}` flows for `feedback_value`, `comment`, `channel`, and `tags`; kept captured evidence and JSON metadata read-only.
+  - [x] Slice ID: `P4.S4` | Name: `add delete flow and docs polish` | Status: done | Work item: `works/archives/work_items/20260427_1427_add_delete_flow_and_docs_polish` | Notes: Added a guarded `DELETE /admin/api/feedback/{feedback_id}` flow, refreshed affected UI state, and updated README, durable docs, and in-app docs wording for the implemented review workflow.
+  - [x] Slice ID: `P4.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260427_1431_phase_review_feedback_review_management` | Notes: Review passed for Admin REST-backed list/filter/detail/edit/delete behavior, docs consistency, static asset syntax, and the full test suite. No fix slices were needed.
 
 ### Phase P5: Self-hosted packaging and polish
 

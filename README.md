@@ -22,14 +22,14 @@ The name comes from VoC, short for voice of customer.
 - Store like/dislike values, optional comments, conversation context, and metadata for later review
 - Expose minimal MCP review/query tools for retrieving records and simple counts
 - Retrieve liked conversations through MCP for AI-agent few-shot use
-- Expose separate Admin REST endpoints for human/operator review
-- Provide a self-hosted Admin Web UI served by the Vocky app, including in-app operator documentation for API/auth and self-hosting setup
+- Expose separate Admin REST endpoints for human/operator review and management
+- Provide a self-hosted Admin Web UI served by the Vocky app, including dashboard metrics, feedback list/filter/detail/edit/delete workflows, and in-app operator documentation for API/auth and self-hosting setup
 - Run as a self-hosted, single-tenant MVP
 
 ## What The First MVP Will Not Do
 
 - Automatic classification or taxonomy assignment
-- A full analytics dashboard or polished feedback management workspace
+- A production-grade analytics workspace or managed feedback operations suite
 - Browser-direct unauthenticated ingestion
 - Public REST review, query, summary, or management endpoints outside Admin REST
 - Managed multi-tenant SaaS features
@@ -44,8 +44,8 @@ Vocky is intended to follow a light open-core direction: a community, self-hosta
 - Web/product feedback capture is implemented through `POST /api/feedback` for server-to-server integrations that cannot use MCP.
 - MCP review/query tools are implemented through `list_feedback` and `summarize_feedback`.
 - AI-agent liked conversation retrieval is implemented through `list_liked_conversations`.
-- Human/operator review is available through separate Admin REST endpoints under `/admin/api`.
-- A same-origin Admin Web UI is available under `/admin` for self-hosted operators, with packaged in-app documentation for API/auth, local hosting, and public custom-domain setup.
+- Human/operator review and management are available through separate Admin REST endpoints under `/admin/api`.
+- A same-origin Admin Web UI is available under `/admin` for self-hosted operators, with dashboard metrics, feedback review management, and packaged in-app documentation for API/auth, local hosting, and public custom-domain setup.
 - Completed feedback events persist to PostgreSQL with Alembic migrations.
 - Self-hosted runtime now includes PostgreSQL, Redis, the MCP app process, and a dedicated worker process.
 - The project is still pre-MVP and the contracts should be treated as early-stage.
@@ -67,7 +67,7 @@ The supported local workflow is Compose-first and uses the copied repo-root `.en
 
 The default `.env` values publish the app at `http://127.0.0.1:8000`, PostgreSQL at `127.0.0.1:55432`, and Redis at `127.0.0.1:56379`. Those loopback-only defaults come from `VOCKY_PUBLISH_HOST`, `POSTGRES_PUBLISH_HOST`, and `REDIS_PUBLISH_HOST`, which all default to `127.0.0.1`.
 
-Open the Admin Web UI at `http://127.0.0.1:8000/admin`. The Docs view includes the in-app operator reference for API/auth, local self-hosting, and public custom-domain setup. If `VOCKY_ADMIN_AUTH_TOKEN` is set, paste that token into the Admin UI token field before checking protected Admin REST data.
+Open the Admin Web UI at `http://127.0.0.1:8000/admin`. The Dashboard view shows feedback metrics, the Feedback view supports list/filter/detail/edit/delete review workflows, and the Docs view includes the in-app operator reference for API/auth, local self-hosting, and public custom-domain setup. If `VOCKY_ADMIN_AUTH_TOKEN` is set, paste that token into the Admin UI token field before checking protected Admin REST data.
 
 `make bootstrap` runs `make sync`, `make compose-up`, and the explicit migration step `make migrate`. The Compose stack now includes `redis`, `postgres`, `app`, and `worker`.
 
@@ -114,7 +114,7 @@ The Starlette host app exposes:
 
 Use `/mcp` exactly as the canonical MCP endpoint.
 
-The Admin Web UI includes the first self-hosted operator shell and in-app documentation pages. Full dashboard metrics and feedback management workflows are planned as later UI layers.
+The Admin Web UI includes dashboard metrics, recent activity, feedback list/filter/detail inspection, review-field editing, guarded delete, and in-app documentation pages. Browser editing is intentionally limited to `feedback_value`, `comment`, `channel`, and `tags`; use Admin REST directly for broader patchable metadata fields.
 
 ## Access Modes
 
@@ -228,17 +228,20 @@ Omit the bearer header only when `VOCKY_API_AUTH_TOKEN` is unset in a trusted lo
 
 ## Admin REST Surface
 
-The Admin REST API is separate from MCP and is intended for human operators, scripts, and future dashboards. It can query and manage all feedback records, including likes, dislikes, comments, metadata, messages, and used context.
+The Admin REST API is separate from MCP and is intended for human operators, scripts, dashboards, and the packaged Admin Web UI. It can query and manage all feedback records, including likes, dislikes, comments, metadata, messages, and used context.
 
 Implemented endpoints:
 
 - `GET /admin/api/healthz`
 - `GET /admin/api/feedback`
+- `GET /admin/api/feedback/metrics`
 - `GET /admin/api/feedback/{feedback_id}`
 - `PATCH /admin/api/feedback/{feedback_id}`
 - `DELETE /admin/api/feedback/{feedback_id}`
 
 Set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*` outside a trusted local/private environment.
+
+The Admin Web UI consumes these endpoints same-origin. Its edit form only patches `feedback_value`, `comment`, `channel`, and `tags`; captured messages, used context, `source_metadata`, and `attributes` remain read-only in the browser.
 
 ## Self-Hosted Usage
 
