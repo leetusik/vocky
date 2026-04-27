@@ -2,7 +2,7 @@
 
 ## Status
 
-The feedback capture MCP tool and the `P3` read tools are implemented. They should still be treated as early-stage MVP contracts rather than long-term stable commitments.
+The feedback capture MCP tool, Web Feedback Capture REST API, and the `P3` read tools are implemented. They should still be treated as early-stage MVP contracts rather than long-term stable commitments.
 
 ## Purpose
 
@@ -11,6 +11,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 ## MVP Surfaces
 
 - MCP tool contract for feedback capture
+- Web Feedback Capture REST API contract for server-to-server ingestion
 - MCP tool contracts for review and query access
 - MCP tool contract for liked-conversation retrieval
 - Admin REST API contract for human/operator review
@@ -77,12 +78,47 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - No managed-cloud auth model is defined yet
   - Public self-hosted deployments should require `Authorization: Bearer <VOCKY_MCP_AUTH_TOKEN>` on the MCP HTTP request
 - Notes:
-  - MCP is the only ingestion surface in the first MVP
+  - MCP capture is the agent-workflow ingestion surface. Server-to-server product integrations that cannot use MCP may use the Web Feedback Capture REST API.
   - The MVP stores raw feedback and metadata; it does not auto-classify events
   - The persisted record shape is defined in `docs/architecture.md` under `Capture Storage Model`
   - Validation and business-rule failures should be visible to MCP clients so models can correct and retry when possible
   - Success means the job was accepted for background processing, not that the feedback record is already queryable
   - The self-hosted service exposes this tool through the Starlette-hosted MCP endpoint at `/mcp`
+
+### Web Feedback Capture REST API
+
+- Status: implemented in `P1`
+- Consumers: Server-to-server web and product integrations sending feedback into Vocky without using MCP
+- Purpose: Submit a single feedback event for asynchronous persistence
+- Base path: `/api`
+- Auth or permissions:
+  - Deployment-specific for the self-hosted MVP
+  - When `VOCKY_API_AUTH_TOKEN` is set, `/api/*` requests must include `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>`
+  - Public deployments should set `VOCKY_API_AUTH_TOKEN` before exposing `/api/*`
+- Endpoint:
+  - `POST /api/feedback`
+- Inputs:
+  - JSON request body with the same fields and validation semantics as the `capture_feedback` MCP tool:
+    - `message: string` required
+    - `source.product: string` required
+    - `source.integration: string` optional
+    - `feedback_value: integer` optional, `1` for like or `2` for dislike
+    - `comment`, `channel`, `conversation_id`, `session_id`, and timezone-aware `event_at` optional
+    - `tags`, `messages`, `used_context`, `source_metadata`, and `attributes` optional
+- Outputs:
+  - Success status: `202 Accepted`
+  - Response body:
+    - `request_id: string` UUID generated when the capture job is accepted
+    - `accepted_at: string` UTC ISO 8601 timestamp generated when the queue accepts the job
+    - `status: string` fixed to `accepted`
+- Errors:
+  - Missing or invalid bearer token when auth is configured returns `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`
+  - Malformed JSON, non-object request bodies, schema errors, and semantic validation failures return `400 {"detail":"..."}`
+  - Queue-accept failures return `503 {"detail":"capture queue unavailable"}`
+- Notes:
+  - This REST API is capture-only. It does not add public REST review, query, summary, job-status, or management endpoints.
+  - Success means the job was accepted for background processing, not that the feedback record is already queryable.
+  - Accepted REST capture jobs use the same Redis queue, worker, feedback service, and PostgreSQL table as MCP capture jobs.
 
 ### Feedback Listing MCP Tool
 

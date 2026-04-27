@@ -2,7 +2,7 @@
 
 ## Status
 
-This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through Redis-backed queueing plus a dedicated worker while exposing MCP read tools, liked-conversation retrieval, and separate Admin REST endpoints over the same PostgreSQL feedback store.
+This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through MCP or server-to-server REST using Redis-backed queueing plus a dedicated worker while exposing MCP read tools, liked-conversation retrieval, and separate Admin REST endpoints over the same PostgreSQL feedback store.
 
 ## Current Repo Shape
 
@@ -21,7 +21,7 @@ This architecture is intentionally lightweight. Vocky is still pre-MVP, and the 
 
 The first MVP should be built from these parts:
 
-- An MCP-facing feedback capture layer that accepts explicit user action feedback from agent products
+- MCP-facing and server-to-server REST feedback capture layers that accept explicit user action feedback from agent products
 - A storage layer that preserves raw feedback plus the metadata needed for retrieval and basic aggregates
 - MCP read tools that return stored records, simple counts or trends, and liked examples for AI-agent workflows
 - Dedicated Admin REST endpoints for human operators and dashboards
@@ -32,27 +32,30 @@ The current service uses these choices:
 
 - Python application managed with `uv`
 - Application package under `src/vocky`
-- A Starlette ASGI host process for MCP and health traffic
+- A Starlette ASGI host process for MCP, REST, and health traffic
 - A separate worker process for background capture persistence
 - Redis-backed queueing between the app and worker
 - Official MCP Python SDK `FastMCP` served by the host app at `/mcp` using Streamable HTTP
+- Public REST capture route under `/api/*`
 - Starlette Admin REST routes under `/admin/api/*`
 - Stateless MCP operation with JSON responses enabled
 - A plain `/healthz` endpoint on the same host app for smoke checks
 - Optional bearer-token protection for MCP traffic when public access is enabled
+- Optional bearer-token protection for public REST capture traffic when `VOCKY_API_AUTH_TOKEN` is set
 - Optional bearer-token protection for Admin REST traffic when `VOCKY_ADMIN_AUTH_TOKEN` is set
-- Transport-neutral service and persistence layers so the worker can reuse the same persistence path as the MCP tools
+- Transport-neutral validation, service, and persistence layers so the worker can reuse the same persistence path as the capture adapters
 
-Clients should use `/mcp` as the canonical MCP endpoint. Human/operator tools should use `/admin/api/*`. The app avoids relying on a `/mcp` to `/mcp/` redirect so reverse proxies do not need to repair redirect schemes.
+Clients should use `/mcp` as the canonical MCP endpoint. Server-to-server product integrations that cannot use MCP should use `/api/feedback` for capture-only ingestion. Human/operator tools should use `/admin/api/*`. The app avoids relying on a `/mcp` to `/mcp/` redirect so reverse proxies do not need to repair redirect schemes.
 
-## Two-Track API Shape
+## Three-Track API Shape
 
-Vocky now has two public-facing tracks over the same feedback schema:
+Vocky now has three public-facing tracks over the same feedback schema:
 
 - MCP track for AI-agent workflows: `capture_feedback`, `list_feedback`, `summarize_feedback`, and `list_liked_conversations`.
+- Public REST capture track for server-to-server product integrations: `POST /api/feedback`.
 - Admin REST track for humans and dashboards: `/admin/api/feedback` list/detail plus patch/delete management endpoints.
 
-Both tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, metadata, messages, and used context.
+All tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, or management endpoints. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, metadata, messages, and used context.
 
 ## Configuration Surface
 
@@ -66,6 +69,7 @@ The runtime configuration surface is intentionally small:
 - `VOCKY_MCP_ALLOWED_HOSTS`: optional comma-separated Host header allowlist additions for MCP DNS rebinding protection, such as `vocky.example.com`.
 - `VOCKY_MCP_ALLOWED_ORIGINS`: optional comma-separated Origin header allowlist additions for browser-origin MCP traffic, such as `https://vocky.example.com`.
 - `VOCKY_MCP_AUTH_TOKEN`: optional bearer token required for MCP traffic. Public deployments should set it.
+- `VOCKY_API_AUTH_TOKEN`: optional bearer token required for `/api/*` traffic. Public deployments that expose REST capture should set it.
 - `VOCKY_ADMIN_AUTH_TOKEN`: optional bearer token required for Admin REST traffic. Public deployments that expose `/admin/api` should set it.
 
 The supported local operator workflow adds these host-side settings:
@@ -79,19 +83,19 @@ The supported local operator workflow adds these host-side settings:
 
 `VOCKY_HOST` remains the application bind address inside the process. The `*_PUBLISH_HOST` variables control which host interface Docker publishes to. `VOCKY_BASE_URL` remains the local verification target, while `VOCKY_EXTERNAL_BASE_URL` is reserved for public custom-domain operator docs and client examples. Public MCP hosts must be present in `VOCKY_MCP_ALLOWED_HOSTS`; otherwise FastMCP rejects them with `421 Invalid Host header`.
 
-The root `.env`, copied from `.env.example`, is the primary local configuration source for both Docker Compose and the Make-based host workflow. The Compose app service receives MCP and Admin auth settings from this file, including `VOCKY_MCP_AUTH_TOKEN` and `VOCKY_ADMIN_AUTH_TOKEN`. The supported self-hosted path remains Compose-first and now includes Redis plus the worker process. `make bootstrap` should bring up the service dependencies and apply migrations, `make verify` should wait for readiness and then verify the eventual write path plus the test suite, and `make compose-down` should tear the stack back down.
+The root `.env`, copied from `.env.example`, is the primary local configuration source for both Docker Compose and the Make-based host workflow. The Compose app service receives MCP, public REST, and Admin auth settings from this file, including `VOCKY_MCP_AUTH_TOKEN`, `VOCKY_API_AUTH_TOKEN`, and `VOCKY_ADMIN_AUTH_TOKEN`. The supported self-hosted path remains Compose-first and now includes Redis plus the worker process. `make bootstrap` should bring up the service dependencies and apply migrations, `make verify` should wait for readiness and then verify the eventual write path plus the test suite, and `make compose-down` should tear the stack back down.
 
 The supported operator modes are:
 
 - Internal self-hosting: Compose publishes on loopback by default and host-side checks use `VOCKY_BASE_URL`.
-- Public custom-domain deploy: operators can publish the app through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL` to the public origin such as `https://vocky.example.com`, allow that Host and Origin through `VOCKY_MCP_ALLOWED_HOSTS` and `VOCKY_MCP_ALLOWED_ORIGINS`, and require `VOCKY_MCP_AUTH_TOKEN`. Operators should also require `VOCKY_ADMIN_AUTH_TOKEN` before exposing Admin REST.
+- Public custom-domain deploy: operators can publish the app through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL` to the public origin such as `https://vocky.example.com`, allow that Host and Origin through `VOCKY_MCP_ALLOWED_HOSTS` and `VOCKY_MCP_ALLOWED_ORIGINS`, and require `VOCKY_MCP_AUTH_TOKEN`. Operators should also require `VOCKY_API_AUTH_TOKEN` before exposing `/api/*` and `VOCKY_ADMIN_AUTH_TOKEN` before exposing Admin REST.
 
 For Cloudflare Tunnel users, the recommended public shape is a hostname-to-service mapping from `vocky.example.com` to `http://127.0.0.1:8000`, with the local Vocky process still bound behind the tunnel and no inbound origin port requirement.
 
 ## MVP Boundaries
 
 - Self-hosted and single-tenant
-- MCP is the only ingestion surface in the MVP
+- Capture ingestion is limited to MCP and server-to-server REST in the MVP
 - No automatic classification or summarization in the MVP
 - No dashboard UI in the MVP
 - No separate Admin REST database or MCP-specific feedback store
@@ -141,7 +145,7 @@ The schema keeps the most important review dimensions queryable as first-class c
 
 The async capture path is layered as:
 
-- MCP tool input normalization and error mapping
+- MCP tool or REST route input normalization and error mapping
 - Redis enqueue on the request path
 - A dedicated worker process
 - A transport-neutral feedback service
@@ -153,7 +157,7 @@ The read path reuses the same service and repository layers:
 - MCP tool input normalization and error mapping for `list_feedback` and `summarize_feedback`
 - Transport-neutral read methods on the feedback service
 - Repository queries against `feedback_events`
-- No separate HTTP JSON transport or parallel query stack in the base MVP
+- No public REST query stack in the base MVP
 
 ## Query Read Model
 
@@ -179,11 +183,13 @@ The implemented `P3` query model uses these constraints:
 - Keep the capture service self-hostable with one app process, one worker process, Redis, and PostgreSQL for the MVP.
 - Normalize capture timestamps to UTC before persistence.
 - Normalize query timestamps to UTC before filtering or aggregation.
-- Return capture validation failures and storage write failures as MCP tool execution errors instead of protocol errors.
-- Return queue-accept failures as MCP tool execution errors instead of protocol errors.
+- Return MCP capture validation failures and storage write failures as MCP tool execution errors instead of protocol errors.
+- Return REST capture validation failures as `400` JSON responses.
+- Return MCP queue-accept failures as MCP tool execution errors instead of protocol errors.
+- Return REST queue-accept failures as `503` JSON responses.
 - Return query validation failures and storage read failures as MCP tool execution errors instead of protocol errors.
 - Keep unknown-tool failures at the MCP protocol layer.
-- Keep Admin REST handlers separate from MCP tool handlers while sharing the transport-neutral service and repository layers.
+- Keep public REST capture and Admin REST handlers separate from MCP tool handlers while sharing transport-neutral validation, service, and repository layers where appropriate.
 
 ## Open Questions
 

@@ -2,9 +2,15 @@
 
 This guide describes how an agent product can integrate Vocky for explicit user feedback actions. It is intentionally generic: use it for local, private-network, or public self-hosted Vocky deployments.
 
+## Choose A Capture Surface
+
+Use MCP when the integration already runs inside an agent workflow or wants to call Vocky's MCP read tools. Use REST when a normal server-side web or product backend needs to forward like/dislike clicks without becoming an MCP client.
+
+Both capture surfaces use the same payload shape and asynchronous queue. Successful capture means Vocky accepted the job for background persistence; the record becomes queryable after the worker writes it to PostgreSQL.
+
 ## Capture Explicit Actions
 
-Call the `capture_feedback` MCP tool when a user explicitly gives feedback, such as clicking like or dislike. Vocky does not need to receive every conversation turn as feedback.
+Submit one capture request when a user explicitly gives feedback, such as clicking like or dislike. Vocky does not need to receive every conversation turn as feedback.
 
 Recommended payload fields:
 
@@ -47,6 +53,27 @@ Example:
 
 Successful capture means Vocky accepted the job for background persistence. The record becomes queryable after the worker writes it to PostgreSQL.
 
+MCP clients send this object as the `capture_feedback` tool input. REST clients send it to `POST /api/feedback`:
+
+```sh
+curl -X POST "https://vocky.example.com/api/feedback" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <VOCKY_API_AUTH_TOKEN>" \
+  -d '{
+    "message": "Assistant answer was helpful for CSV export",
+    "source": {"product": "my-agent", "integration": "web-chat"},
+    "feedback_value": 1,
+    "comment": "This fixed the issue",
+    "channel": "web",
+    "conversation_id": "conv_123",
+    "session_id": "sess_456",
+    "event_at": "2026-04-24T09:30:00Z",
+    "tags": ["export"]
+  }'
+```
+
+When `VOCKY_API_AUTH_TOKEN` is unset in a trusted local or private deployment, omit the bearer header. Public deployments should set it before exposing `/api/*`.
+
 ## Retrieve Liked Conversations For Agents
 
 Use the `list_liked_conversations` MCP tool when an AI agent needs examples of conversations users liked. This tool is intentionally narrow and returns only records with `feedback_value = 1`.
@@ -68,4 +95,4 @@ Disliked conversations are stored for review and future learning workflows, but 
 
 ## Human Review Boundary
 
-MCP tools are optimized for agent workflows. Human operators and dashboards should use the dedicated Admin REST API endpoints, not the liked-only MCP few-shot tool. When `VOCKY_ADMIN_AUTH_TOKEN` is set, Admin REST clients must send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`.
+MCP tools are optimized for agent workflows, and `/api/feedback` is capture-only for server-to-server ingestion. Human operators and dashboards should use the dedicated Admin REST API endpoints, not the liked-only MCP few-shot tool or public capture endpoint. When `VOCKY_ADMIN_AUTH_TOKEN` is set, Admin REST clients must send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`.

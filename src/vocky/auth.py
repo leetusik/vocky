@@ -20,6 +20,12 @@ def is_admin_api_path(path: str) -> bool:
     return path == "/admin/api" or path.startswith("/admin/api/")
 
 
+def is_api_path(path: str) -> bool:
+    """Return whether an HTTP path belongs to the public REST API."""
+
+    return path == "/api" or path.startswith("/api/")
+
+
 def is_authorized_bearer(authorization: str | None, expected_token: str) -> bool:
     """Validate a bearer Authorization header against the configured token."""
 
@@ -73,6 +79,34 @@ class AdminBearerAuthMiddleware:
             self.token
             and scope["type"] == "http"
             and is_admin_api_path(str(scope.get("path", "")))
+            and not is_authorized_bearer(
+                dict(scope.get("headers", [])).get(b"authorization", b"").decode("latin1"),
+                self.token,
+            )
+        ):
+            response = JSONResponse(
+                {"detail": "Unauthorized"},
+                status_code=401,
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            await response(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)
+
+
+class APIBearerAuthMiddleware:
+    """Require bearer auth for public REST API traffic when a token is configured."""
+
+    def __init__(self, app: ASGIApp, token: str = "") -> None:
+        self.app = app
+        self.token = token.strip()
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if (
+            self.token
+            and scope["type"] == "http"
+            and is_api_path(str(scope.get("path", "")))
             and not is_authorized_bearer(
                 dict(scope.get("headers", [])).get(b"authorization", b"").decode("latin1"),
                 self.token,

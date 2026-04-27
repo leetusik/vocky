@@ -10,9 +10,11 @@ from starlette.testclient import TestClient
 
 from vocky.app import create_app
 from vocky.auth import (
+    APIBearerAuthMiddleware,
     AdminBearerAuthMiddleware,
     MCPBearerAuthMiddleware,
     is_admin_api_path,
+    is_api_path,
     is_authorized_bearer,
     is_mcp_path,
 )
@@ -60,6 +62,9 @@ def test_mcp_auth_helpers_match_only_mcp_paths_and_bearer_headers() -> None:
     assert is_admin_api_path("/admin/api") is True
     assert is_admin_api_path("/admin/api/feedback") is True
     assert is_admin_api_path("/admin") is False
+    assert is_api_path("/api") is True
+    assert is_api_path("/api/feedback") is True
+    assert is_api_path("/admin/api/feedback") is False
 
     assert is_authorized_bearer("Bearer secret", "secret") is True
     assert is_authorized_bearer("bearer secret", "secret") is True
@@ -167,11 +172,59 @@ def test_admin_bearer_auth_middleware_requires_configured_token() -> None:
     assert allowed_response.text == "ok"
 
 
+def test_api_bearer_auth_middleware_allows_disabled_token() -> None:
+    async def endpoint(_) -> Response:
+        return Response("ok")
+
+    app = Starlette(routes=[Route("/api/feedback", endpoint, methods=["POST"])])
+    app.add_middleware(APIBearerAuthMiddleware, token="")
+    client = TestClient(app)
+
+    response = client.post("/api/feedback")
+
+    assert response.status_code == 200
+    assert response.text == "ok"
+
+
+def test_api_bearer_auth_middleware_requires_configured_token() -> None:
+    async def endpoint(_) -> Response:
+        return Response("ok")
+
+    app = Starlette(
+        routes=[
+            Route("/healthz", endpoint, methods=["GET"]),
+            Route("/api/feedback", endpoint, methods=["POST"]),
+        ]
+    )
+    app.add_middleware(APIBearerAuthMiddleware, token="secret")
+    client = TestClient(app)
+
+    health_response = client.get("/healthz")
+    missing_response = client.post("/api/feedback")
+    wrong_response = client.post(
+        "/api/feedback",
+        headers={"Authorization": "Bearer wrong"},
+    )
+    allowed_response = client.post(
+        "/api/feedback",
+        headers={"Authorization": "Bearer secret"},
+    )
+
+    assert health_response.status_code == 200
+    assert missing_response.status_code == 401
+    assert missing_response.headers["www-authenticate"] == "Bearer"
+    assert missing_response.json() == {"detail": "Unauthorized"}
+    assert wrong_response.status_code == 401
+    assert allowed_response.status_code == 200
+    assert allowed_response.text == "ok"
+
+
 def test_admin_healthz_route_is_not_handled_by_mcp_mount() -> None:
     app = create_app()
     route_paths = [getattr(route, "path", None) for route in app.routes]
 
     assert route_paths.index("/admin/api/healthz") < route_paths.index("")
+    assert route_paths.index("/api/feedback") < route_paths.index("")
 
 
 def test_mcp_canonical_path_does_not_redirect_and_rejects_unconfigured_host() -> None:

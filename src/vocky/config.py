@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     mcp_allowed_origins: str = Field(default="", alias="VOCKY_MCP_ALLOWED_ORIGINS")
     mcp_auth_token: str = Field(default="", alias="VOCKY_MCP_AUTH_TOKEN")
     admin_auth_token: str = Field(default="", alias="VOCKY_ADMIN_AUTH_TOKEN")
+    api_auth_token: str = Field(default="", alias="VOCKY_API_AUTH_TOKEN")
 
     @property
     def mcp_allowed_host_values(self) -> tuple[str, ...]:
@@ -62,6 +63,12 @@ class Settings(BaseSettings):
         """Return the configured Admin REST bearer token, or an empty string when disabled."""
 
         return self.admin_auth_token.strip()
+
+    @property
+    def api_auth_token_value(self) -> str:
+        """Return the configured public REST bearer token, or an empty string when disabled."""
+
+        return self.api_auth_token.strip()
 
 
 @lru_cache(maxsize=1)

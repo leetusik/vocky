@@ -1,12 +1,12 @@
 # vocky
 
-Feedback MCP for agents. Turn customer conversations into structured voice-of-customer signals.
+Feedback capture and review for agents. Turn customer conversations into structured voice-of-customer signals.
 
 Vocky is pre-MVP, but the first runnable feedback capture and review service is now implemented.
 
 ## What Vocky Is
 
-Vocky is a Model Context Protocol (MCP)-based feedback layer for agent products. The idea is simple: when users talk to an AI agent, they often reveal bugs, friction points, requests, and positive reactions. Vocky aims to capture those moments, structure them, and make them useful.
+Vocky is a feedback layer for agent products, with MCP tools for agent workflows and a server-to-server REST capture endpoint for normal product integrations. The idea is simple: when users talk to an AI agent, they often reveal bugs, friction points, requests, and positive reactions. Vocky aims to capture those moments, structure them, and make them useful.
 
 The name comes from VoC, short for voice of customer.
 
@@ -18,7 +18,7 @@ The name comes from VoC, short for voice of customer.
 
 ## What The Current Pre-MVP Does
 
-- Accept explicit user action feedback from agent interactions through MCP without blocking on database writes
+- Accept explicit user action feedback from agent interactions through MCP or server-to-server REST without blocking on database writes
 - Store like/dislike values, optional comments, conversation context, and metadata for later review
 - Expose minimal MCP review/query tools for retrieving records and simple counts
 - Retrieve liked conversations through MCP for AI-agent few-shot use
@@ -29,7 +29,8 @@ The name comes from VoC, short for voice of customer.
 
 - Automatic classification or taxonomy assignment
 - A dashboard UI
-- Non-MCP ingestion paths
+- Browser-direct unauthenticated ingestion
+- Public REST review, query, summary, or management endpoints outside Admin REST
 - Managed multi-tenant SaaS features
 
 ## Open Source + Managed Direction
@@ -39,6 +40,7 @@ Vocky is intended to follow a light open-core direction: a community, self-hosta
 ## Current Status
 
 - MCP feedback capture is implemented through the `capture_feedback` tool and now accepts explicit action feedback requests quickly through a Redis-backed background worker path.
+- Web/product feedback capture is implemented through `POST /api/feedback` for server-to-server integrations that cannot use MCP.
 - MCP review/query tools are implemented through `list_feedback` and `summarize_feedback`.
 - AI-agent liked conversation retrieval is implemented through `list_liked_conversations`.
 - Human/operator review is available through separate Admin REST endpoints under `/admin/api`.
@@ -76,6 +78,7 @@ Public custom-domain access has these additional settings:
 - `VOCKY_MCP_ALLOWED_HOSTS`: comma-separated public Host headers accepted by FastMCP DNS rebinding protection, for example `vocky.example.com`.
 - `VOCKY_MCP_ALLOWED_ORIGINS`: comma-separated browser Origin values, for example `https://vocky.example.com`.
 - `VOCKY_MCP_AUTH_TOKEN`: bearer token required for `/mcp` when set. Set this before exposing Vocky publicly.
+- `VOCKY_API_AUTH_TOKEN`: bearer token required for `/api/*` when set. Set this before exposing REST capture publicly.
 - `VOCKY_ADMIN_AUTH_TOKEN`: bearer token required for `/admin/api/*` when set. Set this before exposing Admin REST endpoints.
 
 Granular fallback commands remain available:
@@ -100,19 +103,20 @@ The supported self-hosted flow is Compose-first. If PostgreSQL and Redis are alr
 The Starlette host app exposes:
 
 - `GET /healthz`
+- Public REST capture at `POST /api/feedback`
 - Admin REST under `/admin/api/*`
 - MCP Streamable HTTP at `/mcp`
 
 Use `/mcp` exactly as the canonical MCP endpoint.
 
-There is no dashboard UI in the current MVP. Vocky is an MCP service plus background worker, not a browser app.
+There is no dashboard UI in the current MVP. Vocky is an MCP and REST service plus background worker, not a browser app.
 
 ## Access Modes
 
 Vocky supports two clean operator modes:
 
 - Internal self-hosting: keep the default `*_PUBLISH_HOST=127.0.0.1` values, use `VOCKY_BASE_URL` for host-side smoke and verification, and connect from the same machine or trusted private network.
-- Public custom-domain deploy: publish Vocky through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL`, allow the public Host and Origin, and require `VOCKY_MCP_AUTH_TOKEN`. Set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*`.
+- Public custom-domain deploy: publish Vocky through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL`, allow the public Host and Origin, and require `VOCKY_MCP_AUTH_TOKEN`. Set `VOCKY_API_AUTH_TOKEN` before exposing `/api/*`, and set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*`.
 
 For public custom-domain access, set `VOCKY_EXTERNAL_BASE_URL` to the external HTTPS origin after DNS and proxying are active.
 
@@ -160,6 +164,7 @@ VOCKY_EXTERNAL_BASE_URL=https://vocky.example.com
 VOCKY_MCP_ALLOWED_HOSTS=vocky.example.com
 VOCKY_MCP_ALLOWED_ORIGINS=https://vocky.example.com
 VOCKY_MCP_AUTH_TOKEN=<long-random-secret>
+VOCKY_API_AUTH_TOKEN=<another-long-random-secret>
 VOCKY_ADMIN_AUTH_TOKEN=<different-long-random-secret>
 ```
 
@@ -171,6 +176,7 @@ make smoke-run VOCKY_BASE_URL=https://vocky.example.com
 ```
 
 Public MCP clients should use `https://vocky.example.com/mcp` with `Authorization: Bearer <token>`.
+Public REST capture clients should use `https://vocky.example.com/api/feedback` with `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>`.
 Public Admin REST requests should use `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>` when `/admin/api/*` is exposed.
 
 ## MCP Surface
@@ -185,6 +191,35 @@ The implemented MCP tools are:
 `capture_feedback` success means the request was accepted for background processing, not that the feedback record is immediately queryable. `list_feedback` and `summarize_feedback` surface completed records only after the worker persists them.
 
 For client integration guidance, see [docs/action-feedback-integration.md](docs/action-feedback-integration.md).
+
+## Web Capture REST Surface
+
+Use REST capture from server-side web or product code when the integration is not an MCP client. The REST payload shape matches `capture_feedback`, and success returns the same accepted receipt object with `request_id`, `accepted_at`, and `status`.
+
+Implemented endpoint:
+
+- `POST /api/feedback`
+
+Example REST capture:
+
+```sh
+curl -X POST "http://127.0.0.1:8000/api/feedback" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <VOCKY_API_AUTH_TOKEN>" \
+  -d '{
+    "message": "Assistant answer was helpful for CSV export",
+    "source": {"product": "my-agent", "integration": "web-chat"},
+    "feedback_value": 1,
+    "comment": "This fixed the issue",
+    "channel": "web",
+    "conversation_id": "conv_123",
+    "session_id": "sess_123",
+    "event_at": "2026-04-24T09:30:00Z",
+    "tags": ["export"]
+  }'
+```
+
+Omit the bearer header only when `VOCKY_API_AUTH_TOKEN` is unset in a trusted local or private deployment. REST capture is ingestion-only; use MCP read tools or Admin REST for review.
 
 ## Admin REST Surface
 
@@ -206,9 +241,17 @@ For local or private-network access, point your MCP-capable client or agent runt
 
 `http://<host>:<port>/mcp`
 
+For server-to-server REST capture, post to:
+
+`http://<host>:<port>/api/feedback`
+
 For public custom-domain access, point clients at:
 
 `https://vocky.example.com/mcp`
+
+REST capture clients should use:
+
+`https://vocky.example.com/api/feedback`
 
 Set `VOCKY_EXTERNAL_BASE_URL=https://<external-host>` in `.env` when you want clients or operator scripts to refer to the public origin.
 

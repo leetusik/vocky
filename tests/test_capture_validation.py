@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from vocky.tools.capture_feedback import (
+from vocky.capture import (
     CaptureFeedbackInput,
     CaptureFeedbackSourceInput,
     CaptureFeedbackValidationError,
