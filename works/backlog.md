@@ -51,14 +51,24 @@
 
 - Phase ID: `P2`
 - Objective: Add Web UI documentation pages for MCP tools, REST capture, Admin REST, auth tokens, local self-hosting, and public custom-domain setup.
-- Status: planned
-- Review outcome: pending
+- Status: done
+- Review outcome: passed
 - Notes: Keep the documentation operator-focused and maintainable. Prefer content sourced from durable docs or small structured documentation modules rather than duplicated long-form strings spread through UI code.
 - Work items:
-  - None yet
+  - `works/archives/work_items/20260427_1151_decompose_in_app_operator_documentation` (`P2.DECOMP`)
+  - `works/archives/work_items/20260427_1235_build_docs_content_framework` (`P2.S1`)
+  - `works/archives/work_items/20260427_1239_add_api_and_auth_reference_pages` (`P2.S2`)
+  - `works/archives/work_items/20260427_1241_add_self_hosting_and_public_domain_guides` (`P2.S3`)
+  - `works/archives/work_items/20260427_1244_review_in_app_operator_documentation` (`P2.REVIEW`)
+  - `works/archives/work_items/20260427_1246_remove_tenant_wording_from_ui_docs` (`P2.F1`)
+  - `works/archives/work_items/20260427_1247_review_in_app_operator_documentation_rerun` (`P2.REVIEW`)
 - Slices:
-  - [ ] Slice ID: `P2.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
-  - [ ] Slice ID: `P2.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+  - [x] Slice ID: `P2.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_1151_decompose_in_app_operator_documentation` | Notes: Added implementation slices for the Docs content framework, API/auth reference pages, and self-hosting/public-domain guides.
+  - [x] Slice ID: `P2.S1` | Name: `build Docs content framework` | Status: done | Work item: `works/archives/work_items/20260427_1235_build_docs_content_framework` | Notes: Added packaged Docs JSON content, `/admin/assets/docs.json`, DOM-based Docs rendering, responsive Docs layout styling, and static route/auth coverage.
+  - [x] Slice ID: `P2.S2` | Name: `add API and auth reference pages` | Status: done | Work item: `works/archives/work_items/20260427_1239_add_api_and_auth_reference_pages` | Notes: Added in-app MCP tools, REST capture, Admin REST, status expectations, and bearer-token reference topics sourced from durable docs.
+  - [x] Slice ID: `P2.S3` | Name: `add self-hosting and public-domain guides` | Status: done | Work item: `works/archives/work_items/20260427_1241_add_self_hosting_and_public_domain_guides` | Notes: Added local self-hosting and public custom-domain guide topics plus README, product, and architecture status updates for in-app operator docs.
+  - [x] Slice ID: `P2.F1` | Name: `remove tenant wording from UI docs` | Status: done | Work item: `works/archives/work_items/20260427_1246_remove_tenant_wording_from_ui_docs` | Notes: Replaced `single-tenant` wording in the in-app Docs payload and confirmed Admin UI assets have no tenant/account/billing/organization matches.
+  - [x] Slice ID: `P2.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260427_1247_review_in_app_operator_documentation_rerun` | Notes: Review passed after `P2.F1`; route/auth boundaries, packaged docs asset behavior, content coverage, wheel packaging, and focused/full tests passed.
 
 ### Phase P3: Dashboard metrics
 

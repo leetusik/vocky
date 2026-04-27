@@ -227,6 +227,7 @@ def test_admin_healthz_route_is_not_handled_by_mcp_mount() -> None:
     assert route_paths.index("/admin/api/healthz") < route_paths.index("")
     assert route_paths.index("/admin") < route_paths.index("")
     assert route_paths.index("/admin/assets/app.js") < route_paths.index("")
+    assert route_paths.index("/admin/assets/docs.json") < route_paths.index("")
     assert route_paths.index("/api/feedback") < route_paths.index("")
 
 

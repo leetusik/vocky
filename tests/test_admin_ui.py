@@ -24,6 +24,10 @@ def test_admin_ui_index_routes_serve_packaged_html() -> None:
     assert 'data-view-tab="feedback"' in response.text
     assert 'data-view-tab="docs"' in response.text
     assert 'data-token-form' in response.text
+    assert 'data-docs-root' in response.text
+    assert 'data-docs-nav' in response.text
+    assert 'data-docs-article' in response.text
+    assert 'data-docs-meta' in response.text
     assert 'href="/admin/assets/app.css"' in response.text
     assert 'src="/admin/assets/app.js"' in response.text
     assert slash_response.status_code == 200
@@ -35,18 +39,70 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
 
     css_response = client.get("/admin/assets/app.css")
     js_response = client.get("/admin/assets/app.js")
+    docs_response = client.get("/admin/assets/docs.json")
 
     assert css_response.status_code == 200
     assert css_response.headers["content-type"].startswith("text/css")
     assert ".admin-app" in css_response.text
     assert ".metric-grid" in css_response.text
+    assert ".docs-layout" in css_response.text
+    assert ".docs-topic-button" in css_response.text
     assert js_response.status_code == 200
     assert js_response.headers["content-type"].startswith("application/javascript")
     assert "[data-admin-shell]" in js_response.text
     assert 'TOKEN_STORAGE_KEY = "vocky.adminToken"' in js_response.text
     assert 'ADMIN_API_PREFIX = "/admin/api/"' in js_response.text
+    assert 'DOCS_ASSET_PATH = "/admin/assets/docs.json"' in js_response.text
     assert 'adminFetch("/admin/api/healthz"' in js_response.text
     assert 'headers.set("Authorization"' in js_response.text
+    assert "fetch(DOCS_ASSET_PATH" in js_response.text
+    assert "document.createElement" in js_response.text
+    assert docs_response.status_code == 200
+    assert docs_response.headers["content-type"].startswith("application/json")
+
+    docs_payload = docs_response.json()
+    assert docs_payload["version"] == 1
+    topic_ids = [
+        topic["id"]
+        for section in docs_payload["sections"]
+        for topic in section["topics"]
+    ]
+    assert topic_ids == [
+        "operator-overview",
+        "mcp-tools",
+        "rest-capture",
+        "admin-rest",
+        "auth-tokens",
+        "local-self-hosting",
+        "public-custom-domain",
+    ]
+    for required_text in (
+        "/mcp",
+        "capture_feedback",
+        "list_feedback",
+        "summarize_feedback",
+        "list_liked_conversations",
+        "POST /api/feedback",
+        "/admin/api/*",
+        "202 Accepted",
+        "204 No Content",
+        "VOCKY_MCP_AUTH_TOKEN",
+        "VOCKY_API_AUTH_TOKEN",
+        "VOCKY_ADMIN_AUTH_TOKEN",
+        "Authorization: Bearer <token>",
+        ".env",
+        "make bootstrap",
+        "/admin",
+        "make verify",
+        "make compose-down",
+        "uv run vocky",
+        "uv run vocky-worker",
+        "https://vocky.example.com",
+        "VOCKY_EXTERNAL_BASE_URL",
+        "VOCKY_MCP_ALLOWED_HOSTS",
+        "VOCKY_MCP_ALLOWED_ORIGINS",
+    ):
+        assert required_text in docs_response.text
 
 
 def test_admin_ui_routes_are_registered_before_mcp_mount() -> None:
@@ -60,6 +116,7 @@ def test_admin_ui_routes_are_registered_before_mcp_mount() -> None:
         "/admin/",
         "/admin/assets/app.css",
         "/admin/assets/app.js",
+        "/admin/assets/docs.json",
     ):
         assert route_paths.index(path) < mcp_mount_index
 
@@ -73,13 +130,16 @@ def test_admin_ui_paths_do_not_require_admin_api_bearer_token() -> None:
 
     admin_response = client.get("/admin")
     asset_response = client.get("/admin/assets/app.js")
+    docs_response = client.get("/admin/assets/docs.json")
     api_response = client.get("/admin/api/healthz")
 
     assert is_admin_api_path("/admin") is False
     assert is_admin_api_path("/admin/") is False
     assert is_admin_api_path("/admin/assets/app.js") is False
+    assert is_admin_api_path("/admin/assets/docs.json") is False
     assert is_admin_api_path("/admin/api/healthz") is True
     assert admin_response.status_code == 200
     assert asset_response.status_code == 200
+    assert docs_response.status_code == 200
     assert api_response.status_code == 401
     assert api_response.json() == {"detail": "Unauthorized"}

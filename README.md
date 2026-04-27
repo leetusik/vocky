@@ -23,7 +23,7 @@ The name comes from VoC, short for voice of customer.
 - Expose minimal MCP review/query tools for retrieving records and simple counts
 - Retrieve liked conversations through MCP for AI-agent few-shot use
 - Expose separate Admin REST endpoints for human/operator review
-- Provide the foundation for a self-hosted Admin Web UI served by the Vocky app
+- Provide a self-hosted Admin Web UI served by the Vocky app, including in-app operator documentation for API/auth and self-hosting setup
 - Run as a self-hosted, single-tenant MVP
 
 ## What The First MVP Will Not Do
@@ -45,7 +45,7 @@ Vocky is intended to follow a light open-core direction: a community, self-hosta
 - MCP review/query tools are implemented through `list_feedback` and `summarize_feedback`.
 - AI-agent liked conversation retrieval is implemented through `list_liked_conversations`.
 - Human/operator review is available through separate Admin REST endpoints under `/admin/api`.
-- A same-origin Admin Web UI foundation is available under `/admin` for self-hosted operators.
+- A same-origin Admin Web UI is available under `/admin` for self-hosted operators, with packaged in-app documentation for API/auth, local hosting, and public custom-domain setup.
 - Completed feedback events persist to PostgreSQL with Alembic migrations.
 - Self-hosted runtime now includes PostgreSQL, Redis, the MCP app process, and a dedicated worker process.
 - The project is still pre-MVP and the contracts should be treated as early-stage.
@@ -66,6 +66,8 @@ The supported local workflow is Compose-first and uses the copied repo-root `.en
    `make compose-down`
 
 The default `.env` values publish the app at `http://127.0.0.1:8000`, PostgreSQL at `127.0.0.1:55432`, and Redis at `127.0.0.1:56379`. Those loopback-only defaults come from `VOCKY_PUBLISH_HOST`, `POSTGRES_PUBLISH_HOST`, and `REDIS_PUBLISH_HOST`, which all default to `127.0.0.1`.
+
+Open the Admin Web UI at `http://127.0.0.1:8000/admin`. The Docs view includes the in-app operator reference for API/auth, local self-hosting, and public custom-domain setup. If `VOCKY_ADMIN_AUTH_TOKEN` is set, paste that token into the Admin UI token field before checking protected Admin REST data.
 
 `make bootstrap` runs `make sync`, `make compose-up`, and the explicit migration step `make migrate`. The Compose stack now includes `redis`, `postgres`, `app`, and `worker`.
 
@@ -112,7 +114,7 @@ The Starlette host app exposes:
 
 Use `/mcp` exactly as the canonical MCP endpoint.
 
-The Admin Web UI is a self-hosted operator foundation. Full dashboard metrics, in-app documentation pages, and feedback management workflows are planned as later UI layers.
+The Admin Web UI includes the first self-hosted operator shell and in-app documentation pages. Full dashboard metrics and feedback management workflows are planned as later UI layers.
 
 ## Access Modes
 

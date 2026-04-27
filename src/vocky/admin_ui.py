@@ -37,9 +37,16 @@ async def admin_script(_: Request) -> Response:
     return Response(read_resource_text("app.js"), media_type="application/javascript")
 
 
+async def admin_docs(_: Request) -> Response:
+    """Serve the Admin Web UI documentation content."""
+
+    return Response(read_resource_text("docs.json"), media_type="application/json")
+
+
 routes = [
     Route("/admin", admin_index, methods=["GET"]),
     Route("/admin/", admin_index, methods=["GET"]),
     Route("/admin/assets/app.css", admin_styles, methods=["GET"]),
     Route("/admin/assets/app.js", admin_script, methods=["GET"]),
+    Route("/admin/assets/docs.json", admin_docs, methods=["GET"]),
 ]

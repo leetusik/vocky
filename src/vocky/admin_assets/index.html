@@ -118,21 +118,19 @@
                 <p class="section-kicker">Reference</p>
                 <h1 id="docs-title">Docs</h1>
               </div>
-              <span class="status-chip">Foundation</span>
+              <span class="status-chip" data-docs-meta>Loading</span>
             </div>
 
-            <section class="panel" aria-labelledby="docs-surface-title">
+            <section class="panel docs-panel" aria-labelledby="docs-surface-title" data-docs-root>
               <div class="panel-header">
-                <h2 id="docs-surface-title">Surfaces</h2>
+                <h2 id="docs-surface-title">Operator Reference</h2>
                 <span class="panel-meta">Self-hosted</span>
               </div>
-              <div class="surface-grid">
-                <span>MCP</span>
-                <strong>/mcp</strong>
-                <span>REST Capture</span>
-                <strong>/api/feedback</strong>
-                <span>Admin REST</span>
-                <strong>/admin/api</strong>
+              <div class="docs-layout">
+                <nav class="docs-nav" aria-label="Documentation topics" data-docs-nav></nav>
+                <article class="docs-article" aria-live="polite" data-docs-article>
+                  <p class="docs-state" data-docs-state>Loading docs.</p>
+                </article>
               </div>
             </section>
           </section>
