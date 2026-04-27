@@ -511,6 +511,7 @@ function renderRecentActivity(records) {
     appendRecentMeta(meta, normalizeText(record.source_product));
     appendRecentMeta(meta, normalizeText(record.channel));
     appendRecentMeta(meta, normalizeText(record.conversation_id));
+    appendRecentMeta(meta, formatTargetSummary(record));
 
     item.append(header, message);
     if (meta.children.length) {
@@ -697,6 +698,24 @@ function clearFeedbackDetail(label = "Select a record.") {
 function getDisplayValue(value) {
   const normalized = normalizeText(value);
   return normalized || "None";
+}
+
+function formatTargetSummary(record) {
+  const targetType = normalizeText(record?.target_type);
+  const targetId = normalizeText(record?.target_id);
+  const targetRole = normalizeText(record?.target_role);
+  const targetText = normalizeText(record?.target_text);
+  if (!targetType && !targetId && !targetRole && !targetText) {
+    return "";
+  }
+
+  const roleAndType = [targetRole, targetType].filter(Boolean).join(" ");
+  const parts = [roleAndType, targetId].filter(Boolean);
+  if (!parts.length) {
+    parts.push("text");
+  }
+
+  return `Target: ${parts.join(" ")}`;
 }
 
 function appendDetailField(list, term, value) {
@@ -1104,6 +1123,15 @@ function renderFeedbackDetailRecord(record) {
   appendDetailField(fields, "Ingested at", formatUtcDateTime(record.ingested_at));
   fieldsSection.append(fields);
 
+  const targetSection = appendDetailSection(container, "Target");
+  const targetFields = document.createElement("dl");
+  targetFields.className = "feedback-detail-grid";
+  appendDetailField(targetFields, "Type", record.target_type);
+  appendDetailField(targetFields, "ID", record.target_id);
+  appendDetailField(targetFields, "Role", record.target_role);
+  appendDetailField(targetFields, "Text", record.target_text);
+  targetSection.append(targetFields);
+
   appendJsonSection(container, "Messages", Array.isArray(record.messages) ? record.messages : []);
   appendJsonSection(
     container,
@@ -1241,6 +1269,7 @@ function renderFeedbackList(records) {
     appendRecentMeta(meta, normalizeText(record.channel));
     appendRecentMeta(meta, normalizeText(record.conversation_id));
     appendRecentMeta(meta, normalizeText(record.session_id));
+    appendRecentMeta(meta, formatTargetSummary(record));
 
     button.append(header, message);
     if (meta.children.length) {

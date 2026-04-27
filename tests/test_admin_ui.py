@@ -116,6 +116,13 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     assert "selectFeedbackRecord" in js_response.text
     assert "/admin/api/feedback/${encodeURIComponent(selectedId)}" in js_response.text
     assert "renderFeedbackDetailRecord" in js_response.text
+    assert "formatTargetSummary" in js_response.text
+    assert "Target:" in js_response.text
+    assert "target_type" in js_response.text
+    assert "target_id" in js_response.text
+    assert "target_role" in js_response.text
+    assert "target_text" in js_response.text
+    assert 'appendDetailSection(container, "Target")' in js_response.text
     assert "dataset.feedbackEditForm" in js_response.text
     assert 'method: "PATCH"' in js_response.text
     assert '"Content-Type": "application/json"' in js_response.text
@@ -172,6 +179,9 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
         "GET /admin/api/feedback/metrics",
         "Browser edit scope",
         "guarded delete",
+        "target_type",
+        "target_text",
+        "target fields",
         "202 Accepted",
         "204 No Content",
         "VOCKY_MCP_AUTH_TOKEN",

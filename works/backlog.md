@@ -31,26 +31,38 @@
 
 - Phase ID: `P1`
 - Objective: Clarify feedback context identifiers and make the exact message or product surface being reviewed explicit instead of assuming the latest message.
-- Status: planned
-- Review outcome: pending
+- Status: done
+- Review outcome: passed
 - Notes: Treat `conversation_id` as conversation/thread scope and `session_id` as optional runtime or user-session scope unless decomposition finds a better naming model. Message-specific feedback should identify the exact user or assistant message, selected message context, or explicit non-message feedback target.
 - Work items:
-  - None yet
+  - `works/archives/work_items/20260427_1537_decompose_feedback_context_target_semantics`
+  - `works/archives/work_items/20260427_1708_lock_feedback_context_terminology`
+  - `works/archives/work_items/20260427_1712_add_explicit_feedback_target_capture_model`
+  - `works/archives/work_items/20260427_1716_surface_target_context_in_review_flows`
+  - `works/archives/work_items/20260427_1721_update_integration_guidance_and_compatibility_tests`
+  - `works/archives/work_items/20260427_1723_review_feedback_context_target_semantics`
 - Slices:
-  - [ ] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
-  - [ ] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+  - [x] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_1537_decompose_feedback_context_target_semantics` | Notes: Added concrete terminology, target-model, review-surface, guidance, and compatibility slices for P1.
+  - [x] Slice ID: `P1.S1` | Name: `lock feedback context terminology` | Status: done | Work item: `works/archives/work_items/20260427_1708_lock_feedback_context_terminology` | Notes: Defined `conversation_id`, `session_id`, the current `message` meaning, and explicit feedback-target semantics in product, API, and architecture docs before code changes.
+  - [x] Slice ID: `P1.S2` | Name: `add explicit feedback target capture model` | Status: done | Work item: `works/archives/work_items/20260427_1712_add_explicit_feedback_target_capture_model` | Notes: Added nullable target fields through validation, queue payloads, service types, persistence, migration, and capture contracts while keeping existing captures compatible.
+  - [x] Slice ID: `P1.S3` | Name: `surface target context in review flows` | Status: done | Work item: `works/archives/work_items/20260427_1716_surface_target_context_in_review_flows` | Notes: Returned target fields through MCP read tools and Admin REST, and showed exact target context in Admin UI list and detail views.
+  - [x] Slice ID: `P1.S4` | Name: `update integration guidance and compatibility tests` | Status: done | Work item: `works/archives/work_items/20260427_1721_update_integration_guidance_and_compatibility_tests` | Notes: Updated examples and docs to show exact message targeting and covered old payloads, new target payloads, and conversation/session semantics.
+  - [x] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260427_1723_review_feedback_context_target_semantics` | Notes: Review passed with full pytest and package asset checks; no fix slices were needed.
 
 ### Phase P2: Separate REST and MCP capture intent
 
 - Phase ID: `P2`
 - Objective: Make REST capture support general website or product feedback while MCP capture remains optimized for message-specific agent feedback.
-- Status: planned
+- Status: in_progress
 - Review outcome: pending
-- Notes: REST capture remains server-to-server. Do not add browser-direct unauthenticated ingestion in this backlog. Decomposition should decide backward compatibility for existing `POST /api/feedback`, including whether the existing contract is adapted in place or versioned.
+- Notes: REST capture remains server-to-server. Do not add browser-direct unauthenticated ingestion in this backlog. Adapt the existing `POST /api/feedback` contract in place for broader website/product feedback while preserving compatibility for current accepted REST payloads; do not add a versioned or split REST endpoint in P2.
 - Work items:
-  - None yet
+  - `works/archives/work_items/20260427_1800_decompose_rest_mcp_capture_intent`
 - Slices:
-  - [ ] Slice ID: `P2.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
+  - [x] Slice ID: `P2.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_1800_decompose_rest_mcp_capture_intent` | Notes: Added contract, transport-separation, guidance, and compatibility slices for P2.
+  - [ ] Slice ID: `P2.S1` | Name: `lock REST and MCP capture contract split` | Status: todo | Work item: none | Notes: Update durable docs to define the in-place REST compatibility direction, broader server-to-server website/product feedback semantics, and MCP's agent/message-oriented capture intent before code changes.
+  - [ ] Slice ID: `P2.S2` | Name: `separate transport capture input paths` | Status: todo | Work item: none | Notes: Split MCP and REST adapter/input handling enough to express their different intent while preserving the shared queue, service, persistence model, async receipt shape, and existing accepted REST payload compatibility.
+  - [ ] Slice ID: `P2.S3` | Name: `update REST general-feedback examples and compatibility coverage` | Status: todo | Work item: none | Notes: Add website/product REST examples and tests that prove current REST payloads and broader general-feedback payloads remain accepted without exposing new public review endpoints.
   - [ ] Slice ID: `P2.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
 
 ### Phase P3: Channel categories and Admin adjustability

@@ -43,6 +43,10 @@ class FeedbackEventModel(Base):
     source_integration: Mapped[str | None] = mapped_column(Text, nullable=True)
     conversation_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     session_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_type: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_role: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     event_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ingested_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

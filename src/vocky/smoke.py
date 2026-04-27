@@ -59,6 +59,8 @@ async def run_mcp_smoke(base_url: str) -> tuple[str, int, int]:
 
     smoke_session_id = f"smoke-{uuid4()}"
     smoke_message = f"smoke test feedback {smoke_session_id}"
+    smoke_target_id = f"{smoke_session_id}-assistant"
+    smoke_target_text = f"smoke target text {smoke_session_id}"
     headers = make_mcp_client_headers()
 
     async with httpx.AsyncClient(headers=headers, follow_redirects=False) as http_client:
@@ -76,6 +78,10 @@ async def run_mcp_smoke(base_url: str) -> tuple[str, int, int]:
                         },
                         "conversation_id": smoke_session_id,
                         "session_id": smoke_session_id,
+                        "target_type": "message",
+                        "target_id": smoke_target_id,
+                        "target_role": "assistant",
+                        "target_text": smoke_target_text,
                         "tags": ["smoke"],
                         "source_metadata": {"channel": "smoke"},
                     },
@@ -136,6 +142,17 @@ async def run_mcp_smoke(base_url: str) -> tuple[str, int, int]:
 
                 if matched_record is None:
                     raise SystemExit("list_feedback smoke did not return the worker-persisted record")
+
+                if (
+                    matched_record.get("target_type") != "message"
+                    or matched_record.get("target_id") != smoke_target_id
+                    or matched_record.get("target_role") != "assistant"
+                    or matched_record.get("target_text") != smoke_target_text
+                ):
+                    raise SystemExit(
+                        "list_feedback smoke returned a matched record without target context: "
+                        f"{list_result}"
+                    )
 
                 summary_result = await session.call_tool(
                     "summarize_feedback",

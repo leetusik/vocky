@@ -34,7 +34,7 @@
             {
               "type": "callout",
               "title": "Browser edit scope",
-              "text": "The Feedback view edits feedback_value, comment, channel, and tags. Captured messages, used context, source_metadata, and attributes stay read-only in the browser."
+              "text": "The Feedback view edits feedback_value, comment, channel, and tags. Captured target fields, messages, used context, source_metadata, and attributes stay read-only in the browser."
             }
           ]
         },
@@ -78,6 +78,7 @@
               "type": "list",
               "items": [
                 "feedback_value is optional and uses 1 for like or 2 for dislike.",
+                "target_type, target_id, target_role, and target_text are optional captured context for the exact reviewed message, conversation, or surface.",
                 "list_feedback and summarize_feedback filter by ingested_at, source fields, conversation/session IDs, feedback_value, channel, and exact tag.",
                 "list_liked_conversations always enforces feedback_value = 1 server-side."
               ]
@@ -117,7 +118,7 @@
             {
               "type": "code",
               "language": "sh",
-              "text": "curl -X POST \"http://127.0.0.1:8000/api/feedback\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer <VOCKY_API_AUTH_TOKEN>\" \\\n  -d '{\"message\":\"Assistant answer was helpful\",\"source\":{\"product\":\"my-agent\"},\"feedback_value\":1}'"
+              "text": "curl -X POST \"http://127.0.0.1:8000/api/feedback\" \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer <VOCKY_API_AUTH_TOKEN>\" \\\n  -d '{\"message\":\"Assistant answer was helpful\",\"source\":{\"product\":\"my-agent\",\"integration\":\"web-chat\"},\"feedback_value\":1,\"conversation_id\":\"conv_123\",\"target_type\":\"message\",\"target_id\":\"msg_assistant_789\",\"target_role\":\"assistant\",\"target_text\":\"Use the export menu and choose CSV.\"}'"
             },
             {
               "type": "callout",
@@ -154,7 +155,7 @@
                 "Admin REST editable fields are feedback_value, comment, channel, tags, source_metadata, and attributes.",
                 "The Admin UI Feedback view supports list, filter, detail inspection, editing feedback_value/comment/channel/tags, and guarded delete.",
                 "source_metadata and attributes are visible as read-only JSON in the Admin UI even though Admin REST can patch them.",
-                "messages and used_context are captured context and remain immutable in this MVP."
+                "target fields, messages, and used_context are captured context and remain immutable in this MVP."
               ]
             },
             {

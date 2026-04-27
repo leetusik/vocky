@@ -29,15 +29,18 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
             text(
                 "INSERT INTO feedback_events ("
                 "id, message, source_product, source_integration, conversation_id, "
-                "session_id, feedback_value, comment, channel, event_at, ingested_at, "
+                "session_id, target_type, target_id, target_role, target_text, "
+                "feedback_value, comment, channel, event_at, ingested_at, "
                 "tags, messages, used_context, source_metadata, attributes"
                 ") VALUES "
                 "(:like_id, :like_message, :product, :integration, :conversation_id, "
-                ":session_id, 1, :like_comment, :channel, :event_at, :like_ingested_at, "
+                ":session_id, :target_type, :target_id, :target_role, :target_text, "
+                "1, :like_comment, :channel, :event_at, :like_ingested_at, "
                 ":tags, CAST(:like_messages AS jsonb), CAST(:like_context AS jsonb), "
                 "CAST(:metadata AS jsonb), CAST(:like_attributes AS jsonb)), "
                 "(:dislike_id, :dislike_message, :product, :integration, :conversation_id, "
-                ":session_id, 2, :dislike_comment, :channel, :event_at, :dislike_ingested_at, "
+                ":session_id, NULL, NULL, NULL, NULL, "
+                "2, :dislike_comment, :channel, :event_at, :dislike_ingested_at, "
                 ":tags, CAST(:dislike_messages AS jsonb), CAST(:dislike_context AS jsonb), "
                 "CAST(:metadata AS jsonb), CAST(:dislike_attributes AS jsonb))"
             ),
@@ -50,6 +53,10 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
                 "integration": "pytest",
                 "conversation_id": "conv-admin",
                 "session_id": "sess-admin",
+                "target_type": "message",
+                "target_id": "assistant-admin",
+                "target_role": "assistant",
+                "target_text": "Good answer",
                 "like_comment": "good answer",
                 "dislike_comment": "bad answer",
                 "channel": "web",
@@ -93,8 +100,16 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
     ]
     assert [record["feedback_value"] for record in records] == [2, 1]
     assert records[0]["comment"] == "bad answer"
+    assert records[0]["target_type"] is None
+    assert records[0]["target_id"] is None
+    assert records[0]["target_role"] is None
+    assert records[0]["target_text"] is None
     assert records[0]["messages"] == [{"role": "assistant", "content": "bad"}]
     assert records[0]["used_context"] == [{"source": "doc", "snippet": "bad"}]
+    assert records[1]["target_type"] == "message"
+    assert records[1]["target_id"] == "assistant-admin"
+    assert records[1]["target_role"] == "assistant"
+    assert records[1]["target_text"] == "Good answer"
 
     assert dislike_response.status_code == 200
     assert [record["message"] for record in dislike_response.json()["records"]] == [
@@ -262,9 +277,11 @@ async def test_admin_get_feedback_returns_full_record(configured_database: str) 
             text(
                 "INSERT INTO feedback_events ("
                 "id, message, source_product, feedback_value, comment, channel, "
-                "ingested_at, messages, used_context"
+                "target_type, target_id, target_role, target_text, ingested_at, "
+                "messages, used_context"
                 ") VALUES ("
-                ":id, :message, :source_product, 1, :comment, :channel, :ingested_at, "
+                ":id, :message, :source_product, 1, :comment, :channel, "
+                ":target_type, :target_id, :target_role, :target_text, :ingested_at, "
                 "CAST(:messages AS jsonb), CAST(:used_context AS jsonb)"
                 ")"
             ),
@@ -274,6 +291,10 @@ async def test_admin_get_feedback_returns_full_record(configured_database: str) 
                 "source_product": "admin-product",
                 "comment": "detail comment",
                 "channel": "web",
+                "target_type": "message",
+                "target_id": "assistant-detail",
+                "target_role": "assistant",
+                "target_text": "Detailed answer",
                 "ingested_at": datetime(2026, 4, 24, 3, 0, tzinfo=UTC),
                 "messages": "[{\"role\": \"assistant\", \"content\": \"detail\"}]",
                 "used_context": "[{\"source\": \"doc\"}]",
@@ -290,6 +311,10 @@ async def test_admin_get_feedback_returns_full_record(configured_database: str) 
 
     assert response.status_code == 200
     assert response.json()["record"]["message"] == "detail answer"
+    assert response.json()["record"]["target_type"] == "message"
+    assert response.json()["record"]["target_id"] == "assistant-detail"
+    assert response.json()["record"]["target_role"] == "assistant"
+    assert response.json()["record"]["target_text"] == "Detailed answer"
     assert response.json()["record"]["messages"] == [
         {"role": "assistant", "content": "detail"}
     ]
@@ -344,6 +369,10 @@ async def test_admin_patch_feedback_updates_review_fields(configured_database: s
             f"/admin/api/feedback/{feedback_id}",
             json={"feedback_value": 4},
         )
+        target_only_response = await client.patch(
+            f"/admin/api/feedback/{feedback_id}",
+            json={"target_text": "new target text"},
+        )
 
     assert response.status_code == 200
     record = response.json()["record"]
@@ -361,6 +390,10 @@ async def test_admin_patch_feedback_updates_review_fields(configured_database: s
     assert invalid_response.status_code == 400
     assert invalid_response.json() == {
         "detail": "feedback_value must be 1 for like or 2 for dislike"
+    }
+    assert target_only_response.status_code == 400
+    assert target_only_response.json() == {
+        "detail": "request body must include at least one editable field"
     }
 
 

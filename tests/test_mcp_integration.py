@@ -37,6 +37,10 @@ async def test_capture_feedback_success(
                 "feedback_value": 2,
                 "comment": "The answer did not fix export",
                 "channel": "web",
+                "target_type": "message",
+                "target_id": "assistant-message-1",
+                "target_role": "assistant",
+                "target_text": "Click export",
                 "event_at": "2026-04-23T14:00:00+09:00",
                 "tags": ["billing", " bug "],
                 "messages": [
@@ -60,6 +64,10 @@ async def test_capture_feedback_success(
     assert queued_job.payload.feedback_value == 2
     assert queued_job.payload.comment == "The answer did not fix export"
     assert queued_job.payload.channel == "web"
+    assert queued_job.payload.target_type == "message"
+    assert queued_job.payload.target_id == "assistant-message-1"
+    assert queued_job.payload.target_role == "assistant"
+    assert queued_job.payload.target_text == "Click export"
     assert queued_job.payload.event_at == datetime(2026, 4, 23, 5, 0, tzinfo=UTC)
     assert queued_job.payload.tags == ("billing", "bug")
     assert queued_job.payload.messages == (
@@ -148,6 +156,10 @@ async def test_capture_feedback_becomes_queryable_after_worker_processing(
                 "message": "Async capture should not block clients",
                 "source": {"product": "vocky-cli", "integration": "pytest"},
                 "session_id": "async-flow",
+                "target_type": "message",
+                "target_id": "assistant-async",
+                "target_role": "assistant",
+                "target_text": "Async capture response",
                 "tags": ["async"],
             },
         )
@@ -180,6 +192,11 @@ async def test_capture_feedback_becomes_queryable_after_worker_processing(
         assert [record["message"] for record in post_worker_list.structuredContent["records"]] == [
             "Async capture should not block clients"
         ]
+        persisted_record = post_worker_list.structuredContent["records"][0]
+        assert persisted_record["target_type"] == "message"
+        assert persisted_record["target_id"] == "assistant-async"
+        assert persisted_record["target_role"] == "assistant"
+        assert persisted_record["target_text"] == "Async capture response"
 
         summary_result = await client_session.call_tool(
             "summarize_feedback",
@@ -208,16 +225,19 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
             text(
                 "INSERT INTO feedback_events ("
                 "id, message, source_product, source_integration, conversation_id, "
-                "session_id, feedback_value, comment, channel, event_at, ingested_at, "
+                "session_id, target_type, target_id, target_role, target_text, "
+                "feedback_value, comment, channel, event_at, ingested_at, "
                 "tags, messages, used_context, source_metadata, attributes"
                 ") VALUES "
                 "(:id1, :message1, :source_product1, :source_integration1, :conversation_id1, "
-                ":session_id1, :feedback_value1, :comment1, :channel1, "
+                ":session_id1, :target_type1, :target_id1, :target_role1, :target_text1, "
+                ":feedback_value1, :comment1, :channel1, "
                 ":event_at1, :ingested_at1, :tags1, "
                 "CAST(:messages1 AS jsonb), CAST(:used_context1 AS jsonb), "
                 "CAST(:source_metadata1 AS jsonb), CAST(:attributes1 AS jsonb)), "
                 "(:id2, :message2, :source_product2, :source_integration2, :conversation_id2, "
-                ":session_id2, :feedback_value2, :comment2, :channel2, "
+                ":session_id2, :target_type2, :target_id2, :target_role2, :target_text2, "
+                ":feedback_value2, :comment2, :channel2, "
                 ":event_at2, :ingested_at2, :tags2, "
                 "CAST(:messages2 AS jsonb), CAST(:used_context2 AS jsonb), "
                 "CAST(:source_metadata2 AS jsonb), CAST(:attributes2 AS jsonb))"
@@ -229,6 +249,10 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
                 "source_integration1": "pytest",
                 "conversation_id1": "conv-1",
                 "session_id1": "sess-1",
+                "target_type1": None,
+                "target_id1": None,
+                "target_role1": None,
+                "target_text1": None,
                 "feedback_value1": 1,
                 "comment1": "older comment",
                 "channel1": "web",
@@ -245,6 +269,10 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
                 "source_integration2": "pytest",
                 "conversation_id2": "conv-1",
                 "session_id2": "sess-1",
+                "target_type2": "message",
+                "target_id2": "assistant-message-2",
+                "target_role2": "assistant",
+                "target_text2": "Click export",
                 "feedback_value2": 1,
                 "comment2": "newer comment",
                 "channel2": "web",
@@ -279,6 +307,10 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
     assert result.structuredContent["records"][0]["feedback_value"] == 1
     assert result.structuredContent["records"][0]["comment"] == "newer comment"
     assert result.structuredContent["records"][0]["channel"] == "web"
+    assert result.structuredContent["records"][0]["target_type"] == "message"
+    assert result.structuredContent["records"][0]["target_id"] == "assistant-message-2"
+    assert result.structuredContent["records"][0]["target_role"] == "assistant"
+    assert result.structuredContent["records"][0]["target_text"] == "Click export"
     assert result.structuredContent["records"][0]["messages"] == [
         {"role": "user", "content": "newer"}
     ]
@@ -449,15 +481,18 @@ async def test_list_liked_conversations_returns_only_likes_with_context(
             text(
                 "INSERT INTO feedback_events ("
                 "id, message, source_product, source_integration, conversation_id, "
-                "session_id, feedback_value, comment, channel, event_at, ingested_at, "
+                "session_id, target_type, target_id, target_role, target_text, "
+                "feedback_value, comment, channel, event_at, ingested_at, "
                 "tags, messages, used_context, source_metadata, attributes"
                 ") VALUES "
                 "(:liked_id, :liked_message, :product, :integration, :conversation_id, "
-                ":session_id, 1, :liked_comment, :channel, :event_at, :liked_ingested_at, "
+                ":session_id, :target_type, :target_id, :target_role, :target_text, "
+                "1, :liked_comment, :channel, :event_at, :liked_ingested_at, "
                 ":liked_tags, CAST(:liked_messages AS jsonb), CAST(:liked_context AS jsonb), "
                 "CAST(:liked_metadata AS jsonb), CAST(:liked_attributes AS jsonb)), "
                 "(:disliked_id, :disliked_message, :product, :integration, :conversation_id, "
-                ":session_id, 2, :disliked_comment, :channel, :event_at, :disliked_ingested_at, "
+                ":session_id, NULL, NULL, NULL, NULL, "
+                "2, :disliked_comment, :channel, :event_at, :disliked_ingested_at, "
                 ":disliked_tags, CAST(:disliked_messages AS jsonb), CAST(:disliked_context AS jsonb), "
                 "CAST(:disliked_metadata AS jsonb), CAST(:disliked_attributes AS jsonb))"
             ),
@@ -470,6 +505,10 @@ async def test_list_liked_conversations_returns_only_likes_with_context(
                 "integration": "pytest",
                 "conversation_id": "conv-liked",
                 "session_id": "sess-liked",
+                "target_type": "message",
+                "target_id": "assistant-liked",
+                "target_role": "assistant",
+                "target_text": "Use this response pattern",
                 "liked_comment": "use this pattern",
                 "disliked_comment": "do not use this pattern",
                 "channel": "web",
@@ -506,6 +545,10 @@ async def test_list_liked_conversations_returns_only_likes_with_context(
     ]
     liked = result.structuredContent["conversations"][0]
     assert liked["comment"] == "use this pattern"
+    assert liked["target_type"] == "message"
+    assert liked["target_id"] == "assistant-liked"
+    assert liked["target_role"] == "assistant"
+    assert liked["target_text"] == "Use this response pattern"
     assert liked["messages"] == [
         {"role": "user", "content": "How should I respond?"}
     ]

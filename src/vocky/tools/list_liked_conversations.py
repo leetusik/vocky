@@ -61,6 +61,10 @@ class LikedConversationResponse(BaseModel):
     source_integration: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
+    target_type: str | None = None
+    target_id: str | None = None
+    target_role: str | None = None
+    target_text: str | None = None
     event_at: str | None = None
     ingested_at: str
     tags: list[str]
@@ -119,6 +123,10 @@ def serialize_conversation(record: FeedbackEventRecord) -> LikedConversationResp
         source_integration=record.source_integration,
         conversation_id=record.conversation_id,
         session_id=record.session_id,
+        target_type=record.target_type,
+        target_id=record.target_id,
+        target_role=record.target_role,
+        target_text=record.target_text,
         event_at=(
             serialize_datetime(record.event_at)
             if record.event_at is not None

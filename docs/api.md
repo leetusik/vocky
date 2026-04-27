@@ -46,18 +46,22 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Inputs:
   - Tool name: `capture_feedback`
   - Request body:
-    - `message: string` required. Leading and trailing whitespace is trimmed. The value must not be blank after trimming.
+    - `message: string` required. Leading and trailing whitespace is trimmed. The value must not be blank after trimming. This is the human-readable feedback summary or display text, not an implicit pointer to the reviewed message.
     - `source: object` required.
     - `source.product: string` required. Leading and trailing whitespace is trimmed. The value must not be blank after trimming.
     - `source.integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike.
     - `comment: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`. Comments are recommended for dislikes but are not required.
     - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
-    - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
-    - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `conversation_id: string` optional. Caller-provided conversation or thread identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `session_id: string` optional. Caller-provided runtime, browser, or user-session identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `target_type: string` optional. Identifies the exact reviewed target category. Allowed values are `message`, `conversation`, and `surface`. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `target_id: string` optional. Caller-provided stable identifier for the reviewed target. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `target_role: string` optional. Role for a reviewed message target. Allowed values are `user`, `assistant`, `system`, and `tool`. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `target_text: string` optional. Snapshot of the exact reviewed message or product surface text. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `event_at: string` optional. Must be a timezone-aware ISO 8601 timestamp. Naive timestamps are rejected. Accepted values are normalized to UTC before persistence and in responses.
     - `tags: string[]` optional. Tags are trimmed. Blank tags are rejected. Duplicate tags after normalization are rejected. Persisted tag order follows the client-supplied order after normalization.
-    - `messages: array` optional. JSON array of caller-provided conversation messages persisted as supplied.
+    - `messages: array` optional. JSON array of caller-provided surrounding conversation messages persisted as supplied.
     - `used_context: array` optional. JSON array of caller-provided context used by the agent persisted as supplied.
     - `source_metadata: object` optional. Arbitrary JSON object persisted to `source_metadata`.
     - `attributes: object` optional. Arbitrary JSON object persisted to `attributes`.
@@ -79,6 +83,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Public self-hosted deployments should require `Authorization: Bearer <VOCKY_MCP_AUTH_TOKEN>` on the MCP HTTP request
 - Notes:
   - MCP capture is the agent-workflow ingestion surface. Server-to-server product integrations that cannot use MCP may use the Web Feedback Capture REST API.
+  - Target fields are optional captured context. Omitting them preserves the legacy capture behavior and stores `null` target values.
   - The MVP stores raw feedback and metadata; it does not auto-classify events
   - The persisted record shape is defined in `docs/architecture.md` under `Capture Storage Model`
   - Validation and business-rule failures should be visible to MCP clients so models can correct and retry when possible
@@ -103,7 +108,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source.product: string` required
     - `source.integration: string` optional
     - `feedback_value: integer` optional, `1` for like or `2` for dislike
-    - `comment`, `channel`, `conversation_id`, `session_id`, and timezone-aware `event_at` optional
+    - `comment`, `channel`, `conversation_id`, `session_id`, `target_type`, `target_id`, `target_role`, `target_text`, and timezone-aware `event_at` optional
     - `tags`, `messages`, `used_context`, `source_metadata`, and `attributes` optional
 - Outputs:
   - Success status: `202 Accepted`
@@ -117,6 +122,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Queue-accept failures return `503 {"detail":"capture queue unavailable"}`
 - Notes:
   - This REST API is capture-only. It does not add public REST review, query, summary, job-status, or management endpoints.
+  - Target fields are optional captured context. Omitting them preserves the legacy capture behavior and stores `null` target values.
   - Success means the job was accepted for background processing, not that the feedback record is already queryable.
   - Accepted REST capture jobs use the same Redis queue, worker, feedback service, and PostgreSQL table as MCP capture jobs.
 
@@ -156,6 +162,10 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source_integration: string | null`
     - `conversation_id: string | null`
     - `session_id: string | null`
+    - `target_type: string | null`
+    - `target_id: string | null`
+    - `target_role: string | null`
+    - `target_text: string | null`
     - `event_at: string | null` UTC ISO 8601 timestamp when present
     - `ingested_at: string` UTC ISO 8601 timestamp
     - `tags: string[]`
@@ -172,6 +182,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Public self-hosted deployments should require `Authorization: Bearer <VOCKY_MCP_AUTH_TOKEN>` on the MCP HTTP request
 - Notes:
   - Time filtering is based on `ingested_at` only, not `event_at`
+  - Target fields are returned for review context but are not filters in this phase.
   - `start_ingested_at` is inclusive and `end_ingested_at` is exclusive
   - The cursor payload is derived from the last returned record's `ingested_at` and `id`
   - `tag` matches exact single-tag membership against the stored `tags` array
@@ -252,6 +263,10 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source_integration: string | null`
     - `conversation_id: string | null`
     - `session_id: string | null`
+    - `target_type: string | null`
+    - `target_id: string | null`
+    - `target_role: string | null`
+    - `target_text: string | null`
     - `event_at: string | null`
     - `ingested_at: string`
     - `tags: string[]`
@@ -267,6 +282,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Public self-hosted deployments should require `Authorization: Bearer <VOCKY_MCP_AUTH_TOKEN>` on the MCP HTTP request
 - Notes:
   - This tool always enforces `feedback_value = 1` server-side.
+  - Target fields are returned for review context but are not filters in this phase.
   - Disliked records are stored but intentionally not returned here.
   - This is an AI-agent few-shot retrieval surface, not a human admin review API.
 
@@ -297,7 +313,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - Returns one full feedback record or `404` when missing
   - `PATCH /admin/api/feedback/{feedback_id}`
     - Updates review-oriented fields: `feedback_value`, `comment`, `channel`, `tags`, `source_metadata`, and `attributes`
-    - Captured `messages` and `used_context` are immutable in this MVP
+    - Captured target fields, `messages`, and `used_context` are immutable in this MVP
     - Returns the updated record
   - `DELETE /admin/api/feedback/{feedback_id}`
     - Deletes one feedback record and returns `204` on success
@@ -311,6 +327,10 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - `source_integration: string | null`
   - `conversation_id: string | null`
   - `session_id: string | null`
+  - `target_type: string | null`
+  - `target_id: string | null`
+  - `target_role: string | null`
+  - `target_text: string | null`
   - `event_at: string | null`
   - `ingested_at: string`
   - `tags: string[]`
@@ -337,4 +357,5 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - The packaged Admin Web UI consumes this same-origin Admin REST surface for dashboard metrics, feedback list/filter/detail review, review-field editing, and guarded delete.
   - `/admin` and `/admin/assets/*` are static Admin Web UI routes rather than Admin REST endpoints. They can load without an Admin bearer token, while protected data remains under `/admin/api/*`.
   - Browser editing intentionally exposes only `feedback_value`, `comment`, `channel`, and `tags`, even though Admin REST can also patch `source_metadata` and `attributes`.
+  - Target fields are returned for review context but are not filters or editable review fields in this phase.
   - The liked-conversation MCP tool remains AI-agent-only and does not replace Admin REST review.

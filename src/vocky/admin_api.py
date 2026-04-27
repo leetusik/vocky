@@ -112,6 +112,10 @@ def serialize_record(record: FeedbackEventRecord) -> dict[str, object]:
         "source_integration": record.source_integration,
         "conversation_id": record.conversation_id,
         "session_id": record.session_id,
+        "target_type": record.target_type,
+        "target_id": record.target_id,
+        "target_role": record.target_role,
+        "target_text": record.target_text,
         "event_at": (
             serialize_datetime(record.event_at)
             if record.event_at is not None

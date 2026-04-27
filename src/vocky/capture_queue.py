@@ -65,6 +65,10 @@ def _serialize_payload(payload: CreateFeedbackEvent) -> dict[str, Any]:
         "source_integration": payload.source_integration,
         "conversation_id": payload.conversation_id,
         "session_id": payload.session_id,
+        "target_type": payload.target_type,
+        "target_id": payload.target_id,
+        "target_role": payload.target_role,
+        "target_text": payload.target_text,
         "event_at": (
             serialize_datetime(payload.event_at)
             if payload.event_at is not None
@@ -112,6 +116,26 @@ def _deserialize_payload(raw: dict[str, Any]) -> CreateFeedbackEvent:
         session_id=(
             str(raw["session_id"])
             if raw.get("session_id") is not None
+            else None
+        ),
+        target_type=(
+            str(raw["target_type"])
+            if raw.get("target_type") is not None
+            else None
+        ),
+        target_id=(
+            str(raw["target_id"])
+            if raw.get("target_id") is not None
+            else None
+        ),
+        target_role=(
+            str(raw["target_role"])
+            if raw.get("target_role") is not None
+            else None
+        ),
+        target_text=(
+            str(raw["target_text"])
+            if raw.get("target_text") is not None
             else None
         ),
         event_at=(

@@ -25,6 +25,10 @@ def make_input(**overrides: object) -> CaptureFeedbackInput:
         "channel": None,
         "conversation_id": None,
         "session_id": None,
+        "target_type": None,
+        "target_id": None,
+        "target_role": None,
+        "target_text": None,
         "event_at": None,
         "tags": None,
         "messages": None,
@@ -69,6 +73,22 @@ def test_invalid_feedback_value_is_rejected() -> None:
         normalize_payload(make_input(feedback_value=3))
 
 
+def test_invalid_target_type_is_rejected() -> None:
+    with pytest.raises(
+        CaptureFeedbackValidationError,
+        match="target_type must be one of: message, conversation, surface",
+    ):
+        normalize_payload(make_input(target_type="answer"))
+
+
+def test_invalid_target_role_is_rejected() -> None:
+    with pytest.raises(
+        CaptureFeedbackValidationError,
+        match="target_role must be one of: user, assistant, system, tool",
+    ):
+        normalize_payload(make_input(target_role="bot"))
+
+
 def test_action_feedback_context_is_accepted_and_event_at_is_normalized() -> None:
     normalized = normalize_payload(
         make_input(
@@ -86,6 +106,10 @@ def test_action_feedback_context_is_accepted_and_event_at_is_normalized() -> Non
             attributes={"priority": "high"},
             conversation_id="  conv-123  ",
             session_id="   ",
+            target_type=" message ",
+            target_id=" msg-456 ",
+            target_role=" assistant ",
+            target_text="  Click export to download the CSV.  ",
         )
     )
 
@@ -104,4 +128,24 @@ def test_action_feedback_context_is_accepted_and_event_at_is_normalized() -> Non
     assert normalized.payload.attributes == {"priority": "high"}
     assert normalized.payload.conversation_id == "conv-123"
     assert normalized.payload.session_id is None
+    assert normalized.payload.target_type == "message"
+    assert normalized.payload.target_id == "msg-456"
+    assert normalized.payload.target_role == "assistant"
+    assert normalized.payload.target_text == "Click export to download the CSV."
     assert normalized.normalized_event_at == datetime(2026, 4, 23, 5, 0, tzinfo=UTC)
+
+
+def test_blank_target_fields_normalize_to_none() -> None:
+    normalized = normalize_payload(
+        make_input(
+            target_type="   ",
+            target_id=" ",
+            target_role="\t",
+            target_text="\n",
+        )
+    )
+
+    assert normalized.payload.target_type is None
+    assert normalized.payload.target_id is None
+    assert normalized.payload.target_role is None
+    assert normalized.payload.target_text is None

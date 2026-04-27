@@ -14,17 +14,24 @@ Submit one capture request when a user explicitly gives feedback, such as clicki
 
 Recommended payload fields:
 
-- `message`: concise feedback summary or the assistant message being judged
+- `message`: concise human-readable feedback summary displayed in Vocky
 - `source.product`: stable product or app name
 - `source.integration`: client integration name, such as `web-chat`
 - `feedback_value`: `1` for like, `2` for dislike
 - `comment`: optional user comment; recommended for dislikes when available
 - `channel`: user-facing channel, such as `web`, `mobile`, or `support`
-- `conversation_id` and `session_id`: stable caller-side IDs when available
+- `conversation_id`: stable caller-side conversation or thread ID when available
+- `session_id`: optional caller-side runtime, browser, or user-session ID
+- `target_type`: optional reviewed target category: `message`, `conversation`, or `surface`
+- `target_id`: optional stable ID for the exact reviewed message, conversation, or surface
+- `target_role`: optional role for message targets: `user`, `assistant`, `system`, or `tool`
+- `target_text`: optional snapshot of the exact reviewed message or surface text
 - `event_at`: user action timestamp with timezone
-- `messages`: JSON array of relevant conversation messages
+- `messages`: JSON array of surrounding conversation messages for review context
 - `used_context`: JSON array of context or retrieval results used by the agent
 - `tags`, `source_metadata`, and `attributes`: optional caller-provided metadata
+
+Target fields are optional. Existing integrations can omit them, but integrations with message-level feedback should send them so reviewers do not have to infer which message the user judged.
 
 Example:
 
@@ -37,6 +44,10 @@ Example:
   "channel": "web",
   "conversation_id": "conv_123",
   "session_id": "sess_456",
+  "target_type": "message",
+  "target_id": "msg_assistant_789",
+  "target_role": "assistant",
+  "target_text": "Use the export menu and choose CSV.",
   "event_at": "2026-04-24T09:30:00Z",
   "messages": [
     {"role": "user", "content": "Can I export this as CSV?"},
@@ -67,6 +78,10 @@ curl -X POST "https://vocky.example.com/api/feedback" \
     "channel": "web",
     "conversation_id": "conv_123",
     "session_id": "sess_456",
+    "target_type": "message",
+    "target_id": "msg_assistant_789",
+    "target_role": "assistant",
+    "target_text": "Use the export menu and choose CSV.",
     "event_at": "2026-04-24T09:30:00Z",
     "tags": ["export"]
   }'
@@ -89,7 +104,7 @@ Useful filters:
 - `start_ingested_at` and `end_ingested_at`
 - `limit` and `cursor`
 
-The response contains `conversations`, each with the stored feedback message, optional comment, source identifiers, tags, `messages`, `used_context`, metadata, and timestamps. Use these records as few-shot examples or style/context hints inside the caller's agent workflow.
+The response contains `conversations`, each with the stored feedback message, optional comment, target fields, source identifiers, tags, `messages`, `used_context`, metadata, and timestamps. Use these records as few-shot examples or style/context hints inside the caller's agent workflow.
 
 Disliked conversations are stored for review and future learning workflows, but `list_liked_conversations` does not return them.
 

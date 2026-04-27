@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import fakeredis.aioredis
 import pytest
 
-from vocky.capture_queue import CaptureQueue
+from vocky.capture_queue import CaptureQueue, deserialize_job, serialize_datetime
 from vocky.feedback import CreateFeedbackEvent
 
 
@@ -26,6 +28,10 @@ async def test_enqueue_and_pop_round_trip_preserves_payload() -> None:
             source_integration="pytest",
             conversation_id="conv-1",
             session_id="sess-1",
+            target_type="message",
+            target_id="msg-1",
+            target_role="assistant",
+            target_text="Click export",
             event_at=datetime(2026, 4, 24, 2, 30, tzinfo=UTC),
             tags=("feature-request", "export"),
             messages=({"role": "user", "content": "Export this"},),
@@ -48,6 +54,10 @@ async def test_enqueue_and_pop_round_trip_preserves_payload() -> None:
     assert job.payload.source_integration == "pytest"
     assert job.payload.conversation_id == "conv-1"
     assert job.payload.session_id == "sess-1"
+    assert job.payload.target_type == "message"
+    assert job.payload.target_id == "msg-1"
+    assert job.payload.target_role == "assistant"
+    assert job.payload.target_text == "Click export"
     assert job.payload.event_at == datetime(2026, 4, 24, 2, 30, tzinfo=UTC)
     assert job.payload.tags == ("feature-request", "export")
     assert job.payload.messages == ({"role": "user", "content": "Export this"},)
@@ -56,6 +66,40 @@ async def test_enqueue_and_pop_round_trip_preserves_payload() -> None:
     assert job.payload.attributes == {"priority": "high"}
 
     await redis_client.aclose()
+
+
+def test_deserialize_job_defaults_missing_target_fields_to_none() -> None:
+    raw_job = json.dumps(
+        {
+            "request_id": str(uuid4()),
+            "accepted_at": serialize_datetime(datetime(2026, 4, 24, 2, 30, tzinfo=UTC)),
+            "attempt": 1,
+            "payload": {
+                "message": "Legacy queued job",
+                "source_product": "vocky-cli",
+                "feedback_value": None,
+                "comment": None,
+                "channel": None,
+                "source_integration": None,
+                "conversation_id": None,
+                "session_id": None,
+                "event_at": None,
+                "tags": [],
+                "messages": [],
+                "used_context": [],
+                "source_metadata": {},
+                "attributes": {},
+            },
+        },
+        separators=(",", ":"),
+    )
+
+    job = deserialize_job(raw_job)
+
+    assert job.payload.target_type is None
+    assert job.payload.target_id is None
+    assert job.payload.target_role is None
+    assert job.payload.target_text is None
 
 
 @pytest.mark.asyncio

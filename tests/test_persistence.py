@@ -42,7 +42,7 @@ async def test_migration_applies_and_expected_indexes_exist(configured_database:
             )
         ).scalars().all()
 
-    assert migration_version == "20260424_1633"
+    assert migration_version == "20260427_1600"
     assert index_rows == [
         "ix_feedback_events_channel",
         "ix_feedback_events_conversation_id",
@@ -69,6 +69,10 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
             source_integration="pytest",
             conversation_id="conv-1",
             session_id="sess-1",
+            target_type="message",
+            target_id="msg-1",
+            target_role="assistant",
+            target_text="Click export",
             event_at=datetime(2026, 4, 23, 5, 0, tzinfo=UTC),
             tags=("billing", "bug"),
             messages=(
@@ -86,7 +90,8 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
             await connection.execute(
                 text(
                     "SELECT message, source_product, source_integration, conversation_id, "
-                    "session_id, feedback_value, comment, channel, event_at, tags, "
+                    "session_id, target_type, target_id, target_role, target_text, "
+                    "feedback_value, comment, channel, event_at, tags, "
                     "messages, used_context, source_metadata, attributes, ingested_at "
                     "FROM feedback_events WHERE id = :id"
                 ),
@@ -99,7 +104,8 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
                 text(
                     "INSERT INTO feedback_events (id, message, source_product) "
                     "VALUES (:id, :message, :source_product) "
-                    "RETURNING feedback_value, comment, channel, tags, messages, "
+                    "RETURNING feedback_value, comment, channel, target_type, "
+                    "target_id, target_role, target_text, tags, messages, "
                     "used_context, source_metadata, attributes, ingested_at"
                 ),
                 {
@@ -115,6 +121,14 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
     assert persisted["source_integration"] == "pytest"
     assert persisted["conversation_id"] == "conv-1"
     assert persisted["session_id"] == "sess-1"
+    assert persisted["target_type"] == "message"
+    assert persisted["target_id"] == "msg-1"
+    assert persisted["target_role"] == "assistant"
+    assert persisted["target_text"] == "Click export"
+    assert record.target_type == "message"
+    assert record.target_id == "msg-1"
+    assert record.target_role == "assistant"
+    assert record.target_text == "Click export"
     assert persisted["feedback_value"] == 2
     assert persisted["comment"] == "CSV export failed after I clicked download"
     assert persisted["channel"] == "web"
@@ -134,6 +148,10 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
     assert defaults["feedback_value"] is None
     assert defaults["comment"] is None
     assert defaults["channel"] is None
+    assert defaults["target_type"] is None
+    assert defaults["target_id"] is None
+    assert defaults["target_role"] is None
+    assert defaults["target_text"] is None
     assert defaults["tags"] == []
     assert defaults["messages"] == []
     assert defaults["used_context"] == []

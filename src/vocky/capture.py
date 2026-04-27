@@ -11,6 +11,9 @@ from pydantic import BaseModel, Field
 
 from vocky.feedback import CreateFeedbackEvent
 
+ALLOWED_TARGET_TYPES = frozenset({"message", "conversation", "surface"})
+ALLOWED_TARGET_ROLES = frozenset({"user", "assistant", "system", "tool"})
+
 
 class CaptureFeedbackValidationError(ValueError):
     """Raised when capture input is semantically invalid."""
@@ -33,6 +36,10 @@ class CaptureFeedbackInput(BaseModel):
     channel: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
+    target_type: str | None = None
+    target_id: str | None = None
+    target_role: str | None = None
+    target_text: str | None = None
     event_at: str | None = None
     tags: list[str] | None = None
     messages: list[Any] | None = None
@@ -128,6 +135,32 @@ def normalize_feedback_value(value: int | None) -> int | None:
     return value
 
 
+def normalize_target_type(value: str | None) -> str | None:
+    """Normalize and validate an optional feedback target type."""
+
+    normalized = normalize_optional_text(value)
+    if normalized is None:
+        return None
+    if normalized not in ALLOWED_TARGET_TYPES:
+        raise CaptureFeedbackValidationError(
+            "target_type must be one of: message, conversation, surface"
+        )
+    return normalized
+
+
+def normalize_target_role(value: str | None) -> str | None:
+    """Normalize and validate an optional feedback target role."""
+
+    normalized = normalize_optional_text(value)
+    if normalized is None:
+        return None
+    if normalized not in ALLOWED_TARGET_ROLES:
+        raise CaptureFeedbackValidationError(
+            "target_role must be one of: user, assistant, system, tool"
+        )
+    return normalized
+
+
 def normalize_json_array(value: list[Any] | None, *, field_name: str) -> tuple[Any, ...]:
     """Normalize an optional JSON array field."""
 
@@ -151,6 +184,10 @@ def normalize_payload(raw: CaptureFeedbackInput) -> NormalizedCaptureFeedback:
         source_integration=normalize_optional_text(raw.source.integration),
         conversation_id=normalize_optional_text(raw.conversation_id),
         session_id=normalize_optional_text(raw.session_id),
+        target_type=normalize_target_type(raw.target_type),
+        target_id=normalize_optional_text(raw.target_id),
+        target_role=normalize_target_role(raw.target_role),
+        target_text=normalize_optional_text(raw.target_text),
         event_at=normalized_event_at,
         tags=normalize_tags(raw.tags),
         messages=normalize_json_array(raw.messages, field_name="messages"),

@@ -58,7 +58,7 @@ Vocky now has three public-facing tracks over the same feedback schema:
 - Public REST capture track for server-to-server product integrations: `POST /api/feedback`.
 - Admin REST track for humans and dashboards: `/admin/api/feedback` list/detail, `/admin/api/feedback/metrics` dashboard metrics, plus patch/delete management endpoints.
 
-The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data, feedback review management, and packaged static docs assets for operator reference content. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, or management endpoints. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, metadata, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
+The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data, feedback review management, and packaged static docs assets for operator reference content. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, or management endpoints. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, metadata, target context, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
 
 ## Configuration Surface
 
@@ -109,7 +109,12 @@ For Cloudflare Tunnel users, the recommended public shape is a hostname-to-servi
 
 ## MVP Data Expectations
 
-- Each stored record should preserve raw feedback content plus the metadata needed for review, such as source identity, explicit feedback value, optional comment, channel, available conversation messages, used context, creation time, and optional caller-provided tags or attributes.
+- Each stored record should preserve raw feedback content plus the metadata needed for review, such as source identity, explicit feedback value, optional comment, channel, the exact reviewed target when available, surrounding conversation messages, used context, creation time, and optional caller-provided tags or attributes.
+- `message` is the required human-readable feedback summary or display text. It is not an implicit target selector.
+- `conversation_id` identifies the conversation or thread that the feedback belongs to.
+- `session_id` is optional runtime, browser, or user-session scope that can correlate repeated interactions without replacing `conversation_id`.
+- Target fields identify the exact reviewed item when known: `target_type` describes whether the target is a `message`, `conversation`, or `surface`; `target_id` stores the caller's stable identifier; `target_role` stores the reviewed message role when applicable; and `target_text` stores a snapshot of the exact reviewed text.
+- `messages` stores surrounding conversation context supplied by the caller. `used_context` stores context that the agent used while producing the reviewed response.
 - The storage layer only needs to support the retrieval and aggregate queries required by the MCP review tools; it does not need analytics-warehouse style modeling for the first MVP.
 
 ## Capture Storage Model
@@ -127,6 +132,10 @@ The primary table is `feedback_events` with this hybrid shape:
 - `source_integration TEXT` null
 - `conversation_id TEXT` null
 - `session_id TEXT` null
+- `target_type TEXT` null, where expected capture values are `message`, `conversation`, and `surface`
+- `target_id TEXT` null
+- `target_role TEXT` null, where expected capture values are `user`, `assistant`, `system`, and `tool`
+- `target_text TEXT` null
 - `event_at TIMESTAMPTZ` null
 - `ingested_at TIMESTAMPTZ` not null
 - `tags TEXT[]` not null with default empty array
@@ -146,7 +155,7 @@ Initial indexes should cover:
 - `session_id`
 - GIN on `tags`
 
-The schema keeps the most important review dimensions queryable as first-class columns while leaving room for source-specific metadata in JSONB fields.
+The schema keeps the most important review dimensions visible as first-class columns while leaving room for source-specific metadata in JSONB fields. Target fields are captured review context in this phase; they do not add query filters or indexes.
 
 The async capture path is layered as:
 

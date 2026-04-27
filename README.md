@@ -19,7 +19,7 @@ The name comes from VoC, short for voice of customer.
 ## What The Current Pre-MVP Does
 
 - Accept explicit user action feedback from agent interactions through MCP or server-to-server REST without blocking on database writes
-- Store like/dislike values, optional comments, conversation context, and metadata for later review
+- Store like/dislike values, optional comments, exact target context, conversation context, and metadata for later review
 - Expose minimal MCP review/query tools for retrieving records and simple counts
 - Retrieve liked conversations through MCP for AI-agent few-shot use
 - Expose separate Admin REST endpoints for human/operator review and management
@@ -40,7 +40,7 @@ Vocky is intended to follow a light open-core direction: a community, self-hosta
 
 ## Current Status
 
-- MCP feedback capture is implemented through the `capture_feedback` tool and now accepts explicit action feedback requests quickly through a Redis-backed background worker path.
+- MCP feedback capture is implemented through the `capture_feedback` tool and now accepts explicit action feedback plus optional exact-target context quickly through a Redis-backed background worker path.
 - Web/product feedback capture is implemented through `POST /api/feedback` for server-to-server integrations that cannot use MCP.
 - MCP review/query tools are implemented through `list_feedback` and `summarize_feedback`.
 - AI-agent liked conversation retrieval is implemented through `list_liked_conversations`.
@@ -196,7 +196,7 @@ Public Admin REST requests should use `Authorization: Bearer <VOCKY_ADMIN_AUTH_T
 
 The implemented MCP tools are:
 
-- `capture_feedback`: validate one feedback event, including optional action feedback fields, enqueue it for background persistence, and return a receipt with `request_id`, `accepted_at`, and `status="accepted"`.
+- `capture_feedback`: validate one feedback event, including optional action feedback and target fields, enqueue it for background persistence, and return a receipt with `request_id`, `accepted_at`, and `status="accepted"`.
 - `list_feedback`: retrieve stored feedback records with ingest-time, source, action value, channel, exact tag, newest-first ordering, and opaque cursor pagination. The default page size is `50` and the maximum is `100`.
 - `summarize_feedback`: return `total_count` plus zero-filled UTC `daily_counts` for an explicit ingest-time window and the supported review filters.
 - `list_liked_conversations`: retrieve only liked conversations with stored messages and used context for AI-agent few-shot use.
@@ -227,6 +227,10 @@ curl -X POST "http://127.0.0.1:8000/api/feedback" \
     "channel": "web",
     "conversation_id": "conv_123",
     "session_id": "sess_123",
+    "target_type": "message",
+    "target_id": "msg_assistant_789",
+    "target_role": "assistant",
+    "target_text": "Use the export menu and choose CSV.",
     "event_at": "2026-04-24T09:30:00Z",
     "tags": ["export"]
   }'
@@ -236,7 +240,7 @@ Omit the bearer header only when `VOCKY_API_AUTH_TOKEN` is unset in a trusted lo
 
 ## Admin REST Surface
 
-The Admin REST API is separate from MCP and is intended for human operators, scripts, dashboards, and the packaged Admin Web UI. It can query and manage all feedback records, including likes, dislikes, comments, metadata, messages, and used context.
+The Admin REST API is separate from MCP and is intended for human operators, scripts, dashboards, and the packaged Admin Web UI. It can query and manage all feedback records, including likes, dislikes, comments, target context, metadata, messages, and used context.
 
 Implemented endpoints:
 
@@ -249,7 +253,7 @@ Implemented endpoints:
 
 Set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*` outside a trusted local/private environment.
 
-The Admin Web UI consumes these endpoints same-origin. Its edit form only patches `feedback_value`, `comment`, `channel`, and `tags`; captured messages, used context, `source_metadata`, and `attributes` remain read-only in the browser.
+The Admin Web UI consumes these endpoints same-origin. Its edit form only patches `feedback_value`, `comment`, `channel`, and `tags`; captured target fields, messages, used context, `source_metadata`, and `attributes` remain read-only in the browser.
 
 ## Self-Hosted Usage
 
@@ -293,6 +297,10 @@ async def main() -> None:
                     "channel": "web",
                     "conversation_id": "conv_123",
                     "session_id": "sess_123",
+                    "target_type": "message",
+                    "target_id": "msg_assistant_789",
+                    "target_role": "assistant",
+                    "target_text": "Yes, use the export menu.",
                     "messages": [
                         {"role": "user", "content": "Can I export this as CSV?"},
                         {"role": "assistant", "content": "Yes, use the export menu."},

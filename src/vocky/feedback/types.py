@@ -20,6 +20,10 @@ class CreateFeedbackEvent:
     source_integration: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
+    target_type: str | None = None
+    target_id: str | None = None
+    target_role: str | None = None
+    target_text: str | None = None
     event_at: datetime | None = None
     tags: tuple[str, ...] = ()
     messages: tuple[Any, ...] = ()
@@ -41,6 +45,10 @@ class FeedbackEventRecord:
     source_integration: str | None
     conversation_id: str | None
     session_id: str | None
+    target_type: str | None
+    target_id: str | None
+    target_role: str | None
+    target_text: str | None
     event_at: datetime | None
     ingested_at: datetime
     tags: tuple[str, ...]

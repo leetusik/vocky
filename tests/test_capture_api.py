@@ -38,6 +38,10 @@ async def test_capture_feedback_accepts_payload_and_enqueues(
                 "feedback_value": 2,
                 "comment": "The answer did not fix export",
                 "channel": "web",
+                "target_type": "message",
+                "target_id": "assistant-message-1",
+                "target_role": "assistant",
+                "target_text": "Click export",
                 "event_at": "2026-04-23T14:00:00+09:00",
                 "tags": ["billing", " bug "],
                 "messages": [
@@ -60,6 +64,10 @@ async def test_capture_feedback_accepts_payload_and_enqueues(
     assert queued_job.payload.feedback_value == 2
     assert queued_job.payload.comment == "The answer did not fix export"
     assert queued_job.payload.channel == "web"
+    assert queued_job.payload.target_type == "message"
+    assert queued_job.payload.target_id == "assistant-message-1"
+    assert queued_job.payload.target_role == "assistant"
+    assert queued_job.payload.target_text == "Click export"
     assert queued_job.payload.event_at == datetime(2026, 4, 23, 5, 0, tzinfo=UTC)
     assert queued_job.payload.tags == ("billing", "bug")
     assert queued_job.payload.messages == (
