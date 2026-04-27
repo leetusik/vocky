@@ -1107,6 +1107,141 @@ h2 {
   font-size: 0.94rem;
 }
 
+.docs-rest-try {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+}
+
+.docs-rest-try-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+
+.docs-rest-try-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.docs-rest-try-meta {
+  min-height: 26px;
+  margin: 0;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--teal);
+  background: var(--teal-soft);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.docs-rest-try-form {
+  display: grid;
+  gap: 12px;
+}
+
+.docs-rest-try-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.docs-rest-try-form label span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.docs-rest-try-payload textarea {
+  min-height: 320px;
+  resize: vertical;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.docs-rest-try-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.docs-rest-try-results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.docs-rest-try-output {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.docs-rest-try-output h4 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.docs-rest-try-status-value {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--muted);
+  background: #f8fafb;
+  font-weight: 800;
+}
+
+.docs-rest-try-status-value[data-rest-try-state="loading"] {
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.docs-rest-try-status-value[data-rest-try-state="success"] {
+  color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.docs-rest-try-status-value[data-rest-try-state="error"] {
+  color: var(--red);
+  background: var(--red-soft);
+}
+
+.docs-rest-try-code {
+  min-height: 120px;
+  max-height: 340px;
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  background: #f8fafb;
+}
+
+.docs-rest-try-code code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  white-space: pre;
+}
+
+.docs-rest-try-error .docs-rest-try-code {
+  border-color: #fac5bd;
+}
+
 @media (max-width: 780px) {
   .topbar {
     height: auto;
@@ -1178,6 +1313,14 @@ h2 {
   }
 
   .docs-definitions {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-rest-try-header {
+    display: grid;
+  }
+
+  .docs-rest-try-results {
     grid-template-columns: 1fr;
   }
 

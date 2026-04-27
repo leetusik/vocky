@@ -95,14 +95,21 @@
 
 - Phase ID: `P4`
 - Objective: Add Swagger-like in-app REST capture documentation with a real try-it request flow.
-- Status: planned
-- Review outcome: pending
+- Status: done
+- Review outcome: passed
 - Notes: Build this after REST semantics are stable. The try feature should call the real REST capture endpoint, support the configured bearer token, show request, response, and error output, and include examples for general website feedback such as `피드백을 보내주세요!`.
 - Work items:
-  - None yet
+  - `works/archives/work_items/20260427_2321_decompose_working_rest_capture_try_docs`
+  - `works/archives/work_items/20260427_2322_lock_rest_try_docs_behavior`
+  - `works/archives/work_items/20260427_2325_build_rest_capture_try_ui`
+  - `works/archives/work_items/20260427_2329_refresh_docs_examples_coverage`
+  - `works/archives/work_items/20260427_2331_phase_review_working_rest_capture_try_docs`
 - Slices:
-  - [ ] Slice ID: `P4.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
-  - [ ] Slice ID: `P4.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+  - [x] Slice ID: `P4.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_2321_decompose_working_rest_capture_try_docs` | Notes: Added contract/docs, Admin UI implementation, packaged docs/coverage, and review slices for P4.
+  - [x] Slice ID: `P4.S1` | Name: `lock REST Try docs behavior` | Status: done | Work item: `works/archives/work_items/20260427_2322_lock_rest_try_docs_behavior` | Notes: Defined operator-only same-origin Try behavior in durable docs and README, including real capture side effects, separate API bearer token handling, and no new public review/query endpoint.
+  - [x] Slice ID: `P4.S2` | Name: `build REST capture try UI` | Status: done | Work item: `works/archives/work_items/20260427_2325_build_rest_capture_try_ui` | Notes: Added an internal `rest_capture_try` docs block renderer in the Admin UI with session-scoped API token input, editable JSON payload, real `/api/feedback` POST, and request/status/response/error display.
+  - [x] Slice ID: `P4.S3` | Name: `refresh docs examples and coverage` | Status: done | Work item: `works/archives/work_items/20260427_2329_refresh_docs_examples_coverage` | Notes: Added the packaged docs block and updated Admin UI/package coverage so the try block is included and tested.
+  - [x] Slice ID: `P4.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260427_2331_phase_review_working_rest_capture_try_docs` | Notes: Review passed with full pytest, package-check, Compose-backed verify, rebuilt app asset checks, and no fix slices needed.
 
 ## Archive Notes
 

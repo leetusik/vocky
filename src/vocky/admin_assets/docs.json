@@ -129,6 +129,42 @@
               "type": "callout",
               "title": "Capture only",
               "text": "REST capture does not expose public review, query, summary, job-status, or management endpoints."
+            },
+            {
+              "type": "callout",
+              "title": "Try creates feedback",
+              "text": "The try form sends a real same-origin capture request. Use VOCKY_API_AUTH_TOKEN when /api/* auth is configured, and expect successful tries to create queued feedback records."
+            },
+            {
+              "type": "rest_capture_try",
+              "id": "rest-capture-try",
+              "title": "Try REST Capture",
+              "path": "/api/feedback",
+              "method": "POST",
+              "default_payload": {
+                "message": "피드백을 보내주세요! prompt on the pricing page helped collect website feedback",
+                "source": {
+                  "product": "marketing-site",
+                  "integration": "admin-docs-try"
+                },
+                "feedback_value": 1,
+                "comment": "The feedback call-to-action was visible and easy to use.",
+                "channel": "web",
+                "session_id": "sess_docs_try_001",
+                "target_type": "surface",
+                "target_id": "pricing-page-feedback-cta",
+                "target_text": "피드백을 보내주세요!",
+                "tags": ["website", "pricing", "try-docs"],
+                "source_metadata": {
+                  "path": "/pricing",
+                  "referrer": "/"
+                },
+                "attributes": {
+                  "plan": "team",
+                  "locale": "ko-KR",
+                  "environment": "self-hosted"
+                }
+              }
             }
           ]
         },

@@ -2,7 +2,7 @@
 
 ## Status
 
-The feedback capture MCP tool, Web Feedback Capture REST API, `P3` read tools, Admin REST channel validation, and Admin UI channel category workflows are implemented. These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
+The feedback capture MCP tool, Web Feedback Capture REST API, `P3` read tools, Admin REST channel validation, Admin UI channel category workflows, and Admin Docs REST capture try-it behavior are implemented. These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
 
 ## Purpose
 
@@ -11,7 +11,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 ## MVP Surfaces
 
 - MCP tool contract for feedback capture
-- Web Feedback Capture REST API contract for server-to-server website and product feedback ingestion
+- Web Feedback Capture REST API contract for server-to-server website and product feedback ingestion, plus operator-only Admin Docs try-it against the same endpoint
 - MCP tool contracts for review and query access
 - MCP tool contract for liked-conversation retrieval
 - Admin REST API contract for human/operator review and dashboard metrics
@@ -117,6 +117,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Deployment-specific for the self-hosted MVP
   - When `VOCKY_API_AUTH_TOKEN` is set, `/api/*` requests must include `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>`
   - Public deployments should set `VOCKY_API_AUTH_TOKEN` before exposing `/api/*`
+  - The Admin Docs try-it flow uses this API token, not `VOCKY_ADMIN_AUTH_TOKEN`; the operator-entered API token is a browser-session value for trying capture and is not a durable Vocky setting.
 - Endpoint:
   - `POST /api/feedback`
 - Inputs:
@@ -151,6 +152,8 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Queue-accept failures return `503 {"detail":"capture queue unavailable"}`
 - Notes:
   - This REST API is capture-only. It does not add public REST review, query, summary, job-status, or management endpoints.
+  - The Admin Docs try-it flow sends a same-origin browser `POST /api/feedback` request to this existing endpoint for self-hosted operator verification. It is not a separate public contract and does not change the server-to-server integration guidance.
+  - Successful Admin Docs try requests create real queued feedback events with the same asynchronous persistence behavior as any other REST capture request.
   - Target fields are optional captured context. Omitting them preserves the legacy capture behavior and stores `null` target values.
   - REST capture supports broader website and product feedback through the existing fields; this phase does not add REST-only aliases, a versioned endpoint, or separate storage.
   - Success means the job was accepted for background processing, not that the feedback record is already queryable.

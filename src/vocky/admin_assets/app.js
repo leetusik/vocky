@@ -1,4 +1,5 @@
 const TOKEN_STORAGE_KEY = "vocky.adminToken";
+const API_TOKEN_STORAGE_KEY = "vocky.apiToken";
 const ADMIN_API_PREFIX = "/admin/api/";
 const DOCS_ASSET_PATH = "/admin/assets/docs.json";
 const DEFAULT_DASHBOARD_WINDOW_DAYS = 30;
@@ -53,6 +54,7 @@ const state = {
   },
   docs: {
     activeTopicId: "",
+    apiToken: sessionStorage.getItem(API_TOKEN_STORAGE_KEY) || "",
     loaded: false,
     loading: false,
     topics: [],
@@ -1551,6 +1553,274 @@ function appendCallout(parent, block) {
   parent.append(callout);
 }
 
+function getRestCaptureTryMethod(block) {
+  return normalizeText(block ? block.method : "").trim().toUpperCase() || "POST";
+}
+
+function getRestCaptureTryPath(block) {
+  const path = normalizeText(block ? block.path : "").trim();
+  return path.startsWith("/") ? path : "/api/feedback";
+}
+
+function getRestCaptureTryDefaultPayload(block) {
+  const payload =
+    block &&
+    block.default_payload &&
+    typeof block.default_payload === "object" &&
+    !Array.isArray(block.default_payload)
+      ? block.default_payload
+      : {};
+
+  return JSON.stringify(payload, null, 2);
+}
+
+function setDocsApiToken(value) {
+  state.docs.apiToken = normalizeText(value).trim();
+
+  if (state.docs.apiToken) {
+    sessionStorage.setItem(API_TOKEN_STORAGE_KEY, state.docs.apiToken);
+  } else {
+    sessionStorage.removeItem(API_TOKEN_STORAGE_KEY);
+  }
+}
+
+function createRestTryOutputPanel(title, className) {
+  const panel = document.createElement("section");
+  panel.className = `docs-rest-try-output ${className}`;
+  const heading = document.createElement("h4");
+  heading.textContent = title;
+  const pre = document.createElement("pre");
+  pre.className = "docs-rest-try-code";
+  const code = document.createElement("code");
+  pre.append(code);
+  panel.append(heading, pre);
+  return { panel, code };
+}
+
+function setRestTryStatus(statusElement, stateName, label) {
+  statusElement.dataset.restTryState = stateName;
+  statusElement.textContent = label;
+}
+
+function setRestTryFormBusy(form, busy) {
+  form.querySelectorAll("input, textarea, button").forEach((field) => {
+    field.disabled = busy;
+  });
+}
+
+function parseRestTryResponseBody(rawText) {
+  if (!rawText) {
+    return {
+      parsed: null,
+      display: "null",
+      parseError: "",
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(rawText);
+    return {
+      parsed,
+      display: JSON.stringify(parsed, null, 2),
+      parseError: "",
+    };
+  } catch (error) {
+    return {
+      parsed: null,
+      display: rawText,
+      parseError: error instanceof Error ? error.message : "Response body is not valid JSON.",
+    };
+  }
+}
+
+function getRestTryHttpErrorDetail(response, parsedBody, responseParseError) {
+  const statusText = response.statusText ? ` ${response.statusText}` : "";
+  const details = [`HTTP ${response.status}${statusText}`];
+
+  if (parsedBody && typeof parsedBody.detail === "string") {
+    details.push(parsedBody.detail);
+  }
+
+  if (responseParseError) {
+    details.push(`Response body was not valid JSON: ${responseParseError}`);
+  }
+
+  return details.join("\n");
+}
+
+async function sendRestCaptureTryRequest(block, form, elements) {
+  setDocsApiToken(elements.tokenInput.value);
+  const method = getRestCaptureTryMethod(block);
+  const path = getRestCaptureTryPath(block);
+  const rawRequestBody = elements.payloadInput.value;
+  let requestPayload;
+  let requestBody;
+
+  try {
+    requestPayload = JSON.parse(rawRequestBody);
+  } catch (error) {
+    elements.requestCode.textContent = rawRequestBody;
+    elements.responseCode.textContent = "";
+    elements.errorCode.textContent =
+      error instanceof Error ? error.message : "Request body is not valid JSON.";
+    setRestTryStatus(elements.statusValue, "error", "Request JSON invalid");
+    return;
+  }
+
+  if (!requestPayload || typeof requestPayload !== "object" || Array.isArray(requestPayload)) {
+    elements.requestCode.textContent = rawRequestBody;
+    elements.responseCode.textContent = "";
+    elements.errorCode.textContent = "Request body must be a JSON object.";
+    setRestTryStatus(elements.statusValue, "error", "Request JSON invalid");
+    return;
+  }
+
+  requestBody = JSON.stringify(requestPayload, null, 2);
+  elements.requestCode.textContent = requestBody;
+  elements.responseCode.textContent = "";
+  elements.errorCode.textContent = "";
+  setRestTryStatus(elements.statusValue, "loading", `Sending ${method} ${path}`);
+  setRestTryFormBusy(form, true);
+
+  const headers = new Headers({
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  });
+
+  if (state.docs.apiToken) {
+    headers.set("Authorization", `Bearer ${state.docs.apiToken}`);
+  }
+
+  try {
+    const response = await fetch(path, {
+      method,
+      headers,
+      body: requestBody,
+    });
+    const rawResponseBody = await response.text();
+    const parsedResponse = parseRestTryResponseBody(rawResponseBody);
+    const statusText = response.statusText ? ` ${response.statusText}` : "";
+
+    elements.responseCode.textContent = parsedResponse.display;
+
+    if (!response.ok) {
+      elements.errorCode.textContent = getRestTryHttpErrorDetail(
+        response,
+        parsedResponse.parsed,
+        parsedResponse.parseError,
+      );
+      setRestTryStatus(elements.statusValue, "error", `${response.status}${statusText}`);
+      return;
+    }
+
+    if (parsedResponse.parseError) {
+      elements.errorCode.textContent = `Response body was not valid JSON: ${parsedResponse.parseError}`;
+      setRestTryStatus(elements.statusValue, "error", "Response JSON invalid");
+      return;
+    }
+
+    elements.errorCode.textContent = "";
+    setRestTryStatus(elements.statusValue, "success", `${response.status}${statusText}`);
+  } catch (error) {
+    elements.responseCode.textContent = "";
+    elements.errorCode.textContent =
+      error instanceof Error ? error.message : "Network request failed.";
+    setRestTryStatus(elements.statusValue, "error", "Network error");
+  } finally {
+    setRestTryFormBusy(form, false);
+  }
+}
+
+function appendRestCaptureTryBlock(parent, block) {
+  const wrapper = document.createElement("section");
+  wrapper.className = "docs-rest-try";
+  const blockId = normalizeText(block.id).trim();
+  if (blockId) {
+    wrapper.id = blockId;
+  }
+
+  const header = document.createElement("div");
+  header.className = "docs-rest-try-header";
+  appendTextElement(header, "h3", "", block.title || "Try REST Capture");
+  appendTextElement(
+    header,
+    "p",
+    "docs-rest-try-meta",
+    `${getRestCaptureTryMethod(block)} ${getRestCaptureTryPath(block)}`,
+  );
+
+  const form = document.createElement("form");
+  form.className = "docs-rest-try-form";
+
+  const tokenLabel = document.createElement("label");
+  appendTextElement(tokenLabel, "span", "", "API bearer token");
+  const tokenInput = document.createElement("input");
+  tokenInput.type = "password";
+  tokenInput.autocomplete = "off";
+  tokenInput.placeholder = "VOCKY_API_AUTH_TOKEN";
+  tokenInput.value = state.docs.apiToken;
+  tokenInput.dataset.restTryApiToken = "";
+  tokenLabel.append(tokenInput);
+
+  const payloadLabel = document.createElement("label");
+  payloadLabel.className = "docs-rest-try-payload";
+  appendTextElement(payloadLabel, "span", "", "JSON request body");
+  const payloadInput = document.createElement("textarea");
+  payloadInput.rows = 18;
+  payloadInput.spellcheck = false;
+  payloadInput.value = getRestCaptureTryDefaultPayload(block);
+  payloadInput.dataset.restTryPayload = "";
+  payloadLabel.append(payloadInput);
+
+  const actions = document.createElement("div");
+  actions.className = "docs-rest-try-actions";
+  const sendButton = document.createElement("button");
+  sendButton.className = "primary-button";
+  sendButton.type = "submit";
+  sendButton.textContent = "Send";
+  actions.append(sendButton);
+
+  form.append(tokenLabel, payloadLabel, actions);
+
+  const output = document.createElement("div");
+  output.className = "docs-rest-try-results";
+  const statusPanel = document.createElement("section");
+  statusPanel.className = "docs-rest-try-output docs-rest-try-status";
+  const statusHeading = document.createElement("h4");
+  statusHeading.textContent = "HTTP status";
+  const statusValue = document.createElement("p");
+  statusValue.className = "docs-rest-try-status-value";
+  setRestTryStatus(statusValue, "idle", "Not sent");
+  statusPanel.append(statusHeading, statusValue);
+
+  const requestPanel = createRestTryOutputPanel("Request body", "docs-rest-try-request");
+  requestPanel.code.textContent = "No request sent yet.";
+  const responsePanel = createRestTryOutputPanel("JSON response", "docs-rest-try-response");
+  responsePanel.code.textContent = "No response yet.";
+  const errorPanel = createRestTryOutputPanel("Error details", "docs-rest-try-error");
+  errorPanel.code.textContent = "";
+  output.append(statusPanel, requestPanel.panel, responsePanel.panel, errorPanel.panel);
+
+  tokenInput.addEventListener("input", () => {
+    setDocsApiToken(tokenInput.value);
+  });
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void sendRestCaptureTryRequest(block, form, {
+      tokenInput,
+      payloadInput,
+      statusValue,
+      requestCode: requestPanel.code,
+      responseCode: responsePanel.code,
+      errorCode: errorPanel.code,
+    });
+  });
+
+  wrapper.append(header, form, output);
+  parent.append(wrapper);
+}
+
 function appendDocsBlock(parent, block) {
   if (!block || typeof block !== "object") {
     return;
@@ -1580,6 +1850,9 @@ function appendDocsBlock(parent, block) {
       break;
     case "callout":
       appendCallout(parent, block);
+      break;
+    case "rest_capture_try":
+      appendRestCaptureTryBlock(parent, block);
       break;
     default:
       if (normalizeText(block.text)) {
@@ -1855,6 +2128,7 @@ void refreshDashboard();
 
 window.VockyAdmin = {
   TOKEN_STORAGE_KEY,
+  API_TOKEN_STORAGE_KEY,
   ADMIN_API_PREFIX,
   DOCS_ASSET_PATH,
   DEFAULT_DASHBOARD_WINDOW_DAYS,
@@ -1865,6 +2139,10 @@ window.VockyAdmin = {
   makeDashboardMetricsPath,
   makeRecentFeedbackPath,
   makeFeedbackListPath,
+  getRestCaptureTryMethod,
+  getRestCaptureTryPath,
+  getRestCaptureTryDefaultPayload,
+  parseRestTryResponseBody,
   selectFeedbackRecord,
   deleteSelectedFeedbackRecord,
   refreshFeedback,

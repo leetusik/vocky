@@ -101,10 +101,13 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     assert ".feedback-pagination" in css_response.text
     assert ".docs-layout" in css_response.text
     assert ".docs-topic-button" in css_response.text
+    assert ".docs-rest-try" in css_response.text
+    assert ".docs-rest-try-results" in css_response.text
     assert js_response.status_code == 200
     assert js_response.headers["content-type"].startswith("application/javascript")
     assert "[data-admin-shell]" in js_response.text
     assert 'TOKEN_STORAGE_KEY = "vocky.adminToken"' in js_response.text
+    assert 'API_TOKEN_STORAGE_KEY = "vocky.apiToken"' in js_response.text
     assert 'ADMIN_API_PREFIX = "/admin/api/"' in js_response.text
     assert 'DOCS_ASSET_PATH = "/admin/assets/docs.json"' in js_response.text
     assert "DEFAULT_DASHBOARD_WINDOW_DAYS = 30" in js_response.text
@@ -158,6 +161,16 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     assert "data-metric-total" in js_response.text
     assert 'headers.set("Authorization"' in js_response.text
     assert "fetch(DOCS_ASSET_PATH" in js_response.text
+    assert 'case "rest_capture_try"' in js_response.text
+    assert "appendRestCaptureTryBlock" in js_response.text
+    assert 'fetch(path, {' in js_response.text
+    assert 'Accept: "application/json"' in js_response.text
+    assert '"Content-Type": "application/json"' in js_response.text
+    assert 'Authorization", `Bearer ${state.docs.apiToken}`' in js_response.text
+    assert "sessionStorage.setItem(API_TOKEN_STORAGE_KEY" in js_response.text
+    assert "Request JSON invalid" in js_response.text
+    assert "Response JSON invalid" in js_response.text
+    assert "Network error" in js_response.text
     assert "document.createElement" in js_response.text
     assert docs_response.status_code == 200
     assert docs_response.headers["content-type"].startswith("application/json")
@@ -214,8 +227,32 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
         "VOCKY_EXTERNAL_BASE_URL",
         "VOCKY_MCP_ALLOWED_HOSTS",
         "VOCKY_MCP_ALLOWED_ORIGINS",
+        "rest_capture_try",
+        "rest-capture-try",
+        "Try REST Capture",
+        "Try creates feedback",
+        "admin-docs-try",
+        "try-docs",
+        "피드백을 보내주세요!",
     ):
         assert required_text in docs_response.text
+
+    rest_topic = next(
+        topic
+        for section in docs_payload["sections"]
+        for topic in section["topics"]
+        if topic["id"] == "rest-capture"
+    )
+    try_block = next(
+        block for block in rest_topic["blocks"] if block.get("type") == "rest_capture_try"
+    )
+    assert try_block["id"] == "rest-capture-try"
+    assert try_block["method"] == "POST"
+    assert try_block["path"] == "/api/feedback"
+    assert try_block["default_payload"]["message"].startswith("피드백을 보내주세요!")
+    assert try_block["default_payload"]["target_text"] == "피드백을 보내주세요!"
+    assert try_block["default_payload"]["source"]["integration"] == "admin-docs-try"
+    assert try_block["default_payload"]["target_type"] == "surface"
 
 
 def test_admin_ui_routes_are_registered_before_mcp_mount() -> None:

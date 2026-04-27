@@ -2,7 +2,7 @@
 
 ## Status
 
-Vocky is pre-MVP. The first runnable self-hosted capture plus review service is implemented with MCP capture/read tools, server-to-server REST capture, liked-conversation retrieval, Admin REST, a self-hosted operator Admin Web UI with dashboard metrics, feedback review management, and in-app documentation, PostgreSQL persistence, Redis-backed queueing, a background worker, and Compose-first local verification. The contracts should still be treated as early-stage.
+Vocky is pre-MVP. The first runnable self-hosted capture plus review service is implemented with MCP capture/read tools, server-to-server REST capture, liked-conversation retrieval, Admin REST, a self-hosted operator Admin Web UI with dashboard metrics, feedback review management, in-app documentation, and REST capture try-it, PostgreSQL persistence, Redis-backed queueing, a background worker, and Compose-first local verification. The contracts should still be treated as early-stage.
 
 ## Summary
 
@@ -19,7 +19,7 @@ The first MVP is intentionally narrow:
 - MCP review/query tools for record retrieval, simple counts, trends, and liked-conversation retrieval
 - Optional exact-target metadata for the message, conversation, or product surface being reviewed
 - Dedicated Admin REST endpoints for human/operator review and management of stored feedback
-- A self-hosted operator Admin Web UI that loads from the Vocky app, uses Admin REST as its protected data boundary, and includes dashboard metrics, feedback list/filter/detail/edit/delete workflows, and in-app operator documentation
+- A self-hosted operator Admin Web UI that loads from the Vocky app, uses Admin REST as its protected data boundary, and includes dashboard metrics, feedback list/filter/detail/edit/delete workflows, in-app operator documentation, and an operator-only REST capture try-it flow
 - Nullable channel category assignment for review workflows, using the built-in MVP categories `web`, `mobile`, and `support`
 - PostgreSQL storage with Redis-backed background persistence
 
@@ -64,11 +64,13 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - Community and self-hosted usage are part of the base direction.
 - The first MVP should optimize for self-hosted deployment before managed concerns.
 - Self-hosted deployments may be local/private or publicly reachable behind an operator-managed custom domain, provided public MCP, REST capture, and Admin REST access are protected where exposed.
-- The Admin Web UI is an operator surface for self-hosted deployments. It should stay same-origin with the app, use Admin REST for protected data, include practical dashboard metrics, feedback review management, and operator documentation, and avoid managed-SaaS assumptions.
+- The Admin Web UI is an operator surface for self-hosted deployments. It should stay same-origin with the app, use Admin REST for protected data, include practical dashboard metrics, feedback review management, operator documentation, and an operator-only REST capture try-it flow, and avoid managed-SaaS assumptions.
+- The Admin Docs REST capture try-it flow should send a real same-origin `POST /api/feedback` request for operator verification. A successful try intentionally creates queued feedback, uses the separate `/api/*` bearer token when `VOCKY_API_AUTH_TOKEN` is configured, and must not imply a browser-direct unauthenticated product ingestion pattern.
 - The default local workflow should stay loopback-first and Compose-first, while public custom-domain access should be operator-managed through an HTTPS reverse proxy such as Cloudflare Tunnel and verified separately from local checks.
 - The capture path should acknowledge accepted work quickly and complete persistence asynchronously in the background.
 - The MCP capture path should stay optimized for agent workflows, especially explicit feedback on an exact message, conversation, or context-bearing agent response.
 - The REST capture path should support broader server-to-server website and product feedback, such as page, widget, or product-surface feedback, using the existing capture fields instead of REST-only aliases or a separate endpoint.
+- The REST capture path remains capture-only. In-app try tooling may exercise it, but review, query, summary, job-status, and management remain MCP or Admin REST concerns rather than new public REST endpoints.
 - The initial high-signal capture path should focus on explicit user actions, such as like/dislike clicks and optional comments, rather than trying to infer feedback from every conversation turn.
 - Feedback capture should not assume that the latest message is the reviewed item. Callers should identify the exact reviewed message, conversation, or product surface when that information is available.
 - `channel` should be a nullable review category, not open-ended free text. New captures and Admin edits should leave it unset by default unless the caller or operator explicitly selects one of the built-in MVP categories: `web`, `mobile`, or `support`.

@@ -23,7 +23,7 @@ The name comes from VoC, short for voice of customer.
 - Expose minimal MCP review/query tools for retrieving records and simple counts
 - Retrieve liked conversations through MCP for AI-agent few-shot use
 - Expose separate Admin REST endpoints for human/operator review and management
-- Provide a self-hosted Admin Web UI served by the Vocky app, including dashboard metrics, feedback list/filter/detail/edit/delete workflows, and in-app operator documentation for API/auth and self-hosting setup
+- Provide a self-hosted Admin Web UI served by the Vocky app, including dashboard metrics, feedback list/filter/detail/edit/delete workflows, and in-app operator documentation for API/auth, REST capture try-it, and self-hosting setup
 - Support nullable channel category assignment with the built-in MVP categories `web`, `mobile`, and `support`
 - Run as a self-hosted, single-tenant MVP
 
@@ -46,7 +46,7 @@ Vocky is intended to follow a light open-core direction: a community, self-hosta
 - MCP review/query tools are implemented through `list_feedback` and `summarize_feedback`.
 - AI-agent liked conversation retrieval is implemented through `list_liked_conversations`.
 - Human/operator review and management are available through separate Admin REST endpoints under `/admin/api`.
-- A same-origin Admin Web UI is available under `/admin` for self-hosted operators, with dashboard metrics, feedback review management, and packaged in-app documentation for API/auth, local hosting, and public custom-domain setup.
+- A same-origin Admin Web UI is available under `/admin` for self-hosted operators, with dashboard metrics, feedback review management, and packaged in-app documentation for API/auth, REST capture try-it, local hosting, and public custom-domain setup.
 - Completed feedback events persist to PostgreSQL with Alembic migrations.
 - Self-hosted runtime now includes PostgreSQL, Redis, the MCP app process, and a dedicated worker process.
 - The project is still pre-MVP and the contracts should be treated as early-stage.
@@ -68,7 +68,7 @@ The supported local workflow is Compose-first and uses the copied repo-root `.en
 
 The default `.env` values publish the app at `http://127.0.0.1:8000`, PostgreSQL at `127.0.0.1:55432`, and Redis at `127.0.0.1:56379`. Those loopback-only defaults come from `VOCKY_PUBLISH_HOST`, `POSTGRES_PUBLISH_HOST`, and `REDIS_PUBLISH_HOST`, which all default to `127.0.0.1`.
 
-Open the Admin Web UI at `http://127.0.0.1:8000/admin`. The Dashboard view shows feedback metrics, the Feedback view supports list/filter/detail/edit/delete review workflows, and the Docs view includes the in-app operator reference for API/auth, local self-hosting, and public custom-domain setup. If `VOCKY_ADMIN_AUTH_TOKEN` is set, paste that token into the Admin UI token field before checking protected Admin REST data.
+Open the Admin Web UI at `http://127.0.0.1:8000/admin`. The Dashboard view shows feedback metrics, the Feedback view supports list/filter/detail/edit/delete review workflows, and the Docs view includes the in-app operator reference for API/auth, REST capture try-it, local self-hosting, and public custom-domain setup. If `VOCKY_ADMIN_AUTH_TOKEN` is set, paste that token into the Admin UI token field before checking protected Admin REST data. The Docs REST capture try-it form uses the separate `VOCKY_API_AUTH_TOKEN` value when `/api/*` auth is configured.
 
 `make bootstrap` runs `make sync`, `make compose-up`, the explicit migration step `make migrate`, and a final readiness check. The Compose stack includes `redis`, `postgres`, `app`, and `worker`. The app and worker images install dependencies during the Docker build and run with `uv run --no-sync` at container startup.
 
@@ -116,7 +116,7 @@ The Starlette host app exposes:
 
 Use `/mcp` exactly as the canonical MCP endpoint.
 
-The Admin Web UI includes dashboard metrics, recent activity, feedback list/filter/detail inspection, review-field editing, guarded delete, and in-app documentation pages. Browser editing is intentionally limited to `feedback_value`, `comment`, `channel`, and `tags`; use Admin REST directly for broader patchable metadata fields.
+The Admin Web UI includes dashboard metrics, recent activity, feedback list/filter/detail inspection, review-field editing, guarded delete, and in-app documentation pages. Browser editing is intentionally limited to `feedback_value`, `comment`, `channel`, and `tags`; use Admin REST directly for broader patchable metadata fields. The Docs view can send a same-origin try request to `POST /api/feedback`; a successful request is a real capture event that is queued for worker persistence.
 
 `channel` is optional and defaults to no category when omitted or blank. New capture and Admin edit writes accept only `web`, `mobile`, `support`, or `null`; older stored channel values remain visible and exact-filterable for review.
 
@@ -241,6 +241,8 @@ curl -X POST "http://127.0.0.1:8000/api/feedback" \
 ```
 
 Omit the bearer header only when `VOCKY_API_AUTH_TOKEN` is unset in a trusted local or private deployment. REST capture is ingestion-only; use MCP read tools or Admin REST for review.
+
+The Admin Docs REST capture try-it form exercises this same endpoint from the browser for self-hosted operators. Enter `VOCKY_API_AUTH_TOKEN` there only when `/api/*` auth is configured; that API token is separate from the Admin token and is kept only in the browser session. The try flow does not create a public REST review, query, job-status, or management API, and successful tries create normal queued feedback records.
 
 ## Admin REST Surface
 

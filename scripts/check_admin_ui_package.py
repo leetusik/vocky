@@ -57,14 +57,19 @@ def validate_admin_assets(wheel_path: Path) -> list[str]:
         if expected not in index_html:
             errors.append(f"index.html does not contain expected markup: {expected}")
 
-    for expected in (".admin-app", ".feedback-review-layout", ".docs-layout"):
+    for expected in (".admin-app", ".feedback-review-layout", ".docs-layout", ".docs-rest-try"):
         if expected not in app_css:
             errors.append(f"app.css does not contain expected selector: {expected}")
 
     for expected in (
         'ADMIN_API_PREFIX = "/admin/api/"',
+        'API_TOKEN_STORAGE_KEY = "vocky.apiToken"',
         'DOCS_ASSET_PATH = "/admin/assets/docs.json"',
         "fetch(DOCS_ASSET_PATH",
+        'case "rest_capture_try"',
+        "appendRestCaptureTryBlock",
+        'fetch(path, {',
+        'Authorization", `Bearer ${state.docs.apiToken}`',
     ):
         if expected not in app_js:
             errors.append(f"app.js does not contain expected behavior: {expected}")
@@ -90,9 +95,46 @@ def validate_admin_assets(wheel_path: Path) -> list[str]:
         for topic in section.get("topics", [])
         if isinstance(topic, dict)
     }
-    for topic_id in ("operator-overview", "local-self-hosting", "public-custom-domain"):
+    for topic_id in (
+        "operator-overview",
+        "rest-capture",
+        "local-self-hosting",
+        "public-custom-domain",
+    ):
         if topic_id not in topic_ids:
             errors.append(f"docs.json missing topic: {topic_id}")
+
+    for expected in (
+        '"type": "rest_capture_try"',
+        '"id": "rest-capture-try"',
+        '"path": "/api/feedback"',
+        '"method": "POST"',
+        "피드백을 보내주세요!",
+        "admin-docs-try",
+    ):
+        if expected not in docs_json:
+            errors.append(f"docs.json missing REST try content: {expected}")
+
+    rest_try_blocks = [
+        block
+        for section in sections
+        if isinstance(section, dict)
+        for topic in section.get("topics", [])
+        if isinstance(topic, dict) and topic.get("id") == "rest-capture"
+        for block in topic.get("blocks", [])
+        if isinstance(block, dict) and block.get("type") == "rest_capture_try"
+    ]
+    if not rest_try_blocks:
+        errors.append("docs.json missing rest_capture_try block in rest-capture topic")
+    else:
+        default_payload = rest_try_blocks[0].get("default_payload")
+        if not isinstance(default_payload, dict):
+            errors.append("rest_capture_try default_payload must be an object")
+        else:
+            if "피드백을 보내주세요!" not in str(default_payload.get("message", "")):
+                errors.append("rest_capture_try message must include 피드백을 보내주세요!")
+            if "피드백을 보내주세요!" not in str(default_payload.get("target_text", "")):
+                errors.append("rest_capture_try target_text must include 피드백을 보내주세요!")
 
     return errors
 
