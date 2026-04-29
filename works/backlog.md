@@ -31,8 +31,8 @@
 
 - Phase ID: `P1`
 - Objective: Reposition Vocky capture guidance so MCP is for agent-decided VoC capture, REST is the first-choice path for explicit product/UI-triggered capture, and message versus non-message feedback is separated through `target_type` without splitting storage.
-- Status: in_progress
-- Review outcome: pending
+- Status: done
+- Review outcome: passed
 - Notes:
   - Keep the current `feedback_events` table as the canonical feedback store.
   - Use `target_type="message"` for message feedback.
@@ -43,13 +43,17 @@
 - Work items:
   - `works/archives/work_items/20260429_1046_decompose_capture_surfaces_feedback_type_separation`
   - `works/archives/work_items/20260429_1052_lock_capture_boundary_type_contract`
+  - `works/archives/work_items/20260429_1103_add_target_type_read_filters_index`
+  - `works/archives/work_items/20260429_1108_update_admin_type_filtering_operator_docs`
+  - `works/archives/work_items/20260429_1110_refresh_public_capture_guidance_compatibility`
+  - `works/archives/work_items/20260429_1112_phase_review_capture_surfaces_feedback_type_separation`
 - Slices:
   - [x] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260429_1046_decompose_capture_surfaces_feedback_type_separation` | Notes: Added contract, read-filter/index, Admin workflow/docs, public guidance/coverage, and review slices for P1.
   - [x] Slice ID: `P1.S1` | Name: `lock capture boundary and type contract` | Status: done | Work item: `works/archives/work_items/20260429_1052_lock_capture_boundary_type_contract` | Notes: Locked durable product/API/architecture direction for MCP agent-decided capture, REST explicit product/UI capture, and single-table `target_type` review separation before code changes.
-  - [ ] Slice ID: `P1.S2` | Name: `add target_type read filters and index` | Status: todo | Work item: none | Notes: Implement `target_type` filtering across MCP/Admin read paths and add a PostgreSQL index without adding new storage tables or feedback-kind fields.
-  - [ ] Slice ID: `P1.S3` | Name: `update Admin type filtering and operator docs` | Status: todo | Work item: none | Notes: Add Admin UI type-filter behavior and packaged operator docs/examples for message versus surface/general feedback review.
-  - [ ] Slice ID: `P1.S4` | Name: `refresh public capture guidance and compatibility coverage` | Status: todo | Work item: none | Notes: Update README/action integration guidance, examples, tests, and smoke wording around MCP-versus-REST intent and target-type compatibility.
-  - [ ] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+  - [x] Slice ID: `P1.S2` | Name: `add target_type read filters and index` | Status: done | Work item: `works/archives/work_items/20260429_1103_add_target_type_read_filters_index` | Notes: Implemented exact `target_type` filtering across MCP/Admin read paths and added a PostgreSQL index without adding new storage tables or feedback-kind fields.
+  - [x] Slice ID: `P1.S3` | Name: `update Admin type filtering and operator docs` | Status: done | Work item: `works/archives/work_items/20260429_1108_update_admin_type_filtering_operator_docs` | Notes: Added Admin UI `target_type` filtering and packaged operator docs for message, conversation, and surface review behavior.
+  - [x] Slice ID: `P1.S4` | Name: `refresh public capture guidance and compatibility coverage` | Status: done | Work item: `works/archives/work_items/20260429_1110_refresh_public_capture_guidance_compatibility` | Notes: Refreshed README/action integration guidance, examples, and compatibility coverage around MCP-versus-REST intent and target-type behavior.
+  - [x] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260429_1112_phase_review_capture_surfaces_feedback_type_separation` | Notes: Review passed with no fix slices required; no split tables, feedback-kind fields, renamed tools, or new public REST review endpoints were introduced.
 
 ## Archive Notes
 

@@ -187,7 +187,7 @@ The Admin dashboard metrics path uses the same read layers:
 
 ## Query Read Model
 
-The accepted P1 read query model uses these constraints once `target_type` filtering is implemented:
+The implemented P1 read query model uses these constraints:
 
 - Read filters are limited to `ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `feedback_value`, `channel`, `target_type`, and exact single-tag membership.
 - Channel read filters use exact matching after trimming blank input to absence. They should continue to support legacy stored channel strings even though new capture and Admin edit writes are limited to `web`, `mobile`, `support`, or `null`.

@@ -8,6 +8,10 @@ from uuid import UUID
 import pytest
 
 from vocky.tools.list_feedback import ListFeedbackInput, normalize_payload
+from vocky.tools.list_liked_conversations import (
+    ListLikedConversationsInput,
+    normalize_payload as normalize_liked_payload,
+)
 from vocky.tools.summarize_feedback import SummarizeFeedbackInput, normalize_payload as normalize_summary_payload
 from vocky.tools.query_feedback_common import (
     DEFAULT_LIST_LIMIT,
@@ -30,6 +34,7 @@ def make_list_input(**overrides: object) -> ListFeedbackInput:
         "session_id": None,
         "feedback_value": None,
         "channel": None,
+        "target_type": None,
         "tag": None,
         "limit": None,
         "cursor": None,
@@ -50,10 +55,31 @@ def make_summary_input(**overrides: object) -> SummarizeFeedbackInput:
         "session_id": None,
         "feedback_value": None,
         "channel": None,
+        "target_type": None,
         "tag": None,
     }
     data.update(overrides)
     return SummarizeFeedbackInput(**data)
+
+
+def make_liked_input(**overrides: object) -> ListLikedConversationsInput:
+    """Create a default raw liked-conversation input for tests."""
+
+    data = {
+        "start_ingested_at": None,
+        "end_ingested_at": None,
+        "source_product": None,
+        "source_integration": None,
+        "conversation_id": None,
+        "session_id": None,
+        "channel": None,
+        "target_type": None,
+        "tag": None,
+        "limit": None,
+        "cursor": None,
+    }
+    data.update(overrides)
+    return ListLikedConversationsInput(**data)
 
 
 def test_blank_tag_is_rejected_for_listing() -> None:
@@ -90,6 +116,14 @@ def test_invalid_feedback_value_is_rejected_for_listing() -> None:
         normalize_payload(make_list_input(feedback_value=4))
 
 
+def test_invalid_target_type_is_rejected_for_listing() -> None:
+    with pytest.raises(
+        FeedbackQueryValidationError,
+        match="target_type must be one of: message, conversation, surface",
+    ):
+        normalize_payload(make_list_input(target_type="answer"))
+
+
 def test_invalid_cursor_is_rejected_for_listing() -> None:
     with pytest.raises(
         FeedbackQueryValidationError,
@@ -107,6 +141,7 @@ def test_listing_normalization_collapses_blank_optional_filters() -> None:
             session_id="   ",
             feedback_value=1,
             channel=" web ",
+            target_type=" message ",
             limit=None,
         )
     )
@@ -117,7 +152,14 @@ def test_listing_normalization_collapses_blank_optional_filters() -> None:
     assert query.filters.session_id is None
     assert query.filters.feedback_value == 1
     assert query.filters.channel == "web"
+    assert query.filters.target_type == "message"
     assert query.limit == DEFAULT_LIST_LIMIT
+
+
+def test_listing_normalization_collapses_blank_target_type() -> None:
+    query = normalize_payload(make_list_input(target_type="   "))
+
+    assert query.filters.target_type is None
 
 
 def test_cursor_round_trip_preserves_utc_timestamp_and_id() -> None:
@@ -169,6 +211,14 @@ def test_invalid_feedback_value_is_rejected_for_summary() -> None:
         normalize_summary_payload(make_summary_input(feedback_value=0))
 
 
+def test_invalid_target_type_is_rejected_for_summary() -> None:
+    with pytest.raises(
+        FeedbackQueryValidationError,
+        match="target_type must be one of: message, conversation, surface",
+    ):
+        normalize_summary_payload(make_summary_input(target_type="thread"))
+
+
 def test_summary_normalization_trims_optional_filters() -> None:
     query = normalize_summary_payload(
         make_summary_input(
@@ -178,6 +228,7 @@ def test_summary_normalization_trims_optional_filters() -> None:
             session_id=" ",
             feedback_value=2,
             channel=" mobile ",
+            target_type=" surface ",
             tag=" billing ",
         )
     )
@@ -188,4 +239,19 @@ def test_summary_normalization_trims_optional_filters() -> None:
     assert query.filters.session_id is None
     assert query.filters.feedback_value == 2
     assert query.filters.channel == "mobile"
+    assert query.filters.target_type == "surface"
     assert query.filters.tag == "billing"
+
+
+def test_liked_conversation_normalization_trims_target_type() -> None:
+    query = normalize_liked_payload(make_liked_input(target_type=" conversation "))
+
+    assert query.filters.target_type == "conversation"
+
+
+def test_invalid_target_type_is_rejected_for_liked_conversations() -> None:
+    with pytest.raises(
+        FeedbackQueryValidationError,
+        match="target_type must be one of: message, conversation, surface",
+    ):
+        normalize_liked_payload(make_liked_input(target_type="page"))

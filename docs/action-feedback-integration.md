@@ -4,9 +4,11 @@ This guide describes how an agent product can integrate Vocky for explicit user 
 
 ## Choose A Capture Surface
 
-Use MCP when the integration already runs inside an agent workflow or wants to call Vocky's MCP read tools. Use REST when a normal server-side web or product backend needs to forward feedback without becoming an MCP client.
+Use MCP when an agent or agent runtime decides that a user interaction is useful voice-of-customer feedback. MCP is the right fit for agent-decided capture about exact messages, whole conversations, or context-bearing agent responses, especially when the same integration may call Vocky's MCP read tools.
 
-Both capture surfaces use the same core field set and asynchronous queue, but their integration intent is different. MCP is optimized for agent/message feedback. REST is server-to-server capture for website and product feedback, including page, widget, or product-surface feedback. Successful capture means Vocky accepted the job for background persistence; the record becomes queryable after the worker writes it to PostgreSQL.
+Use REST when a trusted server-side web or product backend forwards an explicit user-triggered feedback action without becoming an MCP client. REST is the first-choice path for page feedback, widget feedback, surveys, product-surface feedback, and non-agent UI like/dislike controls.
+
+Both capture surfaces use the same core field set and asynchronous queue, but their integration intent is different. `target_type` is the review discriminator across both surfaces: use `message` for a specific message, `conversation` for a whole thread, and `surface` for a concrete page, widget, screen, or other non-message product UI. Older captures can omit `target_type`; those records remain visible in unfiltered review lists and are excluded only when an exact `target_type` filter is provided. Successful capture means Vocky accepted the job for background persistence; the record becomes queryable after the worker writes it to PostgreSQL.
 
 ## Capture Explicit Actions
 
@@ -31,11 +33,11 @@ Recommended payload fields:
 - `used_context`: JSON array of context or retrieval results used by the agent
 - `tags`, `source_metadata`, and `attributes`: optional caller-provided metadata; REST product integrations can use these for URL, page, widget, account, locale, rollout, or backend context
 
-Target fields are optional. Existing integrations can omit them, but integrations with message-level feedback should send them so reviewers do not have to infer which message the user judged. REST integrations with product-surface feedback should use `target_type: "surface"` when the exact page, widget, screen, or feature is known.
+Target fields are optional. Existing integrations can omit them, but integrations with message-level feedback should send `target_type: "message"` plus the exact message context so reviewers do not have to infer which message the user judged. REST integrations with product-surface feedback should use `target_type: "surface"` when the exact page, widget, screen, or feature is known.
 
 Channel categories are intentionally narrow in the MVP. Blank channel values normalize to `null`, non-null capture values outside `web`, `mobile`, and `support` are rejected, and no default channel is inferred.
 
-MCP message-feedback example:
+MCP `capture_feedback` message-feedback example:
 
 ```json
 {
@@ -66,7 +68,7 @@ MCP message-feedback example:
 
 Successful capture means Vocky accepted the job for background persistence. The record becomes queryable after the worker writes it to PostgreSQL.
 
-MCP clients send this object as the `capture_feedback` tool input. REST clients send general website or product feedback to `POST /api/feedback`:
+MCP clients send this object as the `capture_feedback` tool input. REST clients send explicit website or product UI feedback to `POST /api/feedback`:
 
 ```sh
 curl -X POST "https://vocky.example.com/api/feedback" \
@@ -101,6 +103,7 @@ Useful filters:
 - `conversation_id`
 - `session_id`
 - `channel`
+- `target_type`
 - `tag`
 - `start_ingested_at` and `end_ingested_at`
 - `limit` and `cursor`

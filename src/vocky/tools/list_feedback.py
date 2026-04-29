@@ -26,6 +26,7 @@ from vocky.tools.query_feedback_common import (
     normalize_limit,
     normalize_optional_text,
     normalize_tag,
+    normalize_target_type_filter,
     parse_timestamp,
     serialize_datetime,
     validate_time_window,
@@ -45,6 +46,7 @@ class ListFeedbackInput(BaseModel):
     session_id: str | None = None
     feedback_value: int | None = None
     channel: str | None = None
+    target_type: str | None = None
     tag: str | None = None
     limit: int | None = None
     cursor: str | None = None
@@ -105,6 +107,7 @@ def normalize_payload(raw: ListFeedbackInput) -> ListFeedbackQuery:
             session_id=normalize_optional_text(raw.session_id),
             feedback_value=normalize_feedback_value(raw.feedback_value),
             channel=normalize_optional_text(raw.channel),
+            target_type=normalize_target_type_filter(raw.target_type),
             tag=normalize_tag(raw.tag),
         ),
         limit=normalize_limit(raw.limit),
@@ -153,6 +156,7 @@ async def list_feedback(
     session_id: str | None = None,
     feedback_value: int | None = None,
     channel: str | None = None,
+    target_type: str | None = None,
     tag: str | None = None,
     limit: int | None = None,
     cursor: str | None = None,
@@ -168,6 +172,7 @@ async def list_feedback(
         session_id=session_id,
         feedback_value=feedback_value,
         channel=channel,
+        target_type=target_type,
         tag=tag,
         limit=limit,
         cursor=cursor,

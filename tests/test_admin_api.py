@@ -91,6 +91,13 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
                 "feedback_value": "2",
             },
         )
+        target_type_response = await client.get(
+            "/admin/api/feedback",
+            params={
+                "source_product": "admin-product",
+                "target_type": " message ",
+            },
+        )
 
     assert response.status_code == 200
     records = response.json()["records"]
@@ -114,6 +121,10 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
     assert dislike_response.status_code == 200
     assert [record["message"] for record in dislike_response.json()["records"]] == [
         "disliked answer"
+    ]
+    assert target_type_response.status_code == 200
+    assert [record["message"] for record in target_type_response.json()["records"]] == [
+        "liked answer"
     ]
 
 
@@ -504,8 +515,16 @@ async def test_admin_list_feedback_validation_errors(configured_database: str) -
             "/admin/api/feedback",
             params={"feedback_value": "5"},
         )
+        invalid_target_type_response = await client.get(
+            "/admin/api/feedback",
+            params={"target_type": "answer"},
+        )
 
     assert response.status_code == 400
     assert response.json() == {
         "detail": "feedback_value must be 1 for like or 2 for dislike"
+    }
+    assert invalid_target_type_response.status_code == 400
+    assert invalid_target_type_response.json() == {
+        "detail": "target_type must be one of: message, conversation, surface"
     }

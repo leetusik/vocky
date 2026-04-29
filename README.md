@@ -6,7 +6,7 @@ Vocky is pre-MVP, but the first runnable feedback capture and review service is 
 
 ## What Vocky Is
 
-Vocky is a feedback layer for agent products, with MCP tools for agent workflows and a server-to-server REST capture endpoint for normal product integrations. The idea is simple: when users talk to an AI agent, they often reveal bugs, friction points, requests, and positive reactions. Vocky aims to capture those moments, structure them, and make them useful.
+Vocky is a feedback layer for agent products and the product surfaces around them. MCP capture is for agent-decided VoC moments inside agent workflows. Server-to-server REST capture is for explicit product or UI feedback actions, such as page feedback, widget feedback, surveys, and like/dislike controls outside an MCP client. The idea is simple: when users talk to an AI agent or react to product surfaces, they often reveal bugs, friction points, requests, and positive reactions. Vocky aims to capture those moments, structure them, and make them useful.
 
 The name comes from VoC, short for voice of customer.
 
@@ -18,7 +18,7 @@ The name comes from VoC, short for voice of customer.
 
 ## What The Current Pre-MVP Does
 
-- Accept explicit user action feedback from agent interactions through MCP or server-to-server REST without blocking on database writes
+- Accept agent-decided feedback through MCP and explicit product/UI-triggered feedback through server-to-server REST without blocking on database writes
 - Store like/dislike values, optional comments, exact target context, conversation context, and metadata for later review
 - Expose minimal MCP review/query tools for retrieving records and simple counts
 - Retrieve liked conversations through MCP for AI-agent few-shot use
@@ -41,8 +41,8 @@ Vocky is intended to follow a light open-core direction: a community, self-hosta
 
 ## Current Status
 
-- MCP feedback capture is implemented through the `capture_feedback` tool and now accepts explicit action feedback plus optional exact-target context quickly through a Redis-backed background worker path.
-- Web/product feedback capture is implemented through `POST /api/feedback` for server-to-server integrations that cannot use MCP.
+- MCP feedback capture is implemented through the `capture_feedback` tool for agent-decided VoC moments and accepts explicit action feedback plus optional exact-target context quickly through a Redis-backed background worker path.
+- Web/product feedback capture is implemented through `POST /api/feedback` for server-to-server product or UI integrations that send explicit user-triggered feedback without becoming MCP clients.
 - MCP review/query tools are implemented through `list_feedback` and `summarize_feedback`.
 - AI-agent liked conversation retrieval is implemented through `list_liked_conversations`.
 - Human/operator review and management are available through separate Admin REST endpoints under `/admin/api`.
@@ -119,6 +119,8 @@ Use `/mcp` exactly as the canonical MCP endpoint.
 The Admin Web UI includes dashboard metrics, recent activity, feedback list/filter/detail inspection, review-field editing, guarded delete, and in-app documentation pages. Browser editing is intentionally limited to `feedback_value`, `comment`, `channel`, and `tags`; use Admin REST directly for broader patchable metadata fields. The Docs view can send a same-origin try request to `POST /api/feedback`; a successful request is a real capture event that is queued for worker persistence.
 
 `channel` is optional and defaults to no category when omitted or blank. New capture and Admin edit writes accept only `web`, `mobile`, `support`, or `null`; older stored channel values remain visible and exact-filterable for review.
+
+`target_type` is optional captured target context and the review discriminator for separating message, conversation, and surface feedback. Use `message` when the user judged a specific agent message, `conversation` when the user judged a whole thread, and `surface` when the user judged a page, widget, screen, or other product UI. Older records with no `target_type` remain visible in unfiltered review lists; they are excluded only when an exact `target_type` filter is supplied.
 
 ## Access Modes
 
@@ -200,9 +202,9 @@ Public Admin REST requests should use `Authorization: Bearer <VOCKY_ADMIN_AUTH_T
 The implemented MCP tools are:
 
 - `capture_feedback`: validate one feedback event, including optional action feedback and target fields, enqueue it for background persistence, and return a receipt with `request_id`, `accepted_at`, and `status="accepted"`.
-- `list_feedback`: retrieve stored feedback records with ingest-time, source, action value, channel, exact tag, newest-first ordering, and opaque cursor pagination. The default page size is `50` and the maximum is `100`.
-- `summarize_feedback`: return `total_count` plus zero-filled UTC `daily_counts` for an explicit ingest-time window and the supported review filters.
-- `list_liked_conversations`: retrieve only liked conversations with stored messages and used context for AI-agent few-shot use.
+- `list_feedback`: retrieve stored feedback records with ingest-time, source, action value, channel, `target_type`, exact tag, newest-first ordering, and opaque cursor pagination. The default page size is `50` and the maximum is `100`.
+- `summarize_feedback`: return `total_count` plus zero-filled UTC `daily_counts` for an explicit ingest-time window and the supported review filters, including `target_type`.
+- `list_liked_conversations`: retrieve only liked conversations with stored messages and used context for AI-agent few-shot use, optionally filtered by `target_type`.
 
 `capture_feedback` success means the request was accepted for background processing, not that the feedback record is immediately queryable. `list_feedback` and `summarize_feedback` surface completed records only after the worker persists them.
 
@@ -210,7 +212,7 @@ For client integration guidance, see [docs/action-feedback-integration.md](docs/
 
 ## Web Capture REST Surface
 
-Use REST capture from server-side web or product code when the integration is not an MCP client. REST uses the same core capture fields as MCP, but it is intended for broader website and product feedback. For page, widget, or product-surface feedback, set `target_type` to `surface` when the exact surface is known and put product-specific context in `source_metadata` or `attributes`.
+Use REST capture from trusted server-side web or product code when the user explicitly triggers feedback in the product UI and the integration is not an MCP client. REST uses the same core capture fields as MCP, but it is intended for product and website feedback actions such as page feedback, widget feedback, surveys, and non-agent like/dislike controls. For page, widget, or product-surface feedback, set `target_type` to `surface` when the exact surface is known and put product-specific context in `source_metadata` or `attributes`.
 
 The optional `channel` field is a nullable review category. Omit it by default unless the caller can explicitly assign `web`, `mobile`, or `support`.
 
@@ -261,7 +263,7 @@ Set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*` outside a trusted lo
 
 The Admin Web UI consumes these endpoints same-origin. Its edit form only patches `feedback_value`, `comment`, `channel`, and `tags`; captured target fields, messages, used context, `source_metadata`, and `attributes` remain read-only in the browser.
 
-Admin REST patch writes apply the same channel category rule as capture: blank clears to `null`, and non-null values must be `web`, `mobile`, or `support`. Admin list filters still exact-match stored channel text, including older legacy values.
+Admin REST patch writes apply the same channel category rule as capture: blank clears to `null`, and non-null values must be `web`, `mobile`, or `support`. Admin list filters exact-match stored channel text, including older legacy values, and exact-match `target_type` when filtering message, conversation, or surface feedback.
 
 ## Self-Hosted Usage
 

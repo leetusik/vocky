@@ -198,6 +198,38 @@ async def test_capture_feedback_blank_channel_enqueues_null(
 
 
 @pytest.mark.anyio
+async def test_capture_feedback_omitted_target_type_remains_compatible(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    queue = CaptureQueue(redis_client)
+    monkeypatch.setattr(api_module, "get_capture_queue", lambda: queue)
+
+    transport = httpx.ASGITransport(app=make_api_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/feedback",
+            json={
+                "message": "Legacy product feedback without target type",
+                "source": {"product": "marketing-site", "integration": "legacy-webhook"},
+                "comment": "The page was confusing",
+                "source_metadata": {"path": "/pricing"},
+            },
+        )
+
+    assert response.status_code == 202
+    queued_job = await queue.pop_job(timeout_seconds=1)
+    assert queued_job is not None
+    assert queued_job.payload.target_type is None
+    assert queued_job.payload.target_id is None
+    assert queued_job.payload.target_role is None
+    assert queued_job.payload.target_text is None
+    assert queued_job.payload.source_metadata == {"path": "/pricing"}
+
+    await redis_client.aclose()
+
+
+@pytest.mark.anyio
 async def test_capture_feedback_body_shape_errors_return_400() -> None:
     transport = httpx.ASGITransport(app=make_api_app())
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:

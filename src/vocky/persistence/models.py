@@ -31,6 +31,7 @@ class FeedbackEventModel(Base):
         Index("ix_feedback_events_channel", "channel"),
         Index("ix_feedback_events_conversation_id", "conversation_id"),
         Index("ix_feedback_events_session_id", "session_id"),
+        Index("ix_feedback_events_target_type", "target_type"),
         Index("ix_feedback_events_tags_gin", "tags", postgresql_using="gin"),
     )
 

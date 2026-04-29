@@ -270,6 +270,8 @@ class FeedbackRepository:
             )
         if filters.channel is not None:
             statement = statement.where(FeedbackEventModel.channel == filters.channel)
+        if filters.target_type is not None:
+            statement = statement.where(FeedbackEventModel.target_type == filters.target_type)
         if filters.source_integration is not None:
             statement = statement.where(
                 FeedbackEventModel.source_integration == filters.source_integration

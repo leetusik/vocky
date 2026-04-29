@@ -70,6 +70,7 @@ def validate_admin_assets(wheel_path: Path) -> list[str]:
         "appendRestCaptureTryBlock",
         'fetch(path, {',
         'Authorization", `Bearer ${state.docs.apiToken}`',
+        'appendTrimmedParam(params, "target_type", filters.target_type)',
     ):
         if expected not in app_js:
             errors.append(f"app.js does not contain expected behavior: {expected}")
@@ -111,6 +112,8 @@ def validate_admin_assets(wheel_path: Path) -> list[str]:
         '"method": "POST"',
         "피드백을 보내주세요!",
         "admin-docs-try",
+        "target_type message, conversation, or surface",
+        "Any leaves older records with unset target_type visible",
     ):
         if expected not in docs_json:
             errors.append(f"docs.json missing REST try content: {expected}")

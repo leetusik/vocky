@@ -74,7 +74,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - The initial high-signal capture path should focus on explicit user actions, such as like/dislike clicks and optional comments, rather than trying to infer feedback from every conversation turn.
 - Feedback capture should not assume that the latest message is the reviewed item. Callers should identify the exact reviewed message, conversation, or product surface when that information is available.
 - Message, conversation, and non-message surface feedback should stay in the same canonical feedback store and be separated for review through `target_type`, not through split tables, renamed tools, or separate capture endpoints.
-- `target_type` should become an exact-match review filter for separating `message`, `conversation`, and `surface` feedback once the P1 read-filter and index slice is implemented.
+- `target_type` is an exact-match review filter for separating `message`, `conversation`, and `surface` feedback.
 - `channel` should be a nullable review category, not open-ended free text. New captures and Admin edits should leave it unset by default unless the caller or operator explicitly selects one of the built-in MVP categories: `web`, `mobile`, or `support`.
 - Existing stored records with older arbitrary channel text should remain reviewable and filterable, but new writes should not create new arbitrary channel values.
 - A managed offering may exist later around convenience, operations, and richer workflows.

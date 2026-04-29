@@ -32,6 +32,7 @@ from vocky.tools.query_feedback_common import (
     normalize_limit,
     normalize_optional_text,
     normalize_tag,
+    normalize_target_type_filter,
     parse_timestamp,
     serialize_datetime,
     validate_time_window,
@@ -166,6 +167,7 @@ def normalize_list_query(request: Request) -> ListFeedbackQuery:
                 parse_int_param(params.get("feedback_value"), field_name="feedback_value")
             ),
             channel=normalize_optional_text(params.get("channel")),
+            target_type=normalize_target_type_filter(params.get("target_type")),
             tag=normalize_tag(params.get("tag")),
         ),
         limit=normalize_limit(parse_int_param(params.get("limit"), field_name="limit")),

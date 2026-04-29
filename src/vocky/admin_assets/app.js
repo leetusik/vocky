@@ -29,6 +29,7 @@ const state = {
       session_id: "",
       feedback_value: "",
       channel: "",
+      target_type: "",
       tag: "",
       limit: "50",
     },
@@ -617,6 +618,7 @@ function makeFeedbackListPath(cursor = "") {
   appendTrimmedParam(params, "session_id", filters.session_id);
   appendTrimmedParam(params, "feedback_value", filters.feedback_value);
   appendTrimmedParam(params, "channel", filters.channel);
+  appendTrimmedParam(params, "target_type", filters.target_type);
   appendTrimmedParam(params, "tag", filters.tag);
   appendTrimmedParam(params, "limit", filters.limit);
   appendTrimmedParam(params, "cursor", cursor);

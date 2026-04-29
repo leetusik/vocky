@@ -23,6 +23,7 @@ from vocky.tools.query_feedback_common import (
     normalize_feedback_value,
     normalize_optional_text,
     normalize_tag,
+    normalize_target_type_filter,
     parse_timestamp,
     validate_time_window,
 )
@@ -41,6 +42,7 @@ class SummarizeFeedbackInput(BaseModel):
     session_id: str | None = None
     feedback_value: int | None = None
     channel: str | None = None
+    target_type: str | None = None
     tag: str | None = None
 
 
@@ -87,6 +89,7 @@ def normalize_payload(raw: SummarizeFeedbackInput) -> SummarizeFeedbackQuery:
             session_id=normalize_optional_text(raw.session_id),
             feedback_value=normalize_feedback_value(raw.feedback_value),
             channel=normalize_optional_text(raw.channel),
+            target_type=normalize_target_type_filter(raw.target_type),
             tag=normalize_tag(raw.tag),
         )
     )
@@ -125,6 +128,7 @@ async def summarize_feedback(
     session_id: str | None = None,
     feedback_value: int | None = None,
     channel: str | None = None,
+    target_type: str | None = None,
     tag: str | None = None,
 ) -> CallToolResult:
     """Summarize stored feedback counts over an ingest-time window."""
@@ -138,6 +142,7 @@ async def summarize_feedback(
         session_id=session_id,
         feedback_value=feedback_value,
         channel=channel,
+        target_type=target_type,
         tag=tag,
     )
 

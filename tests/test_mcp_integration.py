@@ -347,9 +347,62 @@ async def test_list_feedback_validation_error_returns_tool_error(
                 "tag": "   ",
             },
         )
+        invalid_target_type_result = await client_session.call_tool(
+            "list_feedback",
+            {
+                "target_type": "answer",
+            },
+        )
 
     assert result.isError is True
     assert result.content[0].text == "tag must not be blank"
+    assert invalid_target_type_result.isError is True
+    assert invalid_target_type_result.content[0].text == (
+        "target_type must be one of: message, conversation, surface"
+    )
+
+
+@pytest.mark.anyio
+async def test_list_feedback_filters_by_target_type(
+    configured_database: str,
+) -> None:
+    async with get_engine().begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO feedback_events ("
+                "id, message, source_product, target_type, ingested_at"
+                ") VALUES "
+                "(:null_id, :null_message, :product, NULL, :null_ingested_at), "
+                "(:message_id, :message_message, :product, 'message', :message_ingested_at), "
+                "(:surface_id, :surface_message, :product, 'surface', :surface_ingested_at)"
+            ),
+            {
+                "null_id": "00000000-0000-0000-0000-0000000000e1",
+                "null_message": "legacy null target",
+                "message_id": "00000000-0000-0000-0000-0000000000e2",
+                "message_message": "message feedback",
+                "surface_id": "00000000-0000-0000-0000-0000000000e3",
+                "surface_message": "surface feedback",
+                "product": "vocky-cli",
+                "null_ingested_at": datetime(2026, 4, 23, 0, 1, tzinfo=UTC),
+                "message_ingested_at": datetime(2026, 4, 23, 0, 2, tzinfo=UTC),
+                "surface_ingested_at": datetime(2026, 4, 23, 0, 3, tzinfo=UTC),
+            },
+        )
+
+    async with create_connected_server_and_client_session(mcp, raise_exceptions=True) as client_session:
+        result = await client_session.call_tool(
+            "list_feedback",
+            {
+                "source_product": "vocky-cli",
+                "target_type": " message ",
+            },
+        )
+
+    assert result.isError is False
+    assert [record["message"] for record in result.structuredContent["records"]] == [
+        "message feedback"
+    ]
 
 
 @pytest.mark.anyio
@@ -440,6 +493,54 @@ async def test_summarize_feedback_success_returns_total_and_daily_counts(
 
     assert result.isError is False
     assert result.structuredContent is not None
+    assert result.structuredContent["total_count"] == 2
+    assert result.structuredContent["daily_counts"] == [
+        {"day": "2026-04-23", "count": 1},
+        {"day": "2026-04-24", "count": 0},
+        {"day": "2026-04-25", "count": 1},
+    ]
+
+
+@pytest.mark.anyio
+async def test_summarize_feedback_filters_by_target_type(
+    configured_database: str,
+) -> None:
+    async with get_engine().begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO feedback_events ("
+                "id, message, source_product, target_type, ingested_at"
+                ") VALUES "
+                "(:surface_id1, :surface_message1, :product, 'surface', :surface_ingested_at1), "
+                "(:surface_id2, :surface_message2, :product, 'surface', :surface_ingested_at2), "
+                "(:message_id, :message_message, :product, 'message', :message_ingested_at)"
+            ),
+            {
+                "surface_id1": "00000000-0000-0000-0000-0000000000f1",
+                "surface_message1": "surface one",
+                "surface_id2": "00000000-0000-0000-0000-0000000000f2",
+                "surface_message2": "surface two",
+                "message_id": "00000000-0000-0000-0000-0000000000f3",
+                "message_message": "message feedback",
+                "product": "vocky-cli",
+                "surface_ingested_at1": datetime(2026, 4, 23, 2, 0, tzinfo=UTC),
+                "surface_ingested_at2": datetime(2026, 4, 25, 2, 0, tzinfo=UTC),
+                "message_ingested_at": datetime(2026, 4, 25, 3, 0, tzinfo=UTC),
+            },
+        )
+
+    async with create_connected_server_and_client_session(mcp, raise_exceptions=True) as client_session:
+        result = await client_session.call_tool(
+            "summarize_feedback",
+            {
+                "start_ingested_at": "2026-04-23T00:00:00Z",
+                "end_ingested_at": "2026-04-26T00:00:00Z",
+                "source_product": "vocky-cli",
+                "target_type": "surface",
+            },
+        )
+
+    assert result.isError is False
     assert result.structuredContent["total_count"] == 2
     assert result.structuredContent["daily_counts"] == [
         {"day": "2026-04-23", "count": 1},
@@ -572,6 +673,49 @@ async def test_list_liked_conversations_returns_only_likes_with_context(
         {"source": "guide", "snippet": "Good answer"}
     ]
     assert liked["attributes"] == {"quality": "good"}
+
+
+@pytest.mark.anyio
+async def test_list_liked_conversations_filters_by_target_type(
+    configured_database: str,
+) -> None:
+    async with get_engine().begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO feedback_events ("
+                "id, message, source_product, target_type, feedback_value, ingested_at"
+                ") VALUES "
+                "(:message_id, :message_message, :product, 'message', 1, :message_ingested_at), "
+                "(:surface_id, :surface_message, :product, 'surface', 1, :surface_ingested_at), "
+                "(:dislike_id, :dislike_message, :product, 'message', 2, :dislike_ingested_at)"
+            ),
+            {
+                "message_id": "00000000-0000-0000-0000-0000000000d1",
+                "message_message": "liked message feedback",
+                "surface_id": "00000000-0000-0000-0000-0000000000d2",
+                "surface_message": "liked surface feedback",
+                "dislike_id": "00000000-0000-0000-0000-0000000000d3",
+                "dislike_message": "disliked message feedback",
+                "product": "agent-product",
+                "message_ingested_at": datetime(2026, 4, 24, 1, 0, tzinfo=UTC),
+                "surface_ingested_at": datetime(2026, 4, 24, 2, 0, tzinfo=UTC),
+                "dislike_ingested_at": datetime(2026, 4, 24, 3, 0, tzinfo=UTC),
+            },
+        )
+
+    async with create_connected_server_and_client_session(mcp, raise_exceptions=True) as client_session:
+        result = await client_session.call_tool(
+            "list_liked_conversations",
+            {
+                "source_product": "agent-product",
+                "target_type": "message",
+            },
+        )
+
+    assert result.isError is False
+    assert [item["message"] for item in result.structuredContent["conversations"]] == [
+        "liked message feedback"
+    ]
 
 
 @pytest.mark.anyio

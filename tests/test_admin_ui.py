@@ -51,6 +51,11 @@ def test_admin_ui_index_routes_serve_packaged_html() -> None:
     assert '<option value="web">web</option>' in response.text
     assert '<option value="mobile">mobile</option>' in response.text
     assert '<option value="support">support</option>' in response.text
+    assert 'data-feedback-filter="target_type"' in response.text
+    assert '<select name="target_type" data-feedback-filter="target_type">' in response.text
+    assert '<option value="message">message</option>' in response.text
+    assert '<option value="conversation">conversation</option>' in response.text
+    assert '<option value="surface">surface</option>' in response.text
     assert 'data-feedback-filter="tag"' in response.text
     assert 'data-feedback-filter="limit"' in response.text
     assert 'data-feedback-list' in response.text
@@ -120,6 +125,7 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     assert "makeFeedbackListPath" in js_response.text
     assert 'start_ingested_at' in js_response.text
     assert 'feedback_value' in js_response.text
+    assert 'appendTrimmedParam(params, "target_type", filters.target_type)' in js_response.text
     assert 'cursor' in js_response.text
     assert "refreshFeedback" in js_response.text
     assert "selectFeedbackRecord" in js_response.text
@@ -205,6 +211,8 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
         "channel categories",
         "web, mobile, and support",
         "target_type",
+        "target_type message, conversation, or surface",
+        "Any leaves older records with unset target_type visible",
         "target_text",
         "target fields",
         "202 Accepted",

@@ -14,6 +14,7 @@ from vocky.feedback import FeedbackListCursor
 
 DEFAULT_LIST_LIMIT = 50
 MAX_LIST_LIMIT = 100
+ALLOWED_TARGET_TYPES = frozenset({"message", "conversation", "surface"})
 
 
 class FeedbackQueryValidationError(ValueError):
@@ -50,6 +51,19 @@ def normalize_feedback_value(value: int | None) -> int | None:
     if isinstance(value, bool) or value not in (1, 2):
         raise FeedbackQueryValidationError("feedback_value must be 1 for like or 2 for dislike")
     return value
+
+
+def normalize_target_type_filter(value: str | None) -> str | None:
+    """Normalize and validate an optional target-type read filter."""
+
+    normalized = normalize_optional_text(value)
+    if normalized is None:
+        return None
+    if normalized not in ALLOWED_TARGET_TYPES:
+        raise FeedbackQueryValidationError(
+            "target_type must be one of: message, conversation, surface"
+        )
+    return normalized
 
 
 def parse_timestamp(value: str | None, *, field_name: str) -> datetime | None:

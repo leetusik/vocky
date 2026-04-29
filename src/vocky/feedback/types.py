@@ -70,6 +70,7 @@ class FeedbackQueryFilters:
     session_id: str | None = None
     feedback_value: int | None = None
     channel: str | None = None
+    target_type: str | None = None
     tag: str | None = None
 
 

@@ -42,7 +42,7 @@ async def test_migration_applies_and_expected_indexes_exist(configured_database:
             )
         ).scalars().all()
 
-    assert migration_version == "20260427_1600"
+    assert migration_version == "20260429_1103"
     assert index_rows == [
         "ix_feedback_events_channel",
         "ix_feedback_events_conversation_id",
@@ -52,6 +52,7 @@ async def test_migration_applies_and_expected_indexes_exist(configured_database:
         "ix_feedback_events_session_id",
         "ix_feedback_events_source_product",
         "ix_feedback_events_tags_gin",
+        "ix_feedback_events_target_type",
         "pk_feedback_events",
     ]
 
@@ -268,6 +269,7 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
             "source_integration": "pytest",
             "feedback_value": 1,
             "channel": "web",
+            "target_type": "message",
             "conversation_id": "conv-1",
             "session_id": "sess-1",
             "event_at": None,
@@ -283,6 +285,7 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
             "source_integration": "pytest",
             "feedback_value": 1,
             "channel": "web",
+            "target_type": "message",
             "conversation_id": "conv-1",
             "session_id": "sess-1",
             "event_at": None,
@@ -298,6 +301,7 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
             "source_integration": "pytest",
             "feedback_value": 2,
             "channel": "web",
+            "target_type": "message",
             "conversation_id": "conv-2",
             "session_id": "sess-1",
             "event_at": None,
@@ -314,11 +318,11 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
                 text(
                     "INSERT INTO feedback_events ("
                     "id, message, source_product, source_integration, feedback_value, "
-                    "channel, conversation_id, "
+                    "channel, target_type, conversation_id, "
                     "session_id, event_at, ingested_at, tags, source_metadata, attributes"
                     ") VALUES ("
                     ":id, :message, :source_product, :source_integration, :feedback_value, "
-                    ":channel, :conversation_id, "
+                    ":channel, :target_type, :conversation_id, "
                     ":session_id, :event_at, :ingested_at, :tags, "
                     "CAST(:source_metadata AS jsonb), CAST(:attributes AS jsonb)"
                     ")"
@@ -341,6 +345,7 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
                 session_id="sess-1",
                 feedback_value=1,
                 channel="web",
+                target_type="message",
                 tag="billing",
             ),
             limit=10,
@@ -349,6 +354,74 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
 
     assert [record.message for record in page.records] == ["matching row"]
     assert page.records[0].tags == ("bug", "billing")
+
+
+@pytest.mark.asyncio
+async def test_service_list_feedback_filters_exact_target_type_and_preserves_null_unfiltered(
+    configured_database: str,
+) -> None:
+    service = FeedbackService(get_session_maker())
+
+    rows = [
+        {
+            "id": "00000000-0000-0000-0000-000000000021",
+            "message": "legacy null target",
+            "target_type": None,
+            "ingested_at": datetime(2026, 4, 23, 3, 0, tzinfo=UTC),
+        },
+        {
+            "id": "00000000-0000-0000-0000-000000000022",
+            "message": "message target",
+            "target_type": "message",
+            "ingested_at": datetime(2026, 4, 23, 4, 0, tzinfo=UTC),
+        },
+        {
+            "id": "00000000-0000-0000-0000-000000000023",
+            "message": "surface target",
+            "target_type": "surface",
+            "ingested_at": datetime(2026, 4, 23, 5, 0, tzinfo=UTC),
+        },
+    ]
+
+    async with get_engine().begin() as connection:
+        for row in rows:
+            await connection.execute(
+                text(
+                    "INSERT INTO feedback_events ("
+                    "id, message, source_product, target_type, ingested_at"
+                    ") VALUES ("
+                    ":id, :message, :source_product, :target_type, :ingested_at"
+                    ")"
+                ),
+                {
+                    **row,
+                    "source_product": "vocky-cli",
+                },
+            )
+
+    unfiltered_page = await service.list_feedback(
+        ListFeedbackQuery(filters=FeedbackQueryFilters(), limit=10)
+    )
+    message_page = await service.list_feedback(
+        ListFeedbackQuery(
+            filters=FeedbackQueryFilters(target_type="message"),
+            limit=10,
+        )
+    )
+    surface_page = await service.list_feedback(
+        ListFeedbackQuery(
+            filters=FeedbackQueryFilters(target_type="surface"),
+            limit=10,
+        )
+    )
+
+    assert [record.message for record in unfiltered_page.records] == [
+        "surface target",
+        "message target",
+        "legacy null target",
+    ]
+    assert [record.message for record in message_page.records] == ["message target"]
+    assert [record.message for record in surface_page.records] == ["surface target"]
 
 
 @pytest.mark.asyncio
