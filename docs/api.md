@@ -2,7 +2,7 @@
 
 ## Status
 
-The feedback capture MCP tool, Web Feedback Capture REST API, `P3` read tools, Admin REST channel validation, Admin UI channel category workflows, and Admin Docs REST capture try-it behavior are implemented. These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
+The feedback capture MCP tool, Web Feedback Capture REST API, `P3` read tools, Admin REST channel validation, Admin UI channel category workflows, and Admin Docs REST capture try-it behavior are implemented. The P1 `target_type` read-filter contract is accepted for implementation in `P1.S2`. These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
 
 ## Purpose
 
@@ -55,11 +55,30 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Older stored arbitrary channel strings remain readable
   - Channel filters are exact-match filters after trimming blank input to absence, so legacy stored values remain discoverable
 
+### Shared Target Type Rules
+
+- Status: capture values implemented; read-filter contract accepted for P1.S2 implementation
+- Applies to: MCP capture, Web Feedback Capture REST API, MCP read filters, liked-conversation filters, summary filters, and Admin REST list filters
+- Values:
+  - `null` or omitted means the caller did not identify an exact target category
+  - `message` means feedback on a specific message
+  - `conversation` means feedback on a whole conversation or thread
+  - `surface` means feedback on a concrete non-message product, page, widget, or UI surface
+- Capture write behavior:
+  - New capture writes trim leading and trailing whitespace
+  - Blank write values are normalized to `null`
+  - Non-null write values outside `message`, `conversation`, and `surface` are rejected
+- Read/filter behavior:
+  - Response records return the stored `target_type` value or `null`
+  - The accepted P1.S2 filter is exact-match after trimming blank input to absence
+  - Non-blank filter values must be `message`, `conversation`, or `surface`
+  - This phase does not add a filter for records where `target_type` is unset
+
 ### Feedback Capture MCP Tool
 
 - Status: implemented in `P1`
 - Consumers: Agent products and agent-runtime integrations sending agent workflow feedback into Vocky
-- Purpose: Submit a single feedback event from an agent interaction, usually about an exact message, conversation, or agent response, for asynchronous persistence
+- Purpose: Submit a single agent-decided VoC feedback event from an agent interaction, usually about an exact message, conversation, or agent response, for asynchronous persistence
 - Inputs:
   - Tool name: `capture_feedback`
   - Request body:
@@ -72,7 +91,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`. Non-null values must be one of the built-in channel categories: `web`, `mobile`, or `support`.
     - `conversation_id: string` optional. Caller-provided conversation or thread identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `session_id: string` optional. Caller-provided runtime, browser, or user-session identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
-    - `target_type: string` optional. Identifies the exact reviewed target category. Allowed values are `message`, `conversation`, and `surface`. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `target_type: string` optional. Identifies the exact reviewed target category. Allowed values are `message`, `conversation`, and `surface`. `null` means the caller did not identify an exact target category. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `target_id: string` optional. Caller-provided stable identifier for the reviewed target. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `target_role: string` optional. Role for a reviewed message target. Allowed values are `user`, `assistant`, `system`, and `tool`. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `target_text: string` optional. Snapshot of the exact reviewed message or product surface text. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
@@ -99,7 +118,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - No managed-cloud auth model is defined yet
   - Public self-hosted deployments should require `Authorization: Bearer <VOCKY_MCP_AUTH_TOKEN>` on the MCP HTTP request
 - Notes:
-  - MCP capture is the agent-workflow ingestion surface. Server-to-server website and product integrations should use the Web Feedback Capture REST API.
+  - MCP capture is the agent-workflow ingestion surface for agent-decided VoC. Server-to-server explicit product/UI feedback integrations should use the Web Feedback Capture REST API.
   - Target fields are optional captured context. Omitting them preserves the legacy capture behavior and stores `null` target values.
   - The MVP stores raw feedback and metadata; it does not auto-classify events
   - The persisted record shape is defined in `docs/architecture.md` under `Capture Storage Model`
@@ -110,8 +129,8 @@ Use this file to record public-facing contracts as they are implemented. The cur
 ### Web Feedback Capture REST API
 
 - Status: implemented in `P1`
-- Consumers: Server-to-server web and product integrations sending website, product-surface, or agent-product feedback into Vocky without using MCP
-- Purpose: Submit a single general feedback event for asynchronous persistence through the existing capture field set
+- Consumers: Server-to-server web and product integrations sending explicit website, product-surface, UI-triggered, or agent-product feedback into Vocky without using MCP
+- Purpose: Submit a single explicit product/UI feedback event for asynchronous persistence through the existing capture field set
 - Base path: `/api`
 - Auth or permissions:
   - Deployment-specific for the self-hosted MVP
@@ -122,7 +141,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - `POST /api/feedback`
 - Inputs:
   - JSON request body using the shared capture fields:
-    - `message: string` required. Leading and trailing whitespace is trimmed. The value must not be blank after trimming. For REST, this may summarize website, page, widget, product-surface, or agent-product feedback.
+    - `message: string` required. Leading and trailing whitespace is trimmed. The value must not be blank after trimming. For REST, this may summarize explicit website, page, widget, product-surface, UI-triggered, or agent-product feedback.
     - `source.product: string` required. Leading and trailing whitespace is trimmed. The value must not be blank after trimming.
     - `source.integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike. General REST feedback may omit this when there is no explicit like/dislike action.
@@ -130,7 +149,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`. Non-null values must be one of the built-in channel categories: `web`, `mobile`, or `support`.
     - `conversation_id: string` optional. Caller-provided conversation or thread identifier when the REST feedback belongs to a conversation. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `session_id: string` optional. Caller-provided runtime, browser, or user-session identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
-    - `target_type: string` optional. Allowed values are `message`, `conversation`, and `surface`. Use `surface` for page, widget, screen, or other non-message product-surface feedback when the exact target is known.
+    - `target_type: string` optional. Allowed values are `message`, `conversation`, and `surface`. Use `surface` for page, widget, screen, or other non-message product-surface feedback when the exact target is known. `null` means the caller did not identify an exact target category.
     - `target_id: string` optional. Caller-provided stable identifier for the target, such as a message id, page id, widget id, or UI surface id. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `target_role: string` optional. Role for message targets. Allowed values are `user`, `assistant`, `system`, and `tool`. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `target_text: string` optional. Snapshot of the exact reviewed message or product surface text. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
@@ -155,7 +174,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - The Admin Docs try-it flow sends a same-origin browser `POST /api/feedback` request to this existing endpoint for self-hosted operator verification. It is not a separate public contract and does not change the server-to-server integration guidance.
   - Successful Admin Docs try requests create real queued feedback events with the same asynchronous persistence behavior as any other REST capture request.
   - Target fields are optional captured context. Omitting them preserves the legacy capture behavior and stores `null` target values.
-  - REST capture supports broader website and product feedback through the existing fields; this phase does not add REST-only aliases, a versioned endpoint, or separate storage.
+  - REST capture is the preferred ingestion path for explicit product/UI-triggered website and product feedback through the existing fields; this phase does not add REST-only aliases, a versioned endpoint, or separate storage.
   - Success means the job was accepted for background processing, not that the feedback record is already queryable.
   - Accepted REST capture jobs use the same Redis queue, worker, feedback service, and PostgreSQL table as MCP capture jobs.
 
@@ -175,6 +194,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike.
     - `channel: string` optional. Exact channel filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Built-in and legacy stored channel values can be filtered exactly.
+    - Accepted P1.S2 addition: `target_type: string` optional. Exact target-type filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Non-blank values must be `message`, `conversation`, or `surface`.
     - `tag: string` optional. Leading and trailing whitespace is trimmed. Blank values are rejected.
     - `limit: integer` optional. When omitted, the server applies a default page size of `50`. Values must be between `1` and `100`.
     - `cursor: string` optional. Must be an opaque base64url-encoded JSON cursor returned from an earlier `list_feedback` call. Invalid cursor payloads are rejected.
@@ -215,7 +235,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Public self-hosted deployments should require `Authorization: Bearer <VOCKY_MCP_AUTH_TOKEN>` on the MCP HTTP request
 - Notes:
   - Time filtering is based on `ingested_at` only, not `event_at`
-  - Target fields are returned for review context but are not filters in this phase.
+  - The accepted P1.S2 contract adds exact `target_type` filtering so message, conversation, and surface feedback can be reviewed separately.
   - `start_ingested_at` is inclusive and `end_ingested_at` is exclusive
   - The cursor payload is derived from the last returned record's `ingested_at` and `id`
   - `tag` matches exact single-tag membership against the stored `tags` array
@@ -238,6 +258,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike.
     - `channel: string` optional. Exact channel filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Built-in and legacy stored channel values can be filtered exactly.
+    - Accepted P1.S2 addition: `target_type: string` optional. Exact target-type filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Non-blank values must be `message`, `conversation`, or `surface`.
     - `tag: string` optional. Leading and trailing whitespace is trimmed. Blank values are rejected.
 - Outputs:
   - Success MCP tool result:
@@ -277,6 +298,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `channel: string` optional. Exact channel filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Built-in and legacy stored channel values can be filtered exactly.
+    - Accepted P1.S2 addition: `target_type: string` optional. Exact target-type filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Non-blank values must be `message`, `conversation`, or `surface`.
     - `tag: string` optional. Leading and trailing whitespace is trimmed. Blank values are rejected.
     - `limit: integer` optional. When omitted, the server applies a default page size of `50`. Values must be between `1` and `100`.
     - `cursor: string` optional. Must be an opaque base64url-encoded JSON cursor returned from an earlier `list_liked_conversations` call.
@@ -315,7 +337,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Public self-hosted deployments should require `Authorization: Bearer <VOCKY_MCP_AUTH_TOKEN>` on the MCP HTTP request
 - Notes:
   - This tool always enforces `feedback_value = 1` server-side.
-  - Target fields are returned for review context but are not filters in this phase.
+  - The accepted P1.S2 contract adds exact `target_type` filtering while keeping this tool limited to liked records.
   - Disliked records are stored but intentionally not returned here.
   - This is an AI-agent few-shot retrieval surface, not a human admin review API.
 
@@ -335,6 +357,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - `GET /admin/api/feedback`
     - Lists all feedback records by default, not only liked records
     - Supports `start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `feedback_value`, exact `channel`, `tag`, `limit`, and `cursor`
+    - Accepted P1.S2 addition: supports exact `target_type` filtering for `message`, `conversation`, and `surface`
     - Returns `records` and optional `next_cursor`
   - `GET /admin/api/feedback/metrics`
     - Returns dashboard metrics for a required ingest-time window
@@ -391,5 +414,5 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - The packaged Admin Web UI consumes this same-origin Admin REST surface for dashboard metrics, feedback list/filter/detail review, review-field editing, and guarded delete.
   - `/admin` and `/admin/assets/*` are static Admin Web UI routes rather than Admin REST endpoints. They can load without an Admin bearer token, while protected data remains under `/admin/api/*`.
   - Browser editing intentionally exposes only `feedback_value`, `comment`, `channel`, and `tags`, even though Admin REST can also patch `source_metadata` and `attributes`.
-  - Target fields are returned for review context but are not filters or editable review fields in this phase.
+  - The accepted P1.S2 contract adds exact `target_type` filtering to Admin list review, but target fields remain immutable and are not editable review fields in this phase.
   - The liked-conversation MCP tool remains AI-agent-only and does not replace Admin REST review.

@@ -21,7 +21,7 @@ This architecture is intentionally lightweight. Vocky is still pre-MVP, and the 
 
 The first MVP should be built from these parts:
 
-- MCP-facing feedback capture for agent/message workflows and server-to-server REST feedback capture for broader website or product feedback
+- MCP-facing feedback capture for agent-decided VoC in agent workflows and server-to-server REST feedback capture for explicit product/UI-triggered website or product feedback
 - A storage layer that preserves raw feedback plus the metadata needed for retrieval and basic aggregates
 - MCP read tools that return stored records, simple counts or trends, and liked examples for AI-agent workflows
 - Dedicated Admin REST endpoints for human operators, dashboard metrics, and review workflows
@@ -48,17 +48,17 @@ The current service uses these choices:
 - Docker builds install runtime dependencies and the local project into the image, while Compose app and worker commands use `uv run --no-sync` so container startup does not repeat dependency sync
 - Transport-specific capture adapters with shared validation helpers, service, and persistence layers so MCP and REST can express different integration intent while the worker reuses the same persistence path
 
-Clients should use `/mcp` as the canonical MCP endpoint for agent workflows. Server-to-server product integrations should use `/api/feedback` for capture-only ingestion, including non-agent website or product-surface feedback. Human/operator tools should use `/admin/api/*`, while browser operators can load the packaged UI from `/admin`. The Admin Docs try-it flow may send same-origin browser requests to `POST /api/feedback` as an operator verification convenience, but it uses the existing capture-only contract and creates normal queued feedback on success. The app avoids relying on a `/mcp` to `/mcp/` redirect so reverse proxies do not need to repair redirect schemes.
+Clients should use `/mcp` as the canonical MCP endpoint for agent workflows where the agent or agent runtime decides that an interaction should be captured as VoC. Server-to-server product integrations should use `/api/feedback` for capture-only ingestion, especially explicit product/UI-triggered feedback from pages, widgets, controls, surveys, or other product surfaces. Human/operator tools should use `/admin/api/*`, while browser operators can load the packaged UI from `/admin`. The Admin Docs try-it flow may send same-origin browser requests to `POST /api/feedback` as an operator verification convenience, but it uses the existing capture-only contract and creates normal queued feedback on success. The app avoids relying on a `/mcp` to `/mcp/` redirect so reverse proxies do not need to repair redirect schemes.
 
 ## Three-Track API Shape
 
 Vocky now has three public-facing tracks over the same feedback schema:
 
-- MCP track for AI-agent workflows: `capture_feedback`, `list_feedback`, `summarize_feedback`, and `list_liked_conversations`. MCP capture is optimized for message, conversation, and agent-context feedback.
-- Public REST capture track for server-to-server product integrations: `POST /api/feedback`. REST capture uses the existing capture field set for general website or product feedback, including surface feedback represented with `target_type="surface"` when applicable.
+- MCP track for AI-agent workflows: `capture_feedback`, `list_feedback`, `summarize_feedback`, and `list_liked_conversations`. MCP capture is optimized for agent-decided VoC about messages, conversations, and agent context.
+- Public REST capture track for server-to-server product integrations: `POST /api/feedback`. REST capture uses the existing capture field set for explicit product/UI-triggered feedback, including surface feedback represented with `target_type="surface"` when applicable.
 - Admin REST track for humans and dashboards: `/admin/api/feedback` list/detail, `/admin/api/feedback/metrics` dashboard metrics, plus patch/delete management endpoints.
 
-The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data, feedback review management, and packaged static docs assets for operator reference content. It can also render an internal REST capture try-it docs block that posts to same-origin `/api/feedback`, sends `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>` only when the operator enters an API token, and stores that API token only in browser session storage. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, job-status, or management endpoints. REST does not add a separate wire shape in this phase; website and product context should be represented with `target_type`, `target_id`, `target_text`, nullable `channel`, `tags`, `source_metadata`, and `attributes`. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, channel category, metadata, target context, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
+The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data, feedback review management, and packaged static docs assets for operator reference content. It can also render an internal REST capture try-it docs block that posts to same-origin `/api/feedback`, sends `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>` only when the operator enters an API token, and stores that API token only in browser session storage. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, job-status, or management endpoints. REST does not add a separate wire shape in this phase; website and product context should be represented with `target_type`, `target_id`, `target_text`, nullable `channel`, `tags`, `source_metadata`, and `attributes`. `target_type` is the review discriminator for message, conversation, and surface feedback; it does not create a second feedback store or a new capture endpoint. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, channel category, metadata, target context, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
 
 ## Configuration Surface
 
@@ -115,7 +115,7 @@ For Cloudflare Tunnel users, the recommended public shape is a hostname-to-servi
 - `conversation_id` identifies the conversation or thread that the feedback belongs to.
 - `session_id` is optional runtime, browser, or user-session scope that can correlate repeated interactions without replacing `conversation_id`.
 - `channel` is an optional nullable review category. New captures and Admin edits should only assign `web`, `mobile`, `support`, or `null`; blank input is normalized to `null`, and no channel is inferred by default.
-- Target fields identify the exact reviewed item when known: `target_type` describes whether the target is a `message`, `conversation`, or `surface`; `target_id` stores the caller's stable identifier; `target_role` stores the reviewed message role when applicable; and `target_text` stores a snapshot of the exact reviewed text.
+- Target fields identify the exact reviewed item when known: `target_type` describes whether the target is a `message`, whole `conversation`, or product/UI `surface`; `null` means no exact target category was supplied; `target_id` stores the caller's stable identifier; `target_role` stores the reviewed message role when applicable; and `target_text` stores a snapshot of the exact reviewed text.
 - `messages` stores surrounding conversation context supplied by the caller. `used_context` stores context that the agent used while producing the reviewed response.
 - REST product or website feedback can omit conversation-specific fields and store page, widget, URL, account, or runtime context in `target_*`, `source_metadata`, and `attributes`.
 - The storage layer only needs to support the retrieval and aggregate queries required by the MCP review tools; it does not need analytics-warehouse style modeling for the first MVP.
@@ -147,7 +147,7 @@ The primary table is `feedback_events` with this hybrid shape:
 - `source_metadata JSONB` not null with default empty object
 - `attributes JSONB` not null with default empty object
 
-Initial indexes should cover:
+Indexes for the intended P1 read model should cover:
 
 - `ingested_at`
 - `event_at`
@@ -156,9 +156,10 @@ Initial indexes should cover:
 - `channel`
 - `conversation_id`
 - `session_id`
+- `target_type`
 - GIN on `tags`
 
-The schema keeps the most important review dimensions visible as first-class columns while leaving room for source-specific metadata in JSONB fields. `channel` remains nullable `TEXT` rather than a database enum so older arbitrary channel values can stay readable and exact-filterable without destructive migration; write validation prevents new arbitrary channel values on capture and Admin edits. Target fields are captured review context in this phase; they do not add query filters or indexes.
+The schema keeps the most important review dimensions visible as first-class columns while leaving room for source-specific metadata in JSONB fields. `channel` remains nullable `TEXT` rather than a database enum so older arbitrary channel values can stay readable and exact-filterable without destructive migration; write validation prevents new arbitrary channel values on capture and Admin edits. `target_type` is the only target field promoted to a first-class review discriminator in P1; other target fields remain captured context and are not filters or editable review fields.
 
 The async capture path is layered as:
 
@@ -171,7 +172,7 @@ The async capture path is layered as:
 
 The read path reuses the same service and repository layers:
 
-- MCP tool input normalization and error mapping for `list_feedback` and `summarize_feedback`
+- MCP tool input normalization and error mapping for `list_feedback`, `summarize_feedback`, and `list_liked_conversations`
 - Transport-neutral read methods on the feedback service
 - Repository queries against `feedback_events`
 - No public REST query stack in the base MVP
@@ -186,16 +187,17 @@ The Admin dashboard metrics path uses the same read layers:
 
 ## Query Read Model
 
-The implemented `P3` query model uses these constraints:
+The accepted P1 read query model uses these constraints once `target_type` filtering is implemented:
 
-- Read filters are limited to `ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `feedback_value`, `channel`, and exact single-tag membership.
+- Read filters are limited to `ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `feedback_value`, `channel`, `target_type`, and exact single-tag membership.
 - Channel read filters use exact matching after trimming blank input to absence. They should continue to support legacy stored channel strings even though new capture and Admin edit writes are limited to `web`, `mobile`, `support`, or `null`.
+- `target_type` read filters use exact matching after trimming blank input to absence. Accepted non-blank filter values are `message`, `conversation`, and `surface`; this phase does not add filters for `target_id`, `target_role`, `target_text`, or records where `target_type is null`.
 - Time filtering uses `ingested_at` only. `start_ingested_at` is inclusive and `end_ingested_at` is exclusive after normalization to UTC.
 - `list_feedback` returns full stored records ordered newest-first by `(ingested_at desc, id desc)`.
 - `list_feedback` defaults to `50` records per page and rejects values outside `1` through `100`.
 - `list_feedback` pagination uses an opaque base64url-encoded JSON cursor derived from the last returned record's `ingested_at` and `id`.
 - `summarize_feedback` returns only `total_count` plus UTC `daily_counts`, with zero-filled missing days inside the requested window.
-- The base phase does not add full-text search, JSONB filtering, new summary dimensions, or new storage indexes beyond the `P2` baseline.
+- The base phase does not add full-text search, JSONB filtering, target-id filtering, target-role filtering, target-text filtering, or new summary dimensions.
 - `list_feedback` returns action fields and stored JSON context with each record so operators can inspect likes and dislikes without a separate transcript store.
 - Accepted capture jobs are not queryable until the background worker persists them into `feedback_events`.
 

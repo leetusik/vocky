@@ -27,89 +27,29 @@
 
 ## Active Phases
 
-### Phase P1: Feedback context and target semantics
+### Phase P1: Clarify capture surfaces and feedback type separation
 
 - Phase ID: `P1`
-- Objective: Clarify feedback context identifiers and make the exact message or product surface being reviewed explicit instead of assuming the latest message.
-- Status: done
-- Review outcome: passed
-- Notes: Treat `conversation_id` as conversation/thread scope and `session_id` as optional runtime or user-session scope unless decomposition finds a better naming model. Message-specific feedback should identify the exact user or assistant message, selected message context, or explicit non-message feedback target.
+- Objective: Reposition Vocky capture guidance so MCP is for agent-decided VoC capture, REST is the first-choice path for explicit product/UI-triggered capture, and message versus non-message feedback is separated through `target_type` without splitting storage.
+- Status: in_progress
+- Review outcome: pending
+- Notes:
+  - Keep the current `feedback_events` table as the canonical feedback store.
+  - Use `target_type="message"` for message feedback.
+  - Use `target_type="surface"` for concrete non-message product or website surface feedback; leave `target_type` null when no exact target type is known.
+  - Add `target_type` as a supported read/filter dimension and index before treating message/general feedback as separately reviewable categories.
+  - Do not rename existing MCP tools, REST endpoints, or capture fields in this phase.
+  - Reconsider split tables only if lifecycle, permissions, retention, required schema, or query performance diverge materially.
 - Work items:
-  - `works/archives/work_items/20260427_1537_decompose_feedback_context_target_semantics`
-  - `works/archives/work_items/20260427_1708_lock_feedback_context_terminology`
-  - `works/archives/work_items/20260427_1712_add_explicit_feedback_target_capture_model`
-  - `works/archives/work_items/20260427_1716_surface_target_context_in_review_flows`
-  - `works/archives/work_items/20260427_1721_update_integration_guidance_and_compatibility_tests`
-  - `works/archives/work_items/20260427_1723_review_feedback_context_target_semantics`
+  - `works/archives/work_items/20260429_1046_decompose_capture_surfaces_feedback_type_separation`
+  - `works/archives/work_items/20260429_1052_lock_capture_boundary_type_contract`
 - Slices:
-  - [x] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_1537_decompose_feedback_context_target_semantics` | Notes: Added concrete terminology, target-model, review-surface, guidance, and compatibility slices for P1.
-  - [x] Slice ID: `P1.S1` | Name: `lock feedback context terminology` | Status: done | Work item: `works/archives/work_items/20260427_1708_lock_feedback_context_terminology` | Notes: Defined `conversation_id`, `session_id`, the current `message` meaning, and explicit feedback-target semantics in product, API, and architecture docs before code changes.
-  - [x] Slice ID: `P1.S2` | Name: `add explicit feedback target capture model` | Status: done | Work item: `works/archives/work_items/20260427_1712_add_explicit_feedback_target_capture_model` | Notes: Added nullable target fields through validation, queue payloads, service types, persistence, migration, and capture contracts while keeping existing captures compatible.
-  - [x] Slice ID: `P1.S3` | Name: `surface target context in review flows` | Status: done | Work item: `works/archives/work_items/20260427_1716_surface_target_context_in_review_flows` | Notes: Returned target fields through MCP read tools and Admin REST, and showed exact target context in Admin UI list and detail views.
-  - [x] Slice ID: `P1.S4` | Name: `update integration guidance and compatibility tests` | Status: done | Work item: `works/archives/work_items/20260427_1721_update_integration_guidance_and_compatibility_tests` | Notes: Updated examples and docs to show exact message targeting and covered old payloads, new target payloads, and conversation/session semantics.
-  - [x] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260427_1723_review_feedback_context_target_semantics` | Notes: Review passed with full pytest and package asset checks; no fix slices were needed.
-
-### Phase P2: Separate REST and MCP capture intent
-
-- Phase ID: `P2`
-- Objective: Make REST capture support general website or product feedback while MCP capture remains optimized for message-specific agent feedback.
-- Status: done
-- Review outcome: passed
-- Notes: REST capture remains server-to-server. Do not add browser-direct unauthenticated ingestion in this backlog. Adapt the existing `POST /api/feedback` contract in place for broader website/product feedback while preserving compatibility for current accepted REST payloads; do not add a versioned or split REST endpoint in P2.
-- Work items:
-  - `works/archives/work_items/20260427_1800_decompose_rest_mcp_capture_intent`
-  - `works/archives/work_items/20260427_1806_lock_rest_mcp_capture_contract_split`
-  - `works/archives/work_items/20260427_1808_separate_transport_capture_input_paths`
-  - `works/archives/work_items/20260427_1811_update_rest_general_feedback_examples_and_compatibility`
-  - `works/archives/work_items/20260427_1813_review_rest_mcp_capture_intent`
-- Slices:
-  - [x] Slice ID: `P2.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_1800_decompose_rest_mcp_capture_intent` | Notes: Added contract, transport-separation, guidance, and compatibility slices for P2.
-  - [x] Slice ID: `P2.S1` | Name: `lock REST and MCP capture contract split` | Status: done | Work item: `works/archives/work_items/20260427_1806_lock_rest_mcp_capture_contract_split` | Notes: Durable docs now define REST as broader server-to-server website/product feedback through the existing fields, while MCP remains agent/message-oriented.
-  - [x] Slice ID: `P2.S2` | Name: `separate transport capture input paths` | Status: done | Work item: `works/archives/work_items/20260427_1808_separate_transport_capture_input_paths` | Notes: Added explicit MCP and REST capture input models/normalizers while preserving shared queue, service, persistence, validation behavior, and receipt shape.
-  - [x] Slice ID: `P2.S3` | Name: `update REST general-feedback examples and compatibility coverage` | Status: done | Work item: `works/archives/work_items/20260427_1811_update_rest_general_feedback_examples_and_compatibility` | Notes: Added website/product REST examples and tests proving current message/action payloads and broader surface feedback payloads are accepted without exposing new public review endpoints.
-  - [x] Slice ID: `P2.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260427_1813_review_rest_mcp_capture_intent` | Notes: Review passed with full pytest, package asset checks, and Compose-backed verify after rebuilding the stale app/worker containers; no fix slices were needed.
-
-### Phase P3: Channel categories and Admin adjustability
-
-- Phase ID: `P3`
-- Objective: Replace free-text-only `channel` handling with nullable, default-none category behavior that operators can adjust in Admin.
-- Status: done
-- Review outcome: passed
-- Notes: Decomposition should cover storage and migration shape, API validation, query filters, Admin list/detail/edit behavior, and how allowed categories are represented or managed.
-- Work items:
-  - `works/archives/work_items/20260427_1829_decompose_channel_categories_admin_adjustability`
-  - `works/archives/work_items/20260427_1849_lock_channel_category_contract`
-  - `works/archives/work_items/20260427_2306_apply_channel_category_validation_storage_policy`
-  - `works/archives/work_items/20260427_2309_update_admin_channel_category_workflows`
-  - `works/archives/work_items/20260427_2311_update_channel_examples_compatibility_coverage`
-  - `works/archives/work_items/20260427_2314_phase_review_channel_categories_admin_adjustability`
-- Slices:
-  - [x] Slice ID: `P3.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_1829_decompose_channel_categories_admin_adjustability` | Notes: Added contract, validation/storage, Admin workflow, guidance/coverage, and review slices for P3.
-  - [x] Slice ID: `P3.S1` | Name: `lock channel category contract` | Status: done | Work item: `works/archives/work_items/20260427_1849_lock_channel_category_contract` | Notes: Defined nullable default-none semantics, built-in `web`/`mobile`/`support` categories, legacy stored-value compatibility, and public/Admin contract changes in durable docs before code changes.
-  - [x] Slice ID: `P3.S2` | Name: `apply channel category validation and storage policy` | Status: done | Work item: `works/archives/work_items/20260427_2306_apply_channel_category_validation_storage_policy` | Notes: Added shared write validation for built-in channel categories across MCP capture, REST capture, and Admin REST patch while preserving legacy read/filter compatibility.
-  - [x] Slice ID: `P3.S3` | Name: `update Admin channel category workflows` | Status: done | Work item: `works/archives/work_items/20260427_2309_update_admin_channel_category_workflows` | Notes: Replaced Admin channel filter/edit text inputs with category selects and legacy-preserve edit behavior.
-  - [x] Slice ID: `P3.S4` | Name: `update channel examples and compatibility coverage` | Status: done | Work item: `works/archives/work_items/20260427_2311_update_channel_examples_compatibility_coverage` | Notes: Updated public and packaged docs plus compatibility tests for nullable built-in channel categories and blank-to-null writes.
-  - [x] Slice ID: `P3.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260427_2314_phase_review_channel_categories_admin_adjustability` | Notes: Review passed with full pytest, package-check, bootstrap, Compose-backed verify, stale wording scans, and no fix slices needed.
-
-### Phase P4: Working REST capture Try docs
-
-- Phase ID: `P4`
-- Objective: Add Swagger-like in-app REST capture documentation with a real try-it request flow.
-- Status: done
-- Review outcome: passed
-- Notes: Build this after REST semantics are stable. The try feature should call the real REST capture endpoint, support the configured bearer token, show request, response, and error output, and include examples for general website feedback such as `피드백을 보내주세요!`.
-- Work items:
-  - `works/archives/work_items/20260427_2321_decompose_working_rest_capture_try_docs`
-  - `works/archives/work_items/20260427_2322_lock_rest_try_docs_behavior`
-  - `works/archives/work_items/20260427_2325_build_rest_capture_try_ui`
-  - `works/archives/work_items/20260427_2329_refresh_docs_examples_coverage`
-  - `works/archives/work_items/20260427_2331_phase_review_working_rest_capture_try_docs`
-- Slices:
-  - [x] Slice ID: `P4.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260427_2321_decompose_working_rest_capture_try_docs` | Notes: Added contract/docs, Admin UI implementation, packaged docs/coverage, and review slices for P4.
-  - [x] Slice ID: `P4.S1` | Name: `lock REST Try docs behavior` | Status: done | Work item: `works/archives/work_items/20260427_2322_lock_rest_try_docs_behavior` | Notes: Defined operator-only same-origin Try behavior in durable docs and README, including real capture side effects, separate API bearer token handling, and no new public review/query endpoint.
-  - [x] Slice ID: `P4.S2` | Name: `build REST capture try UI` | Status: done | Work item: `works/archives/work_items/20260427_2325_build_rest_capture_try_ui` | Notes: Added an internal `rest_capture_try` docs block renderer in the Admin UI with session-scoped API token input, editable JSON payload, real `/api/feedback` POST, and request/status/response/error display.
-  - [x] Slice ID: `P4.S3` | Name: `refresh docs examples and coverage` | Status: done | Work item: `works/archives/work_items/20260427_2329_refresh_docs_examples_coverage` | Notes: Added the packaged docs block and updated Admin UI/package coverage so the try block is included and tested.
-  - [x] Slice ID: `P4.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260427_2331_phase_review_working_rest_capture_try_docs` | Notes: Review passed with full pytest, package-check, Compose-backed verify, rebuilt app asset checks, and no fix slices needed.
+  - [x] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260429_1046_decompose_capture_surfaces_feedback_type_separation` | Notes: Added contract, read-filter/index, Admin workflow/docs, public guidance/coverage, and review slices for P1.
+  - [x] Slice ID: `P1.S1` | Name: `lock capture boundary and type contract` | Status: done | Work item: `works/archives/work_items/20260429_1052_lock_capture_boundary_type_contract` | Notes: Locked durable product/API/architecture direction for MCP agent-decided capture, REST explicit product/UI capture, and single-table `target_type` review separation before code changes.
+  - [ ] Slice ID: `P1.S2` | Name: `add target_type read filters and index` | Status: todo | Work item: none | Notes: Implement `target_type` filtering across MCP/Admin read paths and add a PostgreSQL index without adding new storage tables or feedback-kind fields.
+  - [ ] Slice ID: `P1.S3` | Name: `update Admin type filtering and operator docs` | Status: todo | Work item: none | Notes: Add Admin UI type-filter behavior and packaged operator docs/examples for message versus surface/general feedback review.
+  - [ ] Slice ID: `P1.S4` | Name: `refresh public capture guidance and compatibility coverage` | Status: todo | Work item: none | Notes: Update README/action integration guidance, examples, tests, and smoke wording around MCP-versus-REST intent and target-type compatibility.
+  - [ ] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
 
 ## Archive Notes
 
