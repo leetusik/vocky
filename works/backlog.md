@@ -27,33 +27,18 @@
 
 ## Active Phases
 
-### Phase P1: Clarify capture surfaces and feedback type separation
+### Phase P1: <phase name>
 
 - Phase ID: `P1`
-- Objective: Reposition Vocky capture guidance so MCP is for agent-decided VoC capture, REST is the first-choice path for explicit product/UI-triggered capture, and message versus non-message feedback is separated through `target_type` without splitting storage.
-- Status: done
-- Review outcome: passed
-- Notes:
-  - Keep the current `feedback_events` table as the canonical feedback store.
-  - Use `target_type="message"` for message feedback.
-  - Use `target_type="surface"` for concrete non-message product or website surface feedback; leave `target_type` null when no exact target type is known.
-  - Add `target_type` as a supported read/filter dimension and index before treating message/general feedback as separately reviewable categories.
-  - Do not rename existing MCP tools, REST endpoints, or capture fields in this phase.
-  - Reconsider split tables only if lifecycle, permissions, retention, required schema, or query performance diverge materially.
+- Objective: <what this phase should accomplish>
+- Status: planned
+- Review outcome: pending
+- Notes: <intent, constraints, assumptions, or handoff context>
 - Work items:
-  - `works/archives/work_items/20260429_1046_decompose_capture_surfaces_feedback_type_separation`
-  - `works/archives/work_items/20260429_1052_lock_capture_boundary_type_contract`
-  - `works/archives/work_items/20260429_1103_add_target_type_read_filters_index`
-  - `works/archives/work_items/20260429_1108_update_admin_type_filtering_operator_docs`
-  - `works/archives/work_items/20260429_1110_refresh_public_capture_guidance_compatibility`
-  - `works/archives/work_items/20260429_1112_phase_review_capture_surfaces_feedback_type_separation`
+  - None yet
 - Slices:
-  - [x] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: done | Work item: `works/archives/work_items/20260429_1046_decompose_capture_surfaces_feedback_type_separation` | Notes: Added contract, read-filter/index, Admin workflow/docs, public guidance/coverage, and review slices for P1.
-  - [x] Slice ID: `P1.S1` | Name: `lock capture boundary and type contract` | Status: done | Work item: `works/archives/work_items/20260429_1052_lock_capture_boundary_type_contract` | Notes: Locked durable product/API/architecture direction for MCP agent-decided capture, REST explicit product/UI capture, and single-table `target_type` review separation before code changes.
-  - [x] Slice ID: `P1.S2` | Name: `add target_type read filters and index` | Status: done | Work item: `works/archives/work_items/20260429_1103_add_target_type_read_filters_index` | Notes: Implemented exact `target_type` filtering across MCP/Admin read paths and added a PostgreSQL index without adding new storage tables or feedback-kind fields.
-  - [x] Slice ID: `P1.S3` | Name: `update Admin type filtering and operator docs` | Status: done | Work item: `works/archives/work_items/20260429_1108_update_admin_type_filtering_operator_docs` | Notes: Added Admin UI `target_type` filtering and packaged operator docs for message, conversation, and surface review behavior.
-  - [x] Slice ID: `P1.S4` | Name: `refresh public capture guidance and compatibility coverage` | Status: done | Work item: `works/archives/work_items/20260429_1110_refresh_public_capture_guidance_compatibility` | Notes: Refreshed README/action integration guidance, examples, and compatibility coverage around MCP-versus-REST intent and target-type behavior.
-  - [x] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: done | Work item: `works/archives/work_items/20260429_1112_phase_review_capture_surfaces_feedback_type_separation` | Notes: Review passed with no fix slices required; no split tables, feedback-kind fields, renamed tools, or new public REST review endpoints were introduced.
+  - [ ] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
+  - [ ] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
 
 ## Archive Notes
 
