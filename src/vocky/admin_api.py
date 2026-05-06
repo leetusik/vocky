@@ -33,6 +33,7 @@ from vocky.tools.query_feedback_common import (
     normalize_optional_text,
     normalize_tag,
     normalize_target_type_filter,
+    normalize_trigger_type_filter,
     parse_timestamp,
     serialize_datetime,
     validate_time_window,
@@ -123,6 +124,10 @@ def serialize_record(record: FeedbackEventRecord) -> dict[str, object]:
         "source_integration": record.source_integration,
         "conversation_id": record.conversation_id,
         "session_id": record.session_id,
+        "user_id": record.user_id,
+        "trigger_type": record.trigger_type,
+        "trigger_message": record.trigger_message,
+        "trigger_metadata": dict(record.trigger_metadata),
         "target_type": record.target_type,
         "target_id": record.target_id,
         "target_role": record.target_role,
@@ -163,6 +168,8 @@ def normalize_list_query(request: Request) -> ListFeedbackQuery:
             source_integration=normalize_optional_text(params.get("source_integration")),
             conversation_id=normalize_optional_text(params.get("conversation_id")),
             session_id=normalize_optional_text(params.get("session_id")),
+            user_id=normalize_optional_text(params.get("user_id")),
+            trigger_type=normalize_trigger_type_filter(params.get("trigger_type")),
             feedback_value=normalize_feedback_value(
                 parse_int_param(params.get("feedback_value"), field_name="feedback_value")
             ),

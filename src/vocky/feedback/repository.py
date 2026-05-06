@@ -49,6 +49,10 @@ class FeedbackRepository:
             source_integration=payload.source_integration,
             conversation_id=payload.conversation_id,
             session_id=payload.session_id,
+            user_id=payload.user_id,
+            trigger_type=payload.trigger_type,
+            trigger_message=payload.trigger_message,
+            trigger_metadata=dict(payload.trigger_metadata),
             target_type=payload.target_type,
             target_id=payload.target_id,
             target_role=payload.target_role,
@@ -282,6 +286,10 @@ class FeedbackRepository:
             )
         if filters.session_id is not None:
             statement = statement.where(FeedbackEventModel.session_id == filters.session_id)
+        if filters.user_id is not None:
+            statement = statement.where(FeedbackEventModel.user_id == filters.user_id)
+        if filters.trigger_type is not None:
+            statement = statement.where(FeedbackEventModel.trigger_type == filters.trigger_type)
         if filters.tag is not None:
             statement = statement.where(FeedbackEventModel.tags.contains([filters.tag]))
 
@@ -300,6 +308,10 @@ class FeedbackRepository:
             source_integration=model.source_integration,
             conversation_id=model.conversation_id,
             session_id=model.session_id,
+            user_id=model.user_id,
+            trigger_type=model.trigger_type,
+            trigger_message=model.trigger_message,
+            trigger_metadata=dict(model.trigger_metadata),
             target_type=model.target_type,
             target_id=model.target_id,
             target_role=model.target_role,

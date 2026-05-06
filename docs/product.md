@@ -72,6 +72,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - The REST capture path should be the first-choice ingestion path for explicit product/UI-triggered feedback, such as like/dislike controls, page feedback, widgets, surveys, or other product-surface feedback, using the existing capture fields instead of REST-only aliases or a separate endpoint.
 - The REST capture path remains capture-only. In-app try tooling may exercise it, but review, query, summary, job-status, and management remain MCP or Admin REST concerns rather than new public REST endpoints.
 - The initial high-signal capture path should focus on explicit user actions, such as like/dislike clicks and optional comments, rather than trying to infer feedback from every conversation turn.
+- Optional caller-owned user identity and trigger context fields preserve who the product associates with the event and which action, control, survey, or manual workflow caused capture.
 - Feedback capture should not assume that the latest message is the reviewed item. Callers should identify the exact reviewed message, conversation, or product surface when that information is available.
 - Message, conversation, and non-message surface feedback should stay in the same canonical feedback store and be separated for review through `target_type`, not through split tables, renamed tools, or separate capture endpoints.
 - `target_type` is an exact-match review filter for separating `message`, `conversation`, and `surface` feedback.
@@ -80,12 +81,38 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - A managed offering may exist later around convenience, operations, and richer workflows.
 - The repo should stay honest about what is planned versus what is already implemented.
 
+## Product Surface Roles
+
+Vocky uses one canonical feedback store and one shared capture field set, but the public-facing surfaces have different jobs:
+
+- MCP is for agent/runtime capture and MCP reads. `capture_feedback` is the agent-workflow ingestion path when an agent or agent runtime decides an interaction should be captured as VoC. MCP read tools serve agent, script, or operator review workflows that prefer MCP.
+- Public REST is for trusted server-to-server capture-only product and UI feedback. `POST /api/feedback` is the preferred path for explicit product-surface actions such as likes, dislikes, page feedback, widgets, or surveys. It does not expose public query, summary, job-status, or management endpoints.
+- Admin REST is for human/operator review and management. `/admin/api/*` powers dashboards, list/detail inspection, review-field editing, metrics, and deletion over the same stored feedback records.
+
+## Current Field Taxonomy
+
+Current feedback fields are grouped by responsibility, not by transport. MCP capture and public REST capture use the same field set; Admin REST reviews and manages the stored record shape.
+
+- Display and action fields: `message`, `feedback_value`, and `comment` describe the visible feedback record and explicit like/dislike/comment action.
+- Source identity fields: `source.product` and `source.integration` identify the product and integration that sent the feedback. Stored records expose them as `source_product` and `source_integration`.
+- Caller identity fields: `user_id` optionally identifies the caller-owned end user, account member, or product user associated with the feedback. It is distinct from `session_id`, which remains runtime, browser, or session correlation.
+- Trigger fields: `trigger_type`, `trigger_message`, and `trigger_metadata` describe the user action, UI control, survey, manual workflow, or other product event that caused capture. They do not replace the primary feedback `message`, optional user `comment`, target fields, process context, or source metadata.
+- Review category fields: `channel` and `tags` support operator filtering and review organization without changing the target of the feedback.
+- Exact target fields: `target_type`, `target_id`, `target_role`, and `target_text` identify the reviewed message, conversation, or product surface when the caller knows it.
+- Conversation and session context fields: `conversation_id`, `session_id`, and `messages` group feedback with surrounding runtime or conversation context.
+- Agent and process context fields: `used_context` preserves context the agent used while generating the reviewed response.
+- Metadata fields: `event_at`, `ingested_at`, `source_metadata`, `attributes`, and generated record identifiers preserve timing, source-specific details, product-specific dimensions, and storage identity.
+
 ## Terminology
 
 - `VoC`: voice of customer
 - `message`: the required human-readable feedback summary or display text. It is the text Vocky shows as the primary feedback record label, not an implicit pointer to the reviewed agent message.
 - `conversation_id`: caller-provided conversation or thread identifier used to group feedback from the same conversation.
 - `session_id`: optional caller-provided runtime, browser, or user-session identifier. It can help correlate repeated interactions without replacing `conversation_id`.
+- `user_id`: optional caller-owned user or account-member identifier associated with the feedback event. Vocky treats it as an opaque string and does not infer authentication, tenancy, or identity semantics from it.
+- `trigger_type`: optional category for the action or workflow that caused capture. Accepted P1 values are `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, and `other`.
+- `trigger_message`: optional human-readable action label, prompt copy, button text, survey question, or event description that caused capture. It explains why capture happened; it is not the primary feedback `message` or the user's `comment`.
+- `trigger_metadata`: optional structured object for trigger-specific context, such as rating scale, selected option, control id, experiment id, or redacted UI/runtime details.
 - `channel`: optional nullable review category for where the feedback came from. The MVP built-in categories are `web`, `mobile`, and `support`; `null` means no channel category was assigned.
 - `feedback target`: the exact reviewed item, when known. It may be a message, a whole conversation, or a non-message product surface.
 - `target_type`: optional feedback target category. The MVP target categories are `message`, `conversation`, and `surface`; `null` means the caller did not identify an exact target category.

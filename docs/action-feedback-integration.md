@@ -24,6 +24,10 @@ Recommended payload fields:
 - `channel`: optional nullable review category; omit it by default, or set `web`, `mobile`, or `support` when the integration can assign one
 - `conversation_id`: stable caller-side conversation or thread ID when available
 - `session_id`: optional caller-side runtime, browser, or user-session ID
+- `user_id`: optional caller-owned product user or account-member ID; use this for stable product identity and keep `session_id` for runtime/session correlation
+- `trigger_type`: optional trigger category: `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, or `other`
+- `trigger_message`: optional button text, action label, survey question, prompt copy, or workflow description that caused capture
+- `trigger_metadata`: optional object for trigger-specific context such as control ID, rating scale, selected option, experiment ID, or redacted runtime details
 - `target_type`: optional reviewed target category: `message`, `conversation`, or `surface`
 - `target_id`: optional stable ID for the exact reviewed message, conversation, or surface
 - `target_role`: optional role for message targets: `user`, `assistant`, `system`, or `tool`
@@ -33,7 +37,9 @@ Recommended payload fields:
 - `used_context`: JSON array of context or retrieval results used by the agent
 - `tags`, `source_metadata`, and `attributes`: optional caller-provided metadata; REST product integrations can use these for URL, page, widget, account, locale, rollout, or backend context
 
-Target fields are optional. Existing integrations can omit them, but integrations with message-level feedback should send `target_type: "message"` plus the exact message context so reviewers do not have to infer which message the user judged. REST integrations with product-surface feedback should use `target_type: "surface"` when the exact page, widget, screen, or feature is known.
+Trigger fields describe why capture happened. Target fields describe what was reviewed. Existing integrations can omit both groups, but integrations with message-level feedback should send `target_type: "message"` plus the exact message context so reviewers do not have to infer which message the user judged. REST integrations with product-surface feedback should use `target_type: "surface"` when the exact page, widget, screen, or feature is known.
+
+Use `used_context` for review-safe process context only: retrieved snippets, tool traces, prompt summaries, policy summaries, or redacted execution metadata. Do not send raw hidden chain-of-thought or private model reasoning.
 
 Channel categories are intentionally narrow in the MVP. Blank channel values normalize to `null`, non-null capture values outside `web`, `mobile`, and `support` are rejected, and no default channel is inferred.
 
@@ -48,6 +54,10 @@ MCP `capture_feedback` message-feedback example:
   "channel": "web",
   "conversation_id": "conv_123",
   "session_id": "sess_456",
+  "user_id": "user_123",
+  "trigger_type": "like",
+  "trigger_message": "Assistant response thumbs-up",
+  "trigger_metadata": {"control_id": "msg_assistant_789_like"},
   "target_type": "message",
   "target_id": "msg_assistant_789",
   "target_role": "assistant",
@@ -80,6 +90,10 @@ curl -X POST "https://vocky.example.com/api/feedback" \
     "comment": "I wanted to send feedback but did not notice the button",
     "channel": "web",
     "session_id": "sess_456",
+    "user_id": "user_456",
+    "trigger_type": "comment",
+    "trigger_message": "Pricing page feedback form",
+    "trigger_metadata": {"form_id": "pricing-feedback", "placement": "footer"},
     "target_type": "surface",
     "target_id": "pricing-page-feedback-button",
     "target_text": "Feedback",
@@ -102,13 +116,15 @@ Useful filters:
 - `source_integration`
 - `conversation_id`
 - `session_id`
+- `user_id`
+- `trigger_type`
 - `channel`
 - `target_type`
 - `tag`
 - `start_ingested_at` and `end_ingested_at`
 - `limit` and `cursor`
 
-The response contains `conversations`, each with the stored feedback message, optional comment, target fields, source identifiers, tags, `messages`, `used_context`, metadata, and timestamps. Use these records as few-shot examples or style/context hints inside the caller's agent workflow.
+The response contains `conversations`, each with the stored feedback message, optional comment, `user_id`, trigger fields, target fields, source identifiers, tags, `messages`, `used_context`, metadata, and timestamps. Use these records as few-shot examples or style/context hints inside the caller's agent workflow.
 
 Disliked conversations are stored for review and future learning workflows, but `list_liked_conversations` does not return them.
 

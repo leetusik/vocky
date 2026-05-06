@@ -42,7 +42,7 @@ async def test_migration_applies_and_expected_indexes_exist(configured_database:
             )
         ).scalars().all()
 
-    assert migration_version == "20260429_1103"
+    assert migration_version == "20260429_1620"
     assert index_rows == [
         "ix_feedback_events_channel",
         "ix_feedback_events_conversation_id",
@@ -53,6 +53,8 @@ async def test_migration_applies_and_expected_indexes_exist(configured_database:
         "ix_feedback_events_source_product",
         "ix_feedback_events_tags_gin",
         "ix_feedback_events_target_type",
+        "ix_feedback_events_trigger_type",
+        "ix_feedback_events_user_id",
         "pk_feedback_events",
     ]
 
@@ -70,6 +72,10 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
             source_integration="pytest",
             conversation_id="conv-1",
             session_id="sess-1",
+            user_id="user-1",
+            trigger_type="dislike",
+            trigger_message="Thumbs down",
+            trigger_metadata={"control_id": "msg-1-downvote"},
             target_type="message",
             target_id="msg-1",
             target_role="assistant",
@@ -91,7 +97,8 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
             await connection.execute(
                 text(
                     "SELECT message, source_product, source_integration, conversation_id, "
-                    "session_id, target_type, target_id, target_role, target_text, "
+                    "session_id, user_id, trigger_type, trigger_message, trigger_metadata, "
+                    "target_type, target_id, target_role, target_text, "
                     "feedback_value, comment, channel, event_at, tags, "
                     "messages, used_context, source_metadata, attributes, ingested_at "
                     "FROM feedback_events WHERE id = :id"
@@ -105,7 +112,8 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
                 text(
                     "INSERT INTO feedback_events (id, message, source_product) "
                     "VALUES (:id, :message, :source_product) "
-                    "RETURNING feedback_value, comment, channel, target_type, "
+                    "RETURNING feedback_value, comment, channel, user_id, trigger_type, "
+                    "trigger_message, trigger_metadata, target_type, "
                     "target_id, target_role, target_text, tags, messages, "
                     "used_context, source_metadata, attributes, ingested_at"
                 ),
@@ -122,6 +130,14 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
     assert persisted["source_integration"] == "pytest"
     assert persisted["conversation_id"] == "conv-1"
     assert persisted["session_id"] == "sess-1"
+    assert persisted["user_id"] == "user-1"
+    assert persisted["trigger_type"] == "dislike"
+    assert persisted["trigger_message"] == "Thumbs down"
+    assert persisted["trigger_metadata"] == {"control_id": "msg-1-downvote"}
+    assert record.user_id == "user-1"
+    assert record.trigger_type == "dislike"
+    assert record.trigger_message == "Thumbs down"
+    assert record.trigger_metadata == {"control_id": "msg-1-downvote"}
     assert persisted["target_type"] == "message"
     assert persisted["target_id"] == "msg-1"
     assert persisted["target_role"] == "assistant"
@@ -149,6 +165,10 @@ async def test_service_insert_persists_values_and_db_defaults(configured_databas
     assert defaults["feedback_value"] is None
     assert defaults["comment"] is None
     assert defaults["channel"] is None
+    assert defaults["user_id"] is None
+    assert defaults["trigger_type"] is None
+    assert defaults["trigger_message"] is None
+    assert defaults["trigger_metadata"] == {}
     assert defaults["target_type"] is None
     assert defaults["target_id"] is None
     assert defaults["target_role"] is None
@@ -270,6 +290,8 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
             "feedback_value": 1,
             "channel": "web",
             "target_type": "message",
+            "user_id": "user-1",
+            "trigger_type": "like",
             "conversation_id": "conv-1",
             "session_id": "sess-1",
             "event_at": None,
@@ -286,6 +308,8 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
             "feedback_value": 1,
             "channel": "web",
             "target_type": "message",
+            "user_id": "user-1",
+            "trigger_type": "survey",
             "conversation_id": "conv-1",
             "session_id": "sess-1",
             "event_at": None,
@@ -302,6 +326,8 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
             "feedback_value": 2,
             "channel": "web",
             "target_type": "message",
+            "user_id": "user-2",
+            "trigger_type": "like",
             "conversation_id": "conv-2",
             "session_id": "sess-1",
             "event_at": None,
@@ -318,11 +344,11 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
                 text(
                     "INSERT INTO feedback_events ("
                     "id, message, source_product, source_integration, feedback_value, "
-                    "channel, target_type, conversation_id, "
+                    "channel, target_type, user_id, trigger_type, conversation_id, "
                     "session_id, event_at, ingested_at, tags, source_metadata, attributes"
                     ") VALUES ("
                     ":id, :message, :source_product, :source_integration, :feedback_value, "
-                    ":channel, :target_type, :conversation_id, "
+                    ":channel, :target_type, :user_id, :trigger_type, :conversation_id, "
                     ":session_id, :event_at, :ingested_at, :tags, "
                     "CAST(:source_metadata AS jsonb), CAST(:attributes AS jsonb)"
                     ")"
@@ -346,6 +372,8 @@ async def test_service_list_feedback_applies_supported_filters(configured_databa
                 feedback_value=1,
                 channel="web",
                 target_type="message",
+                user_id="user-1",
+                trigger_type="like",
                 tag="billing",
             ),
             limit=10,
@@ -422,6 +450,70 @@ async def test_service_list_feedback_filters_exact_target_type_and_preserves_nul
     ]
     assert [record.message for record in message_page.records] == ["message target"]
     assert [record.message for record in surface_page.records] == ["surface target"]
+
+
+@pytest.mark.asyncio
+async def test_service_list_feedback_filters_identity_and_trigger_type(
+    configured_database: str,
+) -> None:
+    service = FeedbackService(get_session_maker())
+
+    rows = [
+        {
+            "id": "00000000-0000-0000-0000-000000000024",
+            "message": "legacy null trigger",
+            "user_id": None,
+            "trigger_type": None,
+            "ingested_at": datetime(2026, 4, 23, 3, 0, tzinfo=UTC),
+        },
+        {
+            "id": "00000000-0000-0000-0000-000000000025",
+            "message": "matching trigger",
+            "user_id": "user-1",
+            "trigger_type": "like",
+            "ingested_at": datetime(2026, 4, 23, 4, 0, tzinfo=UTC),
+        },
+        {
+            "id": "00000000-0000-0000-0000-000000000026",
+            "message": "wrong trigger",
+            "user_id": "user-1",
+            "trigger_type": "survey",
+            "ingested_at": datetime(2026, 4, 23, 5, 0, tzinfo=UTC),
+        },
+    ]
+
+    async with get_engine().begin() as connection:
+        for row in rows:
+            await connection.execute(
+                text(
+                    "INSERT INTO feedback_events ("
+                    "id, message, source_product, user_id, trigger_type, ingested_at"
+                    ") VALUES ("
+                    ":id, :message, :source_product, :user_id, :trigger_type, :ingested_at"
+                    ")"
+                ),
+                {
+                    **row,
+                    "source_product": "vocky-cli",
+                },
+            )
+
+    unfiltered_page = await service.list_feedback(
+        ListFeedbackQuery(filters=FeedbackQueryFilters(), limit=10)
+    )
+    filtered_page = await service.list_feedback(
+        ListFeedbackQuery(
+            filters=FeedbackQueryFilters(user_id="user-1", trigger_type="like"),
+            limit=10,
+        )
+    )
+
+    assert [record.message for record in unfiltered_page.records] == [
+        "wrong trigger",
+        "matching trigger",
+        "legacy null trigger",
+    ]
+    assert [record.message for record in filtered_page.records] == ["matching trigger"]
 
 
 @pytest.mark.asyncio

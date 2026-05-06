@@ -28,6 +28,10 @@ async def test_enqueue_and_pop_round_trip_preserves_payload() -> None:
             source_integration="pytest",
             conversation_id="conv-1",
             session_id="sess-1",
+            user_id="user-1",
+            trigger_type="like",
+            trigger_message="Thumbs up",
+            trigger_metadata={"control_id": "msg-1-like"},
             target_type="message",
             target_id="msg-1",
             target_role="assistant",
@@ -54,6 +58,10 @@ async def test_enqueue_and_pop_round_trip_preserves_payload() -> None:
     assert job.payload.source_integration == "pytest"
     assert job.payload.conversation_id == "conv-1"
     assert job.payload.session_id == "sess-1"
+    assert job.payload.user_id == "user-1"
+    assert job.payload.trigger_type == "like"
+    assert job.payload.trigger_message == "Thumbs up"
+    assert job.payload.trigger_metadata == {"control_id": "msg-1-like"}
     assert job.payload.target_type == "message"
     assert job.payload.target_id == "msg-1"
     assert job.payload.target_role == "assistant"
@@ -68,7 +76,7 @@ async def test_enqueue_and_pop_round_trip_preserves_payload() -> None:
     await redis_client.aclose()
 
 
-def test_deserialize_job_defaults_missing_target_fields_to_none() -> None:
+def test_deserialize_job_defaults_missing_optional_added_fields() -> None:
     raw_job = json.dumps(
         {
             "request_id": str(uuid4()),
@@ -100,6 +108,10 @@ def test_deserialize_job_defaults_missing_target_fields_to_none() -> None:
     assert job.payload.target_id is None
     assert job.payload.target_role is None
     assert job.payload.target_text is None
+    assert job.payload.user_id is None
+    assert job.payload.trigger_type is None
+    assert job.payload.trigger_message is None
+    assert job.payload.trigger_metadata == {}
 
 
 @pytest.mark.asyncio

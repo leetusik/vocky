@@ -37,6 +37,10 @@ async def test_capture_feedback_success(
                 "feedback_value": 2,
                 "comment": "The answer did not fix export",
                 "channel": "web",
+                "user_id": "user_123",
+                "trigger_type": "dislike",
+                "trigger_message": "Thumbs down",
+                "trigger_metadata": {"control_id": "assistant-message-1-downvote"},
                 "target_type": "message",
                 "target_id": "assistant-message-1",
                 "target_role": "assistant",
@@ -64,6 +68,10 @@ async def test_capture_feedback_success(
     assert queued_job.payload.feedback_value == 2
     assert queued_job.payload.comment == "The answer did not fix export"
     assert queued_job.payload.channel == "web"
+    assert queued_job.payload.user_id == "user_123"
+    assert queued_job.payload.trigger_type == "dislike"
+    assert queued_job.payload.trigger_message == "Thumbs down"
+    assert queued_job.payload.trigger_metadata == {"control_id": "assistant-message-1-downvote"}
     assert queued_job.payload.target_type == "message"
     assert queued_job.payload.target_id == "assistant-message-1"
     assert queued_job.payload.target_role == "assistant"
@@ -112,6 +120,36 @@ async def test_capture_feedback_invalid_channel_returns_tool_error() -> None:
 
     assert result.isError is True
     assert result.content[0].text == "channel must be one of: web, mobile, support"
+
+
+@pytest.mark.anyio
+async def test_capture_feedback_invalid_trigger_type_returns_tool_error() -> None:
+    async with create_connected_server_and_client_session(mcp, raise_exceptions=True) as client_session:
+        result = await client_session.call_tool(
+            "capture_feedback",
+            {
+                "message": "Invalid trigger",
+                "source": {"product": "vocky-cli"},
+                "trigger_type": "thumbs-up",
+            },
+        )
+
+    assert result.isError is True
+    assert result.content[0].text == (
+        "trigger_type must be one of: like, dislike, comment, rating, survey, manual, other"
+    )
+
+
+@pytest.mark.anyio
+async def test_capture_feedback_invalid_trigger_metadata_returns_tool_error() -> None:
+    result = await capture_module.capture_feedback(
+        message="Invalid trigger metadata",
+        source=capture_module.CaptureFeedbackSourceInput(product="vocky-cli"),
+        trigger_metadata=["not", "object"],
+    )
+
+    assert result.isError is True
+    assert result.content[0].text == "trigger_metadata must be a JSON object"
 
 
 @pytest.mark.anyio
@@ -241,18 +279,23 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
             text(
                 "INSERT INTO feedback_events ("
                 "id, message, source_product, source_integration, conversation_id, "
-                "session_id, target_type, target_id, target_role, target_text, "
+                "session_id, user_id, trigger_type, trigger_message, trigger_metadata, "
+                "target_type, target_id, target_role, target_text, "
                 "feedback_value, comment, channel, event_at, ingested_at, "
                 "tags, messages, used_context, source_metadata, attributes"
                 ") VALUES "
                 "(:id1, :message1, :source_product1, :source_integration1, :conversation_id1, "
-                ":session_id1, :target_type1, :target_id1, :target_role1, :target_text1, "
+                ":session_id1, :user_id1, :trigger_type1, :trigger_message1, "
+                "CAST(:trigger_metadata1 AS jsonb), :target_type1, :target_id1, "
+                ":target_role1, :target_text1, "
                 ":feedback_value1, :comment1, :channel1, "
                 ":event_at1, :ingested_at1, :tags1, "
                 "CAST(:messages1 AS jsonb), CAST(:used_context1 AS jsonb), "
                 "CAST(:source_metadata1 AS jsonb), CAST(:attributes1 AS jsonb)), "
                 "(:id2, :message2, :source_product2, :source_integration2, :conversation_id2, "
-                ":session_id2, :target_type2, :target_id2, :target_role2, :target_text2, "
+                ":session_id2, :user_id2, :trigger_type2, :trigger_message2, "
+                "CAST(:trigger_metadata2 AS jsonb), :target_type2, :target_id2, "
+                ":target_role2, :target_text2, "
                 ":feedback_value2, :comment2, :channel2, "
                 ":event_at2, :ingested_at2, :tags2, "
                 "CAST(:messages2 AS jsonb), CAST(:used_context2 AS jsonb), "
@@ -265,6 +308,10 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
                 "source_integration1": "pytest",
                 "conversation_id1": "conv-1",
                 "session_id1": "sess-1",
+                "user_id1": "user-2",
+                "trigger_type1": "like",
+                "trigger_message1": "Thumbs up",
+                "trigger_metadata1": "{\"control_id\": \"older-like\"}",
                 "target_type1": None,
                 "target_id1": None,
                 "target_role1": None,
@@ -285,6 +332,10 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
                 "source_integration2": "pytest",
                 "conversation_id2": "conv-1",
                 "session_id2": "sess-1",
+                "user_id2": "user-2",
+                "trigger_type2": "like",
+                "trigger_message2": "Helpful answer",
+                "trigger_metadata2": "{\"control_id\": \"newer-like\"}",
                 "target_type2": "message",
                 "target_id2": "assistant-message-2",
                 "target_role2": "assistant",
@@ -308,6 +359,8 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
             {
                 "source_product": " vocky-cli ",
                 "feedback_value": 1,
+                "user_id": " user-2 ",
+                "trigger_type": " like ",
                 "channel": " web ",
                 "tag": " bug ",
                 "limit": 1,
@@ -323,6 +376,12 @@ async def test_list_feedback_success_returns_records_and_next_cursor(
     assert result.structuredContent["records"][0]["feedback_value"] == 1
     assert result.structuredContent["records"][0]["comment"] == "newer comment"
     assert result.structuredContent["records"][0]["channel"] == "web"
+    assert result.structuredContent["records"][0]["user_id"] == "user-2"
+    assert result.structuredContent["records"][0]["trigger_type"] == "like"
+    assert result.structuredContent["records"][0]["trigger_message"] == "Helpful answer"
+    assert result.structuredContent["records"][0]["trigger_metadata"] == {
+        "control_id": "newer-like"
+    }
     assert result.structuredContent["records"][0]["target_type"] == "message"
     assert result.structuredContent["records"][0]["target_id"] == "assistant-message-2"
     assert result.structuredContent["records"][0]["target_role"] == "assistant"
@@ -353,12 +412,22 @@ async def test_list_feedback_validation_error_returns_tool_error(
                 "target_type": "answer",
             },
         )
+        invalid_trigger_type_result = await client_session.call_tool(
+            "list_feedback",
+            {
+                "trigger_type": "thumbs-up",
+            },
+        )
 
     assert result.isError is True
     assert result.content[0].text == "tag must not be blank"
     assert invalid_target_type_result.isError is True
     assert invalid_target_type_result.content[0].text == (
         "target_type must be one of: message, conversation, surface"
+    )
+    assert invalid_trigger_type_result.isError is True
+    assert invalid_trigger_type_result.content[0].text == (
+        "trigger_type must be one of: like, dislike, comment, rating, survey, manual, other"
     )
 
 
@@ -509,11 +578,14 @@ async def test_summarize_feedback_filters_by_target_type(
         await connection.execute(
             text(
                 "INSERT INTO feedback_events ("
-                "id, message, source_product, target_type, ingested_at"
+                "id, message, source_product, user_id, trigger_type, target_type, ingested_at"
                 ") VALUES "
-                "(:surface_id1, :surface_message1, :product, 'surface', :surface_ingested_at1), "
-                "(:surface_id2, :surface_message2, :product, 'surface', :surface_ingested_at2), "
-                "(:message_id, :message_message, :product, 'message', :message_ingested_at)"
+                "(:surface_id1, :surface_message1, :product, :user_id, 'survey', "
+                "'surface', :surface_ingested_at1), "
+                "(:surface_id2, :surface_message2, :product, :user_id, 'survey', "
+                "'surface', :surface_ingested_at2), "
+                "(:message_id, :message_message, :product, :user_id, 'manual', "
+                "'message', :message_ingested_at)"
             ),
             {
                 "surface_id1": "00000000-0000-0000-0000-0000000000f1",
@@ -523,6 +595,7 @@ async def test_summarize_feedback_filters_by_target_type(
                 "message_id": "00000000-0000-0000-0000-0000000000f3",
                 "message_message": "message feedback",
                 "product": "vocky-cli",
+                "user_id": "user-summary",
                 "surface_ingested_at1": datetime(2026, 4, 23, 2, 0, tzinfo=UTC),
                 "surface_ingested_at2": datetime(2026, 4, 25, 2, 0, tzinfo=UTC),
                 "message_ingested_at": datetime(2026, 4, 25, 3, 0, tzinfo=UTC),
@@ -536,6 +609,8 @@ async def test_summarize_feedback_filters_by_target_type(
                 "start_ingested_at": "2026-04-23T00:00:00Z",
                 "end_ingested_at": "2026-04-26T00:00:00Z",
                 "source_product": "vocky-cli",
+                "user_id": "user-summary",
+                "trigger_type": "survey",
                 "target_type": "surface",
             },
         )
@@ -560,9 +635,21 @@ async def test_summarize_feedback_validation_error_returns_tool_error(
                 "end_ingested_at": "2026-04-24T00:00:00Z",
             },
         )
+        invalid_trigger_type_result = await client_session.call_tool(
+            "summarize_feedback",
+            {
+                "start_ingested_at": "2026-04-23T00:00:00Z",
+                "end_ingested_at": "2026-04-24T00:00:00Z",
+                "trigger_type": "reaction",
+            },
+        )
 
     assert result.isError is True
     assert result.content[0].text == "start_ingested_at is required"
+    assert invalid_trigger_type_result.isError is True
+    assert invalid_trigger_type_result.content[0].text == (
+        "trigger_type must be one of: like, dislike, comment, rating, survey, manual, other"
+    )
 
 
 @pytest.mark.anyio
@@ -598,17 +685,21 @@ async def test_list_liked_conversations_returns_only_likes_with_context(
             text(
                 "INSERT INTO feedback_events ("
                 "id, message, source_product, source_integration, conversation_id, "
-                "session_id, target_type, target_id, target_role, target_text, "
+                "session_id, user_id, trigger_type, trigger_message, trigger_metadata, "
+                "target_type, target_id, target_role, target_text, "
                 "feedback_value, comment, channel, event_at, ingested_at, "
                 "tags, messages, used_context, source_metadata, attributes"
                 ") VALUES "
                 "(:liked_id, :liked_message, :product, :integration, :conversation_id, "
-                ":session_id, :target_type, :target_id, :target_role, :target_text, "
+                ":session_id, :user_id, :trigger_type, :trigger_message, "
+                "CAST(:trigger_metadata AS jsonb), "
+                ":target_type, :target_id, :target_role, :target_text, "
                 "1, :liked_comment, :channel, :event_at, :liked_ingested_at, "
                 ":liked_tags, CAST(:liked_messages AS jsonb), CAST(:liked_context AS jsonb), "
                 "CAST(:liked_metadata AS jsonb), CAST(:liked_attributes AS jsonb)), "
                 "(:disliked_id, :disliked_message, :product, :integration, :conversation_id, "
-                ":session_id, NULL, NULL, NULL, NULL, "
+                ":session_id, :user_id, :trigger_type, :trigger_message, "
+                "CAST(:trigger_metadata AS jsonb), NULL, NULL, NULL, NULL, "
                 "2, :disliked_comment, :channel, :event_at, :disliked_ingested_at, "
                 ":disliked_tags, CAST(:disliked_messages AS jsonb), CAST(:disliked_context AS jsonb), "
                 "CAST(:disliked_metadata AS jsonb), CAST(:disliked_attributes AS jsonb))"
@@ -622,6 +713,10 @@ async def test_list_liked_conversations_returns_only_likes_with_context(
                 "integration": "pytest",
                 "conversation_id": "conv-liked",
                 "session_id": "sess-liked",
+                "user_id": "user-liked",
+                "trigger_type": "like",
+                "trigger_message": "Thumbs up",
+                "trigger_metadata": "{\"control_id\": \"liked-message-upvote\"}",
                 "target_type": "message",
                 "target_id": "assistant-liked",
                 "target_role": "assistant",
@@ -650,6 +745,8 @@ async def test_list_liked_conversations_returns_only_likes_with_context(
             "list_liked_conversations",
             {
                 "source_product": "agent-product",
+                "user_id": "user-liked",
+                "trigger_type": "like",
                 "channel": "web",
                 "tag": "few-shot",
             },
@@ -662,6 +759,10 @@ async def test_list_liked_conversations_returns_only_likes_with_context(
     ]
     liked = result.structuredContent["conversations"][0]
     assert liked["comment"] == "use this pattern"
+    assert liked["user_id"] == "user-liked"
+    assert liked["trigger_type"] == "like"
+    assert liked["trigger_message"] == "Thumbs up"
+    assert liked["trigger_metadata"] == {"control_id": "liked-message-upvote"}
     assert liked["target_type"] == "message"
     assert liked["target_id"] == "assistant-liked"
     assert liked["target_role"] == "assistant"

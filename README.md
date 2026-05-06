@@ -19,7 +19,7 @@ The name comes from VoC, short for voice of customer.
 ## What The Current Pre-MVP Does
 
 - Accept agent-decided feedback through MCP and explicit product/UI-triggered feedback through server-to-server REST without blocking on database writes
-- Store like/dislike values, optional comments, exact target context, conversation context, and metadata for later review
+- Store like/dislike values, optional comments, caller-owned user identity, trigger context, exact target context, conversation context, and metadata for later review
 - Expose minimal MCP review/query tools for retrieving records and simple counts
 - Retrieve liked conversations through MCP for AI-agent few-shot use
 - Expose separate Admin REST endpoints for human/operator review and management
@@ -41,7 +41,7 @@ Vocky is intended to follow a light open-core direction: a community, self-hosta
 
 ## Current Status
 
-- MCP feedback capture is implemented through the `capture_feedback` tool for agent-decided VoC moments and accepts explicit action feedback plus optional exact-target context quickly through a Redis-backed background worker path.
+- MCP feedback capture is implemented through the `capture_feedback` tool for agent-decided VoC moments and accepts explicit action feedback plus optional user identity, trigger context, and exact-target context quickly through a Redis-backed background worker path.
 - Web/product feedback capture is implemented through `POST /api/feedback` for server-to-server product or UI integrations that send explicit user-triggered feedback without becoming MCP clients.
 - MCP review/query tools are implemented through `list_feedback` and `summarize_feedback`.
 - AI-agent liked conversation retrieval is implemented through `list_liked_conversations`.
@@ -122,6 +122,10 @@ The Admin Web UI includes dashboard metrics, recent activity, feedback list/filt
 
 `target_type` is optional captured target context and the review discriminator for separating message, conversation, and surface feedback. Use `message` when the user judged a specific agent message, `conversation` when the user judged a whole thread, and `surface` when the user judged a page, widget, screen, or other product UI. Older records with no `target_type` remain visible in unfiltered review lists; they are excluded only when an exact `target_type` filter is supplied.
 
+`user_id` is optional caller-owned identity for the product user or account member associated with the event. It does not replace `session_id`, which remains browser, runtime, or session correlation. Trigger fields explain why capture happened: use `trigger_type` for `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, or `other`; use `trigger_message` for button text, prompt copy, survey question, or action label; and use `trigger_metadata` for structured details such as control IDs, rating scale, selected option, or redacted runtime context.
+
+For agent/process context, send review-safe summaries, retrieved snippets, tool traces, prompt summaries, and redacted execution metadata. Do not send raw hidden chain-of-thought or private model reasoning.
+
 ## Access Modes
 
 Vocky supports two clean operator modes:
@@ -201,10 +205,10 @@ Public Admin REST requests should use `Authorization: Bearer <VOCKY_ADMIN_AUTH_T
 
 The implemented MCP tools are:
 
-- `capture_feedback`: validate one feedback event, including optional action feedback and target fields, enqueue it for background persistence, and return a receipt with `request_id`, `accepted_at`, and `status="accepted"`.
-- `list_feedback`: retrieve stored feedback records with ingest-time, source, action value, channel, `target_type`, exact tag, newest-first ordering, and opaque cursor pagination. The default page size is `50` and the maximum is `100`.
-- `summarize_feedback`: return `total_count` plus zero-filled UTC `daily_counts` for an explicit ingest-time window and the supported review filters, including `target_type`.
-- `list_liked_conversations`: retrieve only liked conversations with stored messages and used context for AI-agent few-shot use, optionally filtered by `target_type`.
+- `capture_feedback`: validate one feedback event, including optional action feedback, `user_id`, trigger fields, and target fields, enqueue it for background persistence, and return a receipt with `request_id`, `accepted_at`, and `status="accepted"`.
+- `list_feedback`: retrieve stored feedback records with ingest-time, source, `user_id`, action value, channel, `target_type`, `trigger_type`, exact tag, newest-first ordering, and opaque cursor pagination. The default page size is `50` and the maximum is `100`.
+- `summarize_feedback`: return `total_count` plus zero-filled UTC `daily_counts` for an explicit ingest-time window and the supported review filters, including `user_id`, `target_type`, and `trigger_type`.
+- `list_liked_conversations`: retrieve only liked conversations with stored messages and used context for AI-agent few-shot use, optionally filtered by `user_id`, `target_type`, and `trigger_type`.
 
 `capture_feedback` success means the request was accepted for background processing, not that the feedback record is immediately queryable. `list_feedback` and `summarize_feedback` surface completed records only after the worker persists them.
 
@@ -212,7 +216,7 @@ For client integration guidance, see [docs/action-feedback-integration.md](docs/
 
 ## Web Capture REST Surface
 
-Use REST capture from trusted server-side web or product code when the user explicitly triggers feedback in the product UI and the integration is not an MCP client. REST uses the same core capture fields as MCP, but it is intended for product and website feedback actions such as page feedback, widget feedback, surveys, and non-agent like/dislike controls. For page, widget, or product-surface feedback, set `target_type` to `surface` when the exact surface is known and put product-specific context in `source_metadata` or `attributes`.
+Use REST capture from trusted server-side web or product code when the user explicitly triggers feedback in the product UI and the integration is not an MCP client. REST uses the same core capture fields as MCP, but it is intended for product and website feedback actions such as page feedback, widget feedback, surveys, ratings, and non-agent like/dislike controls. Send `user_id` when the backend has a stable product user identifier, send trigger fields for the control or workflow that caused capture, and set `target_type` to `surface` when the exact page, widget, or product surface is known. Put source-specific URL, page, widget, and backend context in `source_metadata`, and product dimensions such as plan, locale, or rollout cohort in `attributes`.
 
 The optional `channel` field is a nullable review category. Omit it by default unless the caller can explicitly assign `web`, `mobile`, or `support`.
 
@@ -232,6 +236,10 @@ curl -X POST "http://127.0.0.1:8000/api/feedback" \
     "comment": "I wanted to send feedback but did not notice the button",
     "channel": "web",
     "session_id": "sess_123",
+    "user_id": "user_123",
+    "trigger_type": "comment",
+    "trigger_message": "Pricing page feedback form",
+    "trigger_metadata": {"form_id": "pricing-feedback", "placement": "footer"},
     "target_type": "surface",
     "target_id": "pricing-page-feedback-button",
     "target_text": "Feedback",
@@ -248,7 +256,7 @@ The Admin Docs REST capture try-it form exercises this same endpoint from the br
 
 ## Admin REST Surface
 
-The Admin REST API is separate from MCP and is intended for human operators, scripts, dashboards, and the packaged Admin Web UI. It can query and manage all feedback records, including likes, dislikes, comments, target context, metadata, messages, and used context.
+The Admin REST API is separate from MCP and is intended for human operators, scripts, dashboards, and the packaged Admin Web UI. It can query and manage all feedback records, including likes, dislikes, comments, caller-owned user identity, trigger context, target context, metadata, messages, and used context.
 
 Implemented endpoints:
 
@@ -261,9 +269,9 @@ Implemented endpoints:
 
 Set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*` outside a trusted local/private environment.
 
-The Admin Web UI consumes these endpoints same-origin. Its edit form only patches `feedback_value`, `comment`, `channel`, and `tags`; captured target fields, messages, used context, `source_metadata`, and `attributes` remain read-only in the browser.
+The Admin Web UI consumes these endpoints same-origin. Its edit form only patches `feedback_value`, `comment`, `channel`, and `tags`; captured `user_id`, trigger fields, target fields, messages, used context, `source_metadata`, and `attributes` remain read-only in the browser.
 
-Admin REST patch writes apply the same channel category rule as capture: blank clears to `null`, and non-null values must be `web`, `mobile`, or `support`. Admin list filters exact-match stored channel text, including older legacy values, and exact-match `target_type` when filtering message, conversation, or surface feedback.
+Admin REST patch writes apply the same channel category rule as capture: blank clears to `null`, and non-null values must be `web`, `mobile`, or `support`. Admin list filters exact-match stored channel text, including older legacy values, and exact-match `user_id`, `target_type`, and `trigger_type` when filtering identity, message/conversation/surface, or trigger categories.
 
 ## Self-Hosted Usage
 
@@ -307,6 +315,10 @@ async def main() -> None:
                     "channel": "web",
                     "conversation_id": "conv_123",
                     "session_id": "sess_123",
+                    "user_id": "user_123",
+                    "trigger_type": "like",
+                    "trigger_message": "Assistant response thumbs-up",
+                    "trigger_metadata": {"control_id": "msg_assistant_789_like"},
                     "target_type": "message",
                     "target_id": "msg_assistant_789",
                     "target_role": "assistant",
@@ -320,6 +332,7 @@ async def main() -> None:
                     ],
                     "tags": ["feature-request"],
                     "source_metadata": {"channel": "support"},
+                    "attributes": {"plan": "team"},
                 },
             )
             print(result.structuredContent)
@@ -350,7 +363,7 @@ async def main() -> None:
                 print([tool.name for tool in tools.tools])
 ```
 
-The worker persists accepted jobs in the background. If you need to verify that the record landed, poll `list_feedback` or `summarize_feedback` using your own source or session filters.
+The worker persists accepted jobs in the background. If you need to verify that the record landed, poll `list_feedback` or `summarize_feedback` using your own source, user, session, or trigger filters.
 
 Example Caddy reverse proxy:
 

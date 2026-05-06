@@ -27,9 +27,11 @@ const state = {
       source_integration: "",
       conversation_id: "",
       session_id: "",
+      user_id: "",
       feedback_value: "",
       channel: "",
       target_type: "",
+      trigger_type: "",
       tag: "",
       limit: "50",
     },
@@ -616,9 +618,11 @@ function makeFeedbackListPath(cursor = "") {
   appendTrimmedParam(params, "source_integration", filters.source_integration);
   appendTrimmedParam(params, "conversation_id", filters.conversation_id);
   appendTrimmedParam(params, "session_id", filters.session_id);
+  appendTrimmedParam(params, "user_id", filters.user_id);
   appendTrimmedParam(params, "feedback_value", filters.feedback_value);
   appendTrimmedParam(params, "channel", filters.channel);
   appendTrimmedParam(params, "target_type", filters.target_type);
+  appendTrimmedParam(params, "trigger_type", filters.trigger_type);
   appendTrimmedParam(params, "tag", filters.tag);
   appendTrimmedParam(params, "limit", filters.limit);
   appendTrimmedParam(params, "cursor", cursor);
@@ -1154,6 +1158,7 @@ function renderFeedbackDetailRecord(record) {
   appendDetailField(fields, "Source integration", record.source_integration);
   appendDetailField(fields, "Conversation ID", record.conversation_id);
   appendDetailField(fields, "Session ID", record.session_id);
+  appendDetailField(fields, "User ID", record.user_id);
   appendDetailField(fields, "Channel", record.channel);
   appendDetailField(fields, "Feedback value", formatFeedbackValue(record.feedback_value));
   appendDetailField(fields, "Event at", record.event_at ? formatUtcDateTime(record.event_at) : "");
@@ -1168,6 +1173,19 @@ function renderFeedbackDetailRecord(record) {
   appendDetailField(targetFields, "Role", record.target_role);
   appendDetailField(targetFields, "Text", record.target_text);
   targetSection.append(targetFields);
+
+  const triggerSection = appendDetailSection(container, "Trigger");
+  const triggerFields = document.createElement("dl");
+  triggerFields.className = "feedback-detail-grid";
+  appendDetailField(triggerFields, "Type", record.trigger_type);
+  appendDetailField(triggerFields, "Message", record.trigger_message);
+  triggerSection.append(triggerFields);
+  const triggerMetadata = document.createElement("pre");
+  triggerMetadata.className = "feedback-json-block";
+  const triggerMetadataCode = document.createElement("code");
+  triggerMetadataCode.textContent = JSON.stringify(record.trigger_metadata || {}, null, 2);
+  triggerMetadata.append(triggerMetadataCode);
+  triggerSection.append(triggerMetadata);
 
   appendJsonSection(container, "Messages", Array.isArray(record.messages) ? record.messages : []);
   appendJsonSection(
@@ -1306,6 +1324,8 @@ function renderFeedbackList(records) {
     appendRecentMeta(meta, normalizeText(record.channel));
     appendRecentMeta(meta, normalizeText(record.conversation_id));
     appendRecentMeta(meta, normalizeText(record.session_id));
+    appendRecentMeta(meta, normalizeText(record.user_id));
+    appendRecentMeta(meta, normalizeText(record.trigger_type));
     appendRecentMeta(meta, formatTargetSummary(record));
 
     button.append(header, message);

@@ -20,6 +20,10 @@ class CreateFeedbackEvent:
     source_integration: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
+    user_id: str | None = None
+    trigger_type: str | None = None
+    trigger_message: str | None = None
+    trigger_metadata: dict[str, Any] = field(default_factory=dict)
     target_type: str | None = None
     target_id: str | None = None
     target_role: str | None = None
@@ -45,6 +49,10 @@ class FeedbackEventRecord:
     source_integration: str | None
     conversation_id: str | None
     session_id: str | None
+    user_id: str | None
+    trigger_type: str | None
+    trigger_message: str | None
+    trigger_metadata: dict[str, Any]
     target_type: str | None
     target_id: str | None
     target_role: str | None
@@ -68,6 +76,8 @@ class FeedbackQueryFilters:
     source_integration: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
+    user_id: str | None = None
+    trigger_type: str | None = None
     feedback_value: int | None = None
     channel: str | None = None
     target_type: str | None = None

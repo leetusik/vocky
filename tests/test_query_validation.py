@@ -32,6 +32,8 @@ def make_list_input(**overrides: object) -> ListFeedbackInput:
         "source_integration": None,
         "conversation_id": None,
         "session_id": None,
+        "user_id": None,
+        "trigger_type": None,
         "feedback_value": None,
         "channel": None,
         "target_type": None,
@@ -53,6 +55,8 @@ def make_summary_input(**overrides: object) -> SummarizeFeedbackInput:
         "source_integration": None,
         "conversation_id": None,
         "session_id": None,
+        "user_id": None,
+        "trigger_type": None,
         "feedback_value": None,
         "channel": None,
         "target_type": None,
@@ -72,6 +76,8 @@ def make_liked_input(**overrides: object) -> ListLikedConversationsInput:
         "source_integration": None,
         "conversation_id": None,
         "session_id": None,
+        "user_id": None,
+        "trigger_type": None,
         "channel": None,
         "target_type": None,
         "tag": None,
@@ -124,6 +130,14 @@ def test_invalid_target_type_is_rejected_for_listing() -> None:
         normalize_payload(make_list_input(target_type="answer"))
 
 
+def test_invalid_trigger_type_is_rejected_for_listing() -> None:
+    with pytest.raises(
+        FeedbackQueryValidationError,
+        match="trigger_type must be one of: like, dislike, comment, rating, survey, manual, other",
+    ):
+        normalize_payload(make_list_input(trigger_type="thumbs-up"))
+
+
 def test_invalid_cursor_is_rejected_for_listing() -> None:
     with pytest.raises(
         FeedbackQueryValidationError,
@@ -139,6 +153,8 @@ def test_listing_normalization_collapses_blank_optional_filters() -> None:
             source_integration=" pytest ",
             conversation_id=" conv-1 ",
             session_id="   ",
+            user_id=" user_123 ",
+            trigger_type=" survey ",
             feedback_value=1,
             channel=" web ",
             target_type=" message ",
@@ -150,6 +166,8 @@ def test_listing_normalization_collapses_blank_optional_filters() -> None:
     assert query.filters.source_integration == "pytest"
     assert query.filters.conversation_id == "conv-1"
     assert query.filters.session_id is None
+    assert query.filters.user_id == "user_123"
+    assert query.filters.trigger_type == "survey"
     assert query.filters.feedback_value == 1
     assert query.filters.channel == "web"
     assert query.filters.target_type == "message"
@@ -219,6 +237,14 @@ def test_invalid_target_type_is_rejected_for_summary() -> None:
         normalize_summary_payload(make_summary_input(target_type="thread"))
 
 
+def test_invalid_trigger_type_is_rejected_for_summary() -> None:
+    with pytest.raises(
+        FeedbackQueryValidationError,
+        match="trigger_type must be one of: like, dislike, comment, rating, survey, manual, other",
+    ):
+        normalize_summary_payload(make_summary_input(trigger_type="thumbs-sideways"))
+
+
 def test_summary_normalization_trims_optional_filters() -> None:
     query = normalize_summary_payload(
         make_summary_input(
@@ -226,6 +252,8 @@ def test_summary_normalization_trims_optional_filters() -> None:
             source_integration=" ",
             conversation_id=" conv-1 ",
             session_id=" ",
+            user_id=" user_456 ",
+            trigger_type=" rating ",
             feedback_value=2,
             channel=" mobile ",
             target_type=" surface ",
@@ -237,6 +265,8 @@ def test_summary_normalization_trims_optional_filters() -> None:
     assert query.filters.source_integration is None
     assert query.filters.conversation_id == "conv-1"
     assert query.filters.session_id is None
+    assert query.filters.user_id == "user_456"
+    assert query.filters.trigger_type == "rating"
     assert query.filters.feedback_value == 2
     assert query.filters.channel == "mobile"
     assert query.filters.target_type == "surface"
@@ -249,9 +279,29 @@ def test_liked_conversation_normalization_trims_target_type() -> None:
     assert query.filters.target_type == "conversation"
 
 
+def test_liked_conversation_normalization_trims_identity_and_trigger_filters() -> None:
+    query = normalize_liked_payload(
+        make_liked_input(
+            user_id=" user_789 ",
+            trigger_type=" manual ",
+        )
+    )
+
+    assert query.filters.user_id == "user_789"
+    assert query.filters.trigger_type == "manual"
+
+
 def test_invalid_target_type_is_rejected_for_liked_conversations() -> None:
     with pytest.raises(
         FeedbackQueryValidationError,
         match="target_type must be one of: message, conversation, surface",
     ):
         normalize_liked_payload(make_liked_input(target_type="page"))
+
+
+def test_invalid_trigger_type_is_rejected_for_liked_conversations() -> None:
+    with pytest.raises(
+        FeedbackQueryValidationError,
+        match="trigger_type must be one of: like, dislike, comment, rating, survey, manual, other",
+    ):
+        normalize_liked_payload(make_liked_input(trigger_type="reaction"))

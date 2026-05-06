@@ -27,6 +27,10 @@ def make_input(**overrides: object) -> McpCaptureFeedbackInput:
         "channel": None,
         "conversation_id": None,
         "session_id": None,
+        "user_id": None,
+        "trigger_type": None,
+        "trigger_message": None,
+        "trigger_metadata": {},
         "target_type": None,
         "target_id": None,
         "target_role": None,
@@ -114,6 +118,22 @@ def test_invalid_target_type_is_rejected() -> None:
         normalize_mcp_payload(make_input(target_type="answer"))
 
 
+def test_invalid_trigger_type_is_rejected() -> None:
+    with pytest.raises(
+        CaptureFeedbackValidationError,
+        match="trigger_type must be one of: like, dislike, comment, rating, survey, manual, other",
+    ):
+        normalize_mcp_payload(make_input(trigger_type="thumbs-up"))
+
+
+def test_trigger_metadata_must_be_object() -> None:
+    with pytest.raises(
+        CaptureFeedbackValidationError,
+        match="trigger_metadata must be a JSON object",
+    ):
+        normalize_mcp_payload(make_input(trigger_metadata=["not", "object"]))
+
+
 def test_invalid_target_role_is_rejected() -> None:
     with pytest.raises(
         CaptureFeedbackValidationError,
@@ -139,6 +159,10 @@ def test_action_feedback_context_is_accepted_and_event_at_is_normalized() -> Non
             attributes={"priority": "high"},
             conversation_id="  conv-123  ",
             session_id="   ",
+            user_id=" user_123 ",
+            trigger_type=" dislike ",
+            trigger_message="  Thumbs down  ",
+            trigger_metadata={"control_id": "assistant-message-downvote"},
             target_type=" message ",
             target_id=" msg-456 ",
             target_role=" assistant ",
@@ -161,6 +185,10 @@ def test_action_feedback_context_is_accepted_and_event_at_is_normalized() -> Non
     assert normalized.payload.attributes == {"priority": "high"}
     assert normalized.payload.conversation_id == "conv-123"
     assert normalized.payload.session_id is None
+    assert normalized.payload.user_id == "user_123"
+    assert normalized.payload.trigger_type == "dislike"
+    assert normalized.payload.trigger_message == "Thumbs down"
+    assert normalized.payload.trigger_metadata == {"control_id": "assistant-message-downvote"}
     assert normalized.payload.target_type == "message"
     assert normalized.payload.target_id == "msg-456"
     assert normalized.payload.target_role == "assistant"
@@ -184,11 +212,31 @@ def test_blank_target_fields_normalize_to_none() -> None:
     assert normalized.payload.target_text is None
 
 
+def test_blank_identity_and_trigger_fields_normalize_to_none() -> None:
+    normalized = normalize_mcp_payload(
+        make_input(
+            user_id="   ",
+            trigger_type=" ",
+            trigger_message="\t",
+            trigger_metadata=None,
+        )
+    )
+
+    assert normalized.payload.user_id is None
+    assert normalized.payload.trigger_type is None
+    assert normalized.payload.trigger_message is None
+    assert normalized.payload.trigger_metadata == {}
+
+
 def test_rest_payload_uses_shared_capture_normalization() -> None:
     normalized = normalize_rest_payload(
         RestCaptureFeedbackInput(
             message="  Pricing page feedback  ",
             source=CaptureFeedbackSourceInput(product="product-site", integration="feedback-api"),
+            user_id=" user_123 ",
+            trigger_type=" like ",
+            trigger_message=" Pricing thumbs-up ",
+            trigger_metadata={"control_id": "pricing-like"},
             target_type=" surface ",
             target_id=" pricing-page ",
             target_text="  Pricing page  ",
@@ -200,6 +248,10 @@ def test_rest_payload_uses_shared_capture_normalization() -> None:
     assert normalized.payload.message == "Pricing page feedback"
     assert normalized.payload.source_product == "product-site"
     assert normalized.payload.source_integration == "feedback-api"
+    assert normalized.payload.user_id == "user_123"
+    assert normalized.payload.trigger_type == "like"
+    assert normalized.payload.trigger_message == "Pricing thumbs-up"
+    assert normalized.payload.trigger_metadata == {"control_id": "pricing-like"}
     assert normalized.payload.feedback_value is None
     assert normalized.payload.target_type == "surface"
     assert normalized.payload.target_id == "pricing-page"

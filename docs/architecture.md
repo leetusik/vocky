@@ -114,11 +114,29 @@ For Cloudflare Tunnel users, the recommended public shape is a hostname-to-servi
 - `message` is the required human-readable feedback summary or display text. It is not an implicit target selector.
 - `conversation_id` identifies the conversation or thread that the feedback belongs to.
 - `session_id` is optional runtime, browser, or user-session scope that can correlate repeated interactions without replacing `conversation_id`.
+- `user_id` is an optional caller-owned end-user or account-member identifier. It is stored as opaque identity context and does not replace `session_id`, product auth, or tenancy concepts.
+- Trigger fields preserve why capture happened: `trigger_type` stores the normalized trigger category, `trigger_message` stores optional event copy or action text, and `trigger_metadata` stores structured trigger-specific context.
 - `channel` is an optional nullable review category. New captures and Admin edits should only assign `web`, `mobile`, `support`, or `null`; blank input is normalized to `null`, and no channel is inferred by default.
 - Target fields identify the exact reviewed item when known: `target_type` describes whether the target is a `message`, whole `conversation`, or product/UI `surface`; `null` means no exact target category was supplied; `target_id` stores the caller's stable identifier; `target_role` stores the reviewed message role when applicable; and `target_text` stores a snapshot of the exact reviewed text.
 - `messages` stores surrounding conversation context supplied by the caller. `used_context` stores context that the agent used while producing the reviewed response.
 - REST product or website feedback can omit conversation-specific fields and store page, widget, URL, account, or runtime context in `target_*`, `source_metadata`, and `attributes`.
 - The storage layer only needs to support the retrieval and aggregate queries required by the MCP review tools; it does not need analytics-warehouse style modeling for the first MVP.
+
+## Field Responsibilities
+
+The capture schema is shared by MCP and public REST. The fields are organized by responsibility so callers can choose the right amount of context without creating transport-specific payload shapes or split storage. Admin REST reads the same stored shape and can manage only the fields that are review-oriented in the current MVP.
+
+| Responsibility | Current fields | Role |
+| --- | --- | --- |
+| Display and action | `message`, `feedback_value`, `comment` | Human-readable record label plus explicit like, dislike, or comment details. |
+| Source identity | `source.product` / `source_product`, `source.integration` / `source_integration` | Caller-provided product and integration identity for grouping and filtering. |
+| Caller identity | `user_id` | Caller-owned opaque user or account-member identity associated with the feedback event. |
+| Trigger context | `trigger_type`, `trigger_message`, `trigger_metadata` | Captures the action, copy, survey, rating, manual workflow, or other product event that caused feedback capture. |
+| Review category | `channel`, `tags` | Operator-facing classification and exact filters. `channel` is constrained for new writes; `tags` remain caller-provided labels. |
+| Exact target | `target_type`, `target_id`, `target_role`, `target_text` | Identifies the reviewed message, conversation, or product surface when known. `target_type` is the first-class review discriminator. |
+| Conversation and session context | `conversation_id`, `session_id`, `messages` | Groups records with conversation/thread scope, runtime/session scope, and supplied surrounding messages. |
+| Agent and process context | `used_context` | Preserves the documents, snippets, tool context, or other context the agent used while producing the reviewed response. |
+| Metadata | `id`, `event_at`, `ingested_at`, `source_metadata`, `attributes` | Stores record identity, event and ingest time, source-specific context, and product-specific dimensions. |
 
 ## Capture Storage Model
 
@@ -135,6 +153,10 @@ The primary table is `feedback_events` with this hybrid shape:
 - `source_integration TEXT` null
 - `conversation_id TEXT` null
 - `session_id TEXT` null
+- `user_id TEXT` null
+- `trigger_type TEXT` null, accepted values `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, and `other`
+- `trigger_message TEXT` null
+- `trigger_metadata JSONB` not null with default empty object
 - `target_type TEXT` null, where expected capture values are `message`, `conversation`, and `surface`
 - `target_id TEXT` null
 - `target_role TEXT` null, where expected capture values are `user`, `assistant`, `system`, and `tool`
@@ -156,6 +178,8 @@ Indexes for the intended P1 read model should cover:
 - `channel`
 - `conversation_id`
 - `session_id`
+- `user_id`
+- `trigger_type`
 - `target_type`
 - GIN on `tags`
 
@@ -189,15 +213,18 @@ The Admin dashboard metrics path uses the same read layers:
 
 The implemented P1 read query model uses these constraints:
 
-- Read filters are limited to `ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `feedback_value`, `channel`, `target_type`, and exact single-tag membership.
+- Read filters are limited to `ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `feedback_value`, `channel`, `target_type`, `trigger_type`, and exact single-tag membership.
+- The P1 read model does not add filters for `trigger_message`, `trigger_metadata`, `target_id`, `target_role`, `target_text`, arbitrary JSONB fields, or records where an optional string field is unset.
 - Channel read filters use exact matching after trimming blank input to absence. They should continue to support legacy stored channel strings even though new capture and Admin edit writes are limited to `web`, `mobile`, `support`, or `null`.
 - `target_type` read filters use exact matching after trimming blank input to absence. Accepted non-blank filter values are `message`, `conversation`, and `surface`; this phase does not add filters for `target_id`, `target_role`, `target_text`, or records where `target_type is null`.
+- `trigger_type` read filters use exact matching after trimming blank input to absence. Accepted non-blank filter values are `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, and `other`; this phase does not add a filter for records where `trigger_type is null`.
 - Time filtering uses `ingested_at` only. `start_ingested_at` is inclusive and `end_ingested_at` is exclusive after normalization to UTC.
 - `list_feedback` returns full stored records ordered newest-first by `(ingested_at desc, id desc)`.
 - `list_feedback` defaults to `50` records per page and rejects values outside `1` through `100`.
 - `list_feedback` pagination uses an opaque base64url-encoded JSON cursor derived from the last returned record's `ingested_at` and `id`.
 - `summarize_feedback` returns only `total_count` plus UTC `daily_counts`, with zero-filled missing days inside the requested window.
 - The base phase does not add full-text search, JSONB filtering, target-id filtering, target-role filtering, target-text filtering, or new summary dimensions.
+- Admin dashboard metrics remain ingest-window-only and do not add `user_id`, `trigger_type`, trigger-message, trigger-metadata, or other dimension filters in this phase.
 - `list_feedback` returns action fields and stored JSON context with each record so operators can inspect likes and dislikes without a separate transcript store.
 - Accepted capture jobs are not queryable until the background worker persists them into `feedback_events`.
 
@@ -214,6 +241,9 @@ The implemented P1 read query model uses these constraints:
 - Return MCP capture validation failures and storage write failures as MCP tool execution errors instead of protocol errors.
 - Return REST capture validation failures as `400` JSON responses.
 - Reject non-null channel values outside `web`, `mobile`, and `support` on new MCP capture, REST capture, and Admin REST patch writes.
+- Normalize optional string capture fields, including `user_id`, `trigger_type`, and `trigger_message`, by trimming leading and trailing whitespace and converting blank values to `null`.
+- Reject non-null `trigger_type` values outside `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, and `other` on MCP capture and REST capture writes.
+- Require `trigger_metadata` to be a JSON object when supplied; omit or default it to `{}` when absent.
 - Return MCP queue-accept failures as MCP tool execution errors instead of protocol errors.
 - Return REST queue-accept failures as `503` JSON responses.
 - Return query validation failures and storage read failures as MCP tool execution errors instead of protocol errors.

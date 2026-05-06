@@ -2,7 +2,7 @@
 
 ## Status
 
-The feedback capture MCP tool, Web Feedback Capture REST API, `P3` read tools, MCP/Admin `target_type` read filters, Admin REST channel validation, Admin UI channel category workflows, and Admin Docs REST capture try-it behavior are implemented. These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
+The feedback capture MCP tool, Web Feedback Capture REST API, `P3` read tools, MCP/Admin `target_type` read filters, optional `user_id` and trigger fields, Admin REST channel validation, Admin UI channel category workflows, and Admin Docs REST capture try-it behavior are implemented. These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
 
 ## Purpose
 
@@ -74,6 +74,55 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Non-blank filter values must be `message`, `conversation`, or `surface`
   - This phase does not add a filter for records where `target_type` is unset
 
+### Shared Identity and Trigger Rules
+
+- Status: implemented
+- Applies to: MCP capture, Web Feedback Capture REST API, MCP read filters for stored records, summary filters, liked-conversation filters, and Admin REST list/detail record responses
+- Fields:
+  - `user_id: string | null` optionally identifies the caller-owned end user, account member, or product user associated with the feedback event
+  - `trigger_type: string | null` optionally categorizes the action or workflow that caused capture
+  - `trigger_message: string | null` optionally stores the action label, prompt copy, button text, survey question, or event description that caused capture
+  - `trigger_metadata: object` stores structured trigger-specific context and defaults to `{}`
+- Trigger type values:
+  - `null` or omitted means the caller did not identify a trigger category
+  - Allowed non-null values are `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, and `other`
+- Capture write behavior:
+  - `user_id`, `trigger_type`, and `trigger_message` trim leading and trailing whitespace
+  - Blank `user_id`, `trigger_type`, and `trigger_message` values are normalized to `null`
+  - Non-null `trigger_type` values outside the allowed set are rejected
+  - `trigger_metadata` must be a JSON object when supplied; omitted values default to `{}`
+- Read/filter behavior:
+  - Stored record responses return `user_id`, `trigger_type`, `trigger_message`, and `trigger_metadata`
+  - MCP `list_feedback`, MCP `summarize_feedback`, MCP `list_liked_conversations`, and `GET /admin/api/feedback` support exact `user_id` and `trigger_type` filters after trimming blank query input to absence
+  - `trigger_message` and `trigger_metadata` are returned for inspection but are not filterable in P1
+  - Admin dashboard metrics remain limited to the required ingest-time window and do not add identity or trigger filters
+- Compatibility:
+  - `user_id` does not replace `session_id`; `session_id` remains runtime, browser, or user-session correlation
+  - `trigger_message` does not replace the primary feedback `message` or the optional user `comment`
+  - Trigger fields describe why capture happened; target fields describe what was reviewed; `used_context`, `messages`, `source_metadata`, and `attributes` keep their existing roles
+
+### Shared Capture Field Responsibilities
+
+- Status: implemented
+- Applies to: MCP capture and Web Feedback Capture REST API inputs, stored feedback records, MCP read responses, and Admin REST record responses
+- Contract shape:
+  - MCP capture and Web Feedback Capture REST API use the same current capture fields and validation rules.
+  - MCP capture is intended for agent/runtime-decided VoC capture, while Web Feedback Capture REST is intended for trusted server-to-server product/UI capture.
+  - Admin REST is the human/operator review and management surface over the same stored record shape; it is not a public capture variant.
+- Field groups:
+  - Display and action: `message`, `feedback_value`, and `comment`
+  - Source identity: `source.product` / `source_product` and `source.integration` / `source_integration`
+  - Caller identity: `user_id`
+  - Trigger context: `trigger_type`, `trigger_message`, and `trigger_metadata`
+  - Review category: `channel` and `tags`
+  - Exact target: `target_type`, `target_id`, `target_role`, and `target_text`
+  - Conversation and session context: `conversation_id`, `session_id`, and `messages`
+  - Agent and process context: `used_context`
+  - Metadata: `id`, `event_at`, `ingested_at`, `source_metadata`, and `attributes`
+- Notes:
+  - The shared field set does not create REST-only aliases, a separate endpoint, hard transport-specific payloads, or split storage.
+  - Admin REST can inspect all stored field groups but only patches the review-oriented fields documented in the Admin Feedback REST API contract.
+
 ### Feedback Capture MCP Tool
 
 - Status: implemented in `P1`
@@ -91,6 +140,10 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`. Non-null values must be one of the built-in channel categories: `web`, `mobile`, or `support`.
     - `conversation_id: string` optional. Caller-provided conversation or thread identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `session_id: string` optional. Caller-provided runtime, browser, or user-session identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `user_id: string` optional. Caller-owned end-user or account-member identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `trigger_type: string` optional. Allowed values are `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, and `other`. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `trigger_message: string` optional. Action label, prompt copy, survey question, button text, or event description that caused capture. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `trigger_metadata: object` optional. Structured trigger context persisted as supplied; omitted values default to `{}`.
     - `target_type: string` optional. Identifies the exact reviewed target category. Allowed values are `message`, `conversation`, and `surface`. `null` means the caller did not identify an exact target category. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `target_id: string` optional. Caller-provided stable identifier for the reviewed target. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `target_role: string` optional. Role for a reviewed message target. Allowed values are `user`, `assistant`, `system`, and `tool`. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
@@ -110,7 +163,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `accepted_at: string` UTC ISO 8601 timestamp generated when the queue accepts the job
     - `status: string` fixed to `accepted`
 - Errors:
-  - Validation failures, including invalid non-null `channel` values, return an MCP tool execution error with `isError: true`
+  - Validation failures, including invalid non-null `channel` or `trigger_type` values, return an MCP tool execution error with `isError: true`
   - Queue-accept failures return an MCP tool execution error with `isError: true`
   - Unknown-tool and protocol-level failures remain MCP protocol errors
 - Auth or permissions:
@@ -149,6 +202,10 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `channel: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`. Non-null values must be one of the built-in channel categories: `web`, `mobile`, or `support`.
     - `conversation_id: string` optional. Caller-provided conversation or thread identifier when the REST feedback belongs to a conversation. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `session_id: string` optional. Caller-provided runtime, browser, or user-session identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `user_id: string` optional. Caller-owned end-user or account-member identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `trigger_type: string` optional. Allowed values are `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, and `other`. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `trigger_message: string` optional. Action label, prompt copy, survey question, button text, or event description that caused capture. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `trigger_metadata: object` optional. Structured trigger context persisted as supplied; omitted values default to `{}`.
     - `target_type: string` optional. Allowed values are `message`, `conversation`, and `surface`. Use `surface` for page, widget, screen, or other non-message product-surface feedback when the exact target is known. `null` means the caller did not identify an exact target category.
     - `target_id: string` optional. Caller-provided stable identifier for the target, such as a message id, page id, widget id, or UI surface id. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `target_role: string` optional. Role for message targets. Allowed values are `user`, `assistant`, `system`, and `tool`. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
@@ -167,7 +224,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `status: string` fixed to `accepted`
 - Errors:
   - Missing or invalid bearer token when auth is configured returns `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`
-  - Malformed JSON, non-object request bodies, schema errors, invalid non-null `channel` values, and semantic validation failures return `400 {"detail":"..."}`
+  - Malformed JSON, non-object request bodies, schema errors, invalid non-null `channel` or `trigger_type` values, and semantic validation failures return `400 {"detail":"..."}`
   - Queue-accept failures return `503 {"detail":"capture queue unavailable"}`
 - Notes:
   - This REST API is capture-only. It does not add public REST review, query, summary, job-status, or management endpoints.
@@ -192,6 +249,8 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source_integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `user_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `trigger_type: string` optional. Exact trigger-type filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Non-blank values must be `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, or `other`.
     - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike.
     - `channel: string` optional. Exact channel filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Built-in and legacy stored channel values can be filtered exactly.
     - `target_type: string` optional. Exact target-type filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Non-blank values must be `message`, `conversation`, or `surface`.
@@ -215,6 +274,10 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source_integration: string | null`
     - `conversation_id: string | null`
     - `session_id: string | null`
+    - `user_id: string | null`
+    - `trigger_type: string | null`
+    - `trigger_message: string | null`
+    - `trigger_metadata: object`
     - `target_type: string | null`
     - `target_id: string | null`
     - `target_role: string | null`
@@ -227,7 +290,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source_metadata: object`
     - `attributes: object`
 - Errors:
-  - Invalid timestamps, invalid time windows, invalid limits, blank `tag`, and invalid cursors return MCP tool execution errors with `isError: true`
+  - Invalid timestamps, invalid time windows, invalid non-null `trigger_type`, invalid limits, blank `tag`, and invalid cursors return MCP tool execution errors with `isError: true`
   - Storage read failures return MCP tool execution errors with `isError: true`
   - Unknown-tool and protocol-level failures remain MCP protocol errors
 - Auth or permissions:
@@ -256,6 +319,8 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source_integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `user_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `trigger_type: string` optional. Exact trigger-type filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Non-blank values must be `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, or `other`.
     - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike.
     - `channel: string` optional. Exact channel filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Built-in and legacy stored channel values can be filtered exactly.
     - `target_type: string` optional. Exact target-type filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Non-blank values must be `message`, `conversation`, or `surface`.
@@ -271,7 +336,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `day: string` UTC calendar day in `YYYY-MM-DD` format
     - `count: integer`
 - Errors:
-  - Missing or invalid timestamps, invalid time windows, and blank `tag` return MCP tool execution errors with `isError: true`
+  - Missing or invalid timestamps, invalid time windows, invalid non-null `trigger_type`, and blank `tag` return MCP tool execution errors with `isError: true`
   - Storage read failures return MCP tool execution errors with `isError: true`
   - Unknown-tool and protocol-level failures remain MCP protocol errors
 - Auth or permissions:
@@ -297,6 +362,8 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source_integration: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `conversation_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
     - `session_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `user_id: string` optional. Leading and trailing whitespace is trimmed. Blank values are normalized to absent.
+    - `trigger_type: string` optional. Exact trigger-type filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Non-blank values must be `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, or `other`.
     - `channel: string` optional. Exact channel filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Built-in and legacy stored channel values can be filtered exactly.
     - `target_type: string` optional. Exact target-type filter. Leading and trailing whitespace is trimmed. Blank values are normalized to absent. Non-blank values must be `message`, `conversation`, or `surface`.
     - `tag: string` optional. Leading and trailing whitespace is trimmed. Blank values are rejected.
@@ -318,6 +385,10 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source_integration: string | null`
     - `conversation_id: string | null`
     - `session_id: string | null`
+    - `user_id: string | null`
+    - `trigger_type: string | null`
+    - `trigger_message: string | null`
+    - `trigger_metadata: object`
     - `target_type: string | null`
     - `target_id: string | null`
     - `target_role: string | null`
@@ -330,7 +401,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source_metadata: object`
     - `attributes: object`
 - Errors:
-  - Invalid timestamps, invalid time windows, invalid limits, blank `tag`, and invalid cursors return MCP tool execution errors with `isError: true`
+  - Invalid timestamps, invalid time windows, invalid non-null `trigger_type`, invalid limits, blank `tag`, and invalid cursors return MCP tool execution errors with `isError: true`
   - Storage read failures return MCP tool execution errors with `isError: true`
 - Auth or permissions:
   - Deployment-specific for the self-hosted MVP
@@ -356,7 +427,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - Returns `{"service":"vocky","surface":"admin","status":"ok"}`
   - `GET /admin/api/feedback`
     - Lists all feedback records by default, not only liked records
-    - Supports `start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `feedback_value`, exact `channel`, exact `target_type`, `tag`, `limit`, and `cursor`
+    - Supports `start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `feedback_value`, exact `channel`, exact `target_type`, exact `trigger_type`, `tag`, `limit`, and `cursor`
     - Returns `records` and optional `next_cursor`
   - `GET /admin/api/feedback/metrics`
     - Returns dashboard metrics for a required ingest-time window
@@ -369,7 +440,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - `PATCH /admin/api/feedback/{feedback_id}`
     - Updates review-oriented fields: `feedback_value`, `comment`, `channel`, `tags`, `source_metadata`, and `attributes`
     - `channel`, when patched, is trimmed; blank values clear the category to `null`; non-null values must be `web`, `mobile`, or `support`
-    - Captured target fields, `messages`, and `used_context` are immutable in this MVP
+    - Captured target fields, trigger fields, `user_id`, `messages`, and `used_context` are immutable in this MVP
     - Returns the updated record
   - `DELETE /admin/api/feedback/{feedback_id}`
     - Deletes one feedback record and returns `204` on success
@@ -383,6 +454,10 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - `source_integration: string | null`
   - `conversation_id: string | null`
   - `session_id: string | null`
+  - `user_id: string | null`
+  - `trigger_type: string | null`
+  - `trigger_message: string | null`
+  - `trigger_metadata: object`
   - `target_type: string | null`
   - `target_id: string | null`
   - `target_role: string | null`

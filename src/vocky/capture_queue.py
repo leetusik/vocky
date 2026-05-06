@@ -65,6 +65,10 @@ def _serialize_payload(payload: CreateFeedbackEvent) -> dict[str, Any]:
         "source_integration": payload.source_integration,
         "conversation_id": payload.conversation_id,
         "session_id": payload.session_id,
+        "user_id": payload.user_id,
+        "trigger_type": payload.trigger_type,
+        "trigger_message": payload.trigger_message,
+        "trigger_metadata": dict(payload.trigger_metadata),
         "target_type": payload.target_type,
         "target_id": payload.target_id,
         "target_role": payload.target_role,
@@ -118,6 +122,22 @@ def _deserialize_payload(raw: dict[str, Any]) -> CreateFeedbackEvent:
             if raw.get("session_id") is not None
             else None
         ),
+        user_id=(
+            str(raw["user_id"])
+            if raw.get("user_id") is not None
+            else None
+        ),
+        trigger_type=(
+            str(raw["trigger_type"])
+            if raw.get("trigger_type") is not None
+            else None
+        ),
+        trigger_message=(
+            str(raw["trigger_message"])
+            if raw.get("trigger_message") is not None
+            else None
+        ),
+        trigger_metadata=dict(raw.get("trigger_metadata") or {}),
         target_type=(
             str(raw["target_type"])
             if raw.get("target_type") is not None

@@ -46,6 +46,7 @@ def test_admin_ui_index_routes_serve_packaged_html() -> None:
     assert 'data-feedback-filter="source_integration"' in response.text
     assert 'data-feedback-filter="conversation_id"' in response.text
     assert 'data-feedback-filter="session_id"' in response.text
+    assert 'data-feedback-filter="user_id"' in response.text
     assert 'data-feedback-filter="channel"' in response.text
     assert '<select name="channel" data-feedback-filter="channel">' in response.text
     assert '<option value="web">web</option>' in response.text
@@ -56,6 +57,14 @@ def test_admin_ui_index_routes_serve_packaged_html() -> None:
     assert '<option value="message">message</option>' in response.text
     assert '<option value="conversation">conversation</option>' in response.text
     assert '<option value="surface">surface</option>' in response.text
+    assert 'data-feedback-filter="trigger_type"' in response.text
+    assert '<select name="trigger_type" data-feedback-filter="trigger_type">' in response.text
+    assert '<option value="like">like</option>' in response.text
+    assert '<option value="dislike">dislike</option>' in response.text
+    assert '<option value="rating">rating</option>' in response.text
+    assert '<option value="survey">survey</option>' in response.text
+    assert '<option value="manual">manual</option>' in response.text
+    assert '<option value="other">other</option>' in response.text
     assert 'data-feedback-filter="tag"' in response.text
     assert 'data-feedback-filter="limit"' in response.text
     assert 'data-feedback-list' in response.text
@@ -125,7 +134,9 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     assert "makeFeedbackListPath" in js_response.text
     assert 'start_ingested_at' in js_response.text
     assert 'feedback_value' in js_response.text
+    assert 'appendTrimmedParam(params, "user_id", filters.user_id)' in js_response.text
     assert 'appendTrimmedParam(params, "target_type", filters.target_type)' in js_response.text
+    assert 'appendTrimmedParam(params, "trigger_type", filters.trigger_type)' in js_response.text
     assert 'cursor' in js_response.text
     assert "refreshFeedback" in js_response.text
     assert "selectFeedbackRecord" in js_response.text
@@ -138,6 +149,12 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     assert "target_role" in js_response.text
     assert "target_text" in js_response.text
     assert 'appendDetailSection(container, "Target")' in js_response.text
+    assert "user_id" in js_response.text
+    assert "trigger_type" in js_response.text
+    assert "trigger_message" in js_response.text
+    assert "trigger_metadata" in js_response.text
+    assert 'appendDetailSection(container, "Trigger")' in js_response.text
+    assert 'appendDetailField(fields, "User ID", record.user_id)' in js_response.text
     assert "dataset.feedbackEditForm" in js_response.text
     assert "buildChannelSelect" in js_response.text
     assert "Legacy: ${channel}" in js_response.text
@@ -210,6 +227,10 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
         "guarded delete",
         "channel categories",
         "web, mobile, and support",
+        "user_id",
+        "trigger_type",
+        "trigger fields",
+        "chain-of-thought",
         "target_type",
         "target_type message, conversation, or surface",
         "Any leaves older records with unset target_type visible",
@@ -260,6 +281,13 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     assert try_block["default_payload"]["message"].startswith("피드백을 보내주세요!")
     assert try_block["default_payload"]["target_text"] == "피드백을 보내주세요!"
     assert try_block["default_payload"]["source"]["integration"] == "admin-docs-try"
+    assert try_block["default_payload"]["user_id"] == "user_docs_try_001"
+    assert try_block["default_payload"]["trigger_type"] == "like"
+    assert try_block["default_payload"]["trigger_message"] == "Pricing page thumbs-up"
+    assert try_block["default_payload"]["trigger_metadata"] == {
+        "control_id": "pricing-page-like",
+        "placement": "hero",
+    }
     assert try_block["default_payload"]["target_type"] == "surface"
 
 

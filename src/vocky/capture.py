@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from vocky.channel import ChannelValidationError, normalize_channel_write
 from vocky.feedback import CreateFeedbackEvent
+from vocky.trigger import TriggerTypeValidationError, normalize_trigger_type
 
 ALLOWED_TARGET_TYPES = frozenset({"message", "conversation", "surface"})
 ALLOWED_TARGET_ROLES = frozenset({"user", "assistant", "system", "tool"})
@@ -37,6 +38,10 @@ class BaseCaptureFeedbackInput(BaseModel):
     channel: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
+    user_id: str | None = None
+    trigger_type: str | None = None
+    trigger_message: str | None = None
+    trigger_metadata: Any = Field(default_factory=dict)
     target_type: str | None = None
     target_id: str | None = None
     target_role: str | None = None
@@ -179,6 +184,15 @@ def normalize_capture_channel(value: str | None) -> str | None:
         raise CaptureFeedbackValidationError(str(exc)) from exc
 
 
+def normalize_capture_trigger_type(value: str | None) -> str | None:
+    """Normalize and validate a trigger type from a capture transport."""
+
+    try:
+        return normalize_trigger_type(value)
+    except TriggerTypeValidationError as exc:
+        raise CaptureFeedbackValidationError(str(exc)) from exc
+
+
 def normalize_json_array(value: list[Any] | None, *, field_name: str) -> tuple[Any, ...]:
     """Normalize an optional JSON array field."""
 
@@ -187,6 +201,16 @@ def normalize_json_array(value: list[Any] | None, *, field_name: str) -> tuple[A
     if not isinstance(value, list):
         raise CaptureFeedbackValidationError(f"{field_name} must be a JSON array")
     return tuple(value)
+
+
+def normalize_json_object(value: Any, *, field_name: str) -> dict[str, Any]:
+    """Normalize an optional JSON object field."""
+
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise CaptureFeedbackValidationError(f"{field_name} must be a JSON object")
+    return dict(value)
 
 
 def _normalize_capture_payload(raw: BaseCaptureFeedbackInput) -> NormalizedCaptureFeedback:
@@ -202,6 +226,13 @@ def _normalize_capture_payload(raw: BaseCaptureFeedbackInput) -> NormalizedCaptu
         source_integration=normalize_optional_text(raw.source.integration),
         conversation_id=normalize_optional_text(raw.conversation_id),
         session_id=normalize_optional_text(raw.session_id),
+        user_id=normalize_optional_text(raw.user_id),
+        trigger_type=normalize_capture_trigger_type(raw.trigger_type),
+        trigger_message=normalize_optional_text(raw.trigger_message),
+        trigger_metadata=normalize_json_object(
+            raw.trigger_metadata,
+            field_name="trigger_metadata",
+        ),
         target_type=normalize_target_type(raw.target_type),
         target_id=normalize_optional_text(raw.target_id),
         target_role=normalize_target_role(raw.target_role),

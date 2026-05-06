@@ -29,17 +29,22 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
             text(
                 "INSERT INTO feedback_events ("
                 "id, message, source_product, source_integration, conversation_id, "
-                "session_id, target_type, target_id, target_role, target_text, "
+                "session_id, user_id, trigger_type, trigger_message, trigger_metadata, "
+                "target_type, target_id, target_role, target_text, "
                 "feedback_value, comment, channel, event_at, ingested_at, "
                 "tags, messages, used_context, source_metadata, attributes"
                 ") VALUES "
                 "(:like_id, :like_message, :product, :integration, :conversation_id, "
-                ":session_id, :target_type, :target_id, :target_role, :target_text, "
+                ":session_id, :like_user_id, :like_trigger_type, :like_trigger_message, "
+                "CAST(:like_trigger_metadata AS jsonb), "
+                ":target_type, :target_id, :target_role, :target_text, "
                 "1, :like_comment, :channel, :event_at, :like_ingested_at, "
                 ":tags, CAST(:like_messages AS jsonb), CAST(:like_context AS jsonb), "
                 "CAST(:metadata AS jsonb), CAST(:like_attributes AS jsonb)), "
                 "(:dislike_id, :dislike_message, :product, :integration, :conversation_id, "
-                ":session_id, NULL, NULL, NULL, NULL, "
+                ":session_id, :dislike_user_id, :dislike_trigger_type, "
+                ":dislike_trigger_message, CAST(:dislike_trigger_metadata AS jsonb), "
+                "NULL, NULL, NULL, NULL, "
                 "2, :dislike_comment, :channel, :event_at, :dislike_ingested_at, "
                 ":tags, CAST(:dislike_messages AS jsonb), CAST(:dislike_context AS jsonb), "
                 "CAST(:metadata AS jsonb), CAST(:dislike_attributes AS jsonb))"
@@ -53,6 +58,14 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
                 "integration": "pytest",
                 "conversation_id": "conv-admin",
                 "session_id": "sess-admin",
+                "like_user_id": "user-admin",
+                "like_trigger_type": "like",
+                "like_trigger_message": "Thumbs up",
+                "like_trigger_metadata": "{\"control_id\": \"admin-like\"}",
+                "dislike_user_id": "user-admin",
+                "dislike_trigger_type": "dislike",
+                "dislike_trigger_message": "Thumbs down",
+                "dislike_trigger_metadata": "{\"control_id\": \"admin-dislike\"}",
                 "target_type": "message",
                 "target_id": "assistant-admin",
                 "target_role": "assistant",
@@ -81,6 +94,7 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
             params={
                 "source_product": "admin-product",
                 "channel": "web",
+                "user_id": "user-admin",
                 "tag": "admin",
             },
         )
@@ -98,6 +112,13 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
                 "target_type": " message ",
             },
         )
+        trigger_type_response = await client.get(
+            "/admin/api/feedback",
+            params={
+                "source_product": "admin-product",
+                "trigger_type": " like ",
+            },
+        )
 
     assert response.status_code == 200
     records = response.json()["records"]
@@ -107,6 +128,10 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
     ]
     assert [record["feedback_value"] for record in records] == [2, 1]
     assert records[0]["comment"] == "bad answer"
+    assert records[0]["user_id"] == "user-admin"
+    assert records[0]["trigger_type"] == "dislike"
+    assert records[0]["trigger_message"] == "Thumbs down"
+    assert records[0]["trigger_metadata"] == {"control_id": "admin-dislike"}
     assert records[0]["target_type"] is None
     assert records[0]["target_id"] is None
     assert records[0]["target_role"] is None
@@ -124,6 +149,10 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
     ]
     assert target_type_response.status_code == 200
     assert [record["message"] for record in target_type_response.json()["records"]] == [
+        "liked answer"
+    ]
+    assert trigger_type_response.status_code == 200
+    assert [record["message"] for record in trigger_type_response.json()["records"]] == [
         "liked answer"
     ]
 
@@ -288,10 +317,12 @@ async def test_admin_get_feedback_returns_full_record(configured_database: str) 
             text(
                 "INSERT INTO feedback_events ("
                 "id, message, source_product, feedback_value, comment, channel, "
+                "user_id, trigger_type, trigger_message, trigger_metadata, "
                 "target_type, target_id, target_role, target_text, ingested_at, "
                 "messages, used_context"
                 ") VALUES ("
                 ":id, :message, :source_product, 1, :comment, :channel, "
+                ":user_id, :trigger_type, :trigger_message, CAST(:trigger_metadata AS jsonb), "
                 ":target_type, :target_id, :target_role, :target_text, :ingested_at, "
                 "CAST(:messages AS jsonb), CAST(:used_context AS jsonb)"
                 ")"
@@ -302,6 +333,10 @@ async def test_admin_get_feedback_returns_full_record(configured_database: str) 
                 "source_product": "admin-product",
                 "comment": "detail comment",
                 "channel": "web",
+                "user_id": "user-detail",
+                "trigger_type": "manual",
+                "trigger_message": "Operator import",
+                "trigger_metadata": "{\"source\": \"operator\"}",
                 "target_type": "message",
                 "target_id": "assistant-detail",
                 "target_role": "assistant",
@@ -322,6 +357,10 @@ async def test_admin_get_feedback_returns_full_record(configured_database: str) 
 
     assert response.status_code == 200
     assert response.json()["record"]["message"] == "detail answer"
+    assert response.json()["record"]["user_id"] == "user-detail"
+    assert response.json()["record"]["trigger_type"] == "manual"
+    assert response.json()["record"]["trigger_message"] == "Operator import"
+    assert response.json()["record"]["trigger_metadata"] == {"source": "operator"}
     assert response.json()["record"]["target_type"] == "message"
     assert response.json()["record"]["target_id"] == "assistant-detail"
     assert response.json()["record"]["target_role"] == "assistant"
@@ -464,6 +503,10 @@ async def test_admin_list_feedback_preserves_legacy_channel_filter(
             "source_integration": None,
             "conversation_id": None,
             "session_id": None,
+            "user_id": None,
+            "trigger_type": None,
+            "trigger_message": None,
+            "trigger_metadata": {},
             "target_type": None,
             "target_id": None,
             "target_role": None,
@@ -519,6 +562,10 @@ async def test_admin_list_feedback_validation_errors(configured_database: str) -
             "/admin/api/feedback",
             params={"target_type": "answer"},
         )
+        invalid_trigger_type_response = await client.get(
+            "/admin/api/feedback",
+            params={"trigger_type": "reaction"},
+        )
 
     assert response.status_code == 400
     assert response.json() == {
@@ -527,4 +574,8 @@ async def test_admin_list_feedback_validation_errors(configured_database: str) -
     assert invalid_target_type_response.status_code == 400
     assert invalid_target_type_response.json() == {
         "detail": "target_type must be one of: message, conversation, surface"
+    }
+    assert invalid_trigger_type_response.status_code == 400
+    assert invalid_trigger_type_response.json() == {
+        "detail": "trigger_type must be one of: like, dislike, comment, rating, survey, manual, other"
     }

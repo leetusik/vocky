@@ -24,6 +24,7 @@ from vocky.tools.query_feedback_common import (
     normalize_optional_text,
     normalize_tag,
     normalize_target_type_filter,
+    normalize_trigger_type_filter,
     parse_timestamp,
     validate_time_window,
 )
@@ -40,6 +41,8 @@ class SummarizeFeedbackInput(BaseModel):
     source_integration: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
+    user_id: str | None = None
+    trigger_type: str | None = None
     feedback_value: int | None = None
     channel: str | None = None
     target_type: str | None = None
@@ -87,6 +90,8 @@ def normalize_payload(raw: SummarizeFeedbackInput) -> SummarizeFeedbackQuery:
             source_integration=normalize_optional_text(raw.source_integration),
             conversation_id=normalize_optional_text(raw.conversation_id),
             session_id=normalize_optional_text(raw.session_id),
+            user_id=normalize_optional_text(raw.user_id),
+            trigger_type=normalize_trigger_type_filter(raw.trigger_type),
             feedback_value=normalize_feedback_value(raw.feedback_value),
             channel=normalize_optional_text(raw.channel),
             target_type=normalize_target_type_filter(raw.target_type),
@@ -126,6 +131,8 @@ async def summarize_feedback(
     source_integration: str | None = None,
     conversation_id: str | None = None,
     session_id: str | None = None,
+    user_id: str | None = None,
+    trigger_type: str | None = None,
     feedback_value: int | None = None,
     channel: str | None = None,
     target_type: str | None = None,
@@ -140,6 +147,8 @@ async def summarize_feedback(
         source_integration=source_integration,
         conversation_id=conversation_id,
         session_id=session_id,
+        user_id=user_id,
+        trigger_type=trigger_type,
         feedback_value=feedback_value,
         channel=channel,
         target_type=target_type,

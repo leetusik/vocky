@@ -31,6 +31,8 @@ class FeedbackEventModel(Base):
         Index("ix_feedback_events_channel", "channel"),
         Index("ix_feedback_events_conversation_id", "conversation_id"),
         Index("ix_feedback_events_session_id", "session_id"),
+        Index("ix_feedback_events_user_id", "user_id"),
+        Index("ix_feedback_events_trigger_type", "trigger_type"),
         Index("ix_feedback_events_target_type", "target_type"),
         Index("ix_feedback_events_tags_gin", "tags", postgresql_using="gin"),
     )
@@ -44,6 +46,15 @@ class FeedbackEventModel(Base):
     source_integration: Mapped[str | None] = mapped_column(Text, nullable=True)
     conversation_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     session_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    user_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trigger_type: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trigger_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trigger_metadata: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+    )
     target_type: Mapped[str | None] = mapped_column(Text, nullable=True)
     target_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     target_role: Mapped[str | None] = mapped_column(Text, nullable=True)

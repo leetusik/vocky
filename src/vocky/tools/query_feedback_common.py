@@ -11,6 +11,7 @@ from uuid import UUID
 from mcp.types import CallToolResult, TextContent
 
 from vocky.feedback import FeedbackListCursor
+from vocky.trigger import TriggerTypeValidationError, normalize_trigger_type
 
 DEFAULT_LIST_LIMIT = 50
 MAX_LIST_LIMIT = 100
@@ -64,6 +65,15 @@ def normalize_target_type_filter(value: str | None) -> str | None:
             "target_type must be one of: message, conversation, surface"
         )
     return normalized
+
+
+def normalize_trigger_type_filter(value: str | None) -> str | None:
+    """Normalize and validate an optional trigger-type read filter."""
+
+    try:
+        return normalize_trigger_type(value)
+    except TriggerTypeValidationError as exc:
+        raise FeedbackQueryValidationError(str(exc)) from exc
 
 
 def parse_timestamp(value: str | None, *, field_name: str) -> datetime | None:

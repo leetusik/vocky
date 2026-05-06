@@ -172,6 +172,10 @@
                   <input name="session_id" type="text" autocomplete="off" spellcheck="false" data-feedback-filter="session_id">
                 </label>
                 <label>
+                  <span>User ID</span>
+                  <input name="user_id" type="text" autocomplete="off" spellcheck="false" data-feedback-filter="user_id">
+                </label>
+                <label>
                   <span>Channel</span>
                   <select name="channel" data-feedback-filter="channel">
                     <option value="">Any</option>
@@ -187,6 +191,19 @@
                     <option value="message">message</option>
                     <option value="conversation">conversation</option>
                     <option value="surface">surface</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Trigger type</span>
+                  <select name="trigger_type" data-feedback-filter="trigger_type">
+                    <option value="">Any</option>
+                    <option value="like">like</option>
+                    <option value="dislike">dislike</option>
+                    <option value="comment">comment</option>
+                    <option value="rating">rating</option>
+                    <option value="survey">survey</option>
+                    <option value="manual">manual</option>
+                    <option value="other">other</option>
                   </select>
                 </label>
                 <label>

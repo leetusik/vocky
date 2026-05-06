@@ -26,6 +26,7 @@ from vocky.tools.query_feedback_common import (
     normalize_optional_text,
     normalize_tag,
     normalize_target_type_filter,
+    normalize_trigger_type_filter,
     parse_timestamp,
     serialize_datetime,
     validate_time_window,
@@ -45,6 +46,8 @@ class ListLikedConversationsInput(BaseModel):
     source_integration: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
+    user_id: str | None = None
+    trigger_type: str | None = None
     channel: str | None = None
     target_type: str | None = None
     tag: str | None = None
@@ -63,6 +66,10 @@ class LikedConversationResponse(BaseModel):
     source_integration: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
+    user_id: str | None = None
+    trigger_type: str | None = None
+    trigger_message: str | None = None
+    trigger_metadata: dict[str, Any]
     target_type: str | None = None
     target_id: str | None = None
     target_role: str | None = None
@@ -104,6 +111,8 @@ def normalize_payload(raw: ListLikedConversationsInput) -> ListFeedbackQuery:
             source_integration=normalize_optional_text(raw.source_integration),
             conversation_id=normalize_optional_text(raw.conversation_id),
             session_id=normalize_optional_text(raw.session_id),
+            user_id=normalize_optional_text(raw.user_id),
+            trigger_type=normalize_trigger_type_filter(raw.trigger_type),
             feedback_value=LIKED_FEEDBACK_VALUE,
             channel=normalize_optional_text(raw.channel),
             target_type=normalize_target_type_filter(raw.target_type),
@@ -126,6 +135,10 @@ def serialize_conversation(record: FeedbackEventRecord) -> LikedConversationResp
         source_integration=record.source_integration,
         conversation_id=record.conversation_id,
         session_id=record.session_id,
+        user_id=record.user_id,
+        trigger_type=record.trigger_type,
+        trigger_message=record.trigger_message,
+        trigger_metadata=dict(record.trigger_metadata),
         target_type=record.target_type,
         target_id=record.target_id,
         target_role=record.target_role,
@@ -152,6 +165,8 @@ async def list_liked_conversations(
     source_integration: str | None = None,
     conversation_id: str | None = None,
     session_id: str | None = None,
+    user_id: str | None = None,
+    trigger_type: str | None = None,
     channel: str | None = None,
     target_type: str | None = None,
     tag: str | None = None,
@@ -167,6 +182,8 @@ async def list_liked_conversations(
         source_integration=source_integration,
         conversation_id=conversation_id,
         session_id=session_id,
+        user_id=user_id,
+        trigger_type=trigger_type,
         channel=channel,
         target_type=target_type,
         tag=tag,

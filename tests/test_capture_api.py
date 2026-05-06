@@ -38,6 +38,10 @@ async def test_capture_feedback_accepts_message_action_payload_and_enqueues(
                 "feedback_value": 2,
                 "comment": "The answer did not fix export",
                 "channel": "web",
+                "user_id": "user_123",
+                "trigger_type": "dislike",
+                "trigger_message": "Thumbs down",
+                "trigger_metadata": {"control_id": "assistant-message-1-downvote"},
                 "target_type": "message",
                 "target_id": "assistant-message-1",
                 "target_role": "assistant",
@@ -64,6 +68,10 @@ async def test_capture_feedback_accepts_message_action_payload_and_enqueues(
     assert queued_job.payload.feedback_value == 2
     assert queued_job.payload.comment == "The answer did not fix export"
     assert queued_job.payload.channel == "web"
+    assert queued_job.payload.user_id == "user_123"
+    assert queued_job.payload.trigger_type == "dislike"
+    assert queued_job.payload.trigger_message == "Thumbs down"
+    assert queued_job.payload.trigger_metadata == {"control_id": "assistant-message-1-downvote"}
     assert queued_job.payload.target_type == "message"
     assert queued_job.payload.target_id == "assistant-message-1"
     assert queued_job.payload.target_role == "assistant"
@@ -101,6 +109,10 @@ async def test_capture_feedback_accepts_surface_product_payload_and_enqueues(
                 "comment": "I wanted to send feedback but did not notice the button",
                 "channel": "web",
                 "session_id": "sess_123",
+                "user_id": "user_123",
+                "trigger_type": "comment",
+                "trigger_message": "Pricing feedback form",
+                "trigger_metadata": {"form_id": "pricing-feedback"},
                 "target_type": "surface",
                 "target_id": "pricing-page-feedback-button",
                 "target_text": "Feedback",
@@ -124,6 +136,10 @@ async def test_capture_feedback_accepts_surface_product_payload_and_enqueues(
     assert queued_job.payload.channel == "web"
     assert queued_job.payload.conversation_id is None
     assert queued_job.payload.session_id == "sess_123"
+    assert queued_job.payload.user_id == "user_123"
+    assert queued_job.payload.trigger_type == "comment"
+    assert queued_job.payload.trigger_message == "Pricing feedback form"
+    assert queued_job.payload.trigger_metadata == {"form_id": "pricing-feedback"}
     assert queued_job.payload.target_type == "surface"
     assert queued_job.payload.target_id == "pricing-page-feedback-button"
     assert queued_job.payload.target_role is None
@@ -171,6 +187,42 @@ async def test_capture_feedback_invalid_channel_returns_400() -> None:
 
 
 @pytest.mark.anyio
+async def test_capture_feedback_invalid_trigger_type_returns_400() -> None:
+    transport = httpx.ASGITransport(app=make_api_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/feedback",
+            json={
+                "message": "Invalid trigger",
+                "source": {"product": "vocky-cli"},
+                "trigger_type": "thumbs-up",
+            },
+        )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "trigger_type must be one of: like, dislike, comment, rating, survey, manual, other"
+    }
+
+
+@pytest.mark.anyio
+async def test_capture_feedback_invalid_trigger_metadata_returns_400() -> None:
+    transport = httpx.ASGITransport(app=make_api_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/feedback",
+            json={
+                "message": "Invalid trigger metadata",
+                "source": {"product": "vocky-cli"},
+                "trigger_metadata": ["not", "object"],
+            },
+        )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "trigger_metadata must be a JSON object"}
+
+
+@pytest.mark.anyio
 async def test_capture_feedback_blank_channel_enqueues_null(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -186,6 +238,9 @@ async def test_capture_feedback_blank_channel_enqueues_null(
                 "message": "Blank channel",
                 "source": {"product": "vocky-cli"},
                 "channel": "   ",
+                "user_id": " ",
+                "trigger_type": " ",
+                "trigger_message": "\t",
             },
         )
 
@@ -193,6 +248,10 @@ async def test_capture_feedback_blank_channel_enqueues_null(
     queued_job = await queue.pop_job(timeout_seconds=1)
     assert queued_job is not None
     assert queued_job.payload.channel is None
+    assert queued_job.payload.user_id is None
+    assert queued_job.payload.trigger_type is None
+    assert queued_job.payload.trigger_message is None
+    assert queued_job.payload.trigger_metadata == {}
 
     await redis_client.aclose()
 
@@ -224,6 +283,10 @@ async def test_capture_feedback_omitted_target_type_remains_compatible(
     assert queued_job.payload.target_id is None
     assert queued_job.payload.target_role is None
     assert queued_job.payload.target_text is None
+    assert queued_job.payload.user_id is None
+    assert queued_job.payload.trigger_type is None
+    assert queued_job.payload.trigger_message is None
+    assert queued_job.payload.trigger_metadata == {}
     assert queued_job.payload.source_metadata == {"path": "/pricing"}
 
     await redis_client.aclose()
