@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import pytest
 
@@ -14,6 +15,48 @@ from vocky.capture import (
     normalize_mcp_payload,
     normalize_rest_payload,
 )
+
+
+def make_rest_input(**overrides: object) -> RestCaptureFeedbackInput:
+    """Create a default raw REST capture input for tests."""
+
+    data: dict[str, object] = {
+        "message": "Helpful feedback",
+        "source": CaptureFeedbackSourceInput(product="vocky-cli"),
+    }
+    data.update(overrides)
+    return RestCaptureFeedbackInput(**data)
+
+
+def test_rest_attachment_ids_are_parsed_and_deduped() -> None:
+    first = uuid4()
+    second = uuid4()
+
+    normalized = normalize_rest_payload(
+        make_rest_input(attachment_ids=[str(first), str(first), str(second)])
+    )
+
+    assert normalized.payload.attachment_ids == (first, second)
+
+
+def test_rest_attachment_ids_reject_non_uuid() -> None:
+    with pytest.raises(CaptureFeedbackValidationError, match="attachment_ids must be valid UUIDs"):
+        normalize_rest_payload(make_rest_input(attachment_ids=["not-a-uuid"]))
+
+
+def test_rest_attachment_ids_reject_too_many() -> None:
+    too_many = [str(uuid4()) for _ in range(11)]
+
+    with pytest.raises(CaptureFeedbackValidationError, match="must not exceed"):
+        normalize_rest_payload(make_rest_input(attachment_ids=too_many))
+
+
+def test_rest_attachment_ids_default_empty() -> None:
+    assert normalize_rest_payload(make_rest_input()).payload.attachment_ids == ()
+
+
+def test_mcp_capture_is_attachment_free() -> None:
+    assert normalize_mcp_payload(make_input()).payload.attachment_ids == ()
 
 
 def make_input(**overrides: object) -> McpCaptureFeedbackInput:

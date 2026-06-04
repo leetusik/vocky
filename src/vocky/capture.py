@@ -10,6 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from vocky.channel import ChannelValidationError, normalize_channel_write
+from vocky.config import get_settings
 from vocky.feedback import CreateFeedbackEvent
 from vocky.trigger import TriggerTypeValidationError, normalize_trigger_type
 
@@ -59,7 +60,13 @@ class McpCaptureFeedbackInput(BaseCaptureFeedbackInput):
 
 
 class RestCaptureFeedbackInput(BaseCaptureFeedbackInput):
-    """Raw feedback capture input received through public REST."""
+    """Raw feedback capture input received through public REST.
+
+    REST capture may reference previously uploaded attachments by id. MCP capture
+    stays attachment-free, so the field is declared only on this subclass.
+    """
+
+    attachment_ids: list[str] | None = None
 
 
 class CaptureFeedbackResponse(BaseModel):
@@ -213,6 +220,40 @@ def normalize_json_object(value: Any, *, field_name: str) -> dict[str, Any]:
     return dict(value)
 
 
+def normalize_attachment_ids(values: list[str] | None) -> tuple[UUID, ...]:
+    """Parse, dedupe, and bound a list of referenced attachment ids.
+
+    Each value must be a valid UUID; duplicates are dropped; the count must not
+    exceed the configured per-feedback maximum. The link is additionally
+    re-guarded by scope at persist time.
+    """
+
+    if not values:
+        return ()
+
+    seen: set[UUID] = set()
+    normalized: list[UUID] = []
+    for raw_value in values:
+        try:
+            parsed = UUID(str(raw_value).strip())
+        except ValueError as exc:
+            raise CaptureFeedbackValidationError(
+                "attachment_ids must be valid UUIDs"
+            ) from exc
+        if parsed in seen:
+            continue
+        seen.add(parsed)
+        normalized.append(parsed)
+
+    max_count = get_settings().attachments_max_count
+    if len(normalized) > max_count:
+        raise CaptureFeedbackValidationError(
+            f"attachment_ids must not exceed {max_count} items"
+        )
+
+    return tuple(normalized)
+
+
 def _normalize_capture_payload(raw: BaseCaptureFeedbackInput) -> NormalizedCaptureFeedback:
     """Normalize and validate a raw capture payload into the shared service type."""
 
@@ -243,6 +284,7 @@ def _normalize_capture_payload(raw: BaseCaptureFeedbackInput) -> NormalizedCaptu
         used_context=normalize_json_array(raw.used_context, field_name="used_context"),
         source_metadata=dict(raw.source_metadata),
         attributes=dict(raw.attributes),
+        attachment_ids=normalize_attachment_ids(getattr(raw, "attachment_ids", None)),
     )
     return NormalizedCaptureFeedback(
         payload=payload,

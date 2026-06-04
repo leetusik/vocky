@@ -83,6 +83,7 @@ def _serialize_payload(payload: CreateFeedbackEvent) -> dict[str, Any]:
         "used_context": list(payload.used_context),
         "source_metadata": dict(payload.source_metadata),
         "attributes": dict(payload.attributes),
+        "attachment_ids": [str(attachment_id) for attachment_id in payload.attachment_ids],
     }
 
 
@@ -168,6 +169,9 @@ def _deserialize_payload(raw: dict[str, Any]) -> CreateFeedbackEvent:
         used_context=tuple(raw.get("used_context", [])),
         source_metadata=dict(raw.get("source_metadata", {})),
         attributes=dict(raw.get("attributes", {})),
+        attachment_ids=tuple(
+            UUID(str(attachment_id)) for attachment_id in raw.get("attachment_ids", [])
+        ),
     )
 
 

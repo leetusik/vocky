@@ -68,7 +68,12 @@ class CaptureWorker:
         """Persist one queued capture job."""
 
         try:
-            await self._feedback_service.create_feedback_event(job.payload)
+            if job.payload.attachment_ids:
+                await self._feedback_service.create_feedback_event_with_attachments(
+                    job.payload
+                )
+            else:
+                await self._feedback_service.create_feedback_event(job.payload)
         except FeedbackPersistenceError:
             await self._handle_persistence_failure(job)
             return

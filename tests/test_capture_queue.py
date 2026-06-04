@@ -9,7 +9,13 @@ from uuid import uuid4
 import fakeredis.aioredis
 import pytest
 
-from vocky.capture_queue import CaptureQueue, deserialize_job, serialize_datetime
+from vocky.capture_queue import (
+    CaptureJob,
+    CaptureQueue,
+    deserialize_job,
+    serialize_datetime,
+    serialize_job,
+)
 from vocky.feedback import CreateFeedbackEvent
 
 
@@ -72,8 +78,48 @@ async def test_enqueue_and_pop_round_trip_preserves_payload() -> None:
     assert job.payload.used_context == ({"source": "export-doc"},)
     assert job.payload.source_metadata == {"channel": "test"}
     assert job.payload.attributes == {"priority": "high"}
+    assert job.payload.attachment_ids == ()
 
     await redis_client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_queue_round_trip_preserves_attachment_ids() -> None:
+    redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    queue = CaptureQueue(redis_client)
+    first, second = uuid4(), uuid4()
+
+    await queue.enqueue_feedback(
+        CreateFeedbackEvent(
+            message="with images",
+            source_product="changple5",
+            attachment_ids=(first, second),
+        )
+    )
+    job = await queue.pop_job(timeout_seconds=1)
+
+    assert job is not None
+    assert job.payload.attachment_ids == (first, second)
+
+    await redis_client.aclose()
+
+
+def test_serialize_job_encodes_attachment_ids_as_strings() -> None:
+    attachment_id = uuid4()
+    job = CaptureJob(
+        request_id=uuid4(),
+        accepted_at=datetime(2026, 6, 4, tzinfo=UTC),
+        payload=CreateFeedbackEvent(
+            message="m",
+            source_product="p",
+            attachment_ids=(attachment_id,),
+        ),
+    )
+
+    data = json.loads(serialize_job(job))
+
+    assert data["payload"]["attachment_ids"] == [str(attachment_id)]
+    assert all(isinstance(value, str) for value in data["payload"]["attachment_ids"])
 
 
 def test_deserialize_job_defaults_missing_optional_added_fields() -> None:
@@ -112,6 +158,8 @@ def test_deserialize_job_defaults_missing_optional_added_fields() -> None:
     assert job.payload.trigger_type is None
     assert job.payload.trigger_message is None
     assert job.payload.trigger_metadata == {}
+    # A job serialized before attachments existed deserializes to no attachments.
+    assert job.payload.attachment_ids == ()
 
 
 @pytest.mark.asyncio
