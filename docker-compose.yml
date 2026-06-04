@@ -47,6 +47,10 @@ services:
       VOCKY_MCP_AUTH_TOKEN: ${VOCKY_MCP_AUTH_TOKEN:-}
       VOCKY_API_AUTH_TOKEN: ${VOCKY_API_AUTH_TOKEN:-}
       VOCKY_ADMIN_AUTH_TOKEN: ${VOCKY_ADMIN_AUTH_TOKEN:-}
+      VOCKY_ATTACHMENTS_DIR: /var/lib/vocky/attachments
+      VOCKY_ATTACHMENTS_MAX_BYTES: ${VOCKY_ATTACHMENTS_MAX_BYTES:-5242880}
+      VOCKY_ATTACHMENTS_MAX_COUNT: ${VOCKY_ATTACHMENTS_MAX_COUNT:-10}
+      VOCKY_ATTACHMENTS_ALLOWED_MIME_TYPES: ${VOCKY_ATTACHMENTS_ALLOWED_MIME_TYPES:-image/jpeg,image/png,image/gif,image/webp}
     command: ["uv", "run", "--no-sync", "vocky"]
     healthcheck:
       test:
@@ -61,6 +65,8 @@ services:
       retries: 12
     ports:
       - "${VOCKY_PUBLISH_HOST:-127.0.0.1}:${VOCKY_PORT:-8000}:8000"
+    volumes:
+      - attachments-data:/var/lib/vocky/attachments
 
   worker:
     build:
@@ -74,8 +80,12 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-vocky}:${POSTGRES_PASSWORD:-vocky}@postgres:5432/${POSTGRES_DB:-vocky}
       REDIS_URL: redis://redis:6379/0
       VOCKY_LOG_LEVEL: ${VOCKY_LOG_LEVEL:-INFO}
+      VOCKY_ATTACHMENTS_DIR: /var/lib/vocky/attachments
     command: ["uv", "run", "--no-sync", "vocky-worker"]
+    volumes:
+      - attachments-data:/var/lib/vocky/attachments
 
 volumes:
   postgres-data:
   redis-data:
+  attachments-data:

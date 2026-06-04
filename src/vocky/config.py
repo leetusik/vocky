@@ -39,6 +39,15 @@ class Settings(BaseSettings):
     mcp_auth_token: str = Field(default="", alias="VOCKY_MCP_AUTH_TOKEN")
     admin_auth_token: str = Field(default="", alias="VOCKY_ADMIN_AUTH_TOKEN")
     api_auth_token: str = Field(default="", alias="VOCKY_API_AUTH_TOKEN")
+    attachments_dir: str = Field(default="./attachments", alias="VOCKY_ATTACHMENTS_DIR")
+    attachments_max_bytes: int = Field(
+        default=5 * 1024 * 1024, alias="VOCKY_ATTACHMENTS_MAX_BYTES"
+    )
+    attachments_max_count: int = Field(default=10, alias="VOCKY_ATTACHMENTS_MAX_COUNT")
+    attachments_allowed_mime_types: str = Field(
+        default="image/jpeg,image/png,image/gif,image/webp",
+        alias="VOCKY_ATTACHMENTS_ALLOWED_MIME_TYPES",
+    )
 
     @property
     def mcp_allowed_host_values(self) -> tuple[str, ...]:
@@ -69,6 +78,12 @@ class Settings(BaseSettings):
         """Return the configured public REST bearer token, or an empty string when disabled."""
 
         return self.api_auth_token.strip()
+
+    @property
+    def attachments_allowed_mime_type_values(self) -> tuple[str, ...]:
+        """Return the configured allowed attachment MIME types."""
+
+        return parse_csv_setting(self.attachments_allowed_mime_types)
 
 
 @lru_cache(maxsize=1)
