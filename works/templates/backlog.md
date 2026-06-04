@@ -17,7 +17,7 @@
 - This file schedules backlog-driven phases and slices only; unrelated standalone requests do not need phase, slice, or work-item entries.
 - Move intentionally deferred work into `works/deferred.md` instead of leaving it in the active backlog.
 - Link active work items from `works/current/`.
-- If every documented phase is `done` and every documented slice is `done`, run `scripts/rotate_backlog.sh` before starting new backlog-scheduled work.
+- If every documented phase is `done` and every documented slice is `done`, run `scripts/rotate_backlog.sh` (or `/rotate-backlog`) before starting new backlog-scheduled work.
 - `scripts/rotate_backlog.sh` archives the active `works/backlog.md` file to `works/archives/backlogs/<timestamp>_backlog.md` and replaces it from `works/templates/backlog.md`.
 - If the next request is standalone, completed-backlog rotation is housekeeping only and does not create a phase or slice for that request.
 - Use stable phase IDs such as `P1`.
@@ -38,7 +38,7 @@
   - None yet
 - Slices:
   - [ ] Slice ID: `P1.DECOMP` | Name: `decompose phase` | Status: todo | Work item: none | Notes: Break this phase into concrete middle slices before implementation starts.
-  - [ ] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Review the phase, add fix slices if needed, and rerun until it passes.
+  - [ ] Slice ID: `P1.REVIEW` | Name: `phase review` | Status: todo | Work item: none | Notes: Run via the `phase-reviewer` subagent. Add fix slices if needed and rerun until it passes.
 
 ## Archive Notes
 
