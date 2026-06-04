@@ -13,6 +13,7 @@ from starlette.routing import Mount, Route
 from vocky.admin_api import routes as admin_routes
 from vocky.admin_ui import routes as admin_ui_routes
 from vocky.api import routes as api_routes
+from vocky.attachments_api import routes as attachment_routes
 from vocky.auth import APIBearerAuthMiddleware, AdminBearerAuthMiddleware, MCPBearerAuthMiddleware
 from vocky.config import get_settings
 from vocky.db import dispose_engine
@@ -49,6 +50,7 @@ def create_app() -> Starlette:
             *admin_routes,
             *admin_ui_routes,
             *api_routes,
+            *attachment_routes,
             Mount("/", app=mcp.streamable_http_app()),
         ],
         middleware=[
