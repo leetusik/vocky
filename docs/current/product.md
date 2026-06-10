@@ -1,3 +1,12 @@
+---
+doc_id: product
+version: v0001
+created_at: 2026-06-10T13:51:20+09:00
+source: bootstrap
+summary: Initial product doc
+previous: null
+---
+
 # Product
 
 ## Status

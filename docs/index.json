@@ -1,0 +1,159 @@
+{
+  "docs": {
+    "product": {
+      "latest": "v0001_bootstrap",
+      "current_path": "docs/current/product.md",
+      "versions": [
+        {
+          "id": "v0001_bootstrap",
+          "path": "docs/versions/product/v0001_bootstrap.md",
+          "created_at": "2026-06-10T13:51:20+09:00",
+          "source": "bootstrap",
+          "summary": "Initial product doc",
+          "previous": null
+        }
+      ]
+    },
+    "experience": {
+      "latest": "v0001_bootstrap",
+      "current_path": "docs/current/experience.md",
+      "versions": [
+        {
+          "id": "v0001_bootstrap",
+          "path": "docs/versions/experience/v0001_bootstrap.md",
+          "created_at": "2026-06-10T13:51:20+09:00",
+          "source": "bootstrap",
+          "summary": "Initial experience doc",
+          "previous": null
+        }
+      ]
+    },
+    "architecture": {
+      "latest": "v0001_bootstrap",
+      "current_path": "docs/current/architecture.md",
+      "versions": [
+        {
+          "id": "v0001_bootstrap",
+          "path": "docs/versions/architecture/v0001_bootstrap.md",
+          "created_at": "2026-06-10T13:51:20+09:00",
+          "source": "bootstrap",
+          "summary": "Initial architecture doc",
+          "previous": null
+        }
+      ]
+    },
+    "frontend": {
+      "latest": "v0001_bootstrap",
+      "current_path": "docs/current/frontend.md",
+      "versions": [
+        {
+          "id": "v0001_bootstrap",
+          "path": "docs/versions/frontend/v0001_bootstrap.md",
+          "created_at": "2026-06-10T13:51:20+09:00",
+          "source": "bootstrap",
+          "summary": "Initial frontend doc",
+          "previous": null
+        }
+      ]
+    },
+    "backend": {
+      "latest": "v0001_bootstrap",
+      "current_path": "docs/current/backend.md",
+      "versions": [
+        {
+          "id": "v0001_bootstrap",
+          "path": "docs/versions/backend/v0001_bootstrap.md",
+          "created_at": "2026-06-10T13:51:20+09:00",
+          "source": "bootstrap",
+          "summary": "Initial backend doc",
+          "previous": null
+        }
+      ]
+    },
+    "data": {
+      "latest": "v0001_bootstrap",
+      "current_path": "docs/current/data.md",
+      "versions": [
+        {
+          "id": "v0001_bootstrap",
+          "path": "docs/versions/data/v0001_bootstrap.md",
+          "created_at": "2026-06-10T13:51:20+09:00",
+          "source": "bootstrap",
+          "summary": "Initial data doc",
+          "previous": null
+        }
+      ]
+    },
+    "api": {
+      "latest": "v0001_bootstrap",
+      "current_path": "docs/current/api.md",
+      "versions": [
+        {
+          "id": "v0001_bootstrap",
+          "path": "docs/versions/api/v0001_bootstrap.md",
+          "created_at": "2026-06-10T13:51:20+09:00",
+          "source": "bootstrap",
+          "summary": "Initial api doc",
+          "previous": null
+        }
+      ]
+    },
+    "operations": {
+      "latest": "v0001_bootstrap",
+      "current_path": "docs/current/operations.md",
+      "versions": [
+        {
+          "id": "v0001_bootstrap",
+          "path": "docs/versions/operations/v0001_bootstrap.md",
+          "created_at": "2026-06-10T13:51:20+09:00",
+          "source": "bootstrap",
+          "summary": "Initial operations doc",
+          "previous": null
+        }
+      ]
+    },
+    "security": {
+      "latest": "v0001_bootstrap",
+      "current_path": "docs/current/security.md",
+      "versions": [
+        {
+          "id": "v0001_bootstrap",
+          "path": "docs/versions/security/v0001_bootstrap.md",
+          "created_at": "2026-06-10T13:51:20+09:00",
+          "source": "bootstrap",
+          "summary": "Initial security doc",
+          "previous": null
+        }
+      ]
+    },
+    "qa": {
+      "latest": "v0001_bootstrap",
+      "current_path": "docs/current/qa.md",
+      "versions": [
+        {
+          "id": "v0001_bootstrap",
+          "path": "docs/versions/qa/v0001_bootstrap.md",
+          "created_at": "2026-06-10T13:51:20+09:00",
+          "source": "bootstrap",
+          "summary": "Initial qa doc",
+          "previous": null
+        }
+      ]
+    },
+    "decisions": {
+      "latest": "v0001_bootstrap",
+      "current_path": "docs/current/decisions.md",
+      "versions": [
+        {
+          "id": "v0001_bootstrap",
+          "path": "docs/versions/decisions/v0001_bootstrap.md",
+          "created_at": "2026-06-10T13:51:20+09:00",
+          "source": "bootstrap",
+          "summary": "Initial decisions doc",
+          "previous": null
+        }
+      ]
+    }
+  },
+  "last_rebuilt_at": "2026-06-10T13:53:13+09:00"
+}

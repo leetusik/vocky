@@ -1,3 +1,12 @@
+---
+doc_id: architecture
+version: v0001
+created_at: 2026-06-10T13:51:20+09:00
+source: bootstrap
+summary: Initial architecture doc
+previous: null
+---
+
 # Architecture
 
 ## Status

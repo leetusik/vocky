@@ -212,7 +212,7 @@ The implemented MCP tools are:
 
 `capture_feedback` success means the request was accepted for background processing, not that the feedback record is immediately queryable. `list_feedback` and `summarize_feedback` surface completed records only after the worker persists them.
 
-For client integration guidance, see [docs/action-feedback-integration.md](docs/action-feedback-integration.md).
+For client integration guidance, see [docs/current/experience.md](docs/current/experience.md).
 
 ## Web Capture REST Surface
 

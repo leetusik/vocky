@@ -1,3 +1,12 @@
+---
+doc_id: experience
+version: v0001
+created_at: 2026-06-10T13:51:20+09:00
+source: bootstrap
+summary: Initial experience doc
+previous: null
+---
+
 # Action Feedback Integration
 
 This guide describes how an agent product can integrate Vocky for explicit user feedback actions. It is intentionally generic: use it for local, private-network, or public self-hosted Vocky deployments.
