@@ -45,6 +45,29 @@
   - Raw concern captured in `works/later_concerns.md` as `C1`.
   - Refine the concern into product, architecture, API, and export-schema backlog work before implementation.
 
+### D2: Scope end-user feedback read to a public-safe field subset
+
+- Deferred ID: `D2`
+- Status: deferred
+- Source: `P1.REVIEW`
+- Reason: End-user `GET /api/feedback` echoes the full internal record (including operator-set `attributes`, `source_metadata`, and other admin-shaped fields). This is intentional and in scope for the P1 MVP, but a product owner may later want a narrower public projection that hides operator-only fields from end users.
+- Trigger: user promotes, or revisit alongside P2 attachment exposure
+- Notes:
+  - Flagged as a non-blocking note by the P1.REVIEW phase-reviewer audit.
+  - Touch points: `serialize_user_feedback_record` and `list_user_feedback` in `src/vocky/api.py`; contract docs in `docs/api.md` ("End-User Feedback Read REST API").
+
+### D3: Garbage-collect never-linked attachment uploads
+
+- Deferred ID: `D3`
+- Status: deferred
+- Source: `P2.DECOMP`
+- Reason: The upload-first async-link protocol lets an attachment be uploaded and stored before (or without) the capture that references it. Attachments whose capture never arrives, or that reference only a subset of uploaded ids, stay `feedback_id IS NULL` with their files on disk indefinitely — unbounded storage growth and stale PII. A periodic sweeper that deletes orphan rows + files (`feedback_id IS NULL AND created_at < now() - INTERVAL`) is the fix, but no scheduler exists in the repo yet and MVP volume is low.
+- Trigger: user promotes, or the first cleanup / scale / PII-retention need
+- Notes:
+  - P2 keeps the schema sweep-ready: `feedback_attachments.created_at` plus a `created_at` index (added in `P2.S2`).
+  - Deleting feedback already deletes its attachment files (`P2.S5`), so the only residue this job targets is never-linked uploads.
+  - A scheduling mechanism (cron, periodic worker task, or admin-triggered endpoint) must be chosen when this is promoted.
+
 ## Entry Template
 
 ```md
