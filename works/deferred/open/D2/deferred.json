@@ -1,0 +1,11 @@
+{
+  "id": "D2",
+  "title": "Scope end-user feedback read to a public-safe field subset",
+  "status": "deferred",
+  "source": "P1.REVIEW",
+  "reason": "End-user `GET /api/feedback` echoes the full internal record (including operator-set `attributes`, `source_metadata`, and other admin-shaped fields). This is intentional and in scope for the P1 MVP, but a product owner may later want a narrower public projection that hides operator-only fields from end users.",
+  "trigger": "user promotes, or revisit alongside P2 attachment exposure",
+  "created_at": "2026-06-10T13:53:12+09:00",
+  "promoted_to": null,
+  "dropped_reason": null
+}

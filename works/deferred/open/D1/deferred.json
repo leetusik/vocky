@@ -1,0 +1,11 @@
+{
+  "id": "D1",
+  "title": "Refine trajectory-aware feedback export model",
+  "status": "deferred",
+  "source": "user request",
+  "reason": "The idea is important product direction but is not yet decomposed into an active backlog phase or implementation slice.",
+  "trigger": "user promotes or schedules this job",
+  "created_at": "2026-06-10T13:53:12+09:00",
+  "promoted_to": null,
+  "dropped_reason": null
+}

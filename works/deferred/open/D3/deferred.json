@@ -1,0 +1,11 @@
+{
+  "id": "D3",
+  "title": "Garbage-collect never-linked attachment uploads",
+  "status": "deferred",
+  "source": "P2.DECOMP",
+  "reason": "The upload-first async-link protocol lets an attachment be uploaded and stored before (or without) the capture that references it. Attachments whose capture never arrives, or that reference only a subset of uploaded ids, stay `feedback_id IS NULL` with their files on disk indefinitely — unbounded storage growth and stale PII. A periodic sweeper that deletes orphan rows + files (`feedback_id IS NULL AND created_at < now() - INTERVAL`) is the fix, but no scheduler exists in the repo yet and MVP volume is low.",
+  "trigger": "user promotes, or the first cleanup / scale / PII-retention need",
+  "created_at": "2026-06-10T13:53:12+09:00",
+  "promoted_to": null,
+  "dropped_reason": null
+}
