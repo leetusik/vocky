@@ -1,34 +1,28 @@
 # Result
 
-- Work item: __WORK_ITEM__
-- Created at: __CREATED_AT__
 - Phase ID: __PHASE_ID__
-- Phase:
 - Slice ID: __SLICE_ID__
-- Slice:
+- Slice: __SLICE_NAME__
 - Review status: pending
-- Reviewer:
 - Next action:
 
 ## Outcome
 
-Summarize what shipped, or explain why the slice closed as `Blocked`.
+## Deviations from Plan
 
-## Deviations from plan
-
-## Validation run
+## Validation Run
 
 -
 
-## Files changed
+## Files Changed
 
 -
 
-## Docs updated
+## Doc Versions Created
 
 -
 
-## Roadmap updates
+## Roadmap Updates
 
 -
 

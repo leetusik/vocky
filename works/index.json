@@ -1,0 +1,20 @@
+{
+  "active_phases": [
+    {
+      "id": "P1",
+      "name": "Bootstrap Intake",
+      "objective": "Capture the first real backlog task and replace this placeholder phase with concrete work.",
+      "status": "planned",
+      "order": 1,
+      "path": "works/phases/active/P1",
+      "review_status": "pending",
+      "current_slice": "P1.DECOMP",
+      "slice_count": 2,
+      "done_slice_count": 0
+    }
+  ],
+  "deferred_open_count": 3,
+  "deferred_promoted_count": 0,
+  "deferred_dropped_count": 0,
+  "last_rebuilt_at": "2026-06-10T13:56:07+09:00"
+}

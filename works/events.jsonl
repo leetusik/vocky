@@ -1,0 +1,4 @@
+{"ts": "2026-06-10T13:53:11+09:00", "type": "phase_created", "phase": "P1"}
+{"ts": "2026-06-10T13:53:12+09:00", "type": "deferred_created", "deferred": "D1", "source": "user request"}
+{"ts": "2026-06-10T13:53:12+09:00", "type": "deferred_created", "deferred": "D2", "source": "P1.REVIEW"}
+{"ts": "2026-06-10T13:53:12+09:00", "type": "deferred_created", "deferred": "D3", "source": "P2.DECOMP"}
