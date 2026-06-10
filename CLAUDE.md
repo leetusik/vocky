@@ -1,157 +1,107 @@
 # CLAUDE.md
 
-## Purpose
+> Equivalent to `AGENTS.md`. If you change workflow rules, update both.
 
-This repository defaults to agentic delivery via Claude Code or Codex. Claude Code reads this file directly; Codex reads `AGENTS.md`, which points here. Use planning, tracked work items, and review gates for almost all coding work. Backlog-scheduled work uses the full phase/slice workflow; unrelated user requests may use the Standalone Work path below.
+## Agent Contract
+
+This file is a compact routing contract. Operational detail lives in `scripts/workflow.py`, the Agent Skills under `.claude/skills/` and `.agents/skills/`, and the active slice folder.
+
+Core rule: **Backlog routes. Slice folder explains. Result summarizes. Docs are versioned durable truth.**
+
+## Driving This Workspace
+
+Everything runs through one manager: `python3 scripts/workflow.py <command>`. The same operations are also packaged as Agent Skills so they work natively in either tool:
+
+- **Claude Code:** slash commands like `/do-next-slice`, `/do-whole-phase`, `/review-phase` (from `.claude/skills/`), plus the read-only `phase-reviewer` subagent. `.claude/settings.json` pre-approves the workflow script so it runs without prompts.
+- **Codex:** the same skills under `.agents/skills/` via `$skill` or `/skills`. Codex reads this file as `AGENTS.md`.
+- **Any agent / CI:** call `python3 scripts/workflow.py ...` directly. This always works, even where skills are unavailable.
+
+Workflow command-skills are explicit-invocation only; agents should not fire them autonomously.
+
+**Making a phase ≠ executing it.** When the operator asks you to make, create, suggest, or plan a phase, the job is to run `new-phase` — which creates only `P<N>.DECOMP` and `P<N>.REVIEW` — and then STOP and report. Do **not** decompose the phase into middle slices, do **not** write slice plans, and do **not** implement any code. Decomposition is the `DECOMP` slice's own job and happens later, when the operator executes the phase (`/do-next-slice`, `/do-whole-phase`) or explicitly tells you to. Creating several phases at once is fine; decomposing or executing any of them is a separate, explicit step.
+
+## Read Order
+
+1. `docs/current/*.md` for the fullstack doc set
+2. `docs/index.json`
+3. `works/state.json`, `works/backlog.md`, and `works/deferred.md`
+4. The active phase folder and active slice folder only
+
+Do not read every historical slice or old doc version by default. Archived phases and old doc versions are history.
+
+## Canonical State
+
+- Current pointer: `works/state.json`
+- Generated dashboards/index: `works/backlog.md`, `works/deferred.md`, `works/index.json`
+- Phase state: `works/phases/active/<phase_id>/phase.json`
+- Phase notebook: `works/phases/active/<phase_id>/phase.md` — objective plus the accumulating decomposition, findings, and cross-slice notes; the shared context across a phase's slices
+- Slice state: `works/phases/active/<phase_id>/slices/<slice_id>/slice.json`
+- Slice context: `plan.md` (filled at slice start, incl. verbatim operator notes) and `result.md` (written at slice end), beside `slice.json`
+- Deferred state: `works/deferred/open/<DID>/deferred.json`
+- Doc index: `docs/index.json`; latest docs: `docs/current/*.md` generated from `docs/versions/<doc>/vNNNN_*.md`
+
+## Hard Rules
+
+- Keep `works/backlog.md` and `works/deferred.md` lean: IDs, names, statuses, pointers, paths only. Detail goes in the folders.
+- Never patch old files under `docs/versions/`; create a new version with `doc-new-version`.
+- Treat `docs/current/*.md` as generated snapshots; never hand-edit them.
+- New phases start with only `P<N>.DECOMP` and `P<N>.REVIEW`. Decomposition (the `DECOMP` slice) creates the middle slices **only** — bare folders — and records the slice breakdown, findings, and notes in `phase.md`; it does **not** pre-fill the new slices' `plan.md`.
+- "Make/create/suggest a phase" = run `new-phase` (creates `DECOMP` + `REVIEW` only), then stop — do not decompose, write slice plans, or implement until the operator executes the phase or says to. See *Driving This Workspace*.
+- Each slice owns exactly two context files: `plan.md` (the slice fills its **own** plan when it runs, before implementing; record any operator note passed with `do-next-slice`/`do-whole-phase` verbatim under `## Operator Input (verbatim)`) and `result.md` (write when done). A slice never pre-fills another slice's `plan.md`. There are no per-slice brief or review files.
+- `phase.md` is the phase notebook: the `DECOMP` slice seeds it (breakdown, findings, notes), and every slice reads it for accumulated context at start and appends durable cross-slice notes back to it when it finishes — so later slices build on what earlier ones learned.
+- Slice selection is by `order`; `depends_on` is advisory and only checked for existence by `validate`.
+- Deferred jobs never affect next-slice selection until promoted.
+- Record the phase review with `review-phase`. A passing review marks a phase `done` but does **not** archive it — the phase stays in `active/`. Archiving is a separate, manual step: `archive-all` once every active phase is done (the last review slice complete), `rotate-backlog` to archive just the done phases while others continue, or `archive-phase <P>` for a single review-passed phase. Archive whole phases only, never individual slices.
+
+## IDs and Status
+
+- Phase IDs: `P1`, `P2`, ... with status `planned | in_progress | in_review | blocked | done`
+- Slice IDs: `P1.DECOMP`, `P1.S1`, `P1.F1`, `P1.REVIEW`, ... with status `todo | in_progress | in_review | changes_requested | blocked | done`
+- Deferred IDs: `D1`, `D2`, ... with status `deferred | ready | promoted | done | dropped`
+- Doc versions: `v0001_bootstrap.md`, `v0002_<slug>.md`, ...
+- Phase review verdicts: `pass | changes_requested | blocked`
+
+## Workflow Commands
+
+Use `python3 scripts/workflow.py <command>`:
+
+- `next` — show current/next active slice
+- `new-phase --phase P2 --name "..." --objective "..."`
+- `new-slice --phase P1 --slice P1.S1 --name "..."` (`--kind`, `--risk`, `--order`, `--depends-on`)
+- `start-slice P1.S1` / `finish-slice P1.S1` / `set-slice-status P1.S1 <status>`
+- `set-phase-status P1 <status>`
+- `review-phase P1 --verdict pass|changes_requested|blocked [--reviewer NAME] [--note "..."]`
+- `doc-new-version --doc frontend --summary "..." --source P1.S1` / `docs` / `rebuild-docs`
+- `deferred` / `defer-job --title "..." --reason "..." --trigger "..." --source P1.S1`
+- `promote-deferred D1 --phase P1 --slice P1.S2 --name "..."` / `drop-deferred D1 --reason "..."`
+- `archive-all` (batch-archive every active phase once all are done) / `rotate-backlog` (archive just the done phases, leave the rest) / `archive-phase P1` (archive a single review-passed phase)
+- `rebuild` / `validate`
 
 ## Commit Convention
 
-- Format: `type(scope): summary` — `scope` optional, imperative summary, no trailing period.
-- Supported types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`, `build`, `perf`, `revert`.
-- Examples: `feat(api): add feedback capture endpoint`, `fix(storage): handle empty values`.
+Use `type(scope): summary`, imperative voice, no trailing period. Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`, `build`, `perf`, `revert`.
 
-## Python Development
+By default, commit after each completed slice — at the end of `do-next-slice`, and at every clean slice boundary inside `do-whole-phase`. Outside the slice workflow, commit only when asked. Do not create branches unless the operator asks — work on the current branch, including `main`. Never push without being asked.
 
-- Use `uv` for Python development in this repository.
-- Prefer `uv run` for Python commands such as tests, scripts, and CLIs.
-- Prefer `uv add`, `uv remove`, `uv lock`, and `uv sync` for Python dependency management.
-- Do not introduce `pip`, `venv`, or bare `python` workflows unless an existing repo constraint requires them.
+## Python Development (vocky)
 
-## Working Model
+- Use `uv` for application Python: `uv run`, `uv add`, `uv remove`, `uv lock`, `uv sync`. Do not introduce `pip`, `venv`, or bare `python` workflows unless an existing repo constraint requires it.
+- The workflow manager is the one exception: run it as `python3 scripts/workflow.py <command>` (standard-library only, no project venv needed). `.claude/settings.json` pre-approves it.
 
-- Almost all coding goes through plan + implement + review, not direct edits.
-- `works/backlog.md` is the active queue of phases and slices; `works/deferred.md` is the parking lot.
-- Active work-item folders live under `works/current/`; completed ones move to `works/archives/work_items/`.
-- Archived backlog snapshots move to `works/archives/backlogs/`.
-- Every backlog work item contains `plan.md` and `result.md`.
-- Long-lived reference docs live under `docs/`; transient execution notes live under `works/`.
-- Standalone unrelated requests do not require a phase, slice, or work-item folder.
+## Standalone Work (vocky)
 
-## Stable IDs
+- A request unrelated to active phase/slice execution, and not asking to schedule backlog work, is standalone: no phase, slice, or work-item folder. Inspect the relevant docs/code, make focused changes, run appropriate verification, and report.
+- For standalone changes that alter durable truth, still create a new doc version with `doc-new-version` (never hand-edit `docs/current/*.md`).
 
-- Phase IDs: `P1`, `P2`, `P3`, ...
-- Slice IDs tied to phase: `P1.DECOMP` (decompose), `P1.S1`/`P1.S2` (middle), `P1.F1`/`P1.F2` (review-driven fix), `P1.REVIEW` (phase review).
-- Reference phases and slices by ID in backlog entries, work-item files, and agent updates.
+## Fast-Path Exceptions (vocky)
 
-## Required Flow
+- The full phase/slice flow is the default. A fast path is acceptable only for typo-only edits, one-line wording fixes, metadata-only changes, or tiny doc-only adjustments with no behavior, contract, or workflow impact.
+- Never fast-path a change to code behavior, tests, public/MCP-facing contracts, architecture, or repository workflow.
 
-1. Read `docs/product.md`, `docs/architecture.md`, `docs/api.md`, and `works/backlog.md`.
-2. If every phase and slice in `works/backlog.md` is `done`, run `scripts/rotate_backlog.sh` (or `/rotate-backlog`) before selecting new backlog work.
-3. If the request qualifies as Standalone Work, follow that section; do not create a phase or slice.
-4. Choose or create the active phase in `works/backlog.md`.
-5. Backlog creation is its own complete job: add phase entries with their mandatory `decompose phase` and `phase review` slices only — no middle slices, no implementation, no `decompose phase` execution. Stop after creation and report the new backlog.
-6. Each new phase initially contains only `decompose phase` and `phase review`.
-7. Run `scripts/start_work.sh <phase_id> <slice_id> <slug>` (or `/start-work`) to create a timestamped work-item folder.
-8. Fill `plan.md` before code changes.
-9. Implement the slice.
-10. Fill `result.md` when implementation ends.
-11. Run the `phase review` slice via the `phase-reviewer` subagent.
-12. If review finds problems, create dedicated fix slices (`P<N>.F<n>`), implement them, rerun review.
-13. Mark the phase `done` only after review passes.
-14. When a `phase review` slice passes, archive every work item for that phase still under `works/current/` to `works/archives/work_items/`. **Phase-level archival is the only allowed trigger.** While a phase is `in_progress` or `in_review`, every work item bound to it stays under `works/current/`.
-15. Use `scripts/archive_work.sh <work_dir_name>` (or `/archive-work`) only for the Step 14 sweep — never per-slice while the phase is open. When the sweep runs, update each affected slice's `Work item:` path in `works/backlog.md` from `works/current/...` to `works/archives/work_items/...`.
-16. Run `scripts/rotate_backlog.sh` (or `/rotate-backlog`) when the active backlog cycle is finished.
+## QA (vocky extension — not in upstream v2)
 
-## Standalone Work
+- `/qa-check [mission_id | inline brief]` (skill) drives the project's QA agent; the read-only `qa-agent` subagent (`.claude/agents/qa-agent.md`) emits `pass | changes_requested | blocked` and writes evidence into the active slice folder. It requires a project-defined QA driver. Codex reaches the subagent through `.codex/agents/qa-agent.toml`.
 
-- Applies when the request is unrelated to active backlog execution and does not explicitly ask to schedule backlog work.
-- No phase, slice, or `works/current/` folder; do not run `scripts/start_work.sh`; do not add backlog entries to track it.
-- If the backlog is already complete, run `scripts/rotate_backlog.sh` first as housekeeping; do not create a phase for the standalone request.
-- Inspect relevant docs/code, make focused changes, run appropriate verification, report the result.
-- For standalone changes that trigger reference-doc updates, update the relevant `docs/` files and summarize planned and completed doc changes in the final report instead of `plan.md`/`result.md`.
+## Commit Footer (vocky environment)
 
-## Deferred Work
-
-- `works/deferred.md` parks later jobs outside active execution order.
-- If the user asks to save tasks, follow-ups, or ideas there, add them immediately — no phase/slice/work-item folder needed.
-- During slice implementation, defer substantial later work that doesn't belong as a current slice, fix slice, or new phase. Never defer work required for the current slice or to pass the current phase review.
-- Use the next stable `D<N>` ID. Record title, status, source, reason, and trigger for re-entry.
-- Deferred jobs are not part of `do the next slice` / `do the whole phase` selection until promoted into `works/backlog.md`.
-
-## Execution Commands
-
-- `/do-next-slice` (or magic phrase `do the next slice`) — continue the current phase one slice at a time.
-- `/do-whole-phase` (or magic phrase `do the whole phase`) — finish the current phase end-to-end, including review and fix slices. Limited to the current phase only.
-- Resolve current phase: scan `works/backlog.md` top-to-bottom; first phase whose status is not `done`. If `blocked`, surface the blocker and stop.
-- `do the next slice` selects the first slice in the current phase whose status is not `done`. Do not skip fix slices or `phase review` slices.
-- `do the whole phase` may create one work item per slice as needed. The coordination work item (if any) stays open until all slice work items it initiated are complete; record the phase-level result last.
-- If a matching active work item already exists for the selected phase/slice, continue it. Otherwise create one via `scripts/start_work.sh`.
-
-## Status Model
-
-- Phase: `planned`, `in_progress`, `in_review`, `blocked`, `done`.
-- Slice: `todo`, `in_progress`, `in_review`, `changes_requested`, `done`.
-- `phase review` cannot be marked `done` until the phase actually passes review. Use `changes_requested` when review found issues.
-
-## Phase Review Stance
-
-- Treat `phase review` as a skeptical audit, not a rubber stamp. Less-capable agents may have written the slices; do not assume correctness from plausible diffs or a tidy `result.md`.
-- Verify behavior against the slice objective end-to-end, not whether files were touched.
-- When review surfaces flaws, partial implementations, missed edge cases, or weak quality, create dedicated fix slices rather than letting the phase pass.
-- Fix-slice instructions must be concrete: name exact files, functions, expected behavior, and edge cases. Vague guidance produces another underperforming pass.
-
-## Backlog Rules
-
-- Organize by phase, not as a flat task list. Keep `works/backlog.md` limited to actively scheduled work.
-- Move intentionally deferred work to `works/deferred.md`; promote back when ready.
-- Every phase must include objective, status, review outcome, work items, and slices.
-- A new phase's slice list contains only `decompose phase` and `phase review`; no middle slices may pre-exist.
-- Phase-level notes are allowed and encouraged for intent, constraints, assumptions, or handoff context. They are not slices.
-- `decompose phase` is the only slice that may create the phase-specific middle slices needed to finish the phase.
-- `phase review` validates the phase and stays open until the bar is met; re-review is mandatory after fixes.
-- Prefix each slice with `[ ]` until done, then `[x]`. The checkbox is a visual summary; the `Status` field is authoritative.
-
-## Fast-Path Exceptions
-
-The full workflow is the default. A fast path is acceptable only for typo-only edits, one-line wording fixes, metadata-only changes, or tiny doc-only adjustments with no workflow impact. Never use the fast path when a change affects code behavior, tests, public or MCP-facing contracts, architecture, repository workflow, or multiple files with nontrivial intent.
-
-## Reference Doc Update Triggers
-
-- `docs/product.md` — when goals, users, terminology, scope, or product direction change.
-- `docs/architecture.md` — when component boundaries, data flow, storage shape, runtime choices, or repo structure change.
-- `docs/api.md` — when a public or MCP-facing contract is introduced, changed, stabilized, or deprecated.
-- Record planned doc updates in `plan.md` and actual doc updates in `result.md` (or the final report for Standalone Work).
-
-## Agent Tool Conventions
-
-This workspace is dual-tool: Claude Code reads `CLAUDE.md` (this file); Codex reads `AGENTS.md`, which points to `CLAUDE.md`.
-
-### Claude Code
-
-- Slash commands live under `.claude/commands/`:
-  - `/do-next-slice`, `/do-whole-phase` — backlog drivers.
-  - `/start-work <phase_id> <slice_id> <slug>`, `/archive-work <work_dir_name>`, `/rotate-backlog` — workflow scripts.
-  - `/commit` — group pending changes by topic and create one focused commit per group.
-  - `/qa-check [mission_id_or_inline_brief]` — run the QA agent (requires a project-defined QA driver).
-- Subagents live under `.claude/agents/`: `phase-reviewer.md`, `qa-agent.md`. Invoke via the `Agent` tool with `subagent_type: <name>`.
-- Claude Code scans `.claude/agents/` at session start. Adding or editing a project subagent only takes effect after a full restart — `/clear` is not enough. If a subagent type is missing, the fallback subsections in `do-whole-phase.md` and `qa-check.md` describe a `general-purpose` invocation that inlines the policy body.
-- Prefer Claude Code's built-in tools (`Read`, `Edit`, `Write`, `Glob`, `Grep`) over shelling to `cat`, `sed`, `awk`, `find` from `Bash`.
-
-### Codex
-
-- Codex reads `AGENTS.md`, which points to this file (`CLAUDE.md`). Project-level slash commands do not exist in Codex; named workflows are user-home only (`~/.codex/prompts/` or skills).
-- Subagents are configured under `.codex/agents/*.toml`. Each TOML file bridges to its canonical Markdown policy at `.claude/agents/<name>.md`. Edit the policy, not the bridge.
-- Codex users invoke the workflow by reading the relevant `CLAUDE.md` sections directly, or by wiring user-home skills that mirror the Claude Code slash commands.
-
-## Reference Files
-
-- `CLAUDE.md` — canonical workflow rules (this file).
-- `AGENTS.md` — pointer to `CLAUDE.md` so Codex finds the policy by its native default name.
-- `docs/product.md` — problem, users, goals, terminology.
-- `docs/architecture.md` — current repo shape and intended system design.
-- `docs/api.md` — current and planned public or MCP-facing contracts.
-- `works/backlog.md` — actively scheduled phases and slices.
-- `works/deferred.md` — parked jobs outside the active backlog.
-- `works/templates/` — fresh templates for backlog, plan, and result.
-- `.claude/commands/` — Claude Code slash commands.
-- `.claude/agents/phase-reviewer.md` — phase-review gate policy.
-- `.claude/agents/qa-agent.md` — mission-driven UI QA policy.
-- `.codex/config.toml` — Codex project config.
-- `.codex/agents/phase-reviewer.toml`, `.codex/agents/qa-agent.toml` — Codex bridges to the Markdown policies.
-
-## Notes
-
-- Keep product-facing messaging in `README.md`.
-- Keep durable workflow rules in `CLAUDE.md`.
-- Keep stable technical truth in `docs/`.
-- Keep execution artifacts in `works/`.
+- Keep the `type(scope): summary` convention above. This environment additionally appends a `Co-Authored-By` trailer to commit messages.
