@@ -37,7 +37,7 @@ The current service uses these choices:
 - A separate worker process for background capture persistence
 - Redis-backed queueing between the app and worker
 - Official MCP Python SDK `FastMCP` served by the host app at `/mcp` using Streamable HTTP
-- Public REST capture route under `/api/*`
+- Public REST capture route and scoped end-user read route under `/api/*`
 - Starlette Admin REST routes under `/admin/api/*`
 - Starlette Admin Web UI routes under `/admin` and packaged static assets under `/admin/assets/*`
 - Stateless MCP operation with JSON responses enabled
@@ -55,10 +55,10 @@ Clients should use `/mcp` as the canonical MCP endpoint for agent workflows wher
 Vocky now has three public-facing tracks over the same feedback schema:
 
 - MCP track for AI-agent workflows: `capture_feedback`, `list_feedback`, `summarize_feedback`, and `list_liked_conversations`. MCP capture is optimized for agent-decided VoC about messages, conversations, and agent context.
-- Public REST capture track for server-to-server product integrations: `POST /api/feedback`. REST capture uses the existing capture field set for explicit product/UI-triggered feedback, including surface feedback represented with `target_type="surface"` when applicable.
-- Admin REST track for humans and dashboards: `/admin/api/feedback` list/detail, `/admin/api/feedback/metrics` dashboard metrics, plus patch/delete management endpoints.
+- Public REST track for server-to-server product integrations: `POST /api/feedback` capture plus `GET /api/feedback`, a scoped end-user read of one user's own feedback (required `user_id` + `source_product`) together with operator comments and cursor pagination. REST capture uses the existing capture field set for explicit product/UI-triggered feedback, including surface feedback represented with `target_type="surface"` when applicable.
+- Admin REST track for humans and dashboards: `/admin/api/feedback` list/detail, `/admin/api/feedback/metrics` dashboard metrics, `/admin/api/feedback/{feedback_id}/comments` operator comment add/list (with the feedback detail response carrying a `comments` array), plus patch/delete management endpoints.
 
-The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data, feedback review management, and packaged static docs assets for operator reference content. It can also render an internal REST capture try-it docs block that posts to same-origin `/api/feedback`, sends `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>` only when the operator enters an API token, and stores that API token only in browser session storage. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture-only and does not expose review, query, summary, job-status, or management endpoints. REST does not add a separate wire shape in this phase; website and product context should be represented with `target_type`, `target_id`, `target_text`, nullable `channel`, `tags`, `source_metadata`, and `attributes`. `target_type` is the review discriminator for message, conversation, and surface feedback; it does not create a second feedback store or a new capture endpoint. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, channel category, metadata, target context, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
+The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data, feedback review management, and packaged static docs assets for operator reference content. It can also render an internal REST capture try-it docs block that posts to same-origin `/api/feedback`, sends `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>` only when the operator enters an API token, and stores that API token only in browser session storage. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture plus a single scoped end-user read (`GET /api/feedback`); it does not expose broad review, query, summary, job-status, or management endpoints. The scoped read returns only the caller-identified user's own records, scoped by required `user_id` + `source_product`, together with operator comments; any optional filters are AND-combined with that mandatory scope so the read never returns cross-user data. REST does not add a separate wire shape in this phase; website and product context should be represented with `target_type`, `target_id`, `target_text`, nullable `channel`, `tags`, `source_metadata`, and `attributes`. `target_type` is the review discriminator for message, conversation, and surface feedback; it does not create a second feedback store or a new capture endpoint. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, channel category, metadata, target context, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
 
 ## Configuration Surface
 
@@ -74,6 +74,10 @@ The runtime configuration surface is intentionally small:
 - `VOCKY_MCP_AUTH_TOKEN`: optional bearer token required for MCP traffic. Public deployments should set it.
 - `VOCKY_API_AUTH_TOKEN`: optional bearer token required for `/api/*` traffic. Public deployments that expose REST capture should set it.
 - `VOCKY_ADMIN_AUTH_TOKEN`: optional bearer token required for Admin REST traffic. Public deployments that expose `/admin/api` should set it.
+- `VOCKY_ATTACHMENTS_DIR`: directory the local attachment storage backend reads and writes. In Docker this is a named volume mounted on both the app and worker.
+- `VOCKY_ATTACHMENTS_MAX_BYTES`: maximum size in bytes of a single uploaded attachment. Default `5242880` (5 MiB).
+- `VOCKY_ATTACHMENTS_MAX_COUNT`: maximum number of attachments that may be linked to one feedback event. Default `10`.
+- `VOCKY_ATTACHMENTS_ALLOWED_MIME_TYPES`: comma-separated allowed attachment MIME types, validated by magic-byte sniffing. Default `image/jpeg,image/png,image/gif,image/webp`.
 
 The supported local operator workflow adds these host-side settings:
 
@@ -185,6 +189,20 @@ Indexes for the intended P1 read model should cover:
 
 The schema keeps the most important review dimensions visible as first-class columns while leaving room for source-specific metadata in JSONB fields. `channel` remains nullable `TEXT` rather than a database enum so older arbitrary channel values can stay readable and exact-filterable without destructive migration; write validation prevents new arbitrary channel values on capture and Admin edits. `target_type` is the only target field promoted to a first-class review discriminator in P1; other target fields remain captured context and are not filters or editable review fields.
 
+## Operator Comment Store
+
+Operator-authored comments are a separate first-class store, not an overload of the user-supplied `comment` column on `feedback_events` (which remains the end user's own comment captured at feedback time). The store lets operators annotate a stored feedback event for review and for one-way operator-to-user visibility.
+
+The secondary table is `feedback_comments`:
+
+- `id UUID` primary key
+- `feedback_id UUID` not null, foreign key to `feedback_events.id` with `ON DELETE CASCADE` (deleting a feedback event removes its comments)
+- `author TEXT` null, an optional caller-supplied operator label; Vocky has no native operator accounts
+- `body TEXT` not null, the comment text
+- `created_at TIMESTAMPTZ` not null, defaulting to `CURRENT_TIMESTAMP`
+
+Indexes cover `feedback_id` and the composite `(feedback_id, created_at)` so a single feedback event's comments and batched multi-event lookups both read efficiently. Comments are returned oldest-first ordered by `(created_at, id)`. The repository exposes a batched `list_comments_for_feedback_ids` so list-style reads (the end-user feedback read) fetch all comments for a page in one query instead of N+1 per-record lookups. This is the only genuinely new subsystem in P1; the comment store reuses the same SQLAlchemy async session, repository, and service layering as `feedback_events`, with the same `FeedbackPersistenceError` / `FeedbackReadError` wrapping.
+
 The async capture path is layered as:
 
 - MCP tool or REST route input normalization and error mapping
@@ -199,7 +217,7 @@ The read path reuses the same service and repository layers:
 - MCP tool input normalization and error mapping for `list_feedback`, `summarize_feedback`, and `list_liked_conversations`
 - Transport-neutral read methods on the feedback service
 - Repository queries against `feedback_events`
-- No public REST query stack in the base MVP
+- A single scoped public REST read (`GET /api/feedback`) over the same service and repository, restricted to one user's own records by required `user_id` + `source_product` and returning operator comments via a batched `feedback_comments` fetch; no broad public REST query stack
 
 The Admin dashboard metrics path uses the same read layers:
 
@@ -208,6 +226,46 @@ The Admin dashboard metrics path uses the same read layers:
 - A transport-neutral feedback service metrics method backed by repository aggregates over `feedback_events`
 - UTC day bucketing with zero-filled daily buckets for the requested inclusive-start/exclusive-end ingest-time window
 - Aggregate counts for total records, likes (`feedback_value = 1`), dislikes (`feedback_value = 2`), and unrated records (`feedback_value is null`)
+
+## File Storage Subsystem
+
+Vocky stores feedback image attachments as opaque binary objects outside the database, behind a small storage seam so the backend can change without touching callers. This is the first file-storage subsystem in the codebase.
+
+- `AttachmentStorage` (`src/vocky/storage/base.py`) is the backend-neutral interface: `save(key, data)`, `load(key) -> bytes`, and `delete(key)`. It raises `StorageError` for write/read/delete failures and `StorageObjectNotFoundError` (a `StorageError` subclass) when an object is missing.
+- `LocalFilesystemAttachmentStorage` (`src/vocky/storage/local.py`) is the only implementation today. It stores each object as a file under `VOCKY_ATTACHMENTS_DIR`, rejects keys that are absolute or escape the root (`resolve()` + `is_relative_to`), creates intermediate directories, and writes through a sibling temp file plus atomic `os.replace` so a reader never observes a partial object.
+- `get_attachment_storage()` (`src/vocky/storage/__init__.py`) is the dependency accessor, mirroring `get_feedback_service()`: it returns a backend built from the cached settings.
+
+An S3-compatible backend is deliberately deferred behind this same interface; storage keys are server-generated UUIDs (never client filenames), so adding object-store backends needs no key-format change. Size, count, and allowed-type limits are configuration (`VOCKY_ATTACHMENTS_*`) and are enforced at the HTTP and capture layers, not inside the storage backend, which stays a dumb byte store.
+
+## Feedback Attachment Store
+
+Attachment metadata lives in a `feedback_attachments` table; the bytes live in the File Storage Subsystem above, referenced by `storage_key`. The table mirrors `feedback_comments` but its `feedback_id` is nullable because attachments are uploaded before the feedback row exists (see Async Capture and Attachment Linking).
+
+- `id UUID` primary key
+- `feedback_id UUID` **nullable**, foreign key to `feedback_events.id` with `ON DELETE CASCADE`. Nullable because an attachment is uploaded and stored before the async capture path persists its feedback row; the worker links it afterward. The cascade still applies once linked, so deleting a feedback event removes its attachment rows.
+- `storage_key TEXT` not null, the server-generated UUID key into the storage backend
+- `content_type TEXT` not null, the MIME type derived from magic-byte sniffing at upload (never the client-declared header)
+- `byte_size INTEGER` not null
+- `filename TEXT` null, the client-supplied display name (sanitized when echoed in headers)
+- `claimed_user_id TEXT` null, the `user_id` asserted at upload time
+- `claimed_source_product TEXT` not null, the `source_product` asserted at upload time
+- `created_at TIMESTAMPTZ` not null, defaulting to `CURRENT_TIMESTAMP`
+
+Indexes cover `feedback_id`, the composite `(feedback_id, created_at)` for a single event's attachments and batched multi-event lookups, and `created_at` to keep the deferred orphan-upload sweep (`D3`) cheap. The repository exposes a batched `list_attachments_for_feedback_ids` mirroring the comment store so list reads stay free of N+1 lookups.
+
+The `claimed_user_id` / `claimed_source_product` columns are the identity binding that makes "an end user sees only their own attachments" enforceable. The worker links an attachment only when its claimed scope matches the feedback event's `(user_id, source_product)` via a guarded `UPDATE ... WHERE feedback_id IS NULL AND claimed_source_product = :sp AND claimed_user_id = :uid` (with an `IS NULL` branch for anonymous feedback). The `feedback_id IS NULL` guard makes linking idempotent and blocks one feedback event from stealing another's attachment. The store reuses the same SQLAlchemy async session, repository, and service layering as `feedback_events`, with the same `FeedbackPersistenceError` / `FeedbackReadError` wrapping; `create_feedback_event_with_attachments` performs the event insert and the guarded link in one transaction.
+
+Reads and downloads reuse the P1 scoping model. The operator-review detail and the scoped end-user read each inject an `attachments` array (oldest-first), fetched with a single batched `list_attachments_for_feedback_ids` query alongside comments to avoid N+1 lookups. Bytes are served by authenticated download endpoints: the operator download (`/admin/api/feedback/{id}/attachments/{id}`, admin token) serves any attachment linked to that feedback; the end-user download (`/api/feedback/{id}/attachments/{id}`) is authorized off the linked feedback row's `(user_id, source_product)` and answers `404` on any mismatch, unlinked attachment, or missing object so existence is never leaked, with `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`. Deleting a feedback event cascades the attachment rows; the admin delete path gathers the attachments' `storage_key`s in the same transaction before the cascade and then deletes the files best-effort (logged, never failing the committed delete). Never-linked uploads are the only residue and are left to the deferred orphan sweep (`D3`). In Docker the attachment files live on a named volume mounted on both the app and worker at `VOCKY_ATTACHMENTS_DIR`.
+
+## Async Capture and Attachment Linking
+
+Capture is asynchronous (`202 Accepted` → Redis queue → worker persist), and the feedback row's UUID exists only after the worker persists it, so attachments cannot be created at capture time and binaries cannot ride the JSON queue. The adopted protocol is upload-first async-link:
+
+- The client uploads each image synchronously to `POST /api/feedback/attachments` and receives an `attachment_id` for an unlinked `feedback_attachments` row that records the bytes' `storage_key` and the claimed `(user_id, source_product)`.
+- The capture payload carries `attachment_ids` (UUID strings only) through the existing Redis queue. The queue serializer adds `attachment_ids` to its explicit field allowlist and the deserializer defaults it to empty, so jobs enqueued before this field existed still deserialize.
+- When a job carries non-empty `attachment_ids`, the worker calls `create_feedback_event_with_attachments`, which inserts the feedback row and runs the guarded scope-verified link in one transaction. A job with no attachments takes the unchanged `create_feedback_event` path. Missing, mis-scoped, or already-linked attachments are skipped and logged; they never dead-letter the job, because a missing screenshot must not fail real feedback.
+
+REST capture validates and normalizes `attachment_ids` (parse to UUID, dedupe, cap at `VOCKY_ATTACHMENTS_MAX_COUNT`); MCP capture does not expose the field.
 
 ## Query Read Model
 

@@ -52,7 +52,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - Automatic classification or taxonomy assignment
 - A production-ready analytics suite
 - Browser-direct unauthenticated ingestion paths
-- Public REST review, query, summary, or management APIs outside the dedicated Admin REST surface
+- Broad public REST review, query, summary, or management APIs. The only public read is a narrowly scoped end-user self-read (`GET /api/feedback`) that returns a single caller-identified user's own feedback plus operator comments, scoped by required `user_id` and `source_product`; all other review, query, summary, job-status, and management stays on MCP or Admin REST.
 - Custom channel category management, deployment-configured channel lists, or automatic channel classification
 - Multi-tenant managed-cloud architecture
 - Enterprise-grade compliance or admin workflows
@@ -70,7 +70,9 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - The capture path should acknowledge accepted work quickly and complete persistence asynchronously in the background.
 - The MCP capture path should stay optimized for agent workflows where the agent or agent runtime decides that a user interaction is useful VoC, especially feedback on an exact message, conversation, or context-bearing agent response.
 - The REST capture path should be the first-choice ingestion path for explicit product/UI-triggered feedback, such as like/dislike controls, page feedback, widgets, surveys, or other product-surface feedback, using the existing capture fields instead of REST-only aliases or a separate endpoint.
-- The REST capture path remains capture-only. In-app try tooling may exercise it, but review, query, summary, job-status, and management remain MCP or Admin REST concerns rather than new public REST endpoints.
+- The REST capture path remains capture-only, with one deliberate exception: a narrowly scoped end-user self-read (`GET /api/feedback`) that returns a single user's own feedback plus operator comments, scoped by required `user_id` and `source_product`. In-app try tooling may exercise capture, but broad review, query, summary, job-status, and management remain MCP or Admin REST concerns rather than new public REST endpoints.
+- Operator comments are a first-class concept distinct from the end user's own `comment`: operators add and list them through Admin REST, and the scoped end-user read surfaces them read-only to the originating user as one-way operator-to-user visibility.
+- End users can attach images (such as screenshots) to feedback. Images are uploaded synchronously to obtain an attachment id that the capture call references, and the worker links them to the feedback record after persist. Attachments appear in both the operator-review and scoped end-user-read responses and are served through authenticated downloads: an end user can download only their own attachments (scoped by `user_id` + `source_product`), while operators can download all attachments for the feedback they review. Allowed types and size are operator-configurable; the default is common raster image types up to a few megabytes.
 - The initial high-signal capture path should focus on explicit user actions, such as like/dislike clicks and optional comments, rather than trying to infer feedback from every conversation turn.
 - Optional caller-owned user identity and trigger context fields preserve who the product associates with the event and which action, control, survey, or manual workflow caused capture.
 - Feedback capture should not assume that the latest message is the reviewed item. Callers should identify the exact reviewed message, conversation, or product surface when that information is available.
@@ -86,7 +88,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 Vocky uses one canonical feedback store and one shared capture field set, but the public-facing surfaces have different jobs:
 
 - MCP is for agent/runtime capture and MCP reads. `capture_feedback` is the agent-workflow ingestion path when an agent or agent runtime decides an interaction should be captured as VoC. MCP read tools serve agent, script, or operator review workflows that prefer MCP.
-- Public REST is for trusted server-to-server capture-only product and UI feedback. `POST /api/feedback` is the preferred path for explicit product-surface actions such as likes, dislikes, page feedback, widgets, or surveys. It does not expose public query, summary, job-status, or management endpoints.
+- Public REST is for trusted server-to-server product integrations: capture plus a single scoped end-user read. `POST /api/feedback` is the preferred path for explicit product-surface actions such as likes, dislikes, page feedback, widgets, or surveys, and `POST /api/feedback/attachments` uploads an image to reference from a capture call. `GET /api/feedback` returns one end user's own feedback (scoped by required `user_id` + `source_product`) together with operator comments and image attachments, and `GET /api/feedback/{feedback_id}/attachments/{attachment_id}` downloads one of the caller's own attachments under the same scope. It does not expose broad query, summary, job-status, or management endpoints.
 - Admin REST is for human/operator review and management. `/admin/api/*` powers dashboards, list/detail inspection, review-field editing, metrics, and deletion over the same stored feedback records.
 
 ## Current Field Taxonomy
@@ -107,6 +109,8 @@ Current feedback fields are grouped by responsibility, not by transport. MCP cap
 
 - `VoC`: voice of customer
 - `message`: the required human-readable feedback summary or display text. It is the text Vocky shows as the primary feedback record label, not an implicit pointer to the reviewed agent message.
+- `comment`: the end user's own optional comment captured at feedback time. It is distinct from an operator comment.
+- `operator comment`: an operator-authored note attached to a stored feedback event, kept in a separate store keyed by feedback id. Operators add and list operator comments through Admin REST; the scoped end-user read returns them read-only to the originating user. `author` is an optional caller-supplied operator label because Vocky has no native operator accounts.
 - `conversation_id`: caller-provided conversation or thread identifier used to group feedback from the same conversation.
 - `session_id`: optional caller-provided runtime, browser, or user-session identifier. It can help correlate repeated interactions without replacing `conversation_id`.
 - `user_id`: optional caller-owned user or account-member identifier associated with the feedback event. Vocky treats it as an opaque string and does not infer authentication, tenancy, or identity semantics from it.

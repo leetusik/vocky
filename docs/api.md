@@ -2,7 +2,7 @@
 
 ## Status
 
-The feedback capture MCP tool, Web Feedback Capture REST API, `P3` read tools, MCP/Admin `target_type` read filters, optional `user_id` and trigger fields, Admin REST channel validation, Admin UI channel category workflows, and Admin Docs REST capture try-it behavior are implemented. These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
+The feedback capture MCP tool, Web Feedback Capture REST API, `P3` read tools, MCP/Admin `target_type` read filters, optional `user_id` and trigger fields, Admin REST channel validation, Admin UI channel category workflows, Admin Docs REST capture try-it behavior, Admin REST operator comments, and the scoped End-User Feedback Read REST API are implemented. These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
 
 ## Purpose
 
@@ -12,6 +12,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 
 - MCP tool contract for feedback capture
 - Web Feedback Capture REST API contract for server-to-server website and product feedback ingestion, plus operator-only Admin Docs try-it against the same endpoint
+- End-User Feedback Read REST API contract for a scoped server-to-server read of a single user's own feedback plus operator comments
 - MCP tool contracts for review and query access
 - MCP tool contract for liked-conversation retrieval
 - Admin REST API contract for human/operator review and dashboard metrics
@@ -216,6 +217,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `used_context: array` optional. JSON array of caller-provided context used by the agent when relevant.
     - `source_metadata: object` optional. Arbitrary JSON object for source context such as URL, path, referrer, browser, page, widget, or backend integration detail.
     - `attributes: object` optional. Arbitrary JSON object for product-specific dimensions such as account plan, environment, locale, or rollout cohort.
+    - `attachment_ids: string[]` optional (REST only). UUIDs returned by earlier `POST /api/feedback/attachments` uploads to attach to this feedback. Each must be a valid UUID; duplicates are dropped; the count must not exceed `VOCKY_ATTACHMENTS_MAX_COUNT`. The worker links only attachments whose upload-time `user_id` + `source_product` match this event's; non-matching, missing, or already-linked ids are skipped without failing capture. MCP capture does not accept attachments.
 - Outputs:
   - Success status: `202 Accepted`
   - Response body:
@@ -234,6 +236,98 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - REST capture is the preferred ingestion path for explicit product/UI-triggered website and product feedback through the existing fields; this phase does not add REST-only aliases, a versioned endpoint, or separate storage.
   - Success means the job was accepted for background processing, not that the feedback record is already queryable.
   - Accepted REST capture jobs use the same Redis queue, worker, feedback service, and PostgreSQL table as MCP capture jobs.
+  - Image attachments are uploaded first via `POST /api/feedback/attachments`; only the resulting `attachment_ids` (UUID strings) travel through the capture queue. Binaries never enter Redis. The worker links the referenced attachments to the persisted feedback row, scope-verified against the event's `user_id` + `source_product`.
+
+### Feedback Attachment Upload REST API
+
+- Status: implemented in `P2`
+- Consumers: Server-to-server product integrations that let an end user attach an image (for example a screenshot) to feedback
+- Purpose: Synchronously upload one image and receive an `attachment_id` to reference from a later capture call. Capture is asynchronous and binaries cannot ride the JSON queue, so images are uploaded first and linked to the feedback row after the worker persists it.
+- Base path: `/api`
+- Auth or permissions:
+  - Same boundary as REST capture: when `VOCKY_API_AUTH_TOKEN` is set, `/api/*` requests must include `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>`.
+  - The caller asserts scope with required `user_id` + `source_product`; these are recorded on the attachment and the worker links the attachment only to a feedback event with the same `(user_id, source_product)`.
+- Endpoint:
+  - `POST /api/feedback/attachments`
+- Inputs:
+  - Query parameters:
+    - `user_id: string` required. Trimmed; must not be blank. Recorded as the attachment's claimed user scope.
+    - `source_product: string` required. Trimmed; must not be blank. Recorded as the attachment's claimed product scope.
+  - Body: `multipart/form-data` with a single `file` part containing the image bytes. The content type is determined by magic-byte sniffing of the bytes, not the declared part header.
+  - Allowed image types: `image/jpeg`, `image/png`, `image/gif`, `image/webp` (configurable via `VOCKY_ATTACHMENTS_ALLOWED_MIME_TYPES`).
+  - Maximum size: `VOCKY_ATTACHMENTS_MAX_BYTES` (default 5 MiB).
+- Outputs:
+  - Success status: `201 Created`
+  - Response body:
+    - `attachment_id: string` UUID of the stored, not-yet-linked attachment
+    - `content_type: string` the sniffed canonical MIME type
+    - `byte_size: integer` stored byte size
+    - `filename: string | null` sanitized client filename, or `null`
+- Errors:
+  - Missing or invalid bearer token when auth is configured returns `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`
+  - Missing or blank `user_id` or `source_product`, a missing `file` part, an empty file, malformed multipart, or an invalid `Content-Length` return `400 {"detail":"..."}`
+  - A file larger than the configured maximum returns `413 {"detail":"attachment too large"}`
+  - A file whose sniffed type is not an allowed image type (including SVG and spoofed declarations) returns `415 {"detail":"unsupported image type"}`
+  - Storage write failures return `503 {"detail":"attachment storage unavailable"}`
+- Notes:
+  - The returned `attachment_id` is referenced from `POST /api/feedback` via `attachment_ids` (see the capture contract). An uploaded attachment that is never referenced stays unlinked; a scheduled orphan sweep is deferred.
+  - Storage keys are server-generated UUIDs; the client filename is stored only as display metadata.
+  - The attachment is not visible in any read until the capture worker links it to a persisted feedback event.
+
+### End-User Feedback Read REST API
+
+- Status: implemented in `P1`
+- Consumers: Trusted server-to-server product integrations rendering a single end user's own feedback (for example a "my feedback" view), after the product has authenticated that user
+- Purpose: Return one end user's own stored feedback, scoped strictly by `user_id` + `source_product`, together with operator comments, using basic review filters and cursor pagination
+- Base path: `/api`
+- Auth or permissions:
+  - Trusted server-to-server. The integrating product authenticates its own user, then calls Vocky with that `user_id` and the API bearer token; Vocky has no native end-user accounts.
+  - When `VOCKY_API_AUTH_TOKEN` is set, `/api/*` requests must include `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>` (the same boundary as REST capture).
+  - Vocky enforces `user_id` + `source_product` scoping server-side and never returns cross-user or cross-product data.
+- Endpoint:
+  - `GET /api/feedback`
+- Inputs (query parameters):
+  - `user_id: string` required. Trimmed; must not be blank. The scoping boundary; the read is never issued unscoped.
+  - `source_product: string` required. Trimmed; must not be blank. The second scoping boundary.
+  - `feedback_value: integer` optional. When provided, must be `1` for like or `2` for dislike.
+  - `channel: string` optional. Exact channel filter after trimming blank input to absence.
+  - `target_type: string` optional. Exact filter; non-blank values must be `message`, `conversation`, or `surface`.
+  - `trigger_type: string` optional. Exact filter; non-blank values must be `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, or `other`.
+  - `source_integration: string` optional. Exact filter after trimming blank input to absence.
+  - `conversation_id: string` optional. Exact filter after trimming blank input to absence.
+  - `session_id: string` optional. Exact filter after trimming blank input to absence.
+  - `tag: string` optional. Exact single-tag membership; blank values are rejected.
+  - `start_ingested_at: string` optional. Timezone-aware ISO 8601; filters `ingested_at >= start_ingested_at` after normalization to UTC.
+  - `end_ingested_at: string` optional. Timezone-aware ISO 8601; filters `ingested_at < end_ingested_at` after normalization to UTC.
+  - `limit: integer` optional. Defaults to `50`; values must be between `1` and `100`.
+  - `cursor: string` optional. Opaque base64url cursor returned by an earlier `GET /api/feedback` call.
+  - All optional filters are AND-combined with the required `user_id` + `source_product` scope.
+- Outputs:
+  - Success status: `200 OK`
+  - Response body:
+    - `records: object[]` newest-first by `(ingested_at desc, id desc)`
+    - `next_cursor: string` opaque pagination cursor for the next page when more records exist; the field is omitted when no further page exists
+  - Record shape: the same fields as the Admin Feedback REST API record shape (`id`, `message`, `source_product`, `feedback_value`, `comment`, `channel`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `trigger_type`, `trigger_message`, `trigger_metadata`, `target_type`, `target_id`, `target_role`, `target_text`, `event_at`, `ingested_at`, `tags`, `messages`, `used_context`, `source_metadata`, `attributes`), plus:
+    - `comments: object[]` operator comments for the record, oldest-first, each `{id, author, body, created_at}` (the Admin Comment shape)
+    - `attachments: object[]` image attachments for the record, oldest-first, each `{id, content_type, byte_size, filename, created_at, url}` where `url` is the relative end-user download path `/api/feedback/{feedback_id}/attachments/{id}`
+- Errors:
+  - Missing or invalid bearer token when auth is configured returns `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`
+  - Missing or blank `user_id` or `source_product`, invalid filter values, invalid limits, blank `tag`, invalid time windows, and invalid cursors return `400 {"detail":"..."}`
+  - Storage read failures return `500 {"detail":"storage read failed"}`
+- Notes:
+  - This is the only public REST read. It is deliberately scoped to a single user's own feedback and is not a general query, review, or summary API; those remain MCP or Admin REST concerns.
+  - Operator comments are returned read-only. This phase is one-way operator-to-user visibility with no end-user replies or two-way threads.
+  - The read reuses the same `feedback_events` store, indexed `user_id` / `source_product` filters, and cursor pagination as the other read surfaces, with batched operator-comment and attachment fetches to avoid N+1 lookups.
+  - Each record's image attachments are surfaced as an `attachments` array (phase `P2`, implemented); the bytes are served by the scoped end-user attachment download below.
+
+#### End-User Feedback Attachment Download
+
+- Endpoint: `GET /api/feedback/{feedback_id}/attachments/{attachment_id}`
+- Auth: same `/api/*` bearer boundary as the read.
+- Inputs (query parameters): `user_id` and `source_product`, both required and non-blank (the same scope as the read).
+- Authorization: the attachment is authorized off its linked feedback row's `(user_id, source_product)`. A request for another user's or product's attachment, an unlinked attachment, a missing attachment, or a missing feedback all return `404` — existence is never leaked.
+- Outputs: `200 OK` streaming the attachment bytes with the stored `content_type`, `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, and `Cache-Control: private, no-store`.
+- Errors: missing/invalid bearer when configured → `401`; missing/blank `user_id` or `source_product`, or a malformed id → `400`; any authorization miss or a missing stored object → `404`; storage read failure → `503`.
 
 ### Feedback Listing MCP Tool
 
@@ -437,6 +531,12 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - Returns `window`, `totals`, and zero-filled UTC `daily_counts`
   - `GET /admin/api/feedback/{feedback_id}`
     - Returns one full feedback record or `404` when missing
+    - The record response includes a `comments` array of operator comments, oldest-first
+    - The record response includes an `attachments` array of image attachments, oldest-first
+  - `GET /admin/api/feedback/{feedback_id}/attachments/{attachment_id}`
+    - Streams one attachment's bytes for operator review (operators see all attachments for any feedback)
+    - Responds with the stored `content_type` and `X-Content-Type-Options: nosniff`
+    - Returns `404` when the attachment is not linked to that feedback, or `404` when its stored object is missing
   - `PATCH /admin/api/feedback/{feedback_id}`
     - Updates review-oriented fields: `feedback_value`, `comment`, `channel`, `tags`, `source_metadata`, and `attributes`
     - `channel`, when patched, is trimmed; blank values clear the category to `null`; non-null values must be `web`, `mobile`, or `support`
@@ -444,6 +544,18 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - Returns the updated record
   - `DELETE /admin/api/feedback/{feedback_id}`
     - Deletes one feedback record and returns `204` on success
+    - Also deletes that record's operator comments and attachment rows (`ON DELETE CASCADE`)
+    - Best-effort deletes the attachment files from storage after the database delete commits; a failed file delete is logged and does not fail the request
+  - `POST /admin/api/feedback/{feedback_id}/comments`
+    - Adds one operator-authored comment to the feedback record
+    - Request body: `body: string` required, trimmed, must not be blank after trimming; `author: string | null` optional, trimmed, blank normalized to `null`
+    - Returns `201` with `{ "comment": <comment> }`
+    - Returns `404` when the parent feedback record is missing
+    - Returns `400` on a blank `body`, a missing `body`, or a malformed/non-object JSON body
+  - `GET /admin/api/feedback/{feedback_id}/comments`
+    - Lists the feedback record's operator comments, oldest-first
+    - Returns `200` with `{ "comments": [<comment>, ...] }`
+    - Returns `404` when the parent feedback record is missing
 - Record shape:
   - `id: string`
   - `message: string`
@@ -469,6 +581,18 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - `used_context: array`
   - `source_metadata: object`
   - `attributes: object`
+- Comment shape:
+  - `id: string`
+  - `author: string | null` optional caller-supplied operator label; Vocky has no native operator accounts
+  - `body: string`
+  - `created_at: string` UTC ISO 8601 timestamp
+- Attachment shape:
+  - `id: string`
+  - `content_type: string` the stored image MIME type (derived from magic-byte sniffing at upload)
+  - `byte_size: integer`
+  - `filename: string | null` sanitized client filename
+  - `created_at: string` UTC ISO 8601 timestamp
+  - `url: string` relative download path for this surface (`/admin/api/feedback/{feedback_id}/attachments/{id}`)
 - Metrics response shape:
   - `window.start_ingested_at: string` UTC ISO 8601 timestamp
   - `window.end_ingested_at: string` UTC ISO 8601 timestamp
@@ -484,6 +608,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Storage read or write failures return JSON `500` responses with `detail`
 - Notes:
   - Admin REST is the human/operator review surface.
+  - Operator comments are a separate first-class store keyed by feedback id, distinct from the user-supplied `comment` field captured at feedback time. The `POST`/`GET /admin/api/feedback/{feedback_id}/comments` endpoints and the `comments` array in the detail response are the operator add/list surface; comments are not editable or deletable individually in this MVP.
   - The Admin REST API and MCP tools share the same `feedback_events` schema and service/repository layer.
   - The packaged Admin Web UI consumes this same-origin Admin REST surface for dashboard metrics, feedback list/filter/detail review, review-field editing, and guarded delete.
   - `/admin` and `/admin/assets/*` are static Admin Web UI routes rather than Admin REST endpoints. They can load without an Admin bearer token, while protected data remains under `/admin/api/*`.
