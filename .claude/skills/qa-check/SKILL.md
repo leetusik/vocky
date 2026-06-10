@@ -1,8 +1,13 @@
 ---
+name: qa-check
 description: Run the QA agent against a mission brief (or the full mission library).
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
+disable-model-invocation: true
 ---
 
-Run the QA agent for the user's argument. The QA agent lives at `.claude/agents/qa-agent.md` and is invoked via the `Agent` tool with `subagent_type: qa-agent`. It mirrors `phase-reviewer`'s verdict shape (`pass | changes_requested | blocked`) and writes evidence into the supplied artifact directory.
+# qa-check
+
+Run the QA agent for the user's argument (`$ARGUMENTS`). The QA agent lives at `.claude/agents/qa-agent.md` and is invoked via the `Agent` tool with `subagent_type: qa-agent`. It mirrors `phase-reviewer`'s verdict shape (`pass | changes_requested | blocked`) and writes evidence into the supplied artifact directory.
 
 ## Argument modes
 
@@ -15,7 +20,7 @@ Run the QA agent for the user's argument. The QA agent lives at `.claude/agents/
 For each mission:
 
 1. Resolve the mission body (file path or inline string) and confirm the project's QA driver is up and pointing at the deployed code path. If the driver is not running, surface the error and stop.
-2. Create an artifact directory under the active work item (e.g. `works/current/<work>/browser/qa-<mission_id>-<run>/`) where the agent will write `transcript.md` and `summary.json`.
+2. Create an artifact directory under the active slice folder (e.g. `works/phases/active/<P>/slices/<slice_id>/browser/qa-<mission_id>-<run>/`) where the agent will write `transcript.md` and `summary.json`. If no slice is active, use a scratch path such as `works/qa/qa-<mission_id>-<run>/`.
 3. Invoke the QA agent via the `Agent` tool with `subagent_type: qa-agent`. Pass the mission body, the artifact directory, the driver's send command/socket, and the turn budget.
 4. Wait for the subagent to finish.
 5. Tear down the driver session.
@@ -29,7 +34,7 @@ For each mission:
 
 ## Wiring this up
 
-This bootstrap ships the QA *policy* (`.claude/agents/qa-agent.md`) and the *invocation contract* (this file). The browser/UI driver, mission library, and artifact pipeline are project-defined — wire them up under `scripts/qa-agent/` (or wherever fits your repo) before `/qa-check` will do useful work. The driver only needs to expose the capability surface listed under "Driver assumption" in `.claude/agents/qa-agent.md`.
+This workspace ships the QA *policy* (`.claude/agents/qa-agent.md`) and this *invocation contract*. The browser/UI driver, mission library, and artifact pipeline are project-defined — wire them up under `scripts/qa-agent/` (or wherever fits your repo) before `/qa-check` will do useful work. The driver only needs to expose the capability surface listed under "Driver assumption" in `.claude/agents/qa-agent.md`.
 
 ## Fallback if `qa-agent` isn't registered
 

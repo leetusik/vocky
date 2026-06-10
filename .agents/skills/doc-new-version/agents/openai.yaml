@@ -1,0 +1,6 @@
+interface:
+  display_name: "doc-new-version"
+  short_description: "Create a new versioned durable doc instead of patching current docs."
+  default_prompt: "Use the doc-new-version skill."
+policy:
+  allow_implicit_invocation: false

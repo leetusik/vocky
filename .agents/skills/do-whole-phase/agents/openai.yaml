@@ -1,0 +1,6 @@
+interface:
+  display_name: "do-whole-phase"
+  short_description: "Finish the active phase end-to-end, including the review and any fix slices."
+  default_prompt: "Use the do-whole-phase skill."
+policy:
+  allow_implicit_invocation: false

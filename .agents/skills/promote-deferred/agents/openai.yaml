@@ -1,0 +1,6 @@
+interface:
+  display_name: "promote-deferred"
+  short_description: "Promote a deferred job into an active phase or slice."
+  default_prompt: "Use the promote-deferred skill."
+policy:
+  allow_implicit_invocation: false

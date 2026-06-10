@@ -1,0 +1,6 @@
+interface:
+  display_name: "defer-job"
+  short_description: "Park work as a deferred job folder, outside active backlog selection."
+  default_prompt: "Use the defer-job skill."
+policy:
+  allow_implicit_invocation: false

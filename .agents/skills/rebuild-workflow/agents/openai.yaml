@@ -1,0 +1,6 @@
+interface:
+  display_name: "rebuild-workflow"
+  short_description: "Rebuild generated workflow dashboards, indexes, and docs snapshots, then validate."
+  default_prompt: "Use the rebuild-workflow skill."
+policy:
+  allow_implicit_invocation: false

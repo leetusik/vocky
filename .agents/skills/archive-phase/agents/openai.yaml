@@ -1,0 +1,6 @@
+interface:
+  display_name: "archive-phase"
+  short_description: "Archive review-passed phases: archive-all (full sweep), rotate-backlog (partial), or archive-phase (single)."
+  default_prompt: "Use the archive-phase skill."
+policy:
+  allow_implicit_invocation: false

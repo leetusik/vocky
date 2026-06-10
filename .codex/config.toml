@@ -1,2 +1,17 @@
-# Keep this minimal at first.
-# Add project-specific Codex settings here only after you notice repeated friction.
+# Project-scoped Codex notes for this agentic workspace.
+#
+# Codex reads instructions from AGENTS.md and discovers repo skills under
+# .agents/skills/ automatically. The primary Codex config lives in your user
+# home (~/.codex/config.toml); keep machine/account settings there.
+#
+# Recommended user-level settings to pair with this workspace:
+#
+#   # Treat this repo root as the project root.
+#   project_root_markers = [".git"]
+#
+#   # Optional: a read-only phase-review subagent. See the schema at
+#   # https://developers.openai.com/codex/subagents
+#   # Until then, the `review-phase` skill provides the same checklist and
+#   # records the verdict via: python3 scripts/workflow.py review-phase ...
+
+project_root_markers = [".git"]

@@ -1,0 +1,6 @@
+interface:
+  display_name: "review-phase"
+  short_description: "Review a completed phase against its objective and record a pass / changes_requested / blocked verdict."
+  default_prompt: "Use the review-phase skill."
+policy:
+  allow_implicit_invocation: false

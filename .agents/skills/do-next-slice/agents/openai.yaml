@@ -1,0 +1,6 @@
+interface:
+  display_name: "do-next-slice"
+  short_description: "Continue the active phase by completing exactly one slice, then stop."
+  default_prompt: "Use the do-next-slice skill."
+policy:
+  allow_implicit_invocation: false

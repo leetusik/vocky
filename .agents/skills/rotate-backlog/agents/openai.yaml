@@ -1,0 +1,6 @@
+interface:
+  display_name: "rotate-backlog"
+  short_description: "Archive every currently-done phase and leave in-progress phases active (partial archive-all)."
+  default_prompt: "Use the rotate-backlog skill."
+policy:
+  allow_implicit_invocation: false
