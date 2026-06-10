@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
+from uuid import uuid4
 
 import httpx
 import pytest
@@ -12,12 +14,71 @@ from starlette.applications import Starlette
 import vocky.admin_api as admin_api_module
 from vocky.admin_api import routes as admin_routes
 from vocky.db import get_engine
+from vocky.storage import LocalFilesystemAttachmentStorage, StorageObjectNotFoundError
 
 
 def make_admin_app() -> Starlette:
     """Create a test app with only Admin REST routes."""
 
     return Starlette(routes=admin_routes)
+
+
+@pytest.fixture
+def admin_attachment_storage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> LocalFilesystemAttachmentStorage:
+    """Point the admin attachment routes at a temp-dir storage backend."""
+
+    storage = LocalFilesystemAttachmentStorage(tmp_path)
+    monkeypatch.setattr(
+        "vocky.admin_api.get_attachment_storage", lambda: storage
+    )
+    return storage
+
+
+async def _seed_feedback_row(*, feedback_id: str, source_product: str = "changple5") -> None:
+    async with get_engine().begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO feedback_events (id, message, source_product) "
+                "VALUES (:id, :message, :source_product)"
+            ),
+            {"id": feedback_id, "message": "with attachment", "source_product": source_product},
+        )
+
+
+async def _seed_attachment_row(
+    *,
+    attachment_id: str,
+    feedback_id: str | None,
+    storage_key: str,
+    created_at: datetime,
+    content_type: str = "image/png",
+    byte_size: int = 3,
+    filename: str | None = None,
+    claimed_source_product: str = "changple5",
+) -> None:
+    async with get_engine().begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO feedback_attachments ("
+                "id, feedback_id, storage_key, content_type, byte_size, filename, "
+                "claimed_user_id, claimed_source_product, created_at"
+                ") VALUES ("
+                ":id, :feedback_id, :storage_key, :content_type, :byte_size, :filename, "
+                "NULL, :claimed_source_product, :created_at)"
+            ),
+            {
+                "id": attachment_id,
+                "feedback_id": feedback_id,
+                "storage_key": storage_key,
+                "content_type": content_type,
+                "byte_size": byte_size,
+                "filename": filename,
+                "claimed_source_product": claimed_source_product,
+                "created_at": created_at,
+            },
+        )
 
 
 @pytest.mark.anyio
@@ -579,3 +640,236 @@ async def test_admin_list_feedback_validation_errors(configured_database: str) -
     assert invalid_trigger_type_response.json() == {
         "detail": "trigger_type must be one of: like, dislike, comment, rating, survey, manual, other"
     }
+
+
+async def _seed_feedback(feedback_id: str, *, message: str = "feedback row") -> None:
+    """Insert a minimal feedback row for comment tests."""
+
+    async with get_engine().begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO feedback_events (id, message, source_product) "
+                "VALUES (:id, :message, :source_product)"
+            ),
+            {"id": feedback_id, "message": message, "source_product": "admin-product"},
+        )
+
+
+@pytest.mark.anyio
+async def test_admin_add_and_list_feedback_comments(configured_database: str) -> None:
+    feedback_id = "00000000-0000-0000-0000-0000000000c1"
+    await _seed_feedback(feedback_id)
+
+    transport = httpx.ASGITransport(app=make_admin_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        first = await client.post(
+            f"/admin/api/feedback/{feedback_id}/comments",
+            json={"author": "  ops-jane  ", "body": "  Escalated to billing  "},
+        )
+        second = await client.post(
+            f"/admin/api/feedback/{feedback_id}/comments",
+            json={"body": "Awaiting customer reply"},
+        )
+        list_response = await client.get(f"/admin/api/feedback/{feedback_id}/comments")
+
+    assert first.status_code == 201
+    first_comment = first.json()["comment"]
+    assert first_comment["author"] == "ops-jane"
+    assert first_comment["body"] == "Escalated to billing"
+    assert first_comment["id"]
+    assert first_comment["created_at"].endswith("Z")
+
+    assert second.status_code == 201
+    assert second.json()["comment"]["author"] is None
+
+    assert list_response.status_code == 200
+    comments = list_response.json()["comments"]
+    assert [comment["body"] for comment in comments] == [
+        "Escalated to billing",
+        "Awaiting customer reply",
+    ]
+    assert [comment["author"] for comment in comments] == ["ops-jane", None]
+
+
+@pytest.mark.anyio
+async def test_admin_post_comment_blank_body_returns_400(configured_database: str) -> None:
+    feedback_id = "00000000-0000-0000-0000-0000000000c2"
+    await _seed_feedback(feedback_id)
+
+    transport = httpx.ASGITransport(app=make_admin_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        blank_response = await client.post(
+            f"/admin/api/feedback/{feedback_id}/comments",
+            json={"body": "   "},
+        )
+        list_response = await client.get(f"/admin/api/feedback/{feedback_id}/comments")
+
+    assert blank_response.status_code == 400
+    assert blank_response.json() == {"detail": "body must not be blank"}
+    assert list_response.status_code == 200
+    assert list_response.json() == {"comments": []}
+
+
+@pytest.mark.anyio
+async def test_admin_comment_endpoints_missing_parent_returns_404(
+    configured_database: str,
+) -> None:
+    missing_id = "00000000-0000-0000-0000-0000000000ff"
+
+    transport = httpx.ASGITransport(app=make_admin_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        post_response = await client.post(
+            f"/admin/api/feedback/{missing_id}/comments",
+            json={"body": "no parent"},
+        )
+        get_response = await client.get(f"/admin/api/feedback/{missing_id}/comments")
+
+    assert post_response.status_code == 404
+    assert post_response.json() == {"detail": "feedback not found"}
+    assert get_response.status_code == 404
+    assert get_response.json() == {"detail": "feedback not found"}
+
+
+@pytest.mark.anyio
+async def test_admin_get_feedback_detail_includes_comments(
+    configured_database: str,
+) -> None:
+    with_comment_id = "00000000-0000-0000-0000-0000000000c3"
+    without_comment_id = "00000000-0000-0000-0000-0000000000c4"
+    await _seed_feedback(with_comment_id, message="has comments")
+    await _seed_feedback(without_comment_id, message="no comments")
+
+    transport = httpx.ASGITransport(app=make_admin_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        await client.post(
+            f"/admin/api/feedback/{with_comment_id}/comments",
+            json={"author": "ops-amy", "body": "Reviewed and resolved"},
+        )
+        with_comment = await client.get(f"/admin/api/feedback/{with_comment_id}")
+        without_comment = await client.get(f"/admin/api/feedback/{without_comment_id}")
+
+    assert with_comment.status_code == 200
+    record = with_comment.json()["record"]
+    assert record["id"] == with_comment_id
+    assert len(record["comments"]) == 1
+    assert record["comments"][0]["author"] == "ops-amy"
+    assert record["comments"][0]["body"] == "Reviewed and resolved"
+
+    assert without_comment.status_code == 200
+    assert without_comment.json()["record"]["comments"] == []
+
+
+@pytest.mark.anyio
+async def test_admin_detail_includes_attachments(configured_database: str) -> None:
+    feedback_id = "00000000-0000-0000-0000-0000000000d1"
+    first = "00000000-0000-0000-0000-0000000000d2"
+    second = "00000000-0000-0000-0000-0000000000d3"
+    await _seed_feedback_row(feedback_id=feedback_id)
+    await _seed_attachment_row(
+        attachment_id=second,
+        feedback_id=feedback_id,
+        storage_key="key-second",
+        created_at=datetime(2026, 6, 2, 9, 0, tzinfo=UTC),
+        filename="second.png",
+    )
+    await _seed_attachment_row(
+        attachment_id=first,
+        feedback_id=feedback_id,
+        storage_key="key-first",
+        created_at=datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+        filename="first.png",
+    )
+
+    transport = httpx.ASGITransport(app=make_admin_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get(f"/admin/api/feedback/{feedback_id}")
+
+    assert response.status_code == 200
+    attachments = response.json()["record"]["attachments"]
+    assert [item["id"] for item in attachments] == [first, second]
+    assert attachments[0]["content_type"] == "image/png"
+    assert attachments[0]["filename"] == "first.png"
+    assert attachments[0]["byte_size"] == 3
+    assert (
+        attachments[0]["url"]
+        == f"/admin/api/feedback/{feedback_id}/attachments/{first}"
+    )
+
+
+@pytest.mark.anyio
+async def test_admin_attachment_download_returns_bytes(
+    configured_database: str,
+    admin_attachment_storage: LocalFilesystemAttachmentStorage,
+) -> None:
+    feedback_id = "00000000-0000-0000-0000-0000000000e1"
+    attachment_id = "00000000-0000-0000-0000-0000000000e2"
+    payload = b"\x89PNG\r\n\x1a\nadmin-bytes"
+    await _seed_feedback_row(feedback_id=feedback_id)
+    await _seed_attachment_row(
+        attachment_id=attachment_id,
+        feedback_id=feedback_id,
+        storage_key="admin-key",
+        created_at=datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+    )
+    admin_attachment_storage.save("admin-key", payload)
+
+    transport = httpx.ASGITransport(app=make_admin_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get(
+            f"/admin/api/feedback/{feedback_id}/attachments/{attachment_id}"
+        )
+
+    assert response.status_code == 200
+    assert response.content == payload
+    assert response.headers["content-type"].startswith("image/png")
+
+
+@pytest.mark.anyio
+async def test_admin_attachment_download_wrong_feedback_returns_404(
+    configured_database: str,
+    admin_attachment_storage: LocalFilesystemAttachmentStorage,
+) -> None:
+    feedback_a = "00000000-0000-0000-0000-0000000000f1"
+    feedback_b = "00000000-0000-0000-0000-0000000000f2"
+    attachment_id = "00000000-0000-0000-0000-0000000000f3"
+    await _seed_feedback_row(feedback_id=feedback_a)
+    await _seed_feedback_row(feedback_id=feedback_b)
+    await _seed_attachment_row(
+        attachment_id=attachment_id,
+        feedback_id=feedback_a,
+        storage_key="key-a",
+        created_at=datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+    )
+
+    transport = httpx.ASGITransport(app=make_admin_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get(
+            f"/admin/api/feedback/{feedback_b}/attachments/{attachment_id}"
+        )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_admin_delete_removes_attachment_files(
+    configured_database: str,
+    admin_attachment_storage: LocalFilesystemAttachmentStorage,
+) -> None:
+    feedback_id = "00000000-0000-0000-0000-0000000000fa"
+    attachment_id = "00000000-0000-0000-0000-0000000000fb"
+    await _seed_feedback_row(feedback_id=feedback_id)
+    await _seed_attachment_row(
+        attachment_id=attachment_id,
+        feedback_id=feedback_id,
+        storage_key="delete-key",
+        created_at=datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+    )
+    admin_attachment_storage.save("delete-key", b"bytes-to-remove")
+
+    transport = httpx.ASGITransport(app=make_admin_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.delete(f"/admin/api/feedback/{feedback_id}")
+
+    assert response.status_code == 204
+    with pytest.raises(StorageObjectNotFoundError):
+        admin_attachment_storage.load("delete-key")

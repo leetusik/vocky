@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from starlette.routing import Route
 
 from vocky.channel import ChannelValidationError, normalize_channel_write
 from vocky.feedback import (
+    CreateFeedbackComment,
     FeedbackDailyMetricCount,
     FeedbackEventRecord,
     FeedbackMetricCounts,
@@ -24,6 +26,11 @@ from vocky.feedback import (
     ListFeedbackQuery,
     get_feedback_service,
 )
+from vocky.storage import (
+    StorageError,
+    StorageObjectNotFoundError,
+    get_attachment_storage,
+)
 from vocky.tools.query_feedback_common import (
     FeedbackQueryValidationError,
     decode_cursor,
@@ -34,10 +41,15 @@ from vocky.tools.query_feedback_common import (
     normalize_tag,
     normalize_target_type_filter,
     normalize_trigger_type_filter,
+    parse_int_param,
     parse_timestamp,
+    serialize_attachment,
+    serialize_comment,
     serialize_datetime,
     validate_time_window,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class AdminFeedbackPatchInput(BaseModel):
@@ -51,26 +63,17 @@ class AdminFeedbackPatchInput(BaseModel):
     attributes: dict[str, object] | None = None
 
 
+class AdminFeedbackCommentInput(BaseModel):
+    """Raw Admin REST operator-comment body."""
+
+    author: str | None = None
+    body: str
+
+
 async def admin_healthz(_: Request) -> JSONResponse:
     """Return a simple Admin API liveness response."""
 
     return JSONResponse({"service": "vocky", "surface": "admin", "status": "ok"})
-
-
-def parse_int_param(value: str | None, *, field_name: str) -> int | None:
-    """Parse an optional integer query parameter."""
-
-    if value is None:
-        return None
-
-    normalized = value.strip()
-    if not normalized:
-        raise FeedbackQueryValidationError(f"{field_name} must not be blank when provided")
-
-    try:
-        return int(normalized)
-    except ValueError as exc:
-        raise FeedbackQueryValidationError(f"{field_name} must be an integer") from exc
 
 
 def parse_feedback_id(request: Request) -> UUID:
@@ -80,6 +83,15 @@ def parse_feedback_id(request: Request) -> UUID:
         return UUID(request.path_params["feedback_id"])
     except ValueError as exc:
         raise FeedbackQueryValidationError("feedback_id must be a valid UUID") from exc
+
+
+def parse_attachment_id(request: Request) -> UUID:
+    """Parse the attachment ID path parameter."""
+
+    try:
+        return UUID(request.path_params["attachment_id"])
+    except ValueError as exc:
+        raise FeedbackQueryValidationError("attachment_id must be a valid UUID") from exc
 
 
 def normalize_tags(tags: list[str] | None) -> list[str] | None:
@@ -318,7 +330,87 @@ async def get_admin_feedback(request: Request) -> Response:
     if record is None:
         return JSONResponse({"detail": "feedback not found"}, status_code=404)
 
-    return JSONResponse({"record": serialize_record(record)})
+    try:
+        comments = await get_feedback_service().list_feedback_comments(feedback_id)
+        attachments = await get_feedback_service().list_feedback_attachments(feedback_id)
+    except FeedbackReadError:
+        return JSONResponse({"detail": "storage read failed"}, status_code=500)
+
+    payload = serialize_record(record)
+    payload["comments"] = [serialize_comment(comment) for comment in comments]
+    payload["attachments"] = [
+        serialize_attachment(
+            attachment,
+            url=f"/admin/api/feedback/{feedback_id}/attachments/{attachment.id}",
+        )
+        for attachment in attachments
+    ]
+    return JSONResponse({"record": payload})
+
+
+async def post_admin_feedback_comment(request: Request) -> Response:
+    """Add one operator-authored comment to a feedback record."""
+
+    try:
+        feedback_id = parse_feedback_id(request)
+    except FeedbackQueryValidationError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    try:
+        raw_body = await request.json()
+        payload = AdminFeedbackCommentInput.model_validate(raw_body)
+    except (json.JSONDecodeError, ValidationError):
+        return JSONResponse(
+            {"detail": "request body must be a valid JSON object"}, status_code=400
+        )
+
+    body = payload.body.strip()
+    if not body:
+        return JSONResponse({"detail": "body must not be blank"}, status_code=400)
+    author = normalize_optional_text(payload.author)
+
+    try:
+        record = await get_feedback_service().get_feedback_event(feedback_id)
+    except FeedbackReadError:
+        return JSONResponse({"detail": "storage read failed"}, status_code=500)
+
+    if record is None:
+        return JSONResponse({"detail": "feedback not found"}, status_code=404)
+
+    try:
+        comment = await get_feedback_service().create_feedback_comment(
+            CreateFeedbackComment(feedback_id=feedback_id, body=body, author=author)
+        )
+    except FeedbackPersistenceError:
+        return JSONResponse({"detail": "storage write failed"}, status_code=500)
+
+    return JSONResponse({"comment": serialize_comment(comment)}, status_code=201)
+
+
+async def list_admin_feedback_comments(request: Request) -> Response:
+    """List one feedback record's operator comments, oldest-first."""
+
+    try:
+        feedback_id = parse_feedback_id(request)
+    except FeedbackQueryValidationError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    try:
+        record = await get_feedback_service().get_feedback_event(feedback_id)
+    except FeedbackReadError:
+        return JSONResponse({"detail": "storage read failed"}, status_code=500)
+
+    if record is None:
+        return JSONResponse({"detail": "feedback not found"}, status_code=404)
+
+    try:
+        comments = await get_feedback_service().list_feedback_comments(feedback_id)
+    except FeedbackReadError:
+        return JSONResponse({"detail": "storage read failed"}, status_code=500)
+
+    return JSONResponse(
+        {"comments": [serialize_comment(comment) for comment in comments]}
+    )
 
 
 async def patch_admin_feedback(request: Request) -> Response:
@@ -366,8 +458,51 @@ async def patch_admin_feedback(request: Request) -> Response:
     return JSONResponse({"record": serialize_record(record)})
 
 
+async def download_admin_feedback_attachment(request: Request) -> Response:
+    """Stream one feedback attachment for operator review.
+
+    Operators see all attachments for any feedback (admin token only); the
+    attachment must be linked to the feedback in the path, else 404.
+    """
+
+    try:
+        feedback_id = parse_feedback_id(request)
+        attachment_id = parse_attachment_id(request)
+    except FeedbackQueryValidationError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    try:
+        attachment = await get_feedback_service().get_admin_attachment(
+            feedback_id=feedback_id,
+            attachment_id=attachment_id,
+        )
+    except FeedbackReadError:
+        return JSONResponse({"detail": "storage read failed"}, status_code=500)
+
+    if attachment is None:
+        return JSONResponse({"detail": "attachment not found"}, status_code=404)
+
+    storage = get_attachment_storage()
+    try:
+        data = storage.load(attachment.storage_key)
+    except StorageObjectNotFoundError:
+        logger.warning("attachment %s has no stored object", attachment.id)
+        return JSONResponse({"detail": "attachment not found"}, status_code=404)
+    except StorageError:
+        logger.exception("failed to read attachment object")
+        return JSONResponse(
+            {"detail": "attachment storage unavailable"}, status_code=503
+        )
+
+    return Response(
+        content=data,
+        media_type=attachment.content_type,
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
 async def delete_admin_feedback(request: Request) -> Response:
-    """Delete one feedback record."""
+    """Delete one feedback record and best-effort delete its attachment files."""
 
     try:
         feedback_id = parse_feedback_id(request)
@@ -375,12 +510,26 @@ async def delete_admin_feedback(request: Request) -> Response:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
     try:
-        deleted = await get_feedback_service().delete_feedback_event(feedback_id)
+        deleted, storage_keys = await get_feedback_service().delete_feedback_event(
+            feedback_id
+        )
     except FeedbackPersistenceError:
         return JSONResponse({"detail": "storage write failed"}, status_code=500)
 
     if not deleted:
         return JSONResponse({"detail": "feedback not found"}, status_code=404)
+
+    # The DB rows are gone (source of truth); clean up the files best-effort.
+    storage = get_attachment_storage()
+    for storage_key in storage_keys:
+        try:
+            storage.delete(storage_key)
+        except StorageError:
+            logger.warning(
+                "failed to delete attachment object %s for feedback %s",
+                storage_key,
+                feedback_id,
+            )
 
     return Response(status_code=204)
 
@@ -389,6 +538,21 @@ routes = [
     Route("/admin/api/healthz", admin_healthz, methods=["GET"]),
     Route("/admin/api/feedback", list_admin_feedback, methods=["GET"]),
     Route("/admin/api/feedback/metrics", get_admin_feedback_metrics, methods=["GET"]),
+    Route(
+        "/admin/api/feedback/{feedback_id}/comments",
+        list_admin_feedback_comments,
+        methods=["GET"],
+    ),
+    Route(
+        "/admin/api/feedback/{feedback_id}/comments",
+        post_admin_feedback_comment,
+        methods=["POST"],
+    ),
+    Route(
+        "/admin/api/feedback/{feedback_id}/attachments/{attachment_id}",
+        download_admin_feedback_attachment,
+        methods=["GET"],
+    ),
     Route("/admin/api/feedback/{feedback_id}", get_admin_feedback, methods=["GET"]),
     Route("/admin/api/feedback/{feedback_id}", patch_admin_feedback, methods=["PATCH"]),
     Route("/admin/api/feedback/{feedback_id}", delete_admin_feedback, methods=["DELETE"]),

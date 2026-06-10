@@ -34,6 +34,7 @@ class CreateFeedbackEvent:
     used_context: tuple[Any, ...] = ()
     source_metadata: dict[str, Any] = field(default_factory=dict)
     attributes: dict[str, Any] = field(default_factory=dict)
+    attachment_ids: tuple[UUID, ...] = ()
 
 
 @dataclass(slots=True, kw_only=True)
@@ -64,6 +65,53 @@ class FeedbackEventRecord:
     used_context: tuple[Any, ...]
     source_metadata: dict[str, Any]
     attributes: dict[str, Any]
+
+
+@dataclass(slots=True, kw_only=True)
+class CreateFeedbackComment:
+    """Input for storing an operator-authored comment on a feedback event."""
+
+    feedback_id: UUID
+    body: str
+    author: str | None = None
+
+
+@dataclass(slots=True, kw_only=True)
+class FeedbackCommentRecord:
+    """Stored operator comment returned by the service layer."""
+
+    id: UUID
+    feedback_id: UUID
+    author: str | None
+    body: str
+    created_at: datetime
+
+
+@dataclass(slots=True, kw_only=True)
+class CreateFeedbackAttachment:
+    """Input for storing an uploaded (not-yet-linked) feedback attachment."""
+
+    storage_key: str
+    content_type: str
+    byte_size: int
+    claimed_source_product: str
+    claimed_user_id: str | None = None
+    filename: str | None = None
+
+
+@dataclass(slots=True, kw_only=True)
+class FeedbackAttachmentRecord:
+    """Stored feedback attachment returned by the service layer."""
+
+    id: UUID
+    feedback_id: UUID | None
+    storage_key: str
+    content_type: str
+    byte_size: int
+    filename: str | None
+    claimed_user_id: str | None
+    claimed_source_product: str
+    created_at: datetime
 
 
 @dataclass(slots=True, kw_only=True)

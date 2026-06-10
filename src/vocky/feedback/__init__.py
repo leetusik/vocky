@@ -7,7 +7,11 @@ from vocky.feedback.service import (
     get_feedback_service,
 )
 from vocky.feedback.types import (
+    CreateFeedbackAttachment,
+    CreateFeedbackComment,
     CreateFeedbackEvent,
+    FeedbackAttachmentRecord,
+    FeedbackCommentRecord,
     FeedbackDailyCount,
     FeedbackDailyMetricCount,
     FeedbackEventRecord,
@@ -23,7 +27,11 @@ from vocky.feedback.types import (
 )
 
 __all__ = [
+    "CreateFeedbackAttachment",
+    "CreateFeedbackComment",
     "CreateFeedbackEvent",
+    "FeedbackAttachmentRecord",
+    "FeedbackCommentRecord",
     "FeedbackDailyCount",
     "FeedbackDailyMetricCount",
     "FeedbackEventRecord",

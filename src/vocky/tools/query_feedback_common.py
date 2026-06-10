@@ -10,7 +10,11 @@ from uuid import UUID
 
 from mcp.types import CallToolResult, TextContent
 
-from vocky.feedback import FeedbackListCursor
+from vocky.feedback import (
+    FeedbackAttachmentRecord,
+    FeedbackCommentRecord,
+    FeedbackListCursor,
+)
 from vocky.trigger import TriggerTypeValidationError, normalize_trigger_type
 
 DEFAULT_LIST_LIMIT = 50
@@ -125,10 +129,64 @@ def normalize_limit(value: int | None) -> int:
     return value
 
 
+def parse_int_param(value: str | None, *, field_name: str) -> int | None:
+    """Parse an optional integer query parameter."""
+
+    if value is None:
+        return None
+
+    normalized = value.strip()
+    if not normalized:
+        raise FeedbackQueryValidationError(f"{field_name} must not be blank when provided")
+
+    try:
+        return int(normalized)
+    except ValueError as exc:
+        raise FeedbackQueryValidationError(f"{field_name} must be an integer") from exc
+
+
 def serialize_datetime(value: datetime) -> str:
     """Serialize a timestamp as UTC ISO 8601."""
 
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def serialize_comment(comment: FeedbackCommentRecord) -> dict[str, object]:
+    """Serialize an operator comment for REST responses.
+
+    Shared by the Admin REST and end-user feedback read surfaces so the comment
+    shape stays identical. ``feedback_id`` is omitted because the comment is always
+    returned in the context of its parent feedback (URL path or nested record).
+    """
+
+    return {
+        "id": str(comment.id),
+        "author": comment.author,
+        "body": comment.body,
+        "created_at": serialize_datetime(comment.created_at),
+    }
+
+
+def serialize_attachment(
+    attachment: FeedbackAttachmentRecord,
+    *,
+    url: str,
+) -> dict[str, object]:
+    """Serialize an attachment's metadata for REST responses.
+
+    Shared by the Admin REST and end-user feedback read surfaces. ``url`` is the
+    surface-specific relative download path the caller builds, because the
+    operator and end-user download routes live under different path prefixes.
+    """
+
+    return {
+        "id": str(attachment.id),
+        "content_type": attachment.content_type,
+        "byte_size": attachment.byte_size,
+        "filename": attachment.filename,
+        "created_at": serialize_datetime(attachment.created_at),
+        "url": url,
+    }
 
 
 def encode_cursor(cursor: FeedbackListCursor) -> str:

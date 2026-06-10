@@ -114,11 +114,21 @@ async def configured_database(test_database_url: str) -> str:
     await dispose_engine()
 
     async with get_engine().begin() as connection:
-        await connection.execute(text("TRUNCATE TABLE feedback_events"))
+        await connection.execute(
+            text(
+                "TRUNCATE TABLE feedback_events, feedback_comments, "
+                "feedback_attachments"
+            )
+        )
 
     yield test_database_url
 
     async with get_engine().begin() as connection:
-        await connection.execute(text("TRUNCATE TABLE feedback_events"))
+        await connection.execute(
+            text(
+                "TRUNCATE TABLE feedback_events, feedback_comments, "
+                "feedback_attachments"
+            )
+        )
 
     await dispose_engine()

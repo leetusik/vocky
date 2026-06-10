@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Index, Text, text
+from sqlalchemy import DateTime, ForeignKey, Index, Text, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -95,4 +95,70 @@ class FeedbackEventModel(Base):
         nullable=False,
         default=dict,
         server_default=text("'{}'::jsonb"),
+    )
+
+
+class FeedbackCommentModel(Base):
+    """Operator-authored comment attached to a stored feedback event."""
+
+    __tablename__ = "feedback_comments"
+    __table_args__ = (
+        Index("ix_feedback_comments_feedback_id", "feedback_id"),
+        Index("ix_feedback_comments_feedback_id_created_at", "feedback_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    feedback_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("feedback_events.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    author: Mapped[str | None] = mapped_column(Text, nullable=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+
+
+class FeedbackAttachmentModel(Base):
+    """Image attachment uploaded for a feedback event.
+
+    ``feedback_id`` is nullable because attachments are uploaded synchronously
+    before the async capture path persists the feedback row; the worker links
+    them after persist. ``claimed_user_id`` / ``claimed_source_product`` record
+    the scope asserted at upload so the worker links only to a matching feedback
+    event and one product cannot attach another user's image.
+    """
+
+    __tablename__ = "feedback_attachments"
+    __table_args__ = (
+        Index("ix_feedback_attachments_feedback_id", "feedback_id"),
+        Index(
+            "ix_feedback_attachments_feedback_id_created_at",
+            "feedback_id",
+            "created_at",
+        ),
+        Index("ix_feedback_attachments_created_at", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    feedback_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("feedback_events.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    storage_key: Mapped[str] = mapped_column(Text, nullable=False)
+    content_type: Mapped[str] = mapped_column(Text, nullable=False)
+    byte_size: Mapped[int] = mapped_column(nullable=False)
+    filename: Mapped[str | None] = mapped_column(Text, nullable=True)
+    claimed_user_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    claimed_source_product: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
     )

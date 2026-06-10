@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime, timedelta
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Select, and_, func, or_, select
+from sqlalchemy import Select, and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vocky.feedback.types import (
+    CreateFeedbackAttachment,
+    CreateFeedbackComment,
     CreateFeedbackEvent,
+    FeedbackAttachmentRecord,
+    FeedbackCommentRecord,
     FeedbackDailyCount,
     FeedbackDailyMetricCount,
     FeedbackEventRecord,
@@ -25,7 +30,13 @@ from vocky.feedback.types import (
     ListFeedbackQuery,
     SummarizeFeedbackQuery,
 )
-from vocky.persistence.models import FeedbackEventModel
+from vocky.persistence.models import (
+    FeedbackAttachmentModel,
+    FeedbackCommentModel,
+    FeedbackEventModel,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class FeedbackRepository:
@@ -105,6 +116,266 @@ class FeedbackRepository:
         await self._session.delete(model)
         await self._session.flush()
         return True
+
+    async def create_feedback_comment(
+        self,
+        payload: CreateFeedbackComment,
+    ) -> FeedbackCommentRecord:
+        """Persist an operator comment and return the stored record."""
+
+        model = FeedbackCommentModel(
+            feedback_id=payload.feedback_id,
+            author=payload.author,
+            body=payload.body,
+        )
+        self._session.add(model)
+        await self._session.flush()
+        await self._session.refresh(model)
+        return self._to_comment_record(model)
+
+    async def list_feedback_comments(
+        self,
+        feedback_id: UUID,
+    ) -> tuple[FeedbackCommentRecord, ...]:
+        """Return one feedback event's operator comments, oldest-first."""
+
+        statement = (
+            select(FeedbackCommentModel)
+            .where(FeedbackCommentModel.feedback_id == feedback_id)
+            .order_by(
+                FeedbackCommentModel.created_at,
+                FeedbackCommentModel.id,
+            )
+        )
+        models = (await self._session.execute(statement)).scalars().all()
+        return tuple(self._to_comment_record(model) for model in models)
+
+    async def list_comments_for_feedback_ids(
+        self,
+        feedback_ids: Sequence[UUID],
+    ) -> dict[UUID, tuple[FeedbackCommentRecord, ...]]:
+        """Return operator comments grouped by feedback id, oldest-first.
+
+        Batched to avoid N+1 lookups when listing many feedback records.
+        """
+
+        if not feedback_ids:
+            return {}
+
+        statement = (
+            select(FeedbackCommentModel)
+            .where(FeedbackCommentModel.feedback_id.in_(feedback_ids))
+            .order_by(
+                FeedbackCommentModel.feedback_id,
+                FeedbackCommentModel.created_at,
+                FeedbackCommentModel.id,
+            )
+        )
+        models = (await self._session.execute(statement)).scalars().all()
+
+        grouped: dict[UUID, list[FeedbackCommentRecord]] = {}
+        for model in models:
+            grouped.setdefault(model.feedback_id, []).append(
+                self._to_comment_record(model)
+            )
+        return {
+            feedback_id: tuple(records)
+            for feedback_id, records in grouped.items()
+        }
+
+    async def create_feedback_attachment(
+        self,
+        payload: CreateFeedbackAttachment,
+    ) -> FeedbackAttachmentRecord:
+        """Persist an uploaded, not-yet-linked attachment and return it."""
+
+        model = FeedbackAttachmentModel(
+            storage_key=payload.storage_key,
+            content_type=payload.content_type,
+            byte_size=payload.byte_size,
+            filename=payload.filename,
+            claimed_user_id=payload.claimed_user_id,
+            claimed_source_product=payload.claimed_source_product,
+        )
+        self._session.add(model)
+        await self._session.flush()
+        await self._session.refresh(model)
+        return self._to_attachment_record(model)
+
+    async def get_feedback_attachment(
+        self,
+        attachment_id: UUID,
+    ) -> FeedbackAttachmentRecord | None:
+        """Return one stored attachment by id, or None when missing."""
+
+        model = await self._session.get(FeedbackAttachmentModel, attachment_id)
+        if model is None:
+            return None
+        return self._to_attachment_record(model)
+
+    async def link_attachments_to_feedback(
+        self,
+        feedback_id: UUID,
+        attachment_ids: Sequence[UUID],
+        *,
+        user_id: str | None,
+        source_product: str,
+    ) -> int:
+        """Link unlinked, scope-matching attachments to a feedback event.
+
+        Guarded so only attachments that are still unlinked AND whose claimed
+        scope matches the feedback's ``(user_id, source_product)`` are linked.
+        Returns the number linked. Ids that are missing, already linked, or
+        claimed by a different scope are skipped and logged, never raised — a
+        misrouted or missing screenshot must not fail real feedback. The
+        ``feedback_id IS NULL`` guard makes linking idempotent and blocks
+        cross-feedback theft.
+        """
+
+        if not attachment_ids:
+            return 0
+
+        requested = tuple(dict.fromkeys(attachment_ids))
+
+        if user_id is None:
+            claimed_user_match = FeedbackAttachmentModel.claimed_user_id.is_(None)
+        else:
+            claimed_user_match = FeedbackAttachmentModel.claimed_user_id == user_id
+
+        statement = (
+            update(FeedbackAttachmentModel)
+            .where(
+                FeedbackAttachmentModel.id.in_(requested),
+                FeedbackAttachmentModel.feedback_id.is_(None),
+                FeedbackAttachmentModel.claimed_source_product == source_product,
+                claimed_user_match,
+            )
+            .values(feedback_id=feedback_id)
+            .returning(FeedbackAttachmentModel.id)
+            .execution_options(synchronize_session=False)
+        )
+        linked = set((await self._session.execute(statement)).scalars().all())
+
+        skipped = [aid for aid in requested if aid not in linked]
+        if skipped:
+            logger.warning(
+                "feedback %s: skipped linking %d attachment(s) "
+                "(missing, already linked, or scope mismatch): %s",
+                feedback_id,
+                len(skipped),
+                [str(aid) for aid in skipped],
+            )
+        return len(linked)
+
+    async def list_attachments_for_feedback_ids(
+        self,
+        feedback_ids: Sequence[UUID],
+    ) -> dict[UUID, tuple[FeedbackAttachmentRecord, ...]]:
+        """Return attachments grouped by feedback id, oldest-first.
+
+        Batched to avoid N+1 lookups when listing many feedback records.
+        """
+
+        if not feedback_ids:
+            return {}
+
+        statement = (
+            select(FeedbackAttachmentModel)
+            .where(FeedbackAttachmentModel.feedback_id.in_(feedback_ids))
+            .order_by(
+                FeedbackAttachmentModel.feedback_id,
+                FeedbackAttachmentModel.created_at,
+                FeedbackAttachmentModel.id,
+            )
+        )
+        models = (await self._session.execute(statement)).scalars().all()
+
+        grouped: dict[UUID, list[FeedbackAttachmentRecord]] = {}
+        for model in models:
+            assert model.feedback_id is not None
+            grouped.setdefault(model.feedback_id, []).append(
+                self._to_attachment_record(model)
+            )
+        return {
+            feedback_id: tuple(records)
+            for feedback_id, records in grouped.items()
+        }
+
+    async def list_feedback_attachments(
+        self,
+        feedback_id: UUID,
+    ) -> tuple[FeedbackAttachmentRecord, ...]:
+        """Return one feedback event's attachments, oldest-first."""
+
+        statement = (
+            select(FeedbackAttachmentModel)
+            .where(FeedbackAttachmentModel.feedback_id == feedback_id)
+            .order_by(
+                FeedbackAttachmentModel.created_at,
+                FeedbackAttachmentModel.id,
+            )
+        )
+        models = (await self._session.execute(statement)).scalars().all()
+        return tuple(self._to_attachment_record(model) for model in models)
+
+    async def list_storage_keys_for_feedback(
+        self,
+        feedback_id: UUID,
+    ) -> tuple[str, ...]:
+        """Return the storage keys of a feedback event's attachments."""
+
+        statement = select(FeedbackAttachmentModel.storage_key).where(
+            FeedbackAttachmentModel.feedback_id == feedback_id
+        )
+        keys = (await self._session.execute(statement)).scalars().all()
+        return tuple(keys)
+
+    async def get_user_attachment(
+        self,
+        *,
+        feedback_id: UUID,
+        attachment_id: UUID,
+        user_id: str,
+        source_product: str,
+    ) -> FeedbackAttachmentRecord | None:
+        """Return an attachment for an end-user download, scope-checked.
+
+        Authorized off the LINKED feedback row's ``(user_id, source_product)``
+        rather than the attachment's claimed scope, so an unlinked attachment is
+        never downloadable. Returns None on any miss so the handler can answer
+        404 without leaking existence.
+        """
+
+        statement = (
+            select(FeedbackAttachmentModel)
+            .join(
+                FeedbackEventModel,
+                FeedbackEventModel.id == FeedbackAttachmentModel.feedback_id,
+            )
+            .where(
+                FeedbackAttachmentModel.id == attachment_id,
+                FeedbackAttachmentModel.feedback_id == feedback_id,
+                FeedbackEventModel.user_id == user_id,
+                FeedbackEventModel.source_product == source_product,
+            )
+        )
+        model = (await self._session.execute(statement)).scalar_one_or_none()
+        return self._to_attachment_record(model) if model is not None else None
+
+    async def get_admin_attachment(
+        self,
+        *,
+        feedback_id: UUID,
+        attachment_id: UUID,
+    ) -> FeedbackAttachmentRecord | None:
+        """Return an attachment for an operator download by feedback linkage."""
+
+        statement = select(FeedbackAttachmentModel).where(
+            FeedbackAttachmentModel.id == attachment_id,
+            FeedbackAttachmentModel.feedback_id == feedback_id,
+        )
+        model = (await self._session.execute(statement)).scalar_one_or_none()
+        return self._to_attachment_record(model) if model is not None else None
 
     async def list_feedback(
         self,
@@ -323,6 +594,38 @@ class FeedbackRepository:
             used_context=tuple(model.used_context),
             source_metadata=dict(model.source_metadata),
             attributes=dict(model.attributes),
+        )
+
+    def _to_comment_record(
+        self,
+        model: FeedbackCommentModel,
+    ) -> FeedbackCommentRecord:
+        """Convert a persisted comment model into a transport-neutral record."""
+
+        return FeedbackCommentRecord(
+            id=model.id,
+            feedback_id=model.feedback_id,
+            author=model.author,
+            body=model.body,
+            created_at=model.created_at,
+        )
+
+    def _to_attachment_record(
+        self,
+        model: FeedbackAttachmentModel,
+    ) -> FeedbackAttachmentRecord:
+        """Convert a persisted attachment model into a transport-neutral record."""
+
+        return FeedbackAttachmentRecord(
+            id=model.id,
+            feedback_id=model.feedback_id,
+            storage_key=model.storage_key,
+            content_type=model.content_type,
+            byte_size=model.byte_size,
+            filename=model.filename,
+            claimed_user_id=model.claimed_user_id,
+            claimed_source_product=model.claimed_source_product,
+            created_at=model.created_at,
         )
 
     def _iter_requested_days(
