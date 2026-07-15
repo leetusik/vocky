@@ -1,7 +1,7 @@
 {
   "id": "P1",
-  "name": "Bootstrap Intake",
-  "objective": "Capture the first real backlog task and replace this placeholder phase with concrete work.",
+  "name": "Relicense & Agent-Capture Retirement",
+  "objective": "Relicense vocky from AGPL-3.0 to MIT and retire the MCP/agent-decided capture feature — remove the MCP server wiring, tools, config, and related docs — refocusing the product on human-triggered REST feedback as the base for the SaaS pivot.",
   "status": "planned",
   "order": 1,
   "created_at": "2026-06-10T13:53:11+09:00",

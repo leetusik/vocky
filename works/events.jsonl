@@ -2,3 +2,13 @@
 {"ts": "2026-06-10T13:53:12+09:00", "type": "deferred_created", "deferred": "D1", "source": "user request"}
 {"ts": "2026-06-10T13:53:12+09:00", "type": "deferred_created", "deferred": "D2", "source": "P1.REVIEW"}
 {"ts": "2026-06-10T13:53:12+09:00", "type": "deferred_created", "deferred": "D3", "source": "P2.DECOMP"}
+{"ts": "2026-07-15T14:55:53+09:00", "type": "phase_created", "phase": "P2"}
+{"ts": "2026-07-15T14:55:53+09:00", "type": "phase_created", "phase": "P3"}
+{"ts": "2026-07-15T14:55:54+09:00", "type": "phase_created", "phase": "P4"}
+{"ts": "2026-07-15T14:55:54+09:00", "type": "phase_created", "phase": "P5"}
+{"ts": "2026-07-15T14:55:54+09:00", "type": "phase_created", "phase": "P6"}
+{"ts": "2026-07-15T15:16:14+09:00", "type": "slice_status_changed", "slice": "P1.DECOMP", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-07-15T15:16:45+09:00", "type": "slice_created", "phase": "P1", "slice": "P1.S1"}
+{"ts": "2026-07-15T15:16:45+09:00", "type": "slice_created", "phase": "P1", "slice": "P1.S2"}
+{"ts": "2026-07-15T15:16:45+09:00", "type": "slice_created", "phase": "P1", "slice": "P1.S3"}
+{"ts": "2026-07-15T15:18:26+09:00", "type": "slice_status_changed", "slice": "P1.DECOMP", "old_status": "in_progress", "new_status": "done"}

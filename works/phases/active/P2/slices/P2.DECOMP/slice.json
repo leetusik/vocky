@@ -1,0 +1,31 @@
+{
+  "id": "P2.DECOMP",
+  "phase_id": "P2",
+  "name": "decompose phase",
+  "kind": "decomposition",
+  "status": "todo",
+  "order": 0,
+  "depends_on": [],
+  "created_at": "2026-07-15T14:55:53+09:00",
+  "started_at": null,
+  "completed_at": null,
+  "risk": "low",
+  "source": {
+    "type": "new_phase",
+    "id": "P2"
+  },
+  "paths": {
+    "plan": "plan.md",
+    "result": "result.md"
+  },
+  "validation": {
+    "required": [],
+    "last_run": null,
+    "last_status": "pending"
+  },
+  "archive": {
+    "archived": false,
+    "archived_at": null,
+    "archive_path": null
+  }
+}
