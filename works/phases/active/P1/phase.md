@@ -94,6 +94,31 @@ _S2 confirms all four entries still hold; S2 versioned no durable docs (correct 
 job). The runtime `docs.json` admin asset was edited directly in S2 and is not a durable
 `docs/current/*` doc, so it is not part of this list._
 
+## REVIEW note (round 1 — `changes_requested`)
+
+P1.REVIEW validated the whole phase. **Greps all clean** (S1 relicense, S2 MCP-free src/tests/env,
+S3 README). **`make smoke` green** end-to-end (REST capture→persist→read against a freshly rebuilt
+MCP-free app) and **`make test` = 132 passed**. But **`make verify` fails at `package-check`**: S2's
+MCP scrub of `src/vocky/admin_assets/docs.json` also deleted a *REST* (non-MCP) help bullet that the
+packaging validator `scripts/check_admin_ui_package.py:115` requires — the exact substring
+`target_type message, conversation, or surface` (pre-S2 it was the bullet "Use target_type message,
+conversation, or surface to review … separately.", removed alongside its adjacent MCP
+`list_feedback/summarize_feedback` bullet). `tests/test_admin_ui.py` asserts the sibling "Any leaves
+older records with unset target_type visible" but not this string, so the 132-test suite stayed green
+while `package-check` went red. A review slice cannot edit source, so this is `changes_requested` with
+one fix slice.
+
+- **Proposed `P1.F1`** (`fix`, risk **low**, order ~3.5): re-add a REST-appropriate sentence containing
+  `target_type message, conversation, or surface` to `docs.json` (rest-capture topic near the
+  `target_type surface` guidance, or admin-rest read-filters beside the "Any leaves…" line); keep it
+  MCP-free; do not change `topic_ids` or the `rest_capture_try` block. Verify `make verify` fully green
+  and `grep -c "target_type message, conversation, or surface" src/vocky/admin_assets/docs.json` == 1.
+- **Durable docs NOT consolidated this round** (consolidation is pass-only). The four Doc-impact areas
+  (`api`, `architecture`, `product`, `experience`) stay queued for the re-review after `P1.F1`.
+- **Gotcha for future slices:** `make test` (`uv run pytest`) does NOT run `package-check`; a truly
+  green build requires `make verify`. `check_admin_ui_package.py` enforces docs.json content beyond
+  what `test_admin_ui.py` asserts.
+
 ## Constraints
 
 ## Open Questions
