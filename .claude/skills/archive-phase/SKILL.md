@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # archive-phase
 
-Archiving is **manual and explicit** — never automatic. A passing review marks a phase `done` but leaves it in `active/`; you archive when you choose. Archive whole phases only, never individual slices. Three first-class options:
+Archiving is **manual and explicit** — never automatic. A passing review marks a phase `done` but leaves it in `active/`; the **operator** decides when to archive (invoking this skill is that decision — never archive unasked). Archive whole phases only, never individual slices. Three first-class options:
 
 **Archive everything — end-of-batch sweep.** When every active phase is done (the last review slice across all phases is complete), sweep them all to archived at once:
 

@@ -1,0 +1,6 @@
+interface:
+  display_name: "retrofit"
+  short_description: "Non-destructively adopt this agentic workspace into the current existing repository."
+  default_prompt: "Use the retrofit skill."
+policy:
+  allow_implicit_invocation: false

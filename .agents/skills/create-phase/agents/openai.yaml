@@ -1,0 +1,6 @@
+interface:
+  display_name: "create-phase"
+  short_description: "Capture operator intent (refine → clarify → confirm), then create one or more phases (intent.md + DECOMP/REVIEW only) or route to defer-job. Stops before decomposition."
+  default_prompt: "Use the create-phase skill."
+policy:
+  allow_implicit_invocation: false

@@ -1,20 +1,22 @@
 # Backlog
 
 > Generated dashboard. Do not put detailed task context here; edit phase/slice/deferred folders instead.
+> Status box: `[x]` done · `[~]` pending — waiting on operator · `[r]` ready — plan approved, awaiting execution · `[ ]` open/in progress.
 
 ## Pointer
 
 - Current phase: `P1`
 - Current slice: `P1.DECOMP`
 - Next slice: `P1.REVIEW`
+- Waiting on operator: `none`
 - Open deferred jobs: `3`
-- Rebuilt at: `2026-06-10T13:56:07+09:00`
+- Rebuilt at: `2026-07-15T14:38:53+09:00`
 
 ## Active Phases
 
-| Phase | Status | Review | Objective | Current Slice | Path |
+| Phase | Status | Review | Name | Current Slice | Path |
 |---|---|---|---|---|---|
-| `P1` | `planned` | `pending` | Capture the first real backlog task and replace this placeholder phase with concrete work. | `P1.DECOMP` | `works/phases/active/P1` |
+| [ ] `P1` | `planned` | `pending` | Bootstrap Intake | `P1.DECOMP` | `works/phases/active/P1` |
 
 ## Phase P1: Bootstrap Intake
 

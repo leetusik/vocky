@@ -21,10 +21,32 @@ DEFERRED_OPEN = WORKS / "deferred" / "open"
 DEFERRED_PROMOTED = WORKS / "deferred" / "promoted"
 DEFERRED_DROPPED = WORKS / "deferred" / "dropped"
 DOC_TYPES = {"product", "experience", "architecture", "frontend", "backend", "data", "api", "operations", "security", "qa", "decisions"}
-PHASE_STATUSES = {"planned", "in_progress", "in_review", "blocked", "done"}
-SLICE_STATUSES = {"todo", "in_progress", "in_review", "changes_requested", "blocked", "done"}
+PHASE_STATUSES = {"planned", "in_progress", "in_review", "pending", "blocked", "done"}
+SLICE_STATUSES = {"todo", "ready", "in_progress", "in_review", "changes_requested", "pending", "blocked", "done"}
 DEFERRED_STATUSES = {"deferred", "ready", "promoted", "done", "dropped"}
 REVIEW_VERDICTS = {"pass", "changes_requested", "blocked"}
+CLAUDE_AGENTS = ROOT / ".claude" / "agents"
+CODEX_AGENTS = ROOT / ".codex" / "agents"
+EXECUTOR_TIERS = ("low", "mid", "high")
+# Shipped presets for the slice-executor tiers. A top-level mode = "<preset>" key in
+# the repo-root executors.toml picks one (absent file or key -> flex); per-tier
+# [claude.<tier>] / [codex.<tier>] tables with model/effort keys override the active
+# preset field by field; apply with `sync-agents`. An empty effort means "write no
+# effort line" — the escape hatch for models that reject the effort parameter
+# (e.g. haiku). Models may not be empty. Codex tiers are identical in both presets.
+DEFAULT_EXECUTOR_MODE = "flex"
+EXECUTOR_PRESETS = {
+    "flex": {
+        "low": {"model": "sonnet", "effort": "xhigh", "codex_model": "gpt-5.5", "codex_effort": "medium"},
+        "mid": {"model": "opus", "effort": "xhigh", "codex_model": "gpt-5.5", "codex_effort": "high"},
+        "high": {"model": "opus", "effort": "xhigh", "codex_model": "gpt-5.5", "codex_effort": "xhigh"},
+    },
+    "economy": {
+        "low": {"model": "haiku", "effort": "", "codex_model": "gpt-5.5", "codex_effort": "medium"},
+        "mid": {"model": "sonnet", "effort": "xhigh", "codex_model": "gpt-5.5", "codex_effort": "high"},
+        "high": {"model": "opus", "effort": "xhigh", "codex_model": "gpt-5.5", "codex_effort": "xhigh"},
+    },
+}
 
 
 def now_iso() -> str:
@@ -78,6 +100,152 @@ def strip_frontmatter(text: str) -> str:
         if end != -1:
             return text[end + len("\n---\n"):].lstrip("\n")
     return text
+
+
+def read_executors_toml() -> tuple:
+    """(mode, {(harness, tier, key): value}) from the repo-root executors.toml.
+
+    Strict subset of TOML — an optional top-level mode = "<preset>" line (before
+    any section) plus [claude.<tier>] / [codex.<tier>] tables holding
+    model/effort keys with double-quoted string values; '#' comments and blanks
+    ignored. Anything else is an error, so typos surface instead of silently
+    keeping a default."""
+    path = ROOT / "executors.toml"
+    mode = None
+    values: dict = {}
+    if not path.exists():
+        return mode, values
+    section = None
+    for n, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = re.match(r'^mode\s*=\s*"([^"]*)"\s*(?:#.*)?$', line)
+        if m:
+            if section is not None:
+                raise SystemExit(f"executors.toml line {n}: mode must be set at the top level, before any [claude.*]/[codex.*] section")
+            if mode is not None:
+                raise SystemExit(f"executors.toml line {n}: duplicate mode")
+            if m.group(1) not in EXECUTOR_PRESETS:
+                raise SystemExit(f"executors.toml line {n}: unknown mode {m.group(1)!r} (valid: {', '.join(sorted(EXECUTOR_PRESETS))})")
+            mode = m.group(1)
+            continue
+        m = re.match(r"^\[\s*(claude|codex)\s*\.\s*(low|mid|high)\s*\]\s*(?:#.*)?$", line)
+        if m:
+            section = (m.group(1), m.group(2))
+            continue
+        m = re.match(r'^(model|effort)\s*=\s*"([^"]*)"\s*(?:#.*)?$', line)
+        if m:
+            if section is None:
+                raise SystemExit(f"executors.toml line {n}: key outside a section — put it under [claude.<tier>] or [codex.<tier>]")
+            key = (section[0], section[1], m.group(1))
+            if key in values:
+                raise SystemExit(f"executors.toml line {n}: duplicate {m.group(1)} for [{section[0]}.{section[1]}]")
+            values[key] = m.group(2)
+            continue
+        if re.match(r"^(model|effort|mode)\s*=", line):
+            raise SystemExit(f'executors.toml line {n}: values must be double-quoted TOML strings, e.g. model = "haiku"')
+        raise SystemExit(f"executors.toml line {n}: cannot parse {line!r} (expected mode = \"...\", [claude.<low|mid|high>], [codex.<low|mid|high>], or model/effort = \"...\")")
+    return mode, values
+
+
+def executor_config() -> dict:
+    """The active preset (top-level mode in executors.toml; default flex) overlaid with any per-tier overrides; values pass through verbatim."""
+    mode, overrides = read_executors_toml()
+    preset = EXECUTOR_PRESETS[mode or DEFAULT_EXECUTOR_MODE]
+    config = {tier: dict(preset[tier]) for tier in EXECUTOR_TIERS}
+    for (harness, tier, key), value in overrides.items():
+        field = key if harness == "claude" else f"codex_{key}"
+        config[tier][field] = value
+    for tier in EXECUTOR_TIERS:
+        for field, label in (("model", f"[claude.{tier}] model"), ("codex_model", f"[codex.{tier}] model")):
+            if not config[tier][field]:
+                raise SystemExit(f"executors.toml: {label} must not be empty (efforts may be empty; models may not)")
+    return config
+
+
+def _patched_agent_md(text: str, model: str, effort: str) -> str:
+    """Rewrite only the model:/effort: frontmatter lines of a .claude agent file."""
+    if not text.startswith("---\n"):
+        raise SystemExit("agent file has no frontmatter")
+    end = text.find("\n---\n", 4)
+    if end == -1:
+        raise SystemExit("agent file frontmatter is unterminated")
+    lines = [l for l in text[4:end].split("\n") if not l.startswith("model:") and not l.startswith("effort:")]
+    insert_at = next((i for i, l in enumerate(lines) if l.startswith("permissionMode:")), len(lines))
+    lines[insert_at:insert_at] = [f"model: {model}"] + ([f"effort: {effort}"] if effort else [])
+    return "---\n" + "\n".join(lines) + text[end:]
+
+
+def _patched_agent_toml(text: str, model: str, effort: str) -> str:
+    """Rewrite only the model/model_reasoning_effort keys of a .codex agent file."""
+    head, sep, tail = text.partition('developer_instructions = """')
+    out = []
+    for line in head.split("\n"):
+        if line.startswith("model = "):
+            out.append(f'model = "{model}"')
+            if effort:
+                out.append(f'model_reasoning_effort = "{effort}"')
+            continue
+        if line.startswith("model_reasoning_effort = "):
+            continue
+        out.append(line)
+    return "\n".join(out) + sep + tail
+
+
+def executor_agent_files(config: dict) -> list:
+    """(tier, path, kind, model, effort) for the 6 tier agent files."""
+    entries = []
+    for tier in EXECUTOR_TIERS:
+        cfg = config[tier]
+        entries.append((tier, CLAUDE_AGENTS / f"slice-executor-{tier}.md", "md", cfg["model"], cfg["effort"]))
+        entries.append((tier, CODEX_AGENTS / f"slice-executor-{tier}.toml", "toml", cfg["codex_model"], cfg["codex_effort"]))
+    return entries
+
+
+def sync_agents(args: argparse.Namespace) -> None:
+    config = executor_config()
+    config_present = (ROOT / "executors.toml").exists()
+    mode, overrides = read_executors_toml()
+    override_count = len(overrides)
+    legacy_env = ROOT / ".env"
+    if legacy_env.exists() and "SLICE_EXECUTOR" in legacy_env.read_text(encoding="utf-8"):
+        print("warning: .env holds SLICE_EXECUTOR_* keys, but tier config moved to executors.toml in v8 — .env is no longer read")
+    changed, missing = [], []
+    for tier, path, kind, model, effort in executor_agent_files(config):
+        if not path.exists():
+            missing.append(str(path.relative_to(ROOT)))
+            continue
+        current = path.read_text(encoding="utf-8")
+        desired = _patched_agent_md(current, model, effort) if kind == "md" else _patched_agent_toml(current, model, effort)
+        if desired != current:
+            changed.append(str(path.relative_to(ROOT)))
+            if not args.check:
+                write_text(path, desired)
+    for tier in EXECUTOR_TIERS:
+        cfg = config[tier]
+        print(f"{tier:<5} claude={cfg['model']} @ {cfg['effort'] or '(no effort line)'}  codex={cfg['codex_model']} @ {cfg['codex_effort']}")
+    mode_str = f"mode {mode}" if mode else f"mode {DEFAULT_EXECUTOR_MODE} (default)"
+    print(f"config source: {f'executors.toml ({mode_str}, {override_count} override(s))' if config_present else f'{DEFAULT_EXECUTOR_MODE} defaults (no executors.toml)'}")
+    for m in missing:
+        print(f"missing agent file: {m}")
+    if args.check:
+        if changed or missing:
+            print("out of sync with executors.toml/defaults:")
+            for c in changed:
+                print(f"- {c}")
+            raise SystemExit(1)
+        print("agent files in sync with executors.toml/defaults")
+        return
+    if changed:
+        append_event("agents_synced", changed=changed, config_present=config_present)
+        print("updated:")
+        for c in changed:
+            print(f"- {c}")
+    else:
+        print("already in sync; nothing written")
+    if missing:
+        raise SystemExit(1)
 
 
 def doc_index() -> dict:
@@ -238,6 +406,11 @@ def clean_cell(value: object) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ")
 
 
+def status_box(status: object) -> str:
+    """Dashboard checkbox glyph: done -> x, pending (waiting on operator) -> ~, ready (plan approved) -> r, else blank."""
+    return "x" if status == "done" else "~" if status == "pending" else "r" if status == "ready" else " "
+
+
 def rebuild_deferred_dashboard(groups=None, rebuilt_at=None) -> None:
     groups = groups or deferred_jobs()
     rebuilt_at = rebuilt_at or now_iso()
@@ -273,7 +446,7 @@ def resolve_current(phases: list) -> tuple:
         if phase.get("status") == "done":
             continue
         current_phase = phase["id"]
-        if phase.get("status") == "blocked":
+        if phase.get("status") in ("blocked", "pending"):
             return current_phase, None, None
         open_slices = [s for s in phase["slices"] if s.get("status") != "done"]
         if open_slices:
@@ -282,9 +455,26 @@ def resolve_current(phases: list) -> tuple:
     return None, None, None
 
 
+def operator_wait_target(phases: list, current_phase, current_slice):
+    """The phase or slice id awaiting operator co-work (status `pending`), else None.
+    `pending` means the operator must validate or run something; selection halts
+    until it is cleared back to `in_progress`. Distinct from `blocked`."""
+    for phase in phases:
+        if phase["id"] != current_phase:
+            continue
+        if phase.get("status") == "pending":
+            return phase["id"]
+        cur = next((s for s in phase["slices"] if s["id"] == current_slice), None)
+        if cur and cur.get("status") == "pending":
+            return current_slice
+        break
+    return None
+
+
 def rebuild_index_and_state() -> None:
     phases = all_active_phases()
     current_phase, current_slice, next_slice = resolve_current(phases)
+    waiting_on = operator_wait_target(phases, current_phase, current_slice)
     deferred = deferred_jobs()
     rebuilt_at = now_iso()
     index = {
@@ -304,7 +494,8 @@ def rebuild_index_and_state() -> None:
         "last_rebuilt_at": rebuilt_at,
     }
     write_json(WORKS / "index.json", index)
-    state = {"current_phase": current_phase, "current_slice": current_slice, "next_slice": next_slice, "mode": "phase" if current_phase else "idle", "updated_at": rebuilt_at}
+    mode = "waiting" if waiting_on else ("phase" if current_phase else "idle")
+    state = {"current_phase": current_phase, "current_slice": current_slice, "next_slice": next_slice, "waiting_on_operator": waiting_on, "mode": mode, "updated_at": rebuilt_at}
     write_json(WORKS / "state.json", state)
     rebuild_backlog(phases, state, index)
     rebuild_deferred_dashboard(deferred, rebuilt_at)
@@ -312,26 +503,28 @@ def rebuild_index_and_state() -> None:
 
 def rebuild_backlog(phases: list, state: dict, index: dict) -> None:
     lines = [
-        "# Backlog", "", "> Generated dashboard. Do not put detailed task context here; edit phase/slice/deferred folders instead.", "",
+        "# Backlog", "", "> Generated dashboard. Do not put detailed task context here; edit phase/slice/deferred folders instead.",
+        "> Status box: `[x]` done · `[~]` pending — waiting on operator · `[r]` ready — plan approved, awaiting execution · `[ ]` open/in progress.", "",
         "## Pointer", "",
         f"- Current phase: `{state.get('current_phase') or 'none'}`",
         f"- Current slice: `{state.get('current_slice') or 'none'}`",
         f"- Next slice: `{state.get('next_slice') or 'none'}`",
+        f"- Waiting on operator: `{state.get('waiting_on_operator') or 'none'}`",
         f"- Open deferred jobs: `{index.get('deferred_open_count', 0)}`",
         f"- Rebuilt at: `{index.get('last_rebuilt_at')}`", "",
-        "## Active Phases", "", "| Phase | Status | Review | Objective | Current Slice | Path |", "|---|---|---|---|---|---|",
+        "## Active Phases", "", "| Phase | Status | Review | Name | Current Slice | Path |", "|---|---|---|---|---|---|",
     ]
     if not phases:
         lines.append("| - | - | - | - | - | - |")
     for p in phases:
         current = next((s["id"] for s in p["slices"] if s.get("status") != "done"), "none")
-        objective = clean_cell(p.get("objective", ""))
+        name = clean_cell(p.get("name", ""))
         review = clean_cell(p.get("review", {}).get("status"))
-        lines.append(f"| `{p['id']}` | `{p['status']}` | `{review}` | {objective} | `{current}` | `{p['path']}` |")
+        lines.append(f"| [{status_box(p['status'])}] `{p['id']}` | `{p['status']}` | `{review}` | {name} | `{current}` | `{p['path']}` |")
     for p in phases:
         lines.extend(["", f"## Phase {p['id']}: {p['name']}", "", "| Slice | Status | Name | Kind | Path |", "|---|---|---|---|---|"])
         for s in p["slices"]:
-            checkbox = "x" if s.get("status") == "done" else " "
+            checkbox = status_box(s.get("status"))
             name = clean_cell(s.get("name", ""))
             lines.append(f"| [{checkbox}] `{s['id']}` | `{s['status']}` | {name} | `{clean_cell(s.get('kind', ''))}` | `{s['path']}` |")
     lines.append("")
@@ -340,6 +533,7 @@ def rebuild_backlog(phases: list, state: dict, index: dict) -> None:
 
 def validate() -> int:
     errors: list = []
+    warnings: list = []
     phases = all_active_phases()
     seen_phases, seen_slices = set(), set()
     all_slice_ids = {s["id"] for p in phases for s in p["slices"]}
@@ -352,6 +546,12 @@ def validate() -> int:
         review_status = p.get("review", {}).get("status")
         if p["status"] == "done" and review_status != "pass":
             errors.append(f"phase {p['id']} is done but review status is {review_status!r}; record a passing review with review-phase")
+        if p["status"] == "done":
+            unfinished = [s["id"] for s in p["slices"] if s.get("status") != "done"]
+            if unfinished:
+                errors.append(f"phase {p['id']} is done but has unfinished slices: {', '.join(unfinished)}; a passing review closes the REVIEW slice")
+        if not (ACTIVE / p["id"] / "intent.md").exists():
+            warnings.append(f"phase {p['id']} has no intent.md (expected {p['id']}/intent.md); capture operator intent via the create-phase skill")
         for s in p["slices"]:
             if s["id"] in seen_slices:
                 errors.append(f"duplicate slice id: {s['id']}")
@@ -360,6 +560,8 @@ def validate() -> int:
                 errors.append(f"slice phase mismatch: {s['id']} says {s['phase_id']}, folder phase is {p['id']}")
             if s["status"] not in SLICE_STATUSES:
                 errors.append(f"invalid slice status {s['id']}: {s['status']}")
+            if s["status"] == "ready" and not (ROOT / s["path"] / "plan.md").exists():
+                errors.append(f"slice {s['id']} is ready but has no plan.md; ready asserts an operator-approved plan exists")
             for dep in s.get("depends_on", []):
                 if dep not in all_slice_ids:
                     errors.append(f"missing dependency for {s['id']}: {dep}")
@@ -383,7 +585,22 @@ def validate() -> int:
                 errors.append(f"invalid deferred status {data.get('id')}: {data.get('status')}")
             if data.get("status") not in allowed:
                 errors.append(f"deferred job in wrong folder: {data.get('id')} status {data.get('status')} under {base.relative_to(ROOT)}")
+    # Executor-tier drift is advisory only: warn (never error, never crash) when the agent
+    # files disagree with executors.toml/defaults, so a foreign or partial workspace still validates.
+    try:
+        for tier, path, kind, model, effort in executor_agent_files(executor_config()):
+            if not path.exists():
+                warnings.append(f"missing executor agent file: {path.relative_to(ROOT)} (run: python3 scripts/workflow.py sync-agents)")
+                continue
+            current = path.read_text(encoding="utf-8")
+            desired = _patched_agent_md(current, model, effort) if kind == "md" else _patched_agent_toml(current, model, effort)
+            if desired != current:
+                warnings.append(f"executor agent file out of sync with executors.toml/defaults: {path.relative_to(ROOT)} (run: python3 scripts/workflow.py sync-agents)")
+    except (SystemExit, Exception) as exc:  # noqa: BLE001 - advisory check must not fail validate
+        warnings.append(f"executor tier config check failed: {exc}")
     validate_docs(errors)
+    for w in warnings:
+        print(f"warning: {w}")
     if errors:
         print("Workflow validation failed:")
         for e in errors:
@@ -418,7 +635,7 @@ def render_template(text: str, **values: str) -> str:
     return text
 
 
-def create_slice(phase_id: str, slice_id: str, name: str, kind: str, order: int, risk: str, source: dict, depends_on=None) -> Path:
+def create_slice(phase_id: str, slice_id: str, name: str, kind: str, order, risk: str, source: dict, depends_on=None) -> Path:
     require_phase(phase_id)
     if not slice_id.startswith(f"{phase_id}."):
         raise SystemExit(f"slice id must start with {phase_id}.")
@@ -434,9 +651,9 @@ def create_slice(phase_id: str, slice_id: str, name: str, kind: str, order: int,
         "archive": {"archived": False, "archived_at": None, "archive_path": None},
     }
     write_json(sdir / "slice.json", data)
-    common = {"PHASE_ID": phase_id, "SLICE_ID": slice_id, "SLICE_NAME": name, "CREATED_AT": created}
-    for name_in in ("plan.md", "result.md"):
-        write_text(sdir / name_in, render_template(load_template(name_in), **common))
+    # Neither context file is scaffolded: the orchestrator writes its free-form native
+    # plan to plan.md at the slice's turn, and the executor writes its free-form
+    # result.md at slice end — a fresh slice folder holds only slice.json.
     return sdir
 
 
@@ -447,16 +664,17 @@ def new_phase(args: argparse.Namespace) -> None:
     pdir = ACTIVE / phase_id
     if pdir.exists():
         raise SystemExit(f"phase already exists: {phase_id}")
-    order = args.order if args.order is not None else max([read_json(p / "phase.json").get("order", 0) for p in phase_dirs()], default=0) + 1
+    order = _clean_order(args.order) if args.order is not None else max([read_json(p / "phase.json").get("order", 0) for p in phase_dirs()], default=0) + 1
     phase_data = {
         "id": phase_id, "name": args.name, "objective": args.objective, "status": "planned", "order": order,
         "created_at": now_iso(), "started_at": None, "completed_at": None,
         "review": {"status": "pending", "reviewed_at": None, "reviewer": None, "note": None},
-        "paths": {"phase_md": "phase.md", "slices_dir": "slices"},
+        "paths": {"phase_md": "phase.md", "intent_md": "intent.md", "slices_dir": "slices"},
         "archive": {"archived": False, "archived_at": None, "archive_path": None},
     }
     write_json(pdir / "phase.json", phase_data)
-    write_text(pdir / "phase.md", f"# Phase {phase_id}: {args.name}\n\n## Objective\n\n{args.objective}\n\n## Context\n\n## Decomposition\n\n_Slice breakdown and rationale — filled by the `{phase_id}.DECOMP` slice._\n\n## Findings & Notes\n\n_Durable findings and cross-slice notes; `DECOMP` seeds this, and each slice appends when it finishes._\n\n## Constraints\n\n## Open Questions\n\n-\n")
+    write_text(pdir / "phase.md", f"# Phase {phase_id}: {args.name}\n\n_Intent: see [intent.md](intent.md)._\n\n## Objective\n\n{args.objective}\n\n## Context\n\n## Decomposition\n\n_Slice breakdown and rationale — filled by the `{phase_id}.DECOMP` slice._\n\n## Findings & Notes\n\n_Durable findings and cross-slice notes; `DECOMP` seeds this, and each slice appends when it finishes._\n\n## Constraints\n\n## Open Questions\n\n-\n")
+    write_text(pdir / "intent.md", render_template(load_template("intent.md"), PHASE_ID=phase_id, CAPTURED_AT=now_iso(), ORIGIN="operator"))
     create_slice(phase_id, f"{phase_id}.DECOMP", "decompose phase", "decomposition", 0, "low", source={"type": "new_phase", "id": phase_id})
     create_slice(phase_id, f"{phase_id}.REVIEW", "phase review", "review", 9999, "medium", source={"type": "new_phase", "id": phase_id})
     append_event("phase_created", phase=phase_id)
@@ -464,9 +682,15 @@ def new_phase(args: argparse.Namespace) -> None:
     print(f"created phase {phase_id}: {pdir.relative_to(ROOT)}")
 
 
-def _auto_order(pdir: Path, explicit) -> int:
+def _clean_order(value):
+    """Normalize an explicit order: whole numbers stay ints, fractions stay floats so a
+    slice/phase can be inserted between two neighbors (e.g. --order 4.5 sorts between 4 and 5)."""
+    return int(value) if float(value).is_integer() else float(value)
+
+
+def _auto_order(pdir: Path, explicit):
     if explicit is not None:
-        return explicit
+        return _clean_order(explicit)
     orders = [read_json(s / "slice.json").get("order", 0) for s in slice_dirs(pdir) if read_json(s / "slice.json").get("kind") != "review"]
     return max(orders, default=0) + 10
 
@@ -480,10 +704,7 @@ def new_slice(args: argparse.Namespace) -> None:
     print(f"created slice {args.slice}: {sdir.relative_to(ROOT)}")
 
 
-def set_slice_status(slice_id: str, status: str) -> None:
-    if status not in SLICE_STATUSES:
-        raise SystemExit(f"invalid slice status: {status}")
-    sdir = require_slice(slice_id)
+def _set_slice_status(sdir: Path, status: str) -> str:
     data = read_json(sdir / "slice.json")
     old = data.get("status")
     data["status"] = status
@@ -492,6 +713,14 @@ def set_slice_status(slice_id: str, status: str) -> None:
     if status == "done":
         data["completed_at"] = now_iso()
     write_json(sdir / "slice.json", data)
+    return old
+
+
+def set_slice_status(slice_id: str, status: str) -> None:
+    if status not in SLICE_STATUSES:
+        raise SystemExit(f"invalid slice status: {status}")
+    sdir = require_slice(slice_id)
+    old = _set_slice_status(sdir, status)
     append_event("slice_status_changed", slice=slice_id, old_status=old, new_status=status)
     rebuild_index_and_state()
 
@@ -541,6 +770,14 @@ def review_phase(args: argparse.Namespace) -> None:
         data["completed_at"] = now_iso()
     data["status"] = new_status
     write_json(pdir / "phase.json", data)
+    # Drive the phase's REVIEW slice from the same verdict so the phase and its
+    # review slice never diverge (a pass no longer leaves REVIEW stuck in_progress).
+    slice_verdict = {"pass": "done", "changes_requested": "changes_requested", "blocked": "blocked"}[args.verdict]
+    for sdir in slice_dirs(pdir):
+        sdata = read_json(sdir / "slice.json")
+        if sdata.get("kind") == "review":
+            old = _set_slice_status(sdir, slice_verdict)
+            append_event("slice_status_changed", slice=sdata["id"], old_status=old, new_status=slice_verdict)
     append_event("phase_reviewed", phase=args.phase, verdict=args.verdict, reviewer=args.reviewer)
     rebuild_index_and_state()
     print(f"phase {args.phase} review: {args.verdict} (status -> {new_status})")
@@ -554,6 +791,16 @@ def review_phase(args: argparse.Namespace) -> None:
 def cmd_next(args: argparse.Namespace) -> None:
     rebuild_index_and_state()
     state = read_json(WORKS / "state.json")
+    waiting = state.get("waiting_on_operator")
+    if waiting:
+        kind = "slice" if "." in waiting else "phase"
+        clear = f"set-slice-status {waiting} in_progress" if kind == "slice" else f"set-phase-status {waiting} in_progress"
+        print(f"current_phase={state.get('current_phase')}")
+        print(f"waiting_on_operator={waiting}")
+        print(f"WAITING ON OPERATOR: {kind} {waiting} is pending [~] -- operator co-work needed (validation or an operator-run action).")
+        print("Do not start, finish, or advance past it. Report what you need, then wait for the operator.")
+        print(f"After the operator approves, clear it: python3 scripts/workflow.py {clear}")
+        return
     current_slice = state.get("current_slice")
     if not current_slice:
         if state.get("current_phase"):
@@ -621,8 +868,11 @@ def promote_deferred(args: argparse.Namespace) -> None:
     pdir = require_phase(args.phase)
     order = _auto_order(pdir, args.order)
     sdir = create_slice(args.phase, args.slice, args.name or data["title"], args.kind, order, args.risk, source={"type": "deferred", "id": did, "path": str(ddir.relative_to(ROOT))}, depends_on=args.depends_on or [])
-    with (sdir / "plan.md").open("a", encoding="utf-8") as f:
-        f.write("\n---\n\n## Promoted Deferred Context\n\n")
+    plan_path = sdir / "plan.md"
+    # plan.md has no template, so it may not exist yet; only prepend a separator when it does.
+    sep = "\n---\n\n" if plan_path.exists() and plan_path.read_text(encoding="utf-8").strip() else ""
+    with plan_path.open("a", encoding="utf-8") as f:
+        f.write(f"{sep}## Promoted Deferred Context\n\n")
         f.write((ddir / "brief.md").read_text(encoding="utf-8"))
     data["status"] = "promoted"
     data["promoted_to"] = {"phase_id": args.phase, "slice_id": args.slice, "path": str(sdir.relative_to(ROOT))}
@@ -789,6 +1039,10 @@ def main(argv=None) -> int:
     p = sub.add_parser("validate", help="Validate workflow and docs structure")
     p.set_defaults(func=lambda args: sys.exit(validate()))
 
+    p = sub.add_parser("sync-agents", help="Apply the repo-root executors.toml executor-tier config (models/efforts) to the slice-executor agent files")
+    p.add_argument("--check", action="store_true", help="Report drift without writing; exit 1 if out of sync")
+    p.set_defaults(func=sync_agents)
+
     p = sub.add_parser("next", help="Print the current phase/slice selection")
     p.set_defaults(func=cmd_next)
 
@@ -799,7 +1053,7 @@ def main(argv=None) -> int:
     p.add_argument("--phase", required=True)
     p.add_argument("--name", required=True)
     p.add_argument("--objective", required=True)
-    p.add_argument("--order", type=int)
+    p.add_argument("--order", type=float)
     p.set_defaults(func=new_phase)
 
     p = sub.add_parser("new-slice", help="Create a new slice folder with slice.json + markdown files")
@@ -808,7 +1062,7 @@ def main(argv=None) -> int:
     p.add_argument("--name", required=True)
     p.add_argument("--kind", default="implementation")
     p.add_argument("--risk", default="medium")
-    p.add_argument("--order", type=int)
+    p.add_argument("--order", type=float)
     p.add_argument("--depends-on", action="append")
     p.set_defaults(func=new_slice)
 
@@ -852,7 +1106,7 @@ def main(argv=None) -> int:
     p.add_argument("--name")
     p.add_argument("--kind", default="implementation")
     p.add_argument("--risk", default="medium")
-    p.add_argument("--order", type=int)
+    p.add_argument("--order", type=float)
     p.add_argument("--depends-on", action="append")
     p.add_argument("--create-phase", action="store_true")
     p.add_argument("--phase-name")

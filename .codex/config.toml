@@ -4,14 +4,23 @@
 # .agents/skills/ automatically. The primary Codex config lives in your user
 # home (~/.codex/config.toml); keep machine/account settings there.
 #
+# Subagents ship under .codex/agents/ (https://developers.openai.com/codex/subagents):
+#   - slice-executor-low.toml   — gpt-5.5 / medium, literal plan execution for low-risk implementation/fix slices
+#   - slice-executor-mid.toml   — gpt-5.5 / high,   medium-risk slices (the default risk)
+#   - slice-executor-high.toml  — gpt-5.5 / xhigh,  decomposition, the phase review, and high/unknown-risk slices
+# The orchestrator (main Codex thread) picks the tier from the slice's kind + risk and never implements
+# a slice inline; a low/mid executor that returns `escalate` is re-dispatched one tier up with a revised
+# plan. Tier models/efforts are configurable via the repo-root executors.toml (seeded
+# with commented defaults), applied with `python3 scripts/workflow.py sync-agents`.
+#
 # Recommended user-level settings to pair with this workspace:
 #
 #   # Treat this repo root as the project root.
 #   project_root_markers = [".git"]
 #
-#   # Optional: a read-only phase-review subagent. See the schema at
-#   # https://developers.openai.com/codex/subagents
-#   # Until then, the `review-phase` skill provides the same checklist and
-#   # records the verdict via: python3 scripts/workflow.py review-phase ...
+#   # Subagent concurrency/depth defaults live in your user config:
+#   [agents]
+#   max_threads = 6
+#   max_depth = 1
 
 project_root_markers = [".git"]

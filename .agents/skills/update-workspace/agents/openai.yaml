@@ -1,0 +1,6 @@
+interface:
+  display_name: "update-workspace"
+  short_description: "Update the current repo's agentic-workspace machinery to the latest upstream cornerstone, preserving your phases, slices, and docs."
+  default_prompt: "Use the update-workspace skill."
+policy:
+  allow_implicit_invocation: false

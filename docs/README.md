@@ -18,10 +18,12 @@ Durable docs are versioned. Do not patch old versions.
 
 ## Rules
 
+Doc updates are the agent's job, normally as part of a slice — the operator asks; the agent runs the commands.
+
 - Read latest docs from `docs/current/*.md`.
-- Create updates with `python3 scripts/workflow.py doc-new-version --doc <doc> --summary "..." --source <phase-or-slice>`.
+- The agent creates updates with `python3 scripts/workflow.py doc-new-version --doc <doc> --summary "..." --source <phase-or-slice>`.
 - Edit only the newly created version file under `docs/versions/<doc>/`.
-- Run `python3 scripts/workflow.py rebuild-docs` after editing the new version.
+- The agent runs `python3 scripts/workflow.py rebuild-docs` after editing the new version.
 - `docs/current/*.md` is generated from the latest version and should not be manually edited.
 
 ## Update Triggers
