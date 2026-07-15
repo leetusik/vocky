@@ -6,18 +6,18 @@
 ## Pointer
 
 - Current phase: `P2`
-- Current slice: `P2.S1`
-- Next slice: `P2.S2`
+- Current slice: `P2.S2`
+- Next slice: `P2.S3`
 - Waiting on operator: `none`
 - Open deferred jobs: `3`
-- Rebuilt at: `2026-07-15T17:22:07+09:00`
+- Rebuilt at: `2026-07-15T17:37:20+09:00`
 
 ## Active Phases
 
 | Phase | Status | Review | Name | Current Slice | Path |
 |---|---|---|---|---|---|
 | [x] `P1` | `done` | `pass` | Relicense & Agent-Capture Retirement | `none` | `works/phases/active/P1` |
-| [ ] `P2` | `planned` | `pending` | Accounts, Tenancy & Projects Core | `P2.S1` | `works/phases/active/P2` |
+| [ ] `P2` | `planned` | `pending` | Accounts, Tenancy & Projects Core | `P2.S2` | `works/phases/active/P2` |
 | [ ] `P3` | `planned` | `pending` | Feedback API v2, Search & Usage Monitoring | `P3.DECOMP` | `works/phases/active/P3` |
 | [ ] `P7` | `planned` | `pending` | Agent-Capture Revival (MCP write-only) | `P7.DECOMP` | `works/phases/active/P7` |
 | [ ] `P4` | `planned` | `pending` | Web App: Tenant Dashboard & Project Pages | `P4.DECOMP` | `works/phases/active/P4` |
@@ -40,7 +40,7 @@
 | Slice | Status | Name | Kind | Path |
 |---|---|---|---|---|
 | [x] `P2.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P2/slices/P2.DECOMP` |
-| [ ] `P2.S1` | `todo` | Identity & tenancy data model + persistence | `implementation` | `works/phases/active/P2/slices/P2.S1` |
+| [x] `P2.S1` | `done` | Identity & tenancy data model + persistence | `implementation` | `works/phases/active/P2/slices/P2.S1` |
 | [ ] `P2.S2` | `todo` | Account auth: signup / login / session tokens + user-auth guard | `implementation` | `works/phases/active/P2/slices/P2.S2` |
 | [ ] `P2.S3` | `todo` | Tenants & projects account-scoped API (CRUD) | `implementation` | `works/phases/active/P2/slices/P2.S3` |
 | [ ] `P2.S4` | `todo` | Per-project credentials + swap public ingest auth | `implementation` | `works/phases/active/P2/slices/P2.S4` |

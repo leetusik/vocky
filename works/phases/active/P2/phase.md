@@ -72,6 +72,46 @@ schema/CRUD slices at `medium` targets executor cost at the risk that actually w
 - Tests: real-Postgres integration + `fakeredis` + in-process ASGI via `httpx`; shared
   `tests/conftest.py`. Keep new test files terse.
 
+**S1 delivered — schema + accounts persistence (what S2–S4 build on):**
+
+- **New head migration: `20260715_1200`** (`add_accounts_tenancy`, chained on `20260604_2305`).
+  Any later migration chains onto `20260715_1200`. The head-version pin in
+  `tests/test_persistence.py` now asserts `"20260715_1200"` — bump it again if you add a migration.
+- **Final table/column names** (all `id` UUID PK `default=uuid4`, `created_at` TIMESTAMPTZ
+  `CURRENT_TIMESTAMP`):
+  - `users(email UNIQUE, password_hash)` — S2 stores the argon2id hash here; `email` is
+    normalized-lowercase by the *caller* (schema does not lowercase).
+  - `tenants(name)` — ownership is a `tenant_members` row, NOT an `owner_id` column.
+  - `tenant_members(tenant_id→tenants, user_id→users, role)` — UNIQUE `(tenant_id, user_id)`;
+    MVP writes `role="owner"`.
+  - `projects(tenant_id→tenants, name)`.
+  - `project_credentials(project_id→projects, name NULL, token_prefix, token_hash UNIQUE,
+    last_used_at NULL, revoked_at NULL)`.
+  - `auth_tokens(user_id→users, token_hash UNIQUE, expires_at NULL, last_used_at NULL)`.
+  - All FKs `ON DELETE CASCADE`.
+- **Domain package `src/vocky/accounts/`** mirrors `feedback/`: `AccountsService` (session
+  lifecycle + commit + error translation), `AccountsRepository` (sole ORM boundary, no commit),
+  transport-neutral `types.py`, and `get_accounts_service()` factory. Import surface:
+  `from vocky.accounts import get_accounts_service, AccountsService, CreateUser, CreateProject,
+  CreateProjectCredential, CreateAuthToken, DuplicateEmailError, ...`.
+- **`create_tenant_with_owner(user_id, name) -> (TenantRecord, TenantMemberRecord)`** — the
+  signup primitive: inserts tenant + `owner` membership in ONE transaction. S2's signup calls
+  `create_user(...)` then this. `create_user` raises **`DuplicateEmailError`** (subclass of
+  `AccountsPersistenceError`) on the `uq_users_email` violation → S2 returns 409.
+- **Credential convention (S4 reuses):** caller computes `token_prefix` (short display, e.g.
+  `vk_ab12…`) + `token_hash` = **sha256 hex of the plaintext key**; raw key never stored.
+  `get_active_credential_by_token_hash(hash)` filters `revoked_at IS NULL` (the ingest lookup);
+  `touch_credential_last_used(id)`; `revoke_credential(id)` is a soft revoke (idempotent, sets
+  `revoked_at`), does NO authz. `ProjectCredentialRecord` exposes `token_prefix`, never the hash.
+- **Session-token convention (S2 reuses):** caller generates a high-entropy opaque token, stores
+  `token_hash` = **sha256 hex** via `create_auth_token(CreateAuthToken(user_id, token_hash,
+  expires_at=None|dt))`. `get_active_auth_token_by_hash(hash)` filters
+  `expires_at IS NULL OR expires_at > now()` (S2 sets expiry policy). Logout =
+  `delete_auth_token(hash) -> bool`. `touch_auth_token_last_used(hash)` for last-seen. Records
+  never expose `token_hash`.
+- **Test fixture:** `configured_database` TRUNCATE now clears all six new tables with `CASCADE`
+  (setup + teardown) — later slices' tests inherit a clean accounts schema automatically.
+
 ## Doc impact
 
 Durable-doc changes for `P2.REVIEW` to consolidate (do not version docs per slice):
@@ -84,6 +124,18 @@ Durable-doc changes for `P2.REVIEW` to consolidate (do not version docs per slic
 - **backend** — accounts domain (fill the stub).
 - **security** — password hashing, session-token + project-credential handling (fill the stub).
 - **decisions** — record the auth-model + tenancy-shape choices (fill the stub).
+
+_S1 additions (durable truth landed this slice, for REVIEW to consolidate):_
+
+- **data** — six new tables shipped by migration `20260715_1200`: `users`, `tenants`,
+  `tenant_members`, `projects`, `project_credentials`, `auth_tokens` (final columns/constraints
+  in the S1 notes above; DB head is now `20260715_1200`).
+- **backend** — new `src/vocky/accounts/` domain package (`types`/`repository`/`service` +
+  `get_accounts_service()`) mirroring `feedback/`; `create_tenant_with_owner` signup primitive;
+  `DuplicateEmailError`.
+- **security** — credentials stored as sha256 `token_hash` (+ display `token_prefix`, raw key
+  never persisted); session tokens stored as sha256 `token_hash` with optional `expires_at`;
+  credential soft-revoke via `revoked_at`. (Password hashing itself is S2.)
 
 ## Constraints
 

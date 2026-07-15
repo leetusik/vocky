@@ -117,7 +117,8 @@ async def configured_database(test_database_url: str) -> str:
         await connection.execute(
             text(
                 "TRUNCATE TABLE feedback_events, feedback_comments, "
-                "feedback_attachments"
+                "feedback_attachments, users, tenants, tenant_members, "
+                "projects, project_credentials, auth_tokens CASCADE"
             )
         )
 
@@ -127,7 +128,8 @@ async def configured_database(test_database_url: str) -> str:
         await connection.execute(
             text(
                 "TRUNCATE TABLE feedback_events, feedback_comments, "
-                "feedback_attachments"
+                "feedback_attachments, users, tenants, tenant_members, "
+                "projects, project_credentials, auth_tokens CASCADE"
             )
         )
 
