@@ -158,6 +158,7 @@
                 "Admin REST editable fields are feedback_value, comment, channel, tags, source_metadata, and attributes. Channel patch writes accept null, web, mobile, or support.",
                 "The Admin UI Feedback view supports list, user and trigger filters, detail inspection, editing feedback_value/comment/channel/tags, and guarded delete. Channel controls use Any/None plus web, mobile, and support.",
                 "The Admin UI target type filter uses Any, message, conversation, and surface. Any leaves older records with unset target_type visible; there is no dedicated unset target_type filter.",
+                "Filter by target_type message, conversation, or surface to review message, conversation, and product-surface feedback separately.",
                 "source_metadata and attributes are visible as read-only JSON in the Admin UI even though Admin REST can patch them.",
                 "user_id, trigger fields, target fields, messages, and used_context are captured context and remain immutable in this MVP."
               ]

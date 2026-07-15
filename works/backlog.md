@@ -10,7 +10,7 @@
 - Next slice: `none`
 - Waiting on operator: `none`
 - Open deferred jobs: `3`
-- Rebuilt at: `2026-07-15T16:09:57+09:00`
+- Rebuilt at: `2026-07-15T16:22:52+09:00`
 
 ## Active Phases
 
@@ -31,6 +31,7 @@
 | [x] `P1.S1` | `done` | Relicense to MIT | `implementation` | `works/phases/active/P1/slices/P1.S1` |
 | [x] `P1.S2` | `done` | Retire MCP/agent-capture from the system | `implementation` | `works/phases/active/P1/slices/P1.S2` |
 | [x] `P1.S3` | `done` | Scrub MCP from README & ancillary docs | `implementation` | `works/phases/active/P1/slices/P1.S3` |
+| [x] `P1.F1` | `done` | Restore REST target_type help string in docs.json | `fix` | `works/phases/active/P1/slices/P1.F1` |
 | [ ] `P1.REVIEW` | `changes_requested` | phase review | `review` | `works/phases/active/P1/slices/P1.REVIEW` |
 
 ## Phase P2: Accounts, Tenancy & Projects Core

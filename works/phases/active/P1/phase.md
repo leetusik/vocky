@@ -43,6 +43,8 @@ Removal map from three parallel Explore passes, recorded here so downstream slic
 
 **Decisions (operator-confirmed at the plan gate).** Smoke → minimal REST rewrite (not deletion); copyright holder → `Vocky`.
 
+P1.F1 done: restored the required REST help string "target_type message, conversation, or surface" to docs.json admin-rest block; make verify green (package-check + smoke + 132 tests all passed).
+
 S1 done: relicensed to MIT (LICENSE + pyproject + README); no durable-doc impact.
 
 S3 done: README scrubbed to REST-only (MCP Surface section deleted; `/mcp`, FastMCP/Streamable-HTTP, the four MCP tool names, and all `VOCKY_MCP_*` env/DNS-rebinding wording removed; the two Python MCP client blocks replaced with REST `POST /api/feedback` + scoped `GET /api/feedback` examples; smoke/verify text now describes the REST smoke). Grep for MCP in README is empty; only README.md changed. Private gitignored docs (`docs/local-public-access.md`, `docs/changple5-apply.md`) left untouched per operator; durable docs deferred to REVIEW.
