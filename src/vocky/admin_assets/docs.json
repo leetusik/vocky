@@ -20,7 +20,6 @@
               "type": "table",
               "headers": ["Surface", "Path", "Purpose"],
               "rows": [
-                ["MCP", "/mcp", "Agent feedback capture and read tools"],
                 ["REST capture", "POST /api/feedback", "Server-to-server feedback ingestion"],
                 ["Admin REST", "/admin/api/*", "Human/operator review and management"],
                 ["Admin UI", "/admin", "Dashboard metrics plus feedback list, filter, detail, edit, and delete workflows"]
@@ -39,61 +38,9 @@
           ]
         },
         {
-          "id": "mcp-tools",
-          "title": "MCP Tools",
-          "summary": "Agent-facing capture and read tools served at /mcp.",
-          "blocks": [
-            {
-              "type": "paragraph",
-              "text": "Use /mcp as the canonical Streamable HTTP endpoint for MCP clients."
-            },
-            {
-              "type": "table",
-              "headers": ["Tool", "Purpose", "Result"],
-              "rows": [
-                ["capture_feedback", "Accept one feedback event for background persistence", "Returns request_id, accepted_at, and status accepted"],
-                ["list_feedback", "Read stored feedback with filters and cursor pagination", "Returns records and optional next_cursor"],
-                ["summarize_feedback", "Count stored feedback in a UTC ingest-time window", "Returns total_count and daily_counts"],
-                ["list_liked_conversations", "Retrieve liked records with messages and used context", "Returns conversations and optional next_cursor"]
-              ]
-            },
-            {
-              "type": "definition_list",
-              "items": [
-                {
-                  "term": "Accepted capture",
-                  "description": "Success means the request was queued; the record becomes readable only after the worker persists it."
-                },
-                {
-                  "term": "Validation errors",
-                  "description": "MCP tool validation, queue, and storage failures are returned as tool execution errors with isError true."
-                },
-                {
-                  "term": "Public auth",
-                  "description": "When VOCKY_MCP_AUTH_TOKEN is set, MCP HTTP requests must include Authorization: Bearer <VOCKY_MCP_AUTH_TOKEN>."
-                }
-              ]
-            },
-            {
-              "type": "list",
-              "items": [
-                "feedback_value is optional and uses 1 for like or 2 for dislike.",
-                "user_id is optional caller-owned product identity; keep session_id for runtime or browser-session correlation.",
-                "trigger_type can be like, dislike, comment, rating, survey, manual, or other; trigger_message and trigger_metadata describe the action that caused capture.",
-                "channel is optional on capture; omitted or null means no category, and accepted non-null channel categories are web, mobile, and support.",
-                "target_type, target_id, target_role, and target_text are optional captured context for the exact reviewed message, conversation, or surface.",
-                "list_feedback and summarize_feedback filter by ingested_at, source fields, conversation/session/user IDs, feedback_value, channel, target_type, trigger_type, and exact tag.",
-                "Use target_type message, conversation, or surface to review exact message feedback, whole-conversation feedback, or product-surface feedback separately.",
-                "Do not send raw hidden chain-of-thought; use summaries, tool traces, retrieval snippets, prompt summaries, and redacted execution metadata.",
-                "list_liked_conversations always enforces feedback_value = 1 server-side."
-              ]
-            }
-          ]
-        },
-        {
           "id": "rest-capture",
           "title": "REST Capture",
-          "summary": "Server-to-server ingestion for integrations that do not use MCP.",
+          "summary": "Server-to-server feedback ingestion for trusted product and website backends.",
           "blocks": [
             {
               "type": "paragraph",
@@ -190,7 +137,7 @@
           "blocks": [
             {
               "type": "paragraph",
-              "text": "Admin REST is separate from MCP and can inspect and manage all stored feedback records."
+              "text": "Admin REST can inspect and manage all stored feedback records."
             },
             {
               "type": "table",
@@ -207,7 +154,7 @@
             {
               "type": "list",
               "items": [
-                "List filters match the MCP read filters: ingest-time window, source_product, source_integration, conversation_id, session_id, user_id, feedback_value, channel, target_type, trigger_type, tag, limit, and cursor.",
+                "List filters cover the ingest-time window, source_product, source_integration, conversation_id, session_id, user_id, feedback_value, channel, target_type, trigger_type, tag, limit, and cursor.",
                 "Admin REST editable fields are feedback_value, comment, channel, tags, source_metadata, and attributes. Channel patch writes accept null, web, mobile, or support.",
                 "The Admin UI Feedback view supports list, user and trigger filters, detail inspection, editing feedback_value/comment/channel/tags, and guarded delete. Channel controls use Any/None plus web, mobile, and support.",
                 "The Admin UI target type filter uses Any, message, conversation, and surface. Any leaves older records with unset target_type visible; there is no dedicated unset target_type filter.",
@@ -233,7 +180,7 @@
         {
           "id": "auth-tokens",
           "title": "Auth Tokens",
-          "summary": "Bearer-token variables for the three public-facing tracks.",
+          "summary": "Bearer-token variables for the two public-facing tracks.",
           "blocks": [
             {
               "type": "paragraph",
@@ -243,7 +190,6 @@
               "type": "table",
               "headers": ["Variable", "Protects", "Public deployment guidance"],
               "rows": [
-                ["VOCKY_MCP_AUTH_TOKEN", "/mcp", "Set before exposing MCP publicly"],
                 ["VOCKY_API_AUTH_TOKEN", "/api/*", "Set before exposing REST capture publicly"],
                 ["VOCKY_ADMIN_AUTH_TOKEN", "/admin/api/*", "Set before exposing Admin REST publicly"]
               ]
@@ -296,7 +242,7 @@
                 },
                 {
                   "title": "Verify",
-                  "text": "Run make verify to inspect packaged Admin UI assets, wait for health, run the MCP smoke flow, and execute the pytest suite."
+                  "text": "Run make verify to inspect packaged Admin UI assets, wait for health, run the REST smoke flow, and execute the pytest suite."
                 },
                 {
                   "title": "Tear down",
@@ -354,33 +300,24 @@
                   "description": "Use a generic public URL such as https://vocky.example.com and set VOCKY_EXTERNAL_BASE_URL to that origin."
                 },
                 {
-                  "term": "MCP allowed Host",
-                  "description": "Set VOCKY_MCP_ALLOWED_HOSTS=vocky.example.com so FastMCP accepts the public Host header."
-                },
-                {
-                  "term": "MCP allowed Origin",
-                  "description": "Set VOCKY_MCP_ALLOWED_ORIGINS=https://vocky.example.com for browser-origin MCP traffic when needed."
-                },
-                {
                   "term": "Proxy target",
                   "description": "Point the public HTTPS hostname at the local Vocky service, for example http://127.0.0.1:8000."
                 },
                 {
                   "term": "External verification",
-                  "description": "Run make external-verify after VOCKY_EXTERNAL_BASE_URL points at the live public origin. It waits for public health and then runs the MCP smoke flow."
+                  "description": "Run make external-verify after VOCKY_EXTERNAL_BASE_URL points at the live public origin. It waits for public health and then runs the REST smoke flow."
                 }
               ]
             },
             {
               "type": "code",
               "language": "env",
-              "text": "VOCKY_EXTERNAL_BASE_URL=https://vocky.example.com\nVOCKY_MCP_ALLOWED_HOSTS=vocky.example.com\nVOCKY_MCP_ALLOWED_ORIGINS=https://vocky.example.com\nVOCKY_MCP_AUTH_TOKEN=<long-random-secret>\nVOCKY_API_AUTH_TOKEN=<another-long-random-secret>\nVOCKY_ADMIN_AUTH_TOKEN=<different-long-random-secret>"
+              "text": "VOCKY_EXTERNAL_BASE_URL=https://vocky.example.com\nVOCKY_API_AUTH_TOKEN=<another-long-random-secret>\nVOCKY_ADMIN_AUTH_TOKEN=<different-long-random-secret>"
             },
             {
               "type": "table",
               "headers": ["Client", "Public URL", "Bearer token"],
               "rows": [
-                ["MCP client", "https://vocky.example.com/mcp", "VOCKY_MCP_AUTH_TOKEN"],
                 ["REST capture client", "https://vocky.example.com/api/feedback", "VOCKY_API_AUTH_TOKEN"],
                 ["Admin REST client", "https://vocky.example.com/admin/api/*", "VOCKY_ADMIN_AUTH_TOKEN"]
               ]
@@ -393,7 +330,7 @@
             {
               "type": "callout",
               "title": "Expose only with tokens",
-              "text": "Set all three bearer-token variables before public exposure when MCP, REST capture, and Admin REST are reachable from the internet."
+              "text": "Set both bearer-token variables before public exposure when REST capture and Admin REST are reachable from the internet."
             }
           ]
         }

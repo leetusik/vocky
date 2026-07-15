@@ -207,7 +207,6 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
     ]
     assert topic_ids == [
         "operator-overview",
-        "mcp-tools",
         "rest-capture",
         "admin-rest",
         "auth-tokens",
@@ -215,30 +214,21 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
         "public-custom-domain",
     ]
     for required_text in (
-        "/mcp",
-        "capture_feedback",
-        "list_feedback",
-        "summarize_feedback",
-        "list_liked_conversations",
         "POST /api/feedback",
         "/admin/api/*",
         "GET /admin/api/feedback/metrics",
         "Browser edit scope",
         "guarded delete",
-        "channel categories",
         "web, mobile, and support",
         "user_id",
         "trigger_type",
         "trigger fields",
-        "chain-of-thought",
         "target_type",
-        "target_type message, conversation, or surface",
         "Any leaves older records with unset target_type visible",
         "target_text",
         "target fields",
         "202 Accepted",
         "204 No Content",
-        "VOCKY_MCP_AUTH_TOKEN",
         "VOCKY_API_AUTH_TOKEN",
         "VOCKY_ADMIN_AUTH_TOKEN",
         "Authorization: Bearer <token>",
@@ -254,8 +244,6 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
         "uv run vocky-worker",
         "https://vocky.example.com",
         "VOCKY_EXTERNAL_BASE_URL",
-        "VOCKY_MCP_ALLOWED_HOSTS",
-        "VOCKY_MCP_ALLOWED_ORIGINS",
         "rest_capture_try",
         "rest-capture-try",
         "Try REST Capture",
@@ -289,28 +277,6 @@ def test_admin_ui_assets_serve_packaged_resources() -> None:
         "placement": "hero",
     }
     assert try_block["default_payload"]["target_type"] == "surface"
-
-
-def test_admin_ui_routes_are_registered_before_mcp_mount() -> None:
-    app = create_app()
-    route_paths = [getattr(route, "path", None) for route in app.routes]
-    mcp_mount_index = route_paths.index("")
-
-    for path in (
-        "/admin/api/healthz",
-        "/admin/api/feedback/metrics",
-        "/admin",
-        "/admin/",
-        "/admin/assets/app.css",
-        "/admin/assets/app.js",
-        "/admin/assets/docs.json",
-    ):
-        assert route_paths.index(path) < mcp_mount_index
-
-    assert route_paths.index("/admin/api/healthz") < route_paths.index("/admin")
-    assert route_paths.index("/admin/api/feedback/metrics") < route_paths.index(
-        "/admin/api/feedback/{feedback_id}"
-    )
 
 
 def test_admin_ui_paths_do_not_require_admin_api_bearer_token() -> None:

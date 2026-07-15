@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
-from datetime import UTC, datetime, timedelta
+import time
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
 import httpx
-from mcp.client.session import ClientSession
-from mcp.client.streamable_http import streamable_http_client
 
 
 DEFAULT_USER_AGENT = "VockySmoke/0.1"
@@ -23,28 +20,18 @@ def make_http_user_agent() -> str:
     return os.getenv("VOCKY_HTTP_USER_AGENT", "").strip() or DEFAULT_USER_AGENT
 
 
-def parse_timestamp(value: str) -> datetime:
-    """Parse a UTC ISO 8601 timestamp from the MCP responses."""
+def make_smoke_request_headers(auth_token: str | None = None) -> dict[str, str]:
+    """Return REST smoke client headers with an optional bearer token.
 
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
-
-
-def serialize_timestamp(value: datetime) -> str:
-    """Serialize a UTC ISO 8601 timestamp for MCP requests."""
-
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
-
-
-def make_mcp_client_headers(auth_token: str | None = None) -> dict[str, str]:
-    """Return optional MCP client headers for smoke checks."""
+    The public REST surface is guarded by ``APIBearerAuthMiddleware``, so the
+    Authorization header is included only when ``VOCKY_API_AUTH_TOKEN`` is set.
+    """
 
     headers = {"User-Agent": make_http_user_agent()}
-    token = os.getenv("VOCKY_MCP_AUTH_TOKEN", "") if auth_token is None else auth_token
+    token = os.getenv("VOCKY_API_AUTH_TOKEN", "") if auth_token is None else auth_token
     token = token.strip()
-    if not token:
-        return headers
-
-    headers["Authorization"] = f"Bearer {token}"
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     return headers
 
 
@@ -54,152 +41,101 @@ def make_smoke_health_request(url: str) -> Request:
     return Request(url, headers={"User-Agent": make_http_user_agent()})
 
 
-async def run_mcp_smoke(base_url: str) -> tuple[str, int, int]:
-    """Call the MCP tools through the running app and verify the read/write loop."""
+def run_rest_smoke(base_url: str) -> tuple[str, int]:
+    """Exercise the public REST capture -> persist -> read loop.
 
-    smoke_session_id = f"smoke-{uuid4()}"
-    smoke_message = f"smoke test feedback {smoke_session_id}"
-    smoke_target_id = f"{smoke_session_id}-assistant"
-    smoke_target_text = f"smoke target text {smoke_session_id}"
-    headers = make_mcp_client_headers()
+    Posts one feedback event to ``POST /api/feedback`` and then polls the scoped
+    ``GET /api/feedback`` read until the worker-persisted record appears, asserting
+    the captured context round-tripped. Returns the capture request id and the
+    number of records returned by the successful read.
+    """
 
-    async with httpx.AsyncClient(headers=headers, follow_redirects=False) as http_client:
-        async with streamable_http_client(f"{base_url}/mcp", http_client=http_client) as streams:
-            read_stream, write_stream, _ = streams
-            async with ClientSession(read_stream, write_stream) as session:
-                await session.initialize()
-                capture_result = await session.call_tool(
-                    "capture_feedback",
-                    {
-                        "message": smoke_message,
-                        "source": {
-                            "product": "vocky-smoke",
-                            "integration": "make-smoke",
-                        },
-                        "conversation_id": smoke_session_id,
-                        "session_id": smoke_session_id,
-                        "target_type": "message",
-                        "target_id": smoke_target_id,
-                        "target_role": "assistant",
-                        "target_text": smoke_target_text,
-                        "tags": ["smoke"],
-                        "source_metadata": {"channel": "smoke"},
-                    },
+    smoke_id = f"smoke-{uuid4()}"
+    smoke_message = f"smoke test feedback {smoke_id}"
+    smoke_user_id = f"user-{smoke_id}"
+    smoke_session_id = f"session-{smoke_id}"
+    smoke_target_id = f"{smoke_id}-assistant"
+    smoke_target_text = f"smoke target text {smoke_id}"
+    headers = make_smoke_request_headers()
+
+    with httpx.Client(headers=headers, follow_redirects=False, timeout=10) as client:
+        capture_response = client.post(
+            f"{base_url}/api/feedback",
+            json={
+                "message": smoke_message,
+                "source": {"product": "vocky-smoke", "integration": "make-smoke"},
+                "session_id": smoke_session_id,
+                "user_id": smoke_user_id,
+                "target_type": "message",
+                "target_id": smoke_target_id,
+                "target_role": "assistant",
+                "target_text": smoke_target_text,
+                "tags": ["smoke"],
+            },
+        )
+        if capture_response.status_code != 202:
+            raise SystemExit(
+                "capture smoke failed: "
+                f"{capture_response.status_code} {capture_response.text}"
+            )
+
+        capture_payload = capture_response.json()
+        request_id = capture_payload.get("request_id")
+        if not isinstance(request_id, str) or capture_payload.get("status") != "accepted":
+            raise SystemExit(f"capture smoke returned incomplete data: {capture_payload}")
+
+        matched_record: dict[str, object] | None = None
+        records: list[dict[str, object]] = []
+        for _ in range(20):
+            list_response = client.get(
+                f"{base_url}/api/feedback",
+                params={
+                    "user_id": smoke_user_id,
+                    "source_product": "vocky-smoke",
+                    "session_id": smoke_session_id,
+                    "limit": 10,
+                },
+            )
+            if list_response.status_code != 200:
+                raise SystemExit(
+                    "list smoke failed: "
+                    f"{list_response.status_code} {list_response.text}"
                 )
 
-                if capture_result.isError:
-                    raise SystemExit(
-                        f"capture_feedback smoke failed: {capture_result.content[0].text}"
-                    )
+            list_payload = list_response.json()
+            records = list_payload.get("records")
+            if not isinstance(records, list):
+                raise SystemExit(f"list smoke returned no records array: {list_payload}")
 
-                capture_payload = capture_result.structuredContent or {}
-                request_id = capture_payload.get("request_id")
-                accepted_at_raw = capture_payload.get("accepted_at")
-                status = capture_payload.get("status")
-                if (
-                    not isinstance(request_id, str)
-                    or not isinstance(accepted_at_raw, str)
-                    or status != "accepted"
-                ):
-                    raise SystemExit(
-                        f"capture_feedback smoke returned incomplete data: {capture_result}"
-                    )
+            matching = [
+                record for record in records if record.get("message") == smoke_message
+            ]
+            if len(matching) == 1:
+                matched_record = matching[0]
+                break
 
-                accepted_at = parse_timestamp(accepted_at_raw)
-                records: list[dict[str, object]] = []
-                matched_record: dict[str, object] | None = None
+            time.sleep(0.5)
 
-                for _ in range(20):
-                    list_result = await session.call_tool(
-                        "list_feedback",
-                        {
-                            "source_product": "vocky-smoke",
-                            "session_id": smoke_session_id,
-                            "limit": 10,
-                        },
-                    )
-                    if list_result.isError:
-                        raise SystemExit(
-                            f"list_feedback smoke failed: {list_result.content[0].text}"
-                        )
+        if matched_record is None:
+            raise SystemExit("list smoke did not return the worker-persisted record")
 
-                    list_payload = list_result.structuredContent or {}
-                    records = list_payload.get("records")
-                    if not isinstance(records, list):
-                        raise SystemExit(f"list_feedback smoke returned no records: {list_result}")
+        if (
+            matched_record.get("user_id") != smoke_user_id
+            or matched_record.get("target_type") != "message"
+            or matched_record.get("target_id") != smoke_target_id
+            or matched_record.get("target_role") != "assistant"
+            or matched_record.get("target_text") != smoke_target_text
+        ):
+            raise SystemExit(
+                "list smoke returned a record without round-tripped context: "
+                f"{matched_record}"
+            )
 
-                    matching_records = [
-                        record
-                        for record in records
-                        if record.get("message") == smoke_message
-                        and record.get("session_id") == smoke_session_id
-                    ]
-                    if len(matching_records) == 1:
-                        matched_record = matching_records[0]
-                        break
-
-                    await asyncio.sleep(0.5)
-
-                if matched_record is None:
-                    raise SystemExit("list_feedback smoke did not return the worker-persisted record")
-
-                if (
-                    matched_record.get("target_type") != "message"
-                    or matched_record.get("target_id") != smoke_target_id
-                    or matched_record.get("target_role") != "assistant"
-                    or matched_record.get("target_text") != smoke_target_text
-                ):
-                    raise SystemExit(
-                        "list_feedback smoke returned a matched record without target context: "
-                        f"{list_result}"
-                    )
-
-                summary_result = await session.call_tool(
-                    "summarize_feedback",
-                    {
-                        "start_ingested_at": serialize_timestamp(accepted_at),
-                        "end_ingested_at": serialize_timestamp(accepted_at + timedelta(minutes=5)),
-                        "source_product": "vocky-smoke",
-                        "session_id": smoke_session_id,
-                        "tag": "smoke",
-                    },
-                )
-                if summary_result.isError:
-                    raise SystemExit(
-                        f"summarize_feedback smoke failed: {summary_result.content[0].text}"
-                    )
-
-                summary_payload = summary_result.structuredContent or {}
-                total_count = summary_payload.get("total_count")
-                daily_counts = summary_payload.get("daily_counts")
-                if total_count != 1 or not isinstance(daily_counts, list):
-                    raise SystemExit(
-                        f"summarize_feedback smoke returned unexpected data: {summary_result}"
-                    )
-
-                ingested_at_raw = matched_record.get("ingested_at")
-                if not isinstance(ingested_at_raw, str):
-                    raise SystemExit(
-                        "list_feedback smoke returned a matched record without ingested_at: "
-                        f"{list_result}"
-                    )
-
-                ingested_day = parse_timestamp(ingested_at_raw).date().isoformat()
-                if not any(
-                    day_count.get("day") == ingested_day and day_count.get("count") == 1
-                    for day_count in daily_counts
-                    if isinstance(day_count, dict)
-                ):
-                    raise SystemExit(
-                        "summarize_feedback smoke did not include the captured record day: "
-                        f"{summary_result}"
-                    )
-
-    return request_id, len(records), total_count
+    return request_id, len(records)
 
 
 def main() -> None:
-    """Verify the local service health endpoint and MCP tools all respond."""
+    """Verify the local service health endpoint and REST capture/read loop."""
 
     base_url = os.getenv("VOCKY_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
     with urlopen(make_smoke_health_request(f"{base_url}/healthz"), timeout=5) as response:
@@ -208,9 +144,8 @@ def main() -> None:
     if payload.get("status") != "ok":
         raise SystemExit(f"unexpected smoke response: {payload}")
 
-    request_id, listed_count, total_count = asyncio.run(run_mcp_smoke(base_url))
+    request_id, listed_count = run_rest_smoke(base_url)
 
     print(f"healthz ok at {base_url}")
-    print(f"capture_feedback accepted: {request_id}")
-    print(f"list_feedback ok: {listed_count} record(s)")
-    print(f"summarize_feedback ok: total_count={total_count}")
+    print(f"POST /api/feedback accepted: {request_id}")
+    print(f"GET /api/feedback ok: {listed_count} record(s)")

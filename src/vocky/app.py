@@ -8,16 +8,15 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.routing import Mount, Route
+from starlette.routing import Route
 
 from vocky.admin_api import routes as admin_routes
 from vocky.admin_ui import routes as admin_ui_routes
 from vocky.api import routes as api_routes
 from vocky.attachments_api import routes as attachment_routes
-from vocky.auth import APIBearerAuthMiddleware, AdminBearerAuthMiddleware, MCPBearerAuthMiddleware
+from vocky.auth import APIBearerAuthMiddleware, AdminBearerAuthMiddleware
 from vocky.config import get_settings
 from vocky.db import dispose_engine
-from vocky.mcp_server import mcp
 from vocky.redis_client import dispose_redis_client
 
 
@@ -29,14 +28,13 @@ async def healthz(_: Request) -> JSONResponse:
 
 @contextlib.asynccontextmanager
 async def lifespan(_: Starlette):
-    """Run the FastMCP session manager for the host app lifetime."""
+    """Dispose shared resources when the host app shuts down."""
 
-    async with mcp.session_manager.run():
-        try:
-            yield
-        finally:
-            await dispose_redis_client()
-            await dispose_engine()
+    try:
+        yield
+    finally:
+        await dispose_redis_client()
+        await dispose_engine()
 
 
 def create_app() -> Starlette:
@@ -51,12 +49,10 @@ def create_app() -> Starlette:
             *admin_ui_routes,
             *api_routes,
             *attachment_routes,
-            Mount("/", app=mcp.streamable_http_app()),
         ],
         middleware=[
             Middleware(APIBearerAuthMiddleware, token=settings.api_auth_token_value),
             Middleware(AdminBearerAuthMiddleware, token=settings.admin_auth_token_value),
-            Middleware(MCPBearerAuthMiddleware, token=settings.mcp_auth_token_value),
         ],
         lifespan=lifespan,
     )

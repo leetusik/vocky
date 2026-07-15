@@ -10,9 +10,7 @@ import pytest
 from vocky.capture import (
     CaptureFeedbackSourceInput,
     CaptureFeedbackValidationError,
-    McpCaptureFeedbackInput,
     RestCaptureFeedbackInput,
-    normalize_mcp_payload,
     normalize_rest_payload,
 )
 
@@ -55,11 +53,7 @@ def test_rest_attachment_ids_default_empty() -> None:
     assert normalize_rest_payload(make_rest_input()).payload.attachment_ids == ()
 
 
-def test_mcp_capture_is_attachment_free() -> None:
-    assert normalize_mcp_payload(make_input()).payload.attachment_ids == ()
-
-
-def make_input(**overrides: object) -> McpCaptureFeedbackInput:
+def make_input(**overrides: object) -> RestCaptureFeedbackInput:
     """Create a default raw capture input for tests."""
 
     data = {
@@ -86,32 +80,32 @@ def make_input(**overrides: object) -> McpCaptureFeedbackInput:
         "attributes": {},
     }
     data.update(overrides)
-    return McpCaptureFeedbackInput(**data)
+    return RestCaptureFeedbackInput(**data)
 
 
 def test_blank_message_is_rejected() -> None:
     with pytest.raises(CaptureFeedbackValidationError, match="message must not be blank"):
-        normalize_mcp_payload(make_input(message="   "))
+        normalize_rest_payload(make_input(message="   "))
 
 
 def test_blank_source_product_is_rejected() -> None:
     with pytest.raises(CaptureFeedbackValidationError, match="source.product must not be blank"):
-        normalize_mcp_payload(make_input(source=CaptureFeedbackSourceInput(product="  ")))
+        normalize_rest_payload(make_input(source=CaptureFeedbackSourceInput(product="  ")))
 
 
 def test_naive_event_at_is_rejected() -> None:
     with pytest.raises(CaptureFeedbackValidationError, match="event_at must include a timezone offset"):
-        normalize_mcp_payload(make_input(event_at="2026-04-23T14:00:00"))
+        normalize_rest_payload(make_input(event_at="2026-04-23T14:00:00"))
 
 
 def test_blank_tag_is_rejected() -> None:
     with pytest.raises(CaptureFeedbackValidationError, match="tags must not contain blank values"):
-        normalize_mcp_payload(make_input(tags=["valid", "   "]))
+        normalize_rest_payload(make_input(tags=["valid", "   "]))
 
 
 def test_duplicate_tags_are_rejected_after_normalization() -> None:
     with pytest.raises(CaptureFeedbackValidationError, match="tags must not contain duplicates"):
-        normalize_mcp_payload(make_input(tags=["bug", " bug "]))
+        normalize_rest_payload(make_input(tags=["bug", " bug "]))
 
 
 def test_invalid_feedback_value_is_rejected() -> None:
@@ -119,7 +113,7 @@ def test_invalid_feedback_value_is_rejected() -> None:
         CaptureFeedbackValidationError,
         match="feedback_value must be 1 for like or 2 for dislike",
     ):
-        normalize_mcp_payload(make_input(feedback_value=3))
+        normalize_rest_payload(make_input(feedback_value=3))
 
 
 @pytest.mark.parametrize(
@@ -134,13 +128,13 @@ def test_allowed_channel_categories_are_accepted(
     raw_channel: str,
     expected_channel: str,
 ) -> None:
-    normalized = normalize_mcp_payload(make_input(channel=raw_channel))
+    normalized = normalize_rest_payload(make_input(channel=raw_channel))
 
     assert normalized.payload.channel == expected_channel
 
 
 def test_blank_channel_normalizes_to_none() -> None:
-    normalized = normalize_mcp_payload(make_input(channel="   "))
+    normalized = normalize_rest_payload(make_input(channel="   "))
 
     assert normalized.payload.channel is None
 
@@ -150,7 +144,7 @@ def test_invalid_channel_is_rejected() -> None:
         CaptureFeedbackValidationError,
         match="channel must be one of: web, mobile, support",
     ):
-        normalize_mcp_payload(make_input(channel="email"))
+        normalize_rest_payload(make_input(channel="email"))
 
 
 def test_invalid_target_type_is_rejected() -> None:
@@ -158,7 +152,7 @@ def test_invalid_target_type_is_rejected() -> None:
         CaptureFeedbackValidationError,
         match="target_type must be one of: message, conversation, surface",
     ):
-        normalize_mcp_payload(make_input(target_type="answer"))
+        normalize_rest_payload(make_input(target_type="answer"))
 
 
 def test_invalid_trigger_type_is_rejected() -> None:
@@ -166,7 +160,7 @@ def test_invalid_trigger_type_is_rejected() -> None:
         CaptureFeedbackValidationError,
         match="trigger_type must be one of: like, dislike, comment, rating, survey, manual, other",
     ):
-        normalize_mcp_payload(make_input(trigger_type="thumbs-up"))
+        normalize_rest_payload(make_input(trigger_type="thumbs-up"))
 
 
 def test_trigger_metadata_must_be_object() -> None:
@@ -174,7 +168,7 @@ def test_trigger_metadata_must_be_object() -> None:
         CaptureFeedbackValidationError,
         match="trigger_metadata must be a JSON object",
     ):
-        normalize_mcp_payload(make_input(trigger_metadata=["not", "object"]))
+        normalize_rest_payload(make_input(trigger_metadata=["not", "object"]))
 
 
 def test_invalid_target_role_is_rejected() -> None:
@@ -182,11 +176,11 @@ def test_invalid_target_role_is_rejected() -> None:
         CaptureFeedbackValidationError,
         match="target_role must be one of: user, assistant, system, tool",
     ):
-        normalize_mcp_payload(make_input(target_role="bot"))
+        normalize_rest_payload(make_input(target_role="bot"))
 
 
 def test_action_feedback_context_is_accepted_and_event_at_is_normalized() -> None:
-    normalized = normalize_mcp_payload(
+    normalized = normalize_rest_payload(
         make_input(
             feedback_value=2,
             comment="  The answer ignored my billing context  ",
@@ -198,7 +192,7 @@ def test_action_feedback_context_is_accepted_and_event_at_is_normalized() -> Non
                 {"role": "assistant", "content": "Try again later."},
             ],
             used_context=[{"source": "billing-doc", "snippet": "CSV export"}],
-            source_metadata={"channel": "mcp"},
+            source_metadata={"channel": "web"},
             attributes={"priority": "high"},
             conversation_id="  conv-123  ",
             session_id="   ",
@@ -224,7 +218,7 @@ def test_action_feedback_context_is_accepted_and_event_at_is_normalized() -> Non
     assert normalized.payload.used_context == (
         {"source": "billing-doc", "snippet": "CSV export"},
     )
-    assert normalized.payload.source_metadata == {"channel": "mcp"}
+    assert normalized.payload.source_metadata == {"channel": "web"}
     assert normalized.payload.attributes == {"priority": "high"}
     assert normalized.payload.conversation_id == "conv-123"
     assert normalized.payload.session_id is None
@@ -240,7 +234,7 @@ def test_action_feedback_context_is_accepted_and_event_at_is_normalized() -> Non
 
 
 def test_blank_target_fields_normalize_to_none() -> None:
-    normalized = normalize_mcp_payload(
+    normalized = normalize_rest_payload(
         make_input(
             target_type="   ",
             target_id=" ",
@@ -256,7 +250,7 @@ def test_blank_target_fields_normalize_to_none() -> None:
 
 
 def test_blank_identity_and_trigger_fields_normalize_to_none() -> None:
-    normalized = normalize_mcp_payload(
+    normalized = normalize_rest_payload(
         make_input(
             user_id="   ",
             trigger_type=" ",

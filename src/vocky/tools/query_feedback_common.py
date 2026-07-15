@@ -8,8 +8,6 @@ import json
 from datetime import UTC, datetime
 from uuid import UUID
 
-from mcp.types import CallToolResult, TextContent
-
 from vocky.feedback import (
     FeedbackAttachmentRecord,
     FeedbackCommentRecord,
@@ -239,13 +237,4 @@ def decode_cursor(value: str | None) -> FeedbackListCursor | None:
     return FeedbackListCursor(
         ingested_at=parse_timestamp(ingested_at_raw, field_name="cursor.ingested_at"),
         id=cursor_id,
-    )
-
-
-def error_result(message: str) -> CallToolResult:
-    """Create a tool execution error result."""
-
-    return CallToolResult(
-        content=[TextContent(type="text", text=message)],
-        isError=True,
     )

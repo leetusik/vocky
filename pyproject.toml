@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "vocky"
 version = "0.1.0"
-description = "Feedback MCP for agents."
+description = "Human-triggered feedback capture REST API."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = { text = "MIT" }
@@ -14,7 +14,6 @@ dependencies = [
   "alembic>=1.18.4,<2.0.0",
   "greenlet>=3.2.4,<4.0.0",
   "httpx>=0.28.1,<1.0.0",
-  "mcp[cli]>=1.27.0,<2.0.0",
   "pydantic-settings>=2.11.0,<3.0.0",
   "psycopg[binary]>=3.2.12,<4.0.0",
   "redis>=5.3.1,<6.0.0",

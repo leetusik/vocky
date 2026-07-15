@@ -45,6 +45,40 @@ Removal map from three parallel Explore passes, recorded here so downstream slic
 
 S1 done: relicensed to MIT (LICENSE + pyproject + README); no durable-doc impact.
 
+**S2 done: MCP/agent-capture fully retired.** The app imports with `mcp` uninstalled, `src/` is
+100% MCP-free, and the **full DB-backed suite is green** (132 passed via `make test` — Postgres 55432
++ Redis 56379 + Docker were all reachable in the executor sandbox, so the suite was run here, not
+deferred). Notes for downstream slices (S3, REVIEW):
+
+- *Deleted cleanly (no surprises):* `mcp_server.py`, the 4 agent tools, `tests/test_mcp_integration.py`.
+- *Surgery landed as mapped.* `app.py` final shape: routes = `/healthz` + admin API + admin UI +
+  public API + attachments (**no `""` root mount** — the MCP catch-all is gone); lifespan = redis +
+  engine disposal only; middleware = API + Admin bearer only. `config.py` lost the 3 `mcp_*` fields +
+  3 properties; `auth.py` lost `is_mcp_path` + `MCPBearerAuthMiddleware`; `capture.py` lost
+  `McpCaptureFeedbackInput`, `normalize_mcp_payload`, the `CaptureFeedbackInput` alias, **and** the
+  unused generic `normalize_payload` shim (grep-confirmed dead); `query_feedback_common.py` lost the
+  `mcp.types` import + `error_result()` (no retained caller). `tools/__init__.py` docstring updated
+  (no longer "MCP tool modules").
+- *Dependency drop is bigger than just `mcp`.* `uv.lock` also removed 17 MCP-only transitives
+  (cryptography, jsonschema stack, rich/typer/shellingham, sse-starlette, httpx-sse, etc.). If S3 or
+  REVIEW references the dependency surface, note the slimmer runtime footprint.
+- *`docs.json` (runtime admin asset) was scrubbed of ALL MCP in S2* — not just the plan's literal
+  4-item list — because the verification greps require `src/` MCP-free and `docs.json` is S2's scope
+  (S3 owns only README + `docs/*.md`). New `topic_ids`: operator-overview, rest-capture, admin-rest,
+  auth-tokens, local-self-hosting, public-custom-domain. `test_admin_ui.py` tracks it in lockstep.
+  **S3: do not re-touch `docs.json`; it is already REST-only.**
+- *Smoke is now REST* (`smoke.py`): health → `POST /api/feedback` (expect 202 `accepted` +
+  `request_id`) → poll scoped `GET /api/feedback?user_id=&source_product=vocky-smoke&session_id=`
+  until the worker-persisted row matches; asserts `user_id`/`target_*` round-trip; **no summarize
+  step**. `make_http_user_agent`/`make_smoke_health_request` retained (public API); new helper
+  `make_smoke_request_headers` adds optional `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>`.
+  `make smoke`/`make verify` stay meaningful.
+- *Test suite is fully green with no `mcp` under `src/`.* `test_query_validation.py` was rewritten to
+  test the shared `query_feedback_common` helpers directly (they back the REST read surfaces now that
+  the agent read tools are gone). Gotcha for future edits: `test_public_access.py` /
+  `test_admin_ui.py` construct `create_app()` and only need `DATABASE_URL` present (from `.env`), not
+  a live DB — they run DB-free.
+
 ## Doc impact
 
 Running list of durable-truth changes to consolidate into new doc versions at **P1.REVIEW** (never per slice):
@@ -53,6 +87,10 @@ Running list of durable-truth changes to consolidate into new doc versions at **
 - `architecture` — drop MCP server mount, `MCPBearerAuthMiddleware`, and the MCP branch of app routing/lifespan; REST is the sole ingress. (from S2)
 - `product` — refocus the product on human-triggered REST feedback; the AI-agent-decided capture feature is retired. (from S2/S3)
 - `experience` — remove MCP/agent-capture from the described operator/user experience. (from S2/S3)
+
+_S2 confirms all four entries still hold; S2 versioned no durable docs (correct — that is REVIEW's
+job). The runtime `docs.json` admin asset was edited directly in S2 and is not a durable
+`docs/current/*` doc, so it is not part of this list._
 
 ## Constraints
 

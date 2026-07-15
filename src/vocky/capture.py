@@ -55,15 +55,10 @@ class BaseCaptureFeedbackInput(BaseModel):
     attributes: dict[str, Any] = Field(default_factory=dict)
 
 
-class McpCaptureFeedbackInput(BaseCaptureFeedbackInput):
-    """Raw feedback capture input received through MCP."""
-
-
 class RestCaptureFeedbackInput(BaseCaptureFeedbackInput):
     """Raw feedback capture input received through public REST.
 
-    REST capture may reference previously uploaded attachments by id. MCP capture
-    stays attachment-free, so the field is declared only on this subclass.
+    REST capture may reference previously uploaded attachments by id.
     """
 
     attachment_ids: list[str] | None = None
@@ -292,26 +287,10 @@ def _normalize_capture_payload(raw: BaseCaptureFeedbackInput) -> NormalizedCaptu
     )
 
 
-def normalize_mcp_payload(raw: McpCaptureFeedbackInput) -> NormalizedCaptureFeedback:
-    """Normalize and validate a raw MCP capture payload."""
-
-    return _normalize_capture_payload(raw)
-
-
 def normalize_rest_payload(raw: RestCaptureFeedbackInput) -> NormalizedCaptureFeedback:
     """Normalize and validate a raw REST capture payload."""
 
     return _normalize_capture_payload(raw)
-
-
-def normalize_payload(raw: BaseCaptureFeedbackInput) -> NormalizedCaptureFeedback:
-    """Backward-compatible capture payload normalizer."""
-
-    return _normalize_capture_payload(raw)
-
-
-# Backward-compatible import name for older internal tests or integrations.
-CaptureFeedbackInput = McpCaptureFeedbackInput
 
 
 def serialize_datetime(value: datetime) -> str:
