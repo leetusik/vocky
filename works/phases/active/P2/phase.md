@@ -112,6 +112,39 @@ schema/CRUD slices at `medium` targets executor cost at the risk that actually w
 - **Test fixture:** `configured_database` TRUNCATE now clears all six new tables with `CASCADE`
   (setup + teardown) — later slices' tests inherit a clean accounts schema automatically.
 
+**S2 delivered — account auth surface + reusable user-auth guard (what S3/S4/P4/P5 build on):**
+
+- **New dep:** `argon2-cffi==25.1.0` (argon2id). No new env var.
+- **`/auth/*` contract (public, outside `/api/*`):**
+  - `POST /auth/signup` `{email,password}` → **201** `{token, user, tenant}`; provisions
+    user + tenant (`"<email-local-part>'s workspace"`) + owner membership, then mints a token.
+    **409** on duplicate email; **400** on bad body.
+  - `POST /auth/login` `{email,password}` → **200** `{token, user, tenants:[...]}`; unknown-email
+    and wrong-password both return an **identical 401** `{"detail":"invalid email or password"}`
+    (no user enumeration); **400** on bad body.
+  - `POST /auth/logout` (Bearer) → **204**, idempotent.
+  - `GET /auth/me` (Bearer) → **200** `{user, tenants:[...]}`; miss → **401**
+    `{"detail":"Unauthorized"}` + `WWW-Authenticate: Bearer`.
+  - `user`/`tenant` serializers expose `{id,email,created_at}` / `{id,name,created_at}` only —
+    **never** `password_hash` or `token_hash`.
+- **Reusable guard (S3/S4 import):** `from vocky.accounts.auth import require_user, AuthContext,
+  AuthError, auth_error_handler`. `require_user(request) -> AuthContext(user, tenant)` (raises
+  `AuthError` on any miss); tenant is `list_tenants_for_user(user.id)[0]` (solo-owner MVP).
+  It does **not** touch `last_used_at` (deferred to P3). Host apps must register
+  `exception_handlers={AuthError: auth_error_handler}` — `create_app()` already does. S2 does not
+  yet populate `request.state.user`/`tenant`; S3/S4 add that if wanted.
+- **Primitives (S4 reuses for `vk_...` credentials):** `from vocky.accounts.security import
+  sha256_hex, generate_opaque_token, hash_password, verify_password`. Tokens minted with
+  `secrets.token_urlsafe(32)`, persisted only as `sha256_hex(raw)`; `verify_password` returns
+  `False` (never raises) on mismatch/bad hash.
+- **`SESSION_TTL = timedelta(days=30)`** in `vocky.auth_api`; auth tokens stored with
+  `expires_at = utc_now() + SESSION_TTL`.
+- **App wiring:** `vocky.auth_api.routes` registered first in `create_app()`'s `routes=[...]`;
+  `exception_handlers={AuthError: auth_error_handler}` passed to `Starlette(...)`. Both existing
+  middlewares untouched (`/auth/*` matches neither path predicate → public).
+- **Reuse note (`format_pydantic_error`):** `auth_api` imports `format_pydantic_error` from
+  `vocky.api` (not re-defined) — if S3 also needs Pydantic error formatting, import it from there.
+
 ## Doc impact
 
 Durable-doc changes for `P2.REVIEW` to consolidate (do not version docs per slice):
@@ -136,6 +169,21 @@ _S1 additions (durable truth landed this slice, for REVIEW to consolidate):_
 - **security** — credentials stored as sha256 `token_hash` (+ display `token_prefix`, raw key
   never persisted); session tokens stored as sha256 `token_hash` with optional `expires_at`;
   credential soft-revoke via `revoked_at`. (Password hashing itself is S2.)
+
+_S2 additions (durable truth landed this slice, for REVIEW to consolidate):_
+
+- **api** — public `/auth/*` surface: `POST /auth/signup` (201), `POST /auth/login` (200),
+  `POST /auth/logout` (204), `GET /auth/me` (200); signup/login return `{token, user, tenant(s)}`,
+  duplicate-email 409, generic 401 for both bad-password and unknown-email (no enumeration),
+  Bearer-token auth via `require_user`/`AuthError`.
+- **security** — argon2id password hashing (`argon2-cffi`); opaque session tokens
+  (`secrets.token_urlsafe(32)`) stored only as sha256 `token_hash` with a 30-day `SESSION_TTL`;
+  responses never emit `password_hash`/`token_hash`; login answers an identical generic 401 to
+  avoid user enumeration.
+- **backend** — reusable `require_user` / `AuthContext` / `AuthError` guard in
+  `vocky.accounts.auth`; pure primitives in `vocky.accounts.security`
+  (`hash_password`/`verify_password`/`generate_opaque_token`/`sha256_hex`); `vocky.auth_api` routes
+  wired into `create_app()` with `exception_handlers={AuthError: auth_error_handler}`.
 
 ## Constraints
 
