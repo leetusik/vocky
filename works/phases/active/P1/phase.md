@@ -43,6 +43,8 @@ Removal map from three parallel Explore passes, recorded here so downstream slic
 
 **Decisions (operator-confirmed at the plan gate).** Smoke → minimal REST rewrite (not deletion); copyright holder → `Vocky`.
 
+S1 done: relicensed to MIT (LICENSE + pyproject + README); no durable-doc impact.
+
 ## Doc impact
 
 Running list of durable-truth changes to consolidate into new doc versions at **P1.REVIEW** (never per slice):

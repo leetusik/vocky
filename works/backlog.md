@@ -6,17 +6,17 @@
 ## Pointer
 
 - Current phase: `P1`
-- Current slice: `P1.S1`
-- Next slice: `P1.S2`
+- Current slice: `P1.S2`
+- Next slice: `P1.S3`
 - Waiting on operator: `none`
 - Open deferred jobs: `3`
-- Rebuilt at: `2026-07-15T15:18:26+09:00`
+- Rebuilt at: `2026-07-15T15:24:32+09:00`
 
 ## Active Phases
 
 | Phase | Status | Review | Name | Current Slice | Path |
 |---|---|---|---|---|---|
-| [ ] `P1` | `planned` | `pending` | Relicense & Agent-Capture Retirement | `P1.S1` | `works/phases/active/P1` |
+| [ ] `P1` | `planned` | `pending` | Relicense & Agent-Capture Retirement | `P1.S2` | `works/phases/active/P1` |
 | [ ] `P2` | `planned` | `pending` | Accounts, Tenancy & Projects Core | `P2.DECOMP` | `works/phases/active/P2` |
 | [ ] `P3` | `planned` | `pending` | Feedback API v2, Search & Usage Monitoring | `P3.DECOMP` | `works/phases/active/P3` |
 | [ ] `P4` | `planned` | `pending` | Web App: Tenant Dashboard & Project Pages | `P4.DECOMP` | `works/phases/active/P4` |
@@ -28,7 +28,7 @@
 | Slice | Status | Name | Kind | Path |
 |---|---|---|---|---|
 | [x] `P1.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P1/slices/P1.DECOMP` |
-| [ ] `P1.S1` | `todo` | Relicense to MIT | `implementation` | `works/phases/active/P1/slices/P1.S1` |
+| [x] `P1.S1` | `done` | Relicense to MIT | `implementation` | `works/phases/active/P1/slices/P1.S1` |
 | [ ] `P1.S2` | `todo` | Retire MCP/agent-capture from the system | `implementation` | `works/phases/active/P1/slices/P1.S2` |
 | [ ] `P1.S3` | `todo` | Scrub MCP from README & ancillary docs | `implementation` | `works/phases/active/P1/slices/P1.S3` |
 | [ ] `P1.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P1/slices/P1.REVIEW` |

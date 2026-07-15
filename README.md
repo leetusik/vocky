@@ -377,4 +377,4 @@ If you publish Vocky through Caddy or another reverse proxy, set `VOCKY_EXTERNAL
 
 ## License
 
-Vocky is licensed under the GNU Affero General Public License v3.0. See [LICENSE](./LICENSE).
+Vocky is licensed under the MIT License. See [LICENSE](./LICENSE).
