@@ -10,7 +10,7 @@
 - Next slice: `P2.REVIEW`
 - Waiting on operator: `none`
 - Open deferred jobs: `3`
-- Rebuilt at: `2026-07-15T16:40:02+09:00`
+- Rebuilt at: `2026-07-15T16:56:18+09:00`
 
 ## Active Phases
 
@@ -19,6 +19,7 @@
 | [x] `P1` | `done` | `pass` | Relicense & Agent-Capture Retirement | `none` | `works/phases/active/P1` |
 | [ ] `P2` | `planned` | `pending` | Accounts, Tenancy & Projects Core | `P2.DECOMP` | `works/phases/active/P2` |
 | [ ] `P3` | `planned` | `pending` | Feedback API v2, Search & Usage Monitoring | `P3.DECOMP` | `works/phases/active/P3` |
+| [ ] `P7` | `planned` | `pending` | Agent-Capture Revival (MCP write-only) | `P7.DECOMP` | `works/phases/active/P7` |
 | [ ] `P4` | `planned` | `pending` | Web App: Tenant Dashboard & Project Pages | `P4.DECOMP` | `works/phases/active/P4` |
 | [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
 | [ ] `P6` | `planned` | `pending` | Landing Page, Webpage & Production Deploy | `P6.DECOMP` | `works/phases/active/P6` |
@@ -47,6 +48,13 @@
 |---|---|---|---|---|
 | [ ] `P3.DECOMP` | `todo` | decompose phase | `decomposition` | `works/phases/active/P3/slices/P3.DECOMP` |
 | [ ] `P3.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P3/slices/P3.REVIEW` |
+
+## Phase P7: Agent-Capture Revival (MCP write-only)
+
+| Slice | Status | Name | Kind | Path |
+|---|---|---|---|---|
+| [ ] `P7.DECOMP` | `todo` | decompose phase | `decomposition` | `works/phases/active/P7/slices/P7.DECOMP` |
+| [ ] `P7.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P7/slices/P7.REVIEW` |
 
 ## Phase P4: Web App: Tenant Dashboard & Project Pages
 

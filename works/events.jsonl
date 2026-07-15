@@ -31,3 +31,4 @@
 {"ts": "2026-07-15T16:35:55+09:00", "type": "doc_version_created", "doc": "experience", "version": "v0002_rest-only_capture_flow_remove_mcp_capture-surface_choice_and_liked-conversation_mcp_tool", "source": "P1.REVIEW"}
 {"ts": "2026-07-15T16:40:02+09:00", "type": "slice_status_changed", "slice": "P1.REVIEW", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-07-15T16:40:02+09:00", "type": "phase_reviewed", "phase": "P1", "verdict": "pass", "reviewer": "slice-executor-high"}
+{"ts": "2026-07-15T16:51:04+09:00", "type": "phase_created", "phase": "P7"}
