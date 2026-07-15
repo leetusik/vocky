@@ -121,6 +121,24 @@ one fix slice.
   green build requires `make verify`. `check_admin_ui_package.py` enforces docs.json content beyond
   what `test_admin_ui.py` asserts.
 
+## REVIEW note (round 2 — `pass`)
+
+Re-review after `P1.F1` landed. **All validation green:** state `validate` PASS; S1/S2/S3 greps all
+clean; F1 string count == 1 and `docs.json` MCP-free; **`make verify` fully green** — package-check
+PASS ("Admin UI package assets ok"), REST smoke PASS (`POST`→`GET /api/feedback`, 1 record), **pytest
+132 passed**. Objective/intent met (MIT everywhere, MCP/agent-capture fully retired, REST surface
+intact and tested). Verdict = **pass**.
+
+Durable docs consolidated (one version per doc, all from current content, source `P1.REVIEW`), edited
+to REST-only and no net-new license content, then `rebuild-docs` + `validate` (both clean):
+- `api` → `v0002_retire_mcp_agent-capture_rest-only_feedback_surface`
+- `architecture` → `v0002_retire_mcp_track_rest-only_two-track_api_public_rest_admin_rest`
+- `product` → `v0002_refocus_on_human-triggered_rest_feedback_retire_ai-agent_mcp_capture`
+- `experience` → `v0002_rest-only_capture_flow_remove_mcp_capture-surface_choice_and_liked-conversation_mcp_tool`
+
+Ground truth cross-checked against README, `.env.example`, `config.py`, `app.py`. The four Doc-impact
+entries above are now consolidated. Orchestrator to record `review-phase P1 --verdict pass`.
+
 ## Constraints
 
 ## Open Questions

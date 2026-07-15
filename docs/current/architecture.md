@@ -1,26 +1,26 @@
 ---
 doc_id: architecture
-version: v0001
-created_at: 2026-06-10T13:51:20+09:00
-source: bootstrap
-summary: Initial architecture doc
-previous: null
+version: v0002
+created_at: 2026-07-15T16:28:07+09:00
+source: P1.REVIEW
+summary: Retire MCP track; REST-only two-track API (public REST + Admin REST)
+previous: v0001_bootstrap
 ---
 
 # Architecture
 
 ## Status
 
-This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through MCP or server-to-server REST using Redis-backed queueing plus a dedicated worker while exposing MCP read tools, liked-conversation retrieval, separate Admin REST endpoints, and a same-origin self-hosted Admin Web UI with dashboard metrics, feedback review management, in-app operator documentation, and REST capture try-it over the same PostgreSQL feedback store.
+This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through server-to-server REST using Redis-backed queueing plus a dedicated worker while exposing a scoped end-user REST read, separate Admin REST endpoints, and a same-origin self-hosted Admin Web UI with dashboard metrics, feedback review management, in-app operator documentation, and REST capture try-it over the same PostgreSQL feedback store. The earlier MCP/agent-decided capture and MCP read tools have been retired (recoverable through git history).
 
 ## Current Repo Shape
 
 - `README.md`: product-facing project overview
 - `AGENTS.md`: coding-agent workflow rules
 - `pyproject.toml`: Python project metadata and dependencies
-- `src/vocky/`: service code, MCP server wiring, Admin REST and Web UI routing, persistence layer, and smoke script
+- `src/vocky/`: service code, public REST and Admin REST/Web UI routing, persistence layer, and smoke script
 - `alembic/` and `alembic.ini`: database migration environment
-- `tests/`: validation, persistence, and MCP integration coverage
+- `tests/`: validation, persistence, and REST/persistence coverage
 - `Dockerfile`, `docker-compose.yml`, `.env.example`, `Makefile`: local run, package verification, external smoke checks, and self-hosted development workflow
 - `docs/`: stable reference documents
 - `works/`: active backlog, deferred queue, active work items, archives, and templates
@@ -30,9 +30,9 @@ This architecture is intentionally lightweight. Vocky is still pre-MVP, and the 
 
 The first MVP should be built from these parts:
 
-- MCP-facing feedback capture for agent-decided VoC in agent workflows and server-to-server REST feedback capture for explicit product/UI-triggered website or product feedback
+- Server-to-server REST feedback capture for explicit human-triggered website or product feedback
 - A storage layer that preserves raw feedback plus the metadata needed for retrieval and basic aggregates
-- MCP read tools that return stored records, simple counts or trends, and liked examples for AI-agent workflows
+- A scoped end-user REST read that returns one user's own records plus operator comments
 - Dedicated Admin REST endpoints for human operators, dashboard metrics, and review workflows
 - A packaged same-origin Admin Web UI for self-hosted operators, including dashboard metrics, feedback review management, in-app operator docs, and an operator REST capture try-it flow backed by the existing capture endpoint rather than a separate browser-facing data API
 
@@ -42,32 +42,28 @@ The current service uses these choices:
 
 - Python application managed with `uv`
 - Application package under `src/vocky`
-- A Starlette ASGI host process for MCP, REST, and health traffic
+- A Starlette ASGI host process for REST and health traffic
 - A separate worker process for background capture persistence
 - Redis-backed queueing between the app and worker
-- Official MCP Python SDK `FastMCP` served by the host app at `/mcp` using Streamable HTTP
 - Public REST capture route and scoped end-user read route under `/api/*`
 - Starlette Admin REST routes under `/admin/api/*`
 - Starlette Admin Web UI routes under `/admin` and packaged static assets under `/admin/assets/*`
-- Stateless MCP operation with JSON responses enabled
 - A plain `/healthz` endpoint on the same host app for smoke checks
-- Optional bearer-token protection for MCP traffic when public access is enabled
 - Optional bearer-token protection for public REST capture traffic when `VOCKY_API_AUTH_TOKEN` is set
 - Optional bearer-token protection for Admin REST traffic when `VOCKY_ADMIN_AUTH_TOKEN` is set
 - Docker builds install runtime dependencies and the local project into the image, while Compose app and worker commands use `uv run --no-sync` so container startup does not repeat dependency sync
-- Transport-specific capture adapters with shared validation helpers, service, and persistence layers so MCP and REST can express different integration intent while the worker reuses the same persistence path
+- REST capture and Admin REST handlers share validation helpers, service, and persistence layers, and the worker reuses the same persistence path
 
-Clients should use `/mcp` as the canonical MCP endpoint for agent workflows where the agent or agent runtime decides that an interaction should be captured as VoC. Server-to-server product integrations should use `/api/feedback` for capture-only ingestion, especially explicit product/UI-triggered feedback from pages, widgets, controls, surveys, or other product surfaces. Human/operator tools should use `/admin/api/*`, while browser operators can load the packaged UI from `/admin`. The Admin Docs try-it flow may send same-origin browser requests to `POST /api/feedback` as an operator verification convenience, but it uses the existing capture-only contract and creates normal queued feedback on success. The app avoids relying on a `/mcp` to `/mcp/` redirect so reverse proxies do not need to repair redirect schemes.
+Server-to-server product integrations should use `/api/feedback` for capture-only ingestion, especially explicit product/UI-triggered feedback from pages, widgets, controls, surveys, or other product surfaces. Human/operator tools should use `/admin/api/*`, while browser operators can load the packaged UI from `/admin`. The Admin Docs try-it flow may send same-origin browser requests to `POST /api/feedback` as an operator verification convenience, but it uses the existing capture-only contract and creates normal queued feedback on success.
 
-## Three-Track API Shape
+## Two-Track API Shape
 
-Vocky now has three public-facing tracks over the same feedback schema:
+Vocky now has two public-facing tracks over the same feedback schema:
 
-- MCP track for AI-agent workflows: `capture_feedback`, `list_feedback`, `summarize_feedback`, and `list_liked_conversations`. MCP capture is optimized for agent-decided VoC about messages, conversations, and agent context.
-- Public REST track for server-to-server product integrations: `POST /api/feedback` capture plus `GET /api/feedback`, a scoped end-user read of one user's own feedback (required `user_id` + `source_product`) together with operator comments and cursor pagination. REST capture uses the existing capture field set for explicit product/UI-triggered feedback, including surface feedback represented with `target_type="surface"` when applicable.
+- Public REST track for server-to-server product integrations: `POST /api/feedback` capture plus `GET /api/feedback`, a scoped end-user read of one user's own feedback (required `user_id` + `source_product`) together with operator comments and cursor pagination. REST capture uses the shared capture field set for explicit human-triggered product/UI feedback, including surface feedback represented with `target_type="surface"` when applicable.
 - Admin REST track for humans and dashboards: `/admin/api/feedback` list/detail, `/admin/api/feedback/metrics` dashboard metrics, `/admin/api/feedback/{feedback_id}/comments` operator comment add/list (with the feedback detail response carrying a `comments` array), plus patch/delete management endpoints.
 
-The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data, feedback review management, and packaged static docs assets for operator reference content. It can also render an internal REST capture try-it docs block that posts to same-origin `/api/feedback`, sends `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>` only when the operator enters an API token, and stores that API token only in browser session storage. All API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. MCP tools should remain optimized for agent behavior; the liked-conversation MCP tool is intentionally limited to liked records for few-shot use. Public REST is capture plus a single scoped end-user read (`GET /api/feedback`); it does not expose broad review, query, summary, job-status, or management endpoints. The scoped read returns only the caller-identified user's own records, scoped by required `user_id` + `source_product`, together with operator comments; any optional filters are AND-combined with that mandatory scope so the read never returns cross-user data. REST does not add a separate wire shape in this phase; website and product context should be represented with `target_type`, `target_id`, `target_text`, nullable `channel`, `tags`, `source_metadata`, and `attributes`. `target_type` is the review discriminator for message, conversation, and surface feedback; it does not create a second feedback store or a new capture endpoint. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, channel category, metadata, target context, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
+The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data, feedback review management, and packaged static docs assets for operator reference content. It can also render an internal REST capture try-it docs block that posts to same-origin `/api/feedback`, sends `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>` only when the operator enters an API token, and stores that API token only in browser session storage. Both API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. Public REST is capture plus a single scoped end-user read (`GET /api/feedback`); it does not expose broad review, query, summary, job-status, or management endpoints. The scoped read returns only the caller-identified user's own records, scoped by required `user_id` + `source_product`, together with operator comments; any optional filters are AND-combined with that mandatory scope so the read never returns cross-user data. REST does not add a separate wire shape; website and product context should be represented with `target_type`, `target_id`, `target_text`, nullable `channel`, `tags`, `source_metadata`, and `attributes`. `target_type` is the review discriminator for message, conversation, and surface feedback; it does not create a second feedback store or a new capture endpoint. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, channel category, metadata, target context, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
 
 ## Configuration Surface
 
@@ -78,9 +74,6 @@ The runtime configuration surface is intentionally small:
 - `VOCKY_HOST`: application bind host
 - `VOCKY_PORT`: application bind port
 - `VOCKY_LOG_LEVEL`: application log level
-- `VOCKY_MCP_ALLOWED_HOSTS`: optional comma-separated Host header allowlist additions for MCP DNS rebinding protection, such as `vocky.example.com`.
-- `VOCKY_MCP_ALLOWED_ORIGINS`: optional comma-separated Origin header allowlist additions for browser-origin MCP traffic, such as `https://vocky.example.com`.
-- `VOCKY_MCP_AUTH_TOKEN`: optional bearer token required for MCP traffic. Public deployments should set it.
 - `VOCKY_API_AUTH_TOKEN`: optional bearer token required for `/api/*` traffic. Public deployments that expose REST capture should set it.
 - `VOCKY_ADMIN_AUTH_TOKEN`: optional bearer token required for Admin REST traffic. Public deployments that expose `/admin/api` should set it.
 - `VOCKY_ATTACHMENTS_DIR`: directory the local attachment storage backend reads and writes. In Docker this is a named volume mounted on both the app and worker.
@@ -97,14 +90,14 @@ The supported local operator workflow adds these host-side settings:
 - `VOCKY_BASE_URL`: optional override for host-side smoke checks when the public base URL differs from `http://127.0.0.1:${VOCKY_PORT}`.
 - `VOCKY_EXTERNAL_BASE_URL`: optional external URL used for public custom-domain deployments through Cloudflare Tunnel or another HTTPS reverse proxy, for example `https://vocky.example.com`.
 
-`VOCKY_HOST` remains the application bind address inside the process. The `*_PUBLISH_HOST` variables control which host interface Docker publishes to. `VOCKY_BASE_URL` remains the local verification target, while `VOCKY_EXTERNAL_BASE_URL` is reserved for public custom-domain operator docs and client examples. Public MCP hosts must be present in `VOCKY_MCP_ALLOWED_HOSTS`; otherwise FastMCP rejects them with `421 Invalid Host header`.
+`VOCKY_HOST` remains the application bind address inside the process. The `*_PUBLISH_HOST` variables control which host interface Docker publishes to. `VOCKY_BASE_URL` remains the local verification target, while `VOCKY_EXTERNAL_BASE_URL` is reserved for public custom-domain operator docs and client examples.
 
-The root `.env`, copied from `.env.example`, is the primary local configuration source for both Docker Compose and the Make-based host workflow. The Compose app service receives MCP, public REST, and Admin auth settings from this file, including `VOCKY_MCP_AUTH_TOKEN`, `VOCKY_API_AUTH_TOKEN`, and `VOCKY_ADMIN_AUTH_TOKEN`. The supported self-hosted path remains Compose-first and includes Redis plus the worker process. `make bootstrap` should bring up the service dependencies, apply migrations, and wait for readiness. `make verify` should build and inspect a fresh wheel for packaged Admin UI assets, wait for readiness, verify the eventual write path with the MCP smoke flow, and run the test suite. `make compose-down` should tear the stack back down.
+The root `.env`, copied from `.env.example`, is the primary local configuration source for both Docker Compose and the Make-based host workflow. The Compose app service receives public REST and Admin auth settings from this file, including `VOCKY_API_AUTH_TOKEN` and `VOCKY_ADMIN_AUTH_TOKEN`. The supported self-hosted path remains Compose-first and includes Redis plus the worker process. `make bootstrap` should bring up the service dependencies, apply migrations, and wait for readiness. `make verify` should build and inspect a fresh wheel for packaged Admin UI assets, wait for readiness, verify the eventual write path with the REST smoke flow, and run the test suite. `make compose-down` should tear the stack back down.
 
 The supported operator modes are:
 
 - Internal self-hosting: Compose publishes on loopback by default and host-side checks use `VOCKY_BASE_URL`.
-- Public custom-domain deploy: operators can publish the app through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL` to the public origin such as `https://vocky.example.com`, allow that Host and Origin through `VOCKY_MCP_ALLOWED_HOSTS` and `VOCKY_MCP_ALLOWED_ORIGINS`, and require `VOCKY_MCP_AUTH_TOKEN`. Operators should also require `VOCKY_API_AUTH_TOKEN` before exposing `/api/*` and `VOCKY_ADMIN_AUTH_TOKEN` before exposing Admin REST. `make external-smoke` and `make external-verify` run the public checks against `VOCKY_EXTERNAL_BASE_URL`.
+- Public custom-domain deploy: operators can publish the app through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL` to the public origin such as `https://vocky.example.com`, require `VOCKY_API_AUTH_TOKEN` before exposing `/api/*`, and require `VOCKY_ADMIN_AUTH_TOKEN` before exposing Admin REST. `make external-smoke` and `make external-verify` run the public checks against `VOCKY_EXTERNAL_BASE_URL`.
 
 The `/admin` shell and `/admin/assets/*` static assets, including packaged operator docs, can load without server-side auth, but protected Admin data remains unavailable unless the browser supplies the configured Admin bearer token to `/admin/api/*`. The Admin Docs REST capture try flow uses the separate `VOCKY_API_AUTH_TOKEN` setting because `/api/*` and `/admin/api/*` have separate auth boundaries.
 
@@ -113,11 +106,11 @@ For Cloudflare Tunnel users, the recommended public shape is a hostname-to-servi
 ## MVP Boundaries
 
 - Self-hosted and single-tenant
-- Capture ingestion is limited to MCP and server-to-server REST in the MVP; browser-direct unauthenticated ingestion is outside scope
+- Capture ingestion is limited to server-to-server REST in the MVP; browser-direct unauthenticated ingestion is outside scope
 - No automatic classification or summarization in the MVP
 - Admin Web UI includes a same-origin self-hosted operator shell, dashboard metrics, recent activity, feedback list/filter/detail inspection, review-field editing, guarded delete, in-app operator docs, and an operator-only REST capture try-it form
 - Channel handling uses the built-in nullable MVP categories `web`, `mobile`, and `support`; custom category management and deployment-configured category lists are outside the MVP
-- No separate Admin REST database or MCP-specific feedback store
+- No separate Admin REST database or per-surface feedback store
 - No managed-cloud or multi-tenant architecture in the MVP
 - No public job-status API or dashboard in the MVP
 
@@ -133,11 +126,11 @@ For Cloudflare Tunnel users, the recommended public shape is a hostname-to-servi
 - Target fields identify the exact reviewed item when known: `target_type` describes whether the target is a `message`, whole `conversation`, or product/UI `surface`; `null` means no exact target category was supplied; `target_id` stores the caller's stable identifier; `target_role` stores the reviewed message role when applicable; and `target_text` stores a snapshot of the exact reviewed text.
 - `messages` stores surrounding conversation context supplied by the caller. `used_context` stores context that the agent used while producing the reviewed response.
 - REST product or website feedback can omit conversation-specific fields and store page, widget, URL, account, or runtime context in `target_*`, `source_metadata`, and `attributes`.
-- The storage layer only needs to support the retrieval and aggregate queries required by the MCP review tools; it does not need analytics-warehouse style modeling for the first MVP.
+- The storage layer only needs to support the retrieval and aggregate queries required by the scoped end-user read and Admin REST review surfaces; it does not need analytics-warehouse style modeling for the first MVP.
 
 ## Field Responsibilities
 
-The capture schema is shared by MCP and public REST. The fields are organized by responsibility so callers can choose the right amount of context without creating transport-specific payload shapes or split storage. Admin REST reads the same stored shape and can manage only the fields that are review-oriented in the current MVP.
+The capture schema backs public REST capture. The fields are organized by responsibility so callers can choose the right amount of context without creating transport-specific payload shapes or split storage. Admin REST reads the same stored shape and can manage only the fields that are review-oriented in the current MVP.
 
 | Responsibility | Current fields | Role |
 | --- | --- | --- |
@@ -214,7 +207,7 @@ Indexes cover `feedback_id` and the composite `(feedback_id, created_at)` so a s
 
 The async capture path is layered as:
 
-- MCP tool or REST route input normalization and error mapping
+- REST route input normalization and error mapping
 - Redis enqueue on the request path
 - A dedicated worker process
 - A transport-neutral feedback service
@@ -223,7 +216,7 @@ The async capture path is layered as:
 
 The read path reuses the same service and repository layers:
 
-- MCP tool input normalization and error mapping for `list_feedback`, `summarize_feedback`, and `list_liked_conversations`
+- REST route input normalization and error mapping for the scoped end-user read and Admin REST list/detail
 - Transport-neutral read methods on the feedback service
 - Repository queries against `feedback_events`
 - A single scoped public REST read (`GET /api/feedback`) over the same service and repository, restricted to one user's own records by required `user_id` + `source_product` and returning operator comments via a batched `feedback_comments` fetch; no broad public REST query stack
@@ -274,7 +267,7 @@ Capture is asynchronous (`202 Accepted` → Redis queue → worker persist), and
 - The capture payload carries `attachment_ids` (UUID strings only) through the existing Redis queue. The queue serializer adds `attachment_ids` to its explicit field allowlist and the deserializer defaults it to empty, so jobs enqueued before this field existed still deserialize.
 - When a job carries non-empty `attachment_ids`, the worker calls `create_feedback_event_with_attachments`, which inserts the feedback row and runs the guarded scope-verified link in one transaction. A job with no attachments takes the unchanged `create_feedback_event` path. Missing, mis-scoped, or already-linked attachments are skipped and logged; they never dead-letter the job, because a missing screenshot must not fail real feedback.
 
-REST capture validates and normalizes `attachment_ids` (parse to UUID, dedupe, cap at `VOCKY_ATTACHMENTS_MAX_COUNT`); MCP capture does not expose the field.
+REST capture validates and normalizes `attachment_ids` (parse to UUID, dedupe, cap at `VOCKY_ATTACHMENTS_MAX_COUNT`).
 
 ## Query Read Model
 
@@ -286,13 +279,13 @@ The implemented P1 read query model uses these constraints:
 - `target_type` read filters use exact matching after trimming blank input to absence. Accepted non-blank filter values are `message`, `conversation`, and `surface`; this phase does not add filters for `target_id`, `target_role`, `target_text`, or records where `target_type is null`.
 - `trigger_type` read filters use exact matching after trimming blank input to absence. Accepted non-blank filter values are `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, and `other`; this phase does not add a filter for records where `trigger_type is null`.
 - Time filtering uses `ingested_at` only. `start_ingested_at` is inclusive and `end_ingested_at` is exclusive after normalization to UTC.
-- `list_feedback` returns full stored records ordered newest-first by `(ingested_at desc, id desc)`.
-- `list_feedback` defaults to `50` records per page and rejects values outside `1` through `100`.
-- `list_feedback` pagination uses an opaque base64url-encoded JSON cursor derived from the last returned record's `ingested_at` and `id`.
-- `summarize_feedback` returns only `total_count` plus UTC `daily_counts`, with zero-filled missing days inside the requested window.
+- The list reads (the scoped end-user `GET /api/feedback` and `GET /admin/api/feedback`) return full stored records ordered newest-first by `(ingested_at desc, id desc)`.
+- The list reads default to `50` records per page and reject values outside `1` through `100`.
+- List pagination uses an opaque base64url-encoded JSON cursor derived from the last returned record's `ingested_at` and `id`.
+- `GET /admin/api/feedback/metrics` returns window totals plus UTC `daily_counts`, with zero-filled missing days inside the requested window.
 - The base phase does not add full-text search, JSONB filtering, target-id filtering, target-role filtering, target-text filtering, or new summary dimensions.
 - Admin dashboard metrics remain ingest-window-only and do not add `user_id`, `trigger_type`, trigger-message, trigger-metadata, or other dimension filters in this phase.
-- `list_feedback` returns action fields and stored JSON context with each record so operators can inspect likes and dislikes without a separate transcript store.
+- The list reads return action fields and stored JSON context with each record so operators can inspect likes and dislikes without a separate transcript store.
 - Accepted capture jobs are not queryable until the background worker persists them into `feedback_events`.
 
 ## Architecture Constraints
@@ -305,17 +298,14 @@ The implemented P1 read query model uses these constraints:
 - Keep the capture service self-hostable with one app process, one worker process, Redis, and PostgreSQL for the MVP.
 - Normalize capture timestamps to UTC before persistence.
 - Normalize query timestamps to UTC before filtering or aggregation.
-- Return MCP capture validation failures and storage write failures as MCP tool execution errors instead of protocol errors.
 - Return REST capture validation failures as `400` JSON responses.
-- Reject non-null channel values outside `web`, `mobile`, and `support` on new MCP capture, REST capture, and Admin REST patch writes.
+- Reject non-null channel values outside `web`, `mobile`, and `support` on new REST capture and Admin REST patch writes.
 - Normalize optional string capture fields, including `user_id`, `trigger_type`, and `trigger_message`, by trimming leading and trailing whitespace and converting blank values to `null`.
-- Reject non-null `trigger_type` values outside `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, and `other` on MCP capture and REST capture writes.
+- Reject non-null `trigger_type` values outside `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, and `other` on REST capture writes.
 - Require `trigger_metadata` to be a JSON object when supplied; omit or default it to `{}` when absent.
-- Return MCP queue-accept failures as MCP tool execution errors instead of protocol errors.
 - Return REST queue-accept failures as `503` JSON responses.
-- Return query validation failures and storage read failures as MCP tool execution errors instead of protocol errors.
-- Keep unknown-tool failures at the MCP protocol layer.
-- Keep public REST capture and Admin REST handlers separate from MCP tool handlers while sharing validation helpers, service, queue, and repository layers where appropriate.
+- Return REST read validation failures as `400` JSON responses and storage read failures as JSON error responses (`500`, or `503` for attachment downloads).
+- Keep public REST capture and Admin REST handlers separate while sharing validation helpers, service, queue, and repository layers where appropriate.
 
 ## Open Questions
 

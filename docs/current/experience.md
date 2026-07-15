@@ -1,27 +1,25 @@
 ---
 doc_id: experience
-version: v0001
-created_at: 2026-06-10T13:51:20+09:00
-source: bootstrap
-summary: Initial experience doc
-previous: null
+version: v0002
+created_at: 2026-07-15T16:35:55+09:00
+source: P1.REVIEW
+summary: REST-only capture flow; remove MCP capture-surface choice and liked-conversation MCP tool
+previous: v0001_bootstrap
 ---
 
 # Action Feedback Integration
 
-This guide describes how an agent product can integrate Vocky for explicit user feedback actions. It is intentionally generic: use it for local, private-network, or public self-hosted Vocky deployments.
+This guide describes how a product can integrate Vocky for explicit human-triggered user feedback actions over REST. It is intentionally generic: use it for local, private-network, or public self-hosted Vocky deployments.
 
-## Choose A Capture Surface
+## Capture Over REST
 
-Use MCP when an agent or agent runtime decides that a user interaction is useful voice-of-customer feedback. MCP is the right fit for agent-decided capture about exact messages, whole conversations, or context-bearing agent responses, especially when the same integration may call Vocky's MCP read tools.
+Use REST capture from a trusted server-side web or product backend when a real user explicitly triggers a feedback action. REST is the ingestion path for page feedback, widget feedback, surveys, ratings, and UI like/dislike controls; capture stays a deliberate server-to-server product action rather than a browser-direct call.
 
-Use REST when a trusted server-side web or product backend forwards an explicit user-triggered feedback action without becoming an MCP client. REST is the first-choice path for page feedback, widget feedback, surveys, product-surface feedback, and non-agent UI like/dislike controls.
-
-Both capture surfaces use the same core field set and asynchronous queue, but their integration intent is different. `target_type` is the review discriminator across both surfaces: use `message` for a specific message, `conversation` for a whole thread, and `surface` for a concrete page, widget, screen, or other non-message product UI. Older captures can omit `target_type`; those records remain visible in unfiltered review lists and are excluded only when an exact `target_type` filter is provided. Successful capture means Vocky accepted the job for background persistence; the record becomes queryable after the worker writes it to PostgreSQL.
+`target_type` is the review discriminator: use `message` for a specific message, `conversation` for a whole thread, and `surface` for a concrete page, widget, screen, or other non-message product UI. Older captures can omit `target_type`; those records remain visible in unfiltered review lists and are excluded only when an exact `target_type` filter is provided. Successful capture means Vocky accepted the job for background persistence; the record becomes queryable after the worker writes it to PostgreSQL.
 
 ## Capture Explicit Actions
 
-Submit one capture request when a user explicitly gives feedback, such as clicking like or dislike. Vocky does not need to receive every conversation turn as feedback.
+Submit one capture request when a user explicitly gives feedback, such as clicking like or dislike. Vocky does not need to receive every interaction as feedback.
 
 Recommended payload fields:
 
@@ -52,7 +50,7 @@ Use `used_context` for review-safe process context only: retrieved snippets, too
 
 Channel categories are intentionally narrow in the MVP. Blank channel values normalize to `null`, non-null capture values outside `web`, `mobile`, and `support` are rejected, and no default channel is inferred.
 
-MCP `capture_feedback` message-feedback example:
+Message-feedback capture payload example:
 
 ```json
 {
@@ -87,7 +85,7 @@ MCP `capture_feedback` message-feedback example:
 
 Successful capture means Vocky accepted the job for background persistence. The record becomes queryable after the worker writes it to PostgreSQL.
 
-MCP clients send this object as the `capture_feedback` tool input. REST clients send explicit website or product UI feedback to `POST /api/feedback`:
+Send explicit website or product UI feedback as the JSON body of `POST /api/feedback`:
 
 ```sh
 curl -X POST "https://vocky.example.com/api/feedback" \
@@ -115,28 +113,17 @@ curl -X POST "https://vocky.example.com/api/feedback" \
 
 When `VOCKY_API_AUTH_TOKEN` is unset in a trusted local or private deployment, omit the bearer header. Public deployments should set it before exposing `/api/*`.
 
-## Retrieve Liked Conversations For Agents
+## Read Back A User's Own Feedback
 
-Use the `list_liked_conversations` MCP tool when an AI agent needs examples of conversations users liked. This tool is intentionally narrow and returns only records with `feedback_value = 1`.
+After your backend has authenticated a user, you can render that user's own feedback with the scoped end-user read. Call `GET /api/feedback` with the required `user_id` and `source_product` (the `source.product` you sent at capture); Vocky returns only that user's own records, newest-first, together with operator comments and image attachment links.
 
-Useful filters:
+```sh
+curl "https://vocky.example.com/api/feedback?user_id=user_456&source_product=marketing-site" \
+  -H "Authorization: Bearer <VOCKY_API_AUTH_TOKEN>"
+```
 
-- `source_product`
-- `source_integration`
-- `conversation_id`
-- `session_id`
-- `user_id`
-- `trigger_type`
-- `channel`
-- `target_type`
-- `tag`
-- `start_ingested_at` and `end_ingested_at`
-- `limit` and `cursor`
-
-The response contains `conversations`, each with the stored feedback message, optional comment, `user_id`, trigger fields, target fields, source identifiers, tags, `messages`, `used_context`, metadata, and timestamps. Use these records as few-shot examples or style/context hints inside the caller's agent workflow.
-
-Disliked conversations are stored for review and future learning workflows, but `list_liked_conversations` does not return them.
+Optional filters (`feedback_value`, `channel`, `target_type`, `trigger_type`, `source_integration`, `conversation_id`, `session_id`, `tag`, `start_ingested_at`, `end_ingested_at`, `limit`, and `cursor`) are AND-combined with the required `user_id` + `source_product` scope, so the read never returns another user's data. Operator comments are surfaced read-only as one-way operator-to-user visibility; there are no end-user replies. Broad review, query, summary, and management stay on Admin REST.
 
 ## Human Review Boundary
 
-MCP tools are optimized for agent workflows, and `/api/feedback` is capture-only for server-to-server ingestion. Human operators and dashboards should use the dedicated Admin REST API endpoints, not the liked-only MCP few-shot tool or public capture endpoint. When `VOCKY_ADMIN_AUTH_TOKEN` is set, Admin REST clients must send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`.
+Public REST is capture plus a single scoped end-user read: `POST /api/feedback` ingests feedback and `GET /api/feedback` returns one user's own records plus operator comments. Human operators and dashboards should use the dedicated Admin REST API endpoints, not the public capture or scoped-read endpoints. When `VOCKY_ADMIN_AUTH_TOKEN` is set, Admin REST clients must send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`.

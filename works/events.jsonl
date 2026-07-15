@@ -24,3 +24,10 @@
 {"ts": "2026-07-15T16:11:21+09:00", "type": "slice_created", "phase": "P1", "slice": "P1.F1"}
 {"ts": "2026-07-15T16:21:16+09:00", "type": "slice_status_changed", "slice": "P1.F1", "old_status": "todo", "new_status": "in_progress"}
 {"ts": "2026-07-15T16:22:52+09:00", "type": "slice_status_changed", "slice": "P1.F1", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-07-15T16:23:30+09:00", "type": "slice_status_changed", "slice": "P1.REVIEW", "old_status": "changes_requested", "new_status": "in_progress"}
+{"ts": "2026-07-15T16:25:45+09:00", "type": "doc_version_created", "doc": "api", "version": "v0002_retire_mcp_agent-capture_rest-only_feedback_surface", "source": "P1.REVIEW"}
+{"ts": "2026-07-15T16:28:07+09:00", "type": "doc_version_created", "doc": "architecture", "version": "v0002_retire_mcp_track_rest-only_two-track_api_public_rest_admin_rest", "source": "P1.REVIEW"}
+{"ts": "2026-07-15T16:33:17+09:00", "type": "doc_version_created", "doc": "product", "version": "v0002_refocus_on_human-triggered_rest_feedback_retire_ai-agent_mcp_capture", "source": "P1.REVIEW"}
+{"ts": "2026-07-15T16:35:55+09:00", "type": "doc_version_created", "doc": "experience", "version": "v0002_rest-only_capture_flow_remove_mcp_capture-surface_choice_and_liked-conversation_mcp_tool", "source": "P1.REVIEW"}
+{"ts": "2026-07-15T16:40:02+09:00", "type": "slice_status_changed", "slice": "P1.REVIEW", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-07-15T16:40:02+09:00", "type": "phase_reviewed", "phase": "P1", "verdict": "pass", "reviewer": "slice-executor-high"}

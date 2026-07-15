@@ -1,7 +1,7 @@
 {
   "docs": {
     "product": {
-      "latest": "v0001_bootstrap",
+      "latest": "v0002_refocus_on_human-triggered_rest_feedback_retire_ai-agent_mcp_capture",
       "current_path": "docs/current/product.md",
       "versions": [
         {
@@ -11,11 +11,19 @@
           "source": "bootstrap",
           "summary": "Initial product doc",
           "previous": null
+        },
+        {
+          "id": "v0002_refocus_on_human-triggered_rest_feedback_retire_ai-agent_mcp_capture",
+          "path": "docs/versions/product/v0002_refocus_on_human-triggered_rest_feedback_retire_ai-agent_mcp_capture.md",
+          "created_at": "2026-07-15T16:33:17+09:00",
+          "source": "P1.REVIEW",
+          "summary": "Refocus on human-triggered REST feedback; retire AI-agent MCP capture",
+          "previous": "v0001_bootstrap"
         }
       ]
     },
     "experience": {
-      "latest": "v0001_bootstrap",
+      "latest": "v0002_rest-only_capture_flow_remove_mcp_capture-surface_choice_and_liked-conversation_mcp_tool",
       "current_path": "docs/current/experience.md",
       "versions": [
         {
@@ -25,11 +33,19 @@
           "source": "bootstrap",
           "summary": "Initial experience doc",
           "previous": null
+        },
+        {
+          "id": "v0002_rest-only_capture_flow_remove_mcp_capture-surface_choice_and_liked-conversation_mcp_tool",
+          "path": "docs/versions/experience/v0002_rest-only_capture_flow_remove_mcp_capture-surface_choice_and_liked-conversation_mcp_tool.md",
+          "created_at": "2026-07-15T16:35:55+09:00",
+          "source": "P1.REVIEW",
+          "summary": "REST-only capture flow; remove MCP capture-surface choice and liked-conversation MCP tool",
+          "previous": "v0001_bootstrap"
         }
       ]
     },
     "architecture": {
-      "latest": "v0001_bootstrap",
+      "latest": "v0002_retire_mcp_track_rest-only_two-track_api_public_rest_admin_rest",
       "current_path": "docs/current/architecture.md",
       "versions": [
         {
@@ -39,6 +55,14 @@
           "source": "bootstrap",
           "summary": "Initial architecture doc",
           "previous": null
+        },
+        {
+          "id": "v0002_retire_mcp_track_rest-only_two-track_api_public_rest_admin_rest",
+          "path": "docs/versions/architecture/v0002_retire_mcp_track_rest-only_two-track_api_public_rest_admin_rest.md",
+          "created_at": "2026-07-15T16:28:07+09:00",
+          "source": "P1.REVIEW",
+          "summary": "Retire MCP track; REST-only two-track API (public REST + Admin REST)",
+          "previous": "v0001_bootstrap"
         }
       ]
     },
@@ -85,7 +109,7 @@
       ]
     },
     "api": {
-      "latest": "v0001_bootstrap",
+      "latest": "v0002_retire_mcp_agent-capture_rest-only_feedback_surface",
       "current_path": "docs/current/api.md",
       "versions": [
         {
@@ -95,6 +119,14 @@
           "source": "bootstrap",
           "summary": "Initial api doc",
           "previous": null
+        },
+        {
+          "id": "v0002_retire_mcp_agent-capture_rest-only_feedback_surface",
+          "path": "docs/versions/api/v0002_retire_mcp_agent-capture_rest-only_feedback_surface.md",
+          "created_at": "2026-07-15T16:25:45+09:00",
+          "source": "P1.REVIEW",
+          "summary": "Retire MCP/agent-capture; REST-only feedback surface",
+          "previous": "v0001_bootstrap"
         }
       ]
     },
@@ -155,5 +187,5 @@
       ]
     }
   },
-  "last_rebuilt_at": "2026-07-15T14:58:16+09:00"
+  "last_rebuilt_at": "2026-07-15T16:37:46+09:00"
 }

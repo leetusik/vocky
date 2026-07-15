@@ -17,6 +17,10 @@ refocusing on human-triggered REST feedback. Three implementation slices are don
   the runtime `admin_assets/docs.json`, rewrote `vocky-smoke` to REST, fixed tests). S2's executor
   ran the **full DB-backed suite green (132 passed)** in-sandbox.
 - **S3** — scrubbed `README.md` to REST-only.
+- **F1** — a first review pass returned `changes_requested`: `make verify`'s `package-check` was red
+  because S2's `docs.json` scrub dropped a required REST string. Fix slice **P1.F1** restored it and
+  its executor confirmed `make verify` **fully green (package-check + smoke + 132 tests)**. **This is
+  the re-review** — expect validation clean now; verify it yourself, then proceed to consolidation.
 
 Read `works/phases/active/P1/phase.md` (objective, Findings & Notes, the S2/S3 notes, and the **Doc
 impact** list) and `works/phases/active/P1/intent.md` (confirmed operator intent) before judging.

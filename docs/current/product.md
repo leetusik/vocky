@@ -1,31 +1,31 @@
 ---
 doc_id: product
-version: v0001
-created_at: 2026-06-10T13:51:20+09:00
-source: bootstrap
-summary: Initial product doc
-previous: null
+version: v0002
+created_at: 2026-07-15T16:33:17+09:00
+source: P1.REVIEW
+summary: Refocus on human-triggered REST feedback; retire AI-agent MCP capture
+previous: v0001_bootstrap
 ---
 
 # Product
 
 ## Status
 
-Vocky is pre-MVP. The first runnable self-hosted capture plus review service is implemented with MCP capture/read tools, server-to-server REST capture, liked-conversation retrieval, Admin REST, a self-hosted operator Admin Web UI with dashboard metrics, feedback review management, in-app documentation, and REST capture try-it, PostgreSQL persistence, Redis-backed queueing, a background worker, and Compose-first local verification. The contracts should still be treated as early-stage.
+Vocky is pre-MVP. The first runnable self-hosted capture plus review service is implemented with server-to-server REST capture, a scoped end-user REST read, Admin REST, a self-hosted operator Admin Web UI with dashboard metrics, feedback review management, in-app documentation, and REST capture try-it, PostgreSQL persistence, Redis-backed queueing, a background worker, and Compose-first local verification. The earlier AI-agent-decided MCP capture and MCP read tools have been retired (recoverable through git history). The contracts should still be treated as early-stage.
 
 ## Summary
 
-Vocky is a feedback layer for agent products and the product surfaces around them. It aims to capture user feedback from agent conversations, websites, and product experiences, structure it into usable signals, and help teams understand what customers are asking for, praising, or struggling with.
+Vocky is a feedback layer for products and the surfaces around them. It aims to capture human-triggered user feedback from websites and product experiences, structure it into usable signals, and help teams understand what customers are asking for, praising, or struggling with.
 
 ## First MVP
 
 The first MVP is intentionally narrow:
 
 - Self-hosted and single-tenant
-- MCP ingestion for agent-decided VoC capture in agent workflows and server-to-server REST ingestion for explicit product/UI-triggered website or product feedback
-- Async capture that accepts quickly over MCP or REST and persists in the background
+- Server-to-server REST ingestion for explicit human-triggered website or product feedback
+- Async capture that accepts quickly over REST and persists in the background
 - Explicit user action feedback capture, including like/dislike values, optional comments, conversation context, and basic metadata
-- MCP review/query tools for record retrieval, simple counts, trends, and liked-conversation retrieval
+- A scoped end-user REST read that returns one user's own records plus operator comments
 - Optional exact-target metadata for the message, conversation, or product surface being reviewed
 - Dedicated Admin REST endpoints for human/operator review and management of stored feedback
 - A self-hosted operator Admin Web UI that loads from the Vocky app, uses Admin REST as its protected data boundary, and includes dashboard metrics, feedback list/filter/detail/edit/delete workflows, in-app operator documentation, and an operator-only REST capture try-it flow
@@ -36,21 +36,21 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 
 ## Target Users
 
-- Teams building agent-based products
-- Developers integrating feedback capture into agent workflows
-- Product and operations teams reviewing customer voice from agent interactions
+- Teams building web and product experiences
+- Developers integrating human-triggered feedback capture into product backends
+- Product and operations teams reviewing customer voice from product interactions
 
 ## Problem
 
-- Agent conversations contain product feedback that usually gets buried in logs.
-- Teams need structured feedback, not raw transcript noise.
+- Product surfaces and customer interactions contain feedback that usually gets buried in logs.
+- Teams need structured feedback, not raw log or support noise.
 - Feedback should be reviewable, trendable, and usable for prioritization.
 
 ## Goals
 
-- Capture agent-decided VoC events through MCP and explicit product/UI-triggered feedback through server-to-server REST without making clients wait on persistence
+- Capture explicit human-/product-triggered feedback through server-to-server REST without making clients wait on persistence
 - Store explicit user action feedback with enough summary text, exact target, surrounding context, comment, and metadata detail for later review
-- Make stored feedback reviewable through a minimal query surface
+- Make stored feedback reviewable through a scoped end-user read and Admin REST review surfaces
 - Surface simple counts and trends without building a full analytics product
 - Provide a first browser-based operator entry point for self-hosted review and documentation workflows
 - Keep the first release practical for community and self-hosted use
@@ -61,7 +61,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - Automatic classification or taxonomy assignment
 - A production-ready analytics suite
 - Browser-direct unauthenticated ingestion paths
-- Broad public REST review, query, summary, or management APIs. The only public read is a narrowly scoped end-user self-read (`GET /api/feedback`) that returns a single caller-identified user's own feedback plus operator comments, scoped by required `user_id` and `source_product`; all other review, query, summary, job-status, and management stays on MCP or Admin REST.
+- Broad public REST review, query, summary, or management APIs. The only public read is a narrowly scoped end-user self-read (`GET /api/feedback`) that returns a single caller-identified user's own feedback plus operator comments, scoped by required `user_id` and `source_product`; all other review, query, summary, job-status, and management stays on Admin REST.
 - Custom channel category management, deployment-configured channel lists, or automatic channel classification
 - Multi-tenant managed-cloud architecture
 - Enterprise-grade compliance or admin workflows
@@ -72,20 +72,19 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 
 - Community and self-hosted usage are part of the base direction.
 - The first MVP should optimize for self-hosted deployment before managed concerns.
-- Self-hosted deployments may be local/private or publicly reachable behind an operator-managed custom domain, provided public MCP, REST capture, and Admin REST access are protected where exposed.
+- Self-hosted deployments may be local/private or publicly reachable behind an operator-managed custom domain, provided public REST capture and Admin REST access are protected where exposed.
 - The Admin Web UI is an operator surface for self-hosted deployments. It should stay same-origin with the app, use Admin REST for protected data, include practical dashboard metrics, feedback review management, operator documentation, and an operator-only REST capture try-it flow, and avoid managed-SaaS assumptions.
 - The Admin Docs REST capture try-it flow should send a real same-origin `POST /api/feedback` request for operator verification. A successful try intentionally creates queued feedback, uses the separate `/api/*` bearer token when `VOCKY_API_AUTH_TOKEN` is configured, and must not imply a browser-direct unauthenticated product ingestion pattern.
 - The default local workflow should stay loopback-first and Compose-first, while public custom-domain access should be operator-managed through an HTTPS reverse proxy such as Cloudflare Tunnel and verified separately from local checks.
 - The capture path should acknowledge accepted work quickly and complete persistence asynchronously in the background.
-- The MCP capture path should stay optimized for agent workflows where the agent or agent runtime decides that a user interaction is useful VoC, especially feedback on an exact message, conversation, or context-bearing agent response.
-- The REST capture path should be the first-choice ingestion path for explicit product/UI-triggered feedback, such as like/dislike controls, page feedback, widgets, surveys, or other product-surface feedback, using the existing capture fields instead of REST-only aliases or a separate endpoint.
-- The REST capture path remains capture-only, with one deliberate exception: a narrowly scoped end-user self-read (`GET /api/feedback`) that returns a single user's own feedback plus operator comments, scoped by required `user_id` and `source_product`. In-app try tooling may exercise capture, but broad review, query, summary, job-status, and management remain MCP or Admin REST concerns rather than new public REST endpoints.
+- The REST capture path is the sole ingestion path for explicit human-triggered product/UI feedback, such as like/dislike controls, page feedback, widgets, surveys, or other product-surface feedback, using the shared capture fields instead of REST-only aliases or a separate endpoint.
+- The REST capture path remains capture-only, with one deliberate exception: a narrowly scoped end-user self-read (`GET /api/feedback`) that returns a single user's own feedback plus operator comments, scoped by required `user_id` and `source_product`. In-app try tooling may exercise capture, but broad review, query, summary, job-status, and management remain Admin REST concerns rather than new public REST endpoints.
 - Operator comments are a first-class concept distinct from the end user's own `comment`: operators add and list them through Admin REST, and the scoped end-user read surfaces them read-only to the originating user as one-way operator-to-user visibility.
 - End users can attach images (such as screenshots) to feedback. Images are uploaded synchronously to obtain an attachment id that the capture call references, and the worker links them to the feedback record after persist. Attachments appear in both the operator-review and scoped end-user-read responses and are served through authenticated downloads: an end user can download only their own attachments (scoped by `user_id` + `source_product`), while operators can download all attachments for the feedback they review. Allowed types and size are operator-configurable; the default is common raster image types up to a few megabytes.
-- The initial high-signal capture path should focus on explicit user actions, such as like/dislike clicks and optional comments, rather than trying to infer feedback from every conversation turn.
+- The initial high-signal capture path should focus on explicit user actions, such as like/dislike clicks and optional comments, rather than trying to infer feedback from every interaction.
 - Optional caller-owned user identity and trigger context fields preserve who the product associates with the event and which action, control, survey, or manual workflow caused capture.
 - Feedback capture should not assume that the latest message is the reviewed item. Callers should identify the exact reviewed message, conversation, or product surface when that information is available.
-- Message, conversation, and non-message surface feedback should stay in the same canonical feedback store and be separated for review through `target_type`, not through split tables, renamed tools, or separate capture endpoints.
+- Message, conversation, and non-message surface feedback should stay in the same canonical feedback store and be separated for review through `target_type`, not through split tables or separate capture endpoints.
 - `target_type` is an exact-match review filter for separating `message`, `conversation`, and `surface` feedback.
 - `channel` should be a nullable review category, not open-ended free text. New captures and Admin edits should leave it unset by default unless the caller or operator explicitly selects one of the built-in MVP categories: `web`, `mobile`, or `support`.
 - Existing stored records with older arbitrary channel text should remain reviewable and filterable, but new writes should not create new arbitrary channel values.
@@ -96,13 +95,12 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 
 Vocky uses one canonical feedback store and one shared capture field set, but the public-facing surfaces have different jobs:
 
-- MCP is for agent/runtime capture and MCP reads. `capture_feedback` is the agent-workflow ingestion path when an agent or agent runtime decides an interaction should be captured as VoC. MCP read tools serve agent, script, or operator review workflows that prefer MCP.
-- Public REST is for trusted server-to-server product integrations: capture plus a single scoped end-user read. `POST /api/feedback` is the preferred path for explicit product-surface actions such as likes, dislikes, page feedback, widgets, or surveys, and `POST /api/feedback/attachments` uploads an image to reference from a capture call. `GET /api/feedback` returns one end user's own feedback (scoped by required `user_id` + `source_product`) together with operator comments and image attachments, and `GET /api/feedback/{feedback_id}/attachments/{attachment_id}` downloads one of the caller's own attachments under the same scope. It does not expose broad query, summary, job-status, or management endpoints.
+- Public REST is for trusted server-to-server product integrations: capture plus a single scoped end-user read. `POST /api/feedback` is the ingestion path for explicit human-triggered product-surface actions such as likes, dislikes, page feedback, widgets, or surveys, and `POST /api/feedback/attachments` uploads an image to reference from a capture call. `GET /api/feedback` returns one end user's own feedback (scoped by required `user_id` + `source_product`) together with operator comments and image attachments, and `GET /api/feedback/{feedback_id}/attachments/{attachment_id}` downloads one of the caller's own attachments under the same scope. It does not expose broad query, summary, job-status, or management endpoints.
 - Admin REST is for human/operator review and management. `/admin/api/*` powers dashboards, list/detail inspection, review-field editing, metrics, and deletion over the same stored feedback records.
 
 ## Current Field Taxonomy
 
-Current feedback fields are grouped by responsibility, not by transport. MCP capture and public REST capture use the same field set; Admin REST reviews and manages the stored record shape.
+Current feedback fields are grouped by responsibility, not by transport. Public REST capture uses this field set; Admin REST reviews and manages the stored record shape.
 
 - Display and action fields: `message`, `feedback_value`, and `comment` describe the visible feedback record and explicit like/dislike/comment action.
 - Source identity fields: `source.product` and `source.integration` identify the product and integration that sent the feedback. Stored records expose them as `source_product` and `source_integration`.
