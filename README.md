@@ -1,27 +1,29 @@
 # vocky
 
-Feedback capture and review for agents. Turn customer conversations into structured voice-of-customer signals.
+Human-triggered feedback capture and review. Turn product and customer feedback moments into structured voice-of-customer signals.
 
 Vocky is pre-MVP, but the first runnable feedback capture and review service is now implemented.
 
 ## What Vocky Is
 
-Vocky is a feedback layer for agent products and the product surfaces around them. MCP capture is for agent-decided VoC moments inside agent workflows. Server-to-server REST capture is for explicit product or UI feedback actions, such as page feedback, widget feedback, surveys, and like/dislike controls outside an MCP client. The idea is simple: when users talk to an AI agent or react to product surfaces, they often reveal bugs, friction points, requests, and positive reactions. Vocky aims to capture those moments, structure them, and make them useful.
+Vocky is a feedback layer for products and the surfaces around them. Server-to-server REST capture records explicit product or UI feedback actions, such as page feedback, widget feedback, surveys, ratings, and like/dislike controls. The idea is simple: when users react to product surfaces, they often reveal bugs, friction points, requests, and positive reactions. Vocky aims to capture those moments, structure them, and make them useful for operator review.
 
 The name comes from VoC, short for voice of customer.
 
 ## Why It Exists
 
-- Agent conversations already contain valuable product feedback.
-- Most of that feedback gets lost in logs, transcripts, or support noise.
-- Teams need a simple way to turn conversational feedback into product insight.
+- Product surfaces and customer interactions already contain valuable feedback.
+- Most of that feedback gets lost in logs, support noise, or one-off spreadsheets.
+- Teams need a simple way to turn product feedback into product insight.
+
+A product's own backend can forward feedback moments to Vocky over REST, so capture stays a deliberate, server-to-server product action rather than a scattered afterthought.
 
 ## What The Current Pre-MVP Does
 
-- Accept agent-decided feedback through MCP and explicit product/UI-triggered feedback through server-to-server REST without blocking on database writes
+- Accept explicit product/UI-triggered feedback through server-to-server REST without blocking on database writes
+- Persist accepted events asynchronously through a Redis-backed background worker
 - Store like/dislike values, optional comments, caller-owned user identity, trigger context, exact target context, conversation context, and metadata for later review
-- Expose minimal MCP review/query tools for retrieving records and simple counts
-- Retrieve liked conversations through MCP for AI-agent few-shot use
+- Expose a scoped end-user read (`GET /api/feedback`) that returns a user's own records, operator comments, and attachment links
 - Expose separate Admin REST endpoints for human/operator review and management
 - Provide a self-hosted Admin Web UI served by the Vocky app, including dashboard metrics, feedback list/filter/detail/edit/delete workflows, and in-app operator documentation for API/auth, REST capture try-it, and self-hosting setup
 - Support nullable channel category assignment with the built-in MVP categories `web`, `mobile`, and `support`
@@ -41,14 +43,13 @@ Vocky is intended to follow a light open-core direction: a community, self-hosta
 
 ## Current Status
 
-- MCP feedback capture is implemented through the `capture_feedback` tool for agent-decided VoC moments and accepts explicit action feedback plus optional user identity, trigger context, and exact-target context quickly through a Redis-backed background worker path.
-- Web/product feedback capture is implemented through `POST /api/feedback` for server-to-server product or UI integrations that send explicit user-triggered feedback without becoming MCP clients.
-- MCP review/query tools are implemented through `list_feedback` and `summarize_feedback`.
-- AI-agent liked conversation retrieval is implemented through `list_liked_conversations`.
+- Web/product feedback capture is implemented through `POST /api/feedback` for server-to-server product or UI integrations that send explicit user-triggered feedback, including optional user identity, trigger context, and exact-target context, quickly through a Redis-backed background worker path.
+- Accepted capture events are queued and persisted by a dedicated background worker rather than written on the request path.
+- A scoped end-user read is implemented through `GET /api/feedback?user_id=<id>&source_product=<product>`, returning that user's own records plus operator comments and attachment links.
 - Human/operator review and management are available through separate Admin REST endpoints under `/admin/api`.
 - A same-origin Admin Web UI is available under `/admin` for self-hosted operators, with dashboard metrics, feedback review management, and packaged in-app documentation for API/auth, REST capture try-it, local hosting, and public custom-domain setup.
 - Completed feedback events persist to PostgreSQL with Alembic migrations.
-- Self-hosted runtime now includes PostgreSQL, Redis, the MCP app process, and a dedicated worker process.
+- Self-hosted runtime now includes PostgreSQL, Redis, the app process, and a dedicated worker process.
 - The project is still pre-MVP and the contracts should be treated as early-stage.
 
 ## Local Development
@@ -72,7 +73,7 @@ Open the Admin Web UI at `http://127.0.0.1:8000/admin`. The Dashboard view shows
 
 `make bootstrap` runs `make sync`, `make compose-up`, the explicit migration step `make migrate`, and a final readiness check. The Compose stack includes `redis`, `postgres`, `app`, and `worker`. The app and worker images install dependencies during the Docker build and run with `uv run --no-sync` at container startup.
 
-`make verify` builds a fresh wheel and checks the packaged Admin UI assets, waits for `GET /healthz`, runs the MCP smoke flow, and then runs the full pytest suite. The smoke path verifies that an accepted `capture_feedback` call becomes queryable only after the worker persists it.
+`make verify` builds a fresh wheel and checks the packaged Admin UI assets, waits for `GET /healthz`, runs the REST smoke flow, and then runs the full pytest suite. The smoke path posts a feedback event to `POST /api/feedback` and confirms it becomes queryable through the scoped `GET /api/feedback` only after the worker persists it.
 
 `TEST_DATABASE_URL` must point at a separate disposable database. `make test` refuses to run if it matches `DATABASE_URL`, and the pytest fixtures reset only the database named in `TEST_DATABASE_URL`.
 
@@ -80,10 +81,7 @@ If you need different host ports or interfaces, edit `.env` before you run the w
 
 Public custom-domain access has these additional settings:
 
-- `VOCKY_MCP_ALLOWED_HOSTS`: comma-separated public Host headers accepted by FastMCP DNS rebinding protection, for example `vocky.example.com`.
-- `VOCKY_MCP_ALLOWED_ORIGINS`: comma-separated browser Origin values, for example `https://vocky.example.com`.
-- `VOCKY_MCP_AUTH_TOKEN`: bearer token required for `/mcp` when set. Set this before exposing Vocky publicly.
-- `VOCKY_API_AUTH_TOKEN`: bearer token required for `/api/*` when set. Set this before exposing REST capture publicly.
+- `VOCKY_API_AUTH_TOKEN`: bearer token required for `/api/*` when set. Set this before exposing REST capture and reads publicly.
 - `VOCKY_ADMIN_AUTH_TOKEN`: bearer token required for `/admin/api/*` when set. Set this before exposing Admin REST endpoints.
 
 Granular fallback commands remain available:
@@ -96,7 +94,7 @@ Granular fallback commands remain available:
 - `make test`
 - `make compose-down`
 
-The smoke target checks `GET /healthz` plus MCP `capture_feedback`, `list_feedback`, and `summarize_feedback`, and it waits for readiness before the MCP calls. If `VOCKY_MCP_AUTH_TOKEN` is set, the smoke MCP client sends `Authorization: Bearer <token>`.
+The smoke target checks `GET /healthz`, then posts a feedback event to `POST /api/feedback` and polls the scoped `GET /api/feedback` until the worker-persisted record appears; it waits for readiness before the REST calls. If `VOCKY_API_AUTH_TOKEN` is set, the smoke client sends `Authorization: Bearer <token>`.
 
 ## Running The App Directly
 
@@ -110,11 +108,9 @@ The Starlette host app exposes:
 
 - `GET /healthz`
 - Public REST capture at `POST /api/feedback`
+- Scoped end-user read at `GET /api/feedback`
 - Admin REST under `/admin/api/*`
 - Admin Web UI under `/admin`
-- MCP Streamable HTTP at `/mcp`
-
-Use `/mcp` exactly as the canonical MCP endpoint.
 
 The Admin Web UI includes dashboard metrics, recent activity, feedback list/filter/detail inspection, review-field editing, guarded delete, and in-app documentation pages. Browser editing is intentionally limited to `feedback_value`, `comment`, `channel`, and `tags`; use Admin REST directly for broader patchable metadata fields. The Docs view can send a same-origin try request to `POST /api/feedback`; a successful request is a real capture event that is queued for worker persistence.
 
@@ -124,14 +120,14 @@ The Admin Web UI includes dashboard metrics, recent activity, feedback list/filt
 
 `user_id` is optional caller-owned identity for the product user or account member associated with the event. It does not replace `session_id`, which remains browser, runtime, or session correlation. Trigger fields explain why capture happened: use `trigger_type` for `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, or `other`; use `trigger_message` for button text, prompt copy, survey question, or action label; and use `trigger_metadata` for structured details such as control IDs, rating scale, selected option, or redacted runtime context.
 
-For agent/process context, send review-safe summaries, retrieved snippets, tool traces, prompt summaries, and redacted execution metadata. Do not send raw hidden chain-of-thought or private model reasoning.
+For conversation or process context, send review-safe summaries, retrieved snippets, tool traces, prompt summaries, and redacted execution metadata. Do not send raw hidden chain-of-thought or private model reasoning.
 
 ## Access Modes
 
 Vocky supports two clean operator modes:
 
 - Internal self-hosting: keep the default `*_PUBLISH_HOST=127.0.0.1` values, use `VOCKY_BASE_URL` for host-side smoke and verification, and connect from the same machine or trusted private network.
-- Public custom-domain deploy: publish Vocky through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL`, allow the public Host and Origin, and require `VOCKY_MCP_AUTH_TOKEN`. Set `VOCKY_API_AUTH_TOKEN` before exposing `/api/*`, set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*`, and use `make external-verify` for public readiness and smoke checks.
+- Public custom-domain deploy: publish Vocky through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL`, set `VOCKY_API_AUTH_TOKEN` before exposing `/api/*`, set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*`, and use `make external-verify` for public readiness and smoke checks.
 
 For public custom-domain access, set `VOCKY_EXTERNAL_BASE_URL` to the external HTTPS origin after DNS and proxying are active.
 
@@ -176,9 +172,6 @@ cloudflared tunnel run vocky
 
 ```env
 VOCKY_EXTERNAL_BASE_URL=https://vocky.example.com
-VOCKY_MCP_ALLOWED_HOSTS=vocky.example.com
-VOCKY_MCP_ALLOWED_ORIGINS=https://vocky.example.com
-VOCKY_MCP_AUTH_TOKEN=<long-random-secret>
 VOCKY_API_AUTH_TOKEN=<another-long-random-secret>
 VOCKY_ADMIN_AUTH_TOKEN=<different-long-random-secret>
 ```
@@ -195,34 +188,22 @@ If you prefer not to store the external origin in `.env`, pass it on the command
 make external-verify VOCKY_EXTERNAL_BASE_URL=https://vocky.example.com
 ```
 
-Public MCP clients should use `https://vocky.example.com/mcp` with `Authorization: Bearer <token>`.
 Public REST capture clients should use `https://vocky.example.com/api/feedback` with `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>`.
 Public Admin REST requests should use `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>` when `/admin/api/*` is exposed.
 
-`make external-smoke` runs only the public MCP smoke flow, while `make external-verify` waits for public health first and then runs the same smoke flow.
-
-## MCP Surface
-
-The implemented MCP tools are:
-
-- `capture_feedback`: validate one feedback event, including optional action feedback, `user_id`, trigger fields, and target fields, enqueue it for background persistence, and return a receipt with `request_id`, `accepted_at`, and `status="accepted"`.
-- `list_feedback`: retrieve stored feedback records with ingest-time, source, `user_id`, action value, channel, `target_type`, `trigger_type`, exact tag, newest-first ordering, and opaque cursor pagination. The default page size is `50` and the maximum is `100`.
-- `summarize_feedback`: return `total_count` plus zero-filled UTC `daily_counts` for an explicit ingest-time window and the supported review filters, including `user_id`, `target_type`, and `trigger_type`.
-- `list_liked_conversations`: retrieve only liked conversations with stored messages and used context for AI-agent few-shot use, optionally filtered by `user_id`, `target_type`, and `trigger_type`.
-
-`capture_feedback` success means the request was accepted for background processing, not that the feedback record is immediately queryable. `list_feedback` and `summarize_feedback` surface completed records only after the worker persists them.
-
-For client integration guidance, see [docs/current/experience.md](docs/current/experience.md).
+`make external-smoke` runs only the public REST smoke flow, while `make external-verify` waits for public health first and then runs the same smoke flow.
 
 ## Web Capture REST Surface
 
-Use REST capture from trusted server-side web or product code when the user explicitly triggers feedback in the product UI and the integration is not an MCP client. REST uses the same core capture fields as MCP, but it is intended for product and website feedback actions such as page feedback, widget feedback, surveys, ratings, and non-agent like/dislike controls. Send `user_id` when the backend has a stable product user identifier, send trigger fields for the control or workflow that caused capture, and set `target_type` to `surface` when the exact page, widget, or product surface is known. Put source-specific URL, page, widget, and backend context in `source_metadata`, and product dimensions such as plan, locale, or rollout cohort in `attributes`.
+Use REST capture from trusted server-side web or product code when the user explicitly triggers feedback in the product UI. It is intended for product and website feedback actions such as page feedback, widget feedback, surveys, ratings, and like/dislike controls. Send `user_id` when the backend has a stable product user identifier, send trigger fields for the control or workflow that caused capture, and set `target_type` to `surface` when the exact page, widget, or product surface is known. Put source-specific URL, page, widget, and backend context in `source_metadata`, and product dimensions such as plan, locale, or rollout cohort in `attributes`.
 
 The optional `channel` field is a nullable review category. Omit it by default unless the caller can explicitly assign `web`, `mobile`, or `support`.
 
 Implemented endpoint:
 
 - `POST /api/feedback`
+
+A successful capture returns `202` with `{request_id, accepted_at, status: "accepted"}`; the worker persists the record asynchronously.
 
 Example REST surface-feedback capture:
 
@@ -250,13 +231,15 @@ curl -X POST "http://127.0.0.1:8000/api/feedback" \
   }'
 ```
 
-Omit the bearer header only when `VOCKY_API_AUTH_TOKEN` is unset in a trusted local or private deployment. REST capture is ingestion-only; use MCP read tools or Admin REST for review.
+Omit the bearer header only when `VOCKY_API_AUTH_TOKEN` is unset in a trusted local or private deployment. REST capture is ingestion-only; use the scoped end-user read (`GET /api/feedback`) or Admin REST for review.
+
+For client integration guidance, see [docs/current/experience.md](docs/current/experience.md).
 
 The Admin Docs REST capture try-it form exercises this same endpoint from the browser for self-hosted operators. Enter `VOCKY_API_AUTH_TOKEN` there only when `/api/*` auth is configured; that API token is separate from the Admin token and is kept only in the browser session. The try flow does not create a public REST review, query, job-status, or management API, and successful tries create normal queued feedback records.
 
 ## Admin REST Surface
 
-The Admin REST API is separate from MCP and is intended for human operators, scripts, dashboards, and the packaged Admin Web UI. It can query and manage all feedback records, including likes, dislikes, comments, caller-owned user identity, trigger context, target context, metadata, messages, and used context.
+The Admin REST API is separate from the public capture/read API and is intended for human operators, scripts, dashboards, and the packaged Admin Web UI. It can query and manage all feedback records, including likes, dislikes, comments, caller-owned user identity, trigger context, target context, metadata, messages, and used context.
 
 Implemented endpoints:
 
@@ -275,95 +258,86 @@ Admin REST patch writes apply the same channel category rule as capture: blank c
 
 ## Self-Hosted Usage
 
-For local or private-network access, point your MCP-capable client or agent runtime at:
-
-`http://<host>:<port>/mcp`
-
-For server-to-server REST capture, post to:
+For local or private-network access, send server-to-server REST capture to:
 
 `http://<host>:<port>/api/feedback`
 
-For public custom-domain access, point clients at:
-
-`https://vocky.example.com/mcp`
-
-REST capture clients should use:
+For public custom-domain access, REST capture clients should use:
 
 `https://vocky.example.com/api/feedback`
 
 Set `VOCKY_EXTERNAL_BASE_URL=https://<external-host>` in `.env` when you want clients or operator scripts to refer to the public origin.
 
-Example Python client:
+Example REST capture with curl:
 
-```python
-from mcp.client.session import ClientSession
-from mcp.client.streamable_http import streamable_http_client
-
-
-async def main() -> None:
-    async with streamable_http_client("http://127.0.0.1:8000/mcp") as streams:
-        read_stream, write_stream, _ = streams
-        async with ClientSession(read_stream, write_stream) as session:
-            await session.initialize()
-            result = await session.call_tool(
-                "capture_feedback",
-                {
-                    "message": "Users keep asking for CSV export",
-                    "source": {"product": "my-agent", "integration": "web-chat"},
-                    "feedback_value": 1,
-                    "comment": "Helpful answer",
-                    "channel": "web",
-                    "conversation_id": "conv_123",
-                    "session_id": "sess_123",
-                    "user_id": "user_123",
-                    "trigger_type": "like",
-                    "trigger_message": "Assistant response thumbs-up",
-                    "trigger_metadata": {"control_id": "msg_assistant_789_like"},
-                    "target_type": "message",
-                    "target_id": "msg_assistant_789",
-                    "target_role": "assistant",
-                    "target_text": "Yes, use the export menu.",
-                    "messages": [
-                        {"role": "user", "content": "Can I export this as CSV?"},
-                        {"role": "assistant", "content": "Yes, use the export menu."},
-                    ],
-                    "used_context": [
-                        {"source": "help-center", "snippet": "CSV export is available."}
-                    ],
-                    "tags": ["feature-request"],
-                    "source_metadata": {"channel": "support"},
-                    "attributes": {"plan": "team"},
-                },
-            )
-            print(result.structuredContent)
+```sh
+curl -X POST "http://127.0.0.1:8000/api/feedback" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <VOCKY_API_AUTH_TOKEN>" \
+  -d '{
+    "message": "Users keep asking for CSV export",
+    "source": {"product": "my-product", "integration": "web-backend"},
+    "feedback_value": 1,
+    "comment": "Helpful answer",
+    "channel": "web",
+    "session_id": "sess_123",
+    "user_id": "user_123",
+    "trigger_type": "like",
+    "trigger_message": "Assistant response thumbs-up",
+    "trigger_metadata": {"control_id": "msg_assistant_789_like"},
+    "target_type": "message",
+    "target_id": "msg_assistant_789",
+    "target_role": "assistant",
+    "target_text": "Yes, use the export menu.",
+    "messages": [
+      {"role": "user", "content": "Can I export this as CSV?"},
+      {"role": "assistant", "content": "Yes, use the export menu."}
+    ],
+    "used_context": [
+      {"source": "help-center", "snippet": "CSV export is available."}
+    ],
+    "tags": ["feature-request"],
+    "source_metadata": {"channel": "support"},
+    "attributes": {"plan": "team"}
+  }'
 ```
 
-The example above uses the default local loopback URL. If you connect through a public custom domain or another reverse proxy, replace it with `${VOCKY_EXTERNAL_BASE_URL}/mcp`.
-
-For public token-protected access, pass a bearer header through your MCP client's HTTP client. With the MCP Python SDK:
+Example Python capture with the standard `httpx` client:
 
 ```python
 import httpx
-from mcp.client.session import ClientSession
-from mcp.client.streamable_http import streamable_http_client
 
 
 async def main() -> None:
-    async with httpx.AsyncClient(
-        headers={"Authorization": "Bearer <VOCKY_MCP_AUTH_TOKEN>"}
-    ) as http_client:
-        async with streamable_http_client(
-            "https://vocky.example.com/mcp",
-            http_client=http_client,
-        ) as streams:
-            read_stream, write_stream, _ = streams
-            async with ClientSession(read_stream, write_stream) as session:
-                await session.initialize()
-                tools = await session.list_tools()
-                print([tool.name for tool in tools.tools])
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "http://127.0.0.1:8000/api/feedback",
+            headers={"Authorization": "Bearer <VOCKY_API_AUTH_TOKEN>"},
+            json={
+                "message": "Users keep asking for CSV export",
+                "source": {"product": "my-product", "integration": "web-backend"},
+                "feedback_value": 1,
+                "comment": "Helpful answer",
+                "channel": "web",
+                "session_id": "sess_123",
+                "user_id": "user_123",
+                "trigger_type": "like",
+            },
+        )
+        response.raise_for_status()
+        print(response.json())
 ```
 
-The worker persists accepted jobs in the background. If you need to verify that the record landed, poll `list_feedback` or `summarize_feedback` using your own source, user, session, or trigger filters.
+The examples above use the default local loopback URL. If you connect through a public custom domain or another reverse proxy, replace it with `${VOCKY_EXTERNAL_BASE_URL}/api/feedback`. Omit the bearer header only when `VOCKY_API_AUTH_TOKEN` is unset in a trusted local or private deployment.
+
+The worker persists accepted jobs in the background. To read back a user's own records, call the scoped end-user read with the required `user_id` and `source_product` (the `source.product` you sent at capture):
+
+```sh
+curl "http://127.0.0.1:8000/api/feedback?user_id=user_123&source_product=my-product" \
+  -H "Authorization: Bearer <VOCKY_API_AUTH_TOKEN>"
+```
+
+It returns that user's own records — newest-first, plus operator comments and attachment links. If you need to verify that a record landed, poll `GET /api/feedback` (scoped) or use Admin REST or the Admin Web UI.
 
 Example Caddy reverse proxy:
 

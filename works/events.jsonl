@@ -16,3 +16,5 @@
 {"ts": "2026-07-15T15:24:32+09:00", "type": "slice_status_changed", "slice": "P1.S1", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-07-15T15:29:42+09:00", "type": "slice_status_changed", "slice": "P1.S2", "old_status": "todo", "new_status": "in_progress"}
 {"ts": "2026-07-15T15:46:59+09:00", "type": "slice_status_changed", "slice": "P1.S2", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-07-15T15:53:17+09:00", "type": "slice_status_changed", "slice": "P1.S3", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-07-15T15:58:13+09:00", "type": "slice_status_changed", "slice": "P1.S3", "old_status": "in_progress", "new_status": "done"}
