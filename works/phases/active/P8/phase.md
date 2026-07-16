@@ -21,36 +21,62 @@ signoff back and sizes the implementation slices to what was actually approved.
 
 ## Decomposition
 
-Eight middle slices, plus `P8.REVIEW` (`order 9999`). **No implementation slices exist yet by design** — `P8.S8`
+> ### ⚠ RE-SCOPED 2026-07-17, after `P8.S1` — operator process correction
+>
+> The original decomposition (below, as amended) had **Claude Code hand-authoring ~20 canvas cards** across
+> `P8.S2`–`P8.S5` — component cards, mirrors of all six shipped app surfaces, and the landing sections. **The
+> operator corrected this as a misunderstanding of the process**, verbatim:
+>
+> > *"you don't understand the process. claude code will be nothing to do with the design. only claude design will
+> > do the design and after the design work, claude code(you) just use designsync skill to implement on this code
+> > base. you just make vocky's design system in claude design using dedicated skill, and wait till the design is
+> > done for the vocky app. and give me list of what to design."*
+>
+> **The corrected process — this is the phase:**
+>
+> 1. Claude Code **creates** the claude.ai design-system project and pushes the canvas + a **list of what to
+>    design** (`P8.S6`).
+> 2. Claude Code **stops and waits** (`P8.S7` → `pending`).
+> 3. **Claude Design + the operator do ALL the design.** Every visual decision, every card. Claude Code authors
+>    **no** design.
+> 4. Claude Code **reads the finished design back** via DesignSync and **implements it in this codebase** — that is
+>    Claude Code's real job in this phase (`P8.S8` scopes it; the slices it creates do it).
+>
+> **`P8.S2`–`P8.S5` were dropped** (`git rm`, commit below) — they were bare folders, never started, so nothing was
+> lost. The engine has no `drop-slice` command and no `dropped` status, so the orchestrator removed the folders and
+> repointed `P8.S6`'s `depends_on` to `P8.S1` alone. **Orders 2–5 are now gaps on purpose** — they mark where the
+> dropped slices were. `P8.S1` had already shipped and **stays**: the operator ruled its output (tokens +
+> foundations + the hi2vi reference) is *documentation of what exists, not design*, and is exactly what Claude
+> Design should start from.
+>
+> Everything below this box that concerns `P8.S2`–`P8.S5` is **superseded history**, kept as the record.
+
+Four middle slices, plus `P8.REVIEW` (`order 9999`). **No implementation slices exist yet by design** — `P8.S8`
 creates them after the signoff.
 
 | Slice | Order | Kind | Risk | Covers |
 | --- | --- | --- | --- | --- |
-| `P8.S1` | 1 | implementation | `medium` | Foundations cards (`colors`, `type`, `spacing-radius`) rebuilt against the real 41-color palette + the `Reference — hi2vi vibe` card. |
-| `P8.S2` | 2 | implementation | `medium` | Component cards completed: add `data-table`, `endpoint-card`, `reveal`; add `button`'s missing `sm`/`lg`; mark inherited-but-unused variants. |
-| `P8.S3` | 3 | implementation | `medium` | App section cards: auth (login/signup), app shell, dashboard (incl. usage tiles + `TrendChart`). |
-| `P8.S4` | 4 | implementation | `medium` | App section cards: project detail, feedback list, feedback detail. **Deletes the fictional `sections/dashboard-placeholder.html`** (see note below). |
-| `P8.S5` | 5 | implementation | `high` | Landing section cards — hero, features, pricing, footer — with **placeholder copy slots**. |
-| `P8.S6` | 6 | implementation | `high` | Pre-flight (`tokens.css` 1:1 verify, `_ds_manifest.json` rebuild, README/manifest `note` P6→P8 fix) then `create_project` → `finalize_plan` → `write_files` → verify render. |
-| `P8.S7` | 7 | implementation | `high` | **The gate.** Assemble the handoff briefing (the open questions, unanswered), return `needs_operator` → orchestrator sets `pending`, loop STOPS. |
-| `P8.S8` | 8 | **decomposition** | `high` | **Post-gate.** Read `SIGNOFF.md` back; create the implementation slices sized to what was approved. |
+| `P8.S1` | 1 | implementation | `medium` | **DONE.** Foundations cards (`colors`, `type`, `spacing-radius`) rebuilt to the full token system + the `Reference — hi2vi vibe` card. |
+| ~~`P8.S2`–`P8.S5`~~ | ~~2–5~~ | — | — | **DROPPED** — card authoring is Claude Design's job, not Claude Code's. See the box above. |
+| `P8.S6` | 6 | implementation | `high` | `create_project` (`vocky design system`) → `finalize_plan` → `write_files` → verify render. Pushes `tokens.css`, the foundations cards, and the hi2vi reference card, plus **the design brief / list of what to design**. Also: `_ds_manifest.json` rebuild + the README/manifest `note` P6→P8 fix. |
+| `P8.S7` | 7 | implementation | `high` | **The gate.** Return `needs_operator` → orchestrator sets `pending`, loop STOPS. The operator + Claude Design design everything; the operator drops `SIGNOFF.md` and clears `pending`. |
+| `P8.S8` | 8 | **decomposition** | `high` | **Post-gate.** Read the finished design back via DesignSync; create the implementation slices sized to what was approved. |
 
 ### Why this shape
 
-- **Card authoring is split by surface family, not by line count.** A card is a static HTML mirror of a *rendered*
-  surface, so effort tracks "surfaces to understand," not TSX volume. S3/S4 split the six shipped surfaces 3/3;
-  S4 carries the heavier sources (project detail 232 + feedback list 410 + feedback detail 400 LOC) but the same
-  card count.
-- **Foundations and components are separate slices** (S1: 4 cards, S2: 9 cards) — merging would put 13 cards in one
-  executor context.
-- **The manifest is rebuilt exactly once, in S6, not incrementally per card slice.** Every card slice adds cards;
-  if each also edited `_ds_manifest.json` the edits would collide and each slice would need the full inventory.
-  Instead S1–S5 author cards with correct first-line `@dsCard` markers, and S6 rebuilds the manifest from the
-  finished inventory as the push's pre-flight. This is why S6 merges pre-flight + push rather than splitting them:
-  the manifest exists to serve the push, and a standalone manifest slice's only validation would be "the JSON
+_Mostly **superseded** by the re-scope — the card-splitting rationale died with `P8.S2`–`P8.S5`. Two points still
+hold and are load-bearing for `P8.S6`/`P8.S7`; the rest is kept as history._
+
+- **STILL HOLDS — the manifest is rebuilt exactly once, in S6.** `_ds_manifest.json` must be regenerated from the
+  finished card inventory as the push's pre-flight. This is why S6 merges pre-flight + push rather than splitting
+  them: the manifest exists to serve the push, and a standalone manifest slice's only validation would be "the JSON
   parses."
-- **The gate is its own slice (S7), not S6's tail.** S6 can fail on network/tool grounds; the gate is a
-  content/judgment artifact. Separating them means a push retry doesn't re-do the briefing.
+- **STILL HOLDS — the gate is its own slice (S7), not S6's tail.** S6 can fail on network/tool grounds; the gate is
+  a content/judgment artifact. Separating them means a push retry doesn't re-do the handoff.
+- ~~Card authoring is split by surface family, not by line count. S3/S4 split the six shipped surfaces 3/3.~~
+  **Superseded** — Claude Code authors no surface cards.
+- ~~Foundations and components are separate slices (S1: 4 cards, S2: 9 cards).~~ **Superseded** — S1 shipped; S2 is
+  dropped.
 
 ### Risk ratings — the reasoning
 
@@ -59,32 +85,22 @@ creates them after the signoff.
 decision — it is about *escalation latitude*: `mid` escalates when a plan's assumptions break, `high` never
 escalates and must own the call. Ratings were set on that axis.
 
-- **Nothing is rated `low`.** `low` routes to a literal plan-follower with no judgment. Every card in this phase is
-  hand-written HTML that must faithfully mirror a real surface against a 41-token palette against known token
-  drift — judgment work by the plan's own instruction. Even the S6 pre-flight (manifest rebuild + 1:1 token
-  verify) feeds the pane index the whole gate depends on.
-- **S1–S4 `medium`:** bounded, source-of-truth-backed work — there is a real shipped surface to mirror, so
-  "correct" is checkable. Escalation is a genuine safety valve here: these slices lean on findings about the
-  shipped code, and if a finding proves stale the mid tier should stop rather than improvise.
-- **S5 `high`:** the only card set with **no shipped surface to mirror**. The executor must invent layout
-  scaffolding (hero/features/pricing/footer) while inventing **zero brand** — the phase's load-bearing constraint
-  is thinnest exactly here, and structure-vs-brand is a line no plan can fully pre-draw. Escalating that judgment
-  would be pointless: there is nowhere above the top tier to send it. The top tier must simply hold the line.
+- **Nothing is rated `low`.** `low` routes to a literal plan-follower with no judgment. Every surviving slice needs
+  judgment: S6 makes an irreversible remote call, S7 is the handoff, S8 is a decomposition.
 - **S6 `high`:** an irreversible external operation. `create_project`'s `PROJECT_TYPE_DESIGN_SYSTEM` is immutable
   at creation, so a wrong call strands a dead project. An escalation mid-push would leave a half-created remote
   project behind; better the top tier owns it end to end.
-- **S7 `high`:** the phase's fulcrum. The briefing must surface every open question *without answering any* —
+- **S7 `high`:** the phase's fulcrum. The handoff must surface every open question *without answering any* —
   precisely the failure mode the whole phase is built to avoid.
 - **S8 `high`:** decomposition always routes to `slice-executor-high` regardless of rating; set `high` for honesty.
+- ~~S1–S4 `medium` / S5 `high` (card-authoring latitude).~~ **Superseded** — S1 shipped at `medium`; S2–S5 dropped.
 
 ### `depends_on` (advisory — `validate` only checks existence)
 
-Only real dependencies were recorded; S1–S4 touch disjoint files and are sequenced by `order` alone.
-
-- `P8.S5` → `P8.S2` — the landing composes the inherited-but-unused primitives that S2 marks; that marking is its input.
-- `P8.S6` → `P8.S1..S5` — the manifest enumerates the finished card inventory.
+- ~~`P8.S5` → `P8.S2`~~ — **dropped with the slices.**
+- `P8.S6` → `P8.S1` — the manifest enumerates the finished card inventory (repointed at the re-scope; was `S1..S5`).
 - `P8.S7` → `P8.S6` — no gate without a live pushed canvas.
-- `P8.S8` → `P8.S7` — no implementation scoping without the signoff.
+- `P8.S8` → `P8.S7` — no implementation scoping without the finished design.
 
 ### Gate mechanics
 
