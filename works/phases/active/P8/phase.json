@@ -1,0 +1,26 @@
+{
+  "id": "P8",
+  "name": "Design Gate: Brand, App UI & Landing",
+  "objective": "Run the Claude design gate for vocky — prepare the app + landing canvas at the placeholder palette, hand off to the operator's Claude Design session for all brand decisions, then implement the signed-off outcome across the app and the landing page, including any feature or UX changes the session concludes on.",
+  "status": "planned",
+  "order": 4.5,
+  "created_at": "2026-07-16T23:16:33+09:00",
+  "started_at": null,
+  "completed_at": null,
+  "review": {
+    "status": "pending",
+    "reviewed_at": null,
+    "reviewer": null,
+    "note": null
+  },
+  "paths": {
+    "phase_md": "phase.md",
+    "intent_md": "intent.md",
+    "slices_dir": "slices"
+  },
+  "archive": {
+    "archived": false,
+    "archived_at": null,
+    "archive_path": null
+  }
+}
