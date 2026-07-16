@@ -1,0 +1,31 @@
+{
+  "id": "P3.S1",
+  "phase_id": "P3",
+  "name": "Project-scope foundation: project_id on feedback + capture threading + last_used stamps",
+  "kind": "implementation",
+  "status": "todo",
+  "order": 1,
+  "depends_on": [],
+  "created_at": "2026-07-16T14:48:07+09:00",
+  "started_at": null,
+  "completed_at": null,
+  "risk": "medium",
+  "source": {
+    "type": "manual",
+    "id": null
+  },
+  "paths": {
+    "plan": "plan.md",
+    "result": "result.md"
+  },
+  "validation": {
+    "required": [],
+    "last_run": null,
+    "last_status": "pending"
+  },
+  "archive": {
+    "archived": false,
+    "archived_at": null,
+    "archive_path": null
+  }
+}

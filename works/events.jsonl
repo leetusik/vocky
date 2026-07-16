@@ -57,3 +57,9 @@
 {"ts": "2026-07-16T14:21:33+09:00", "type": "doc_version_created", "doc": "experience", "version": "v0003_integrate_via_signup_then_create_project_then_mint_vk__credential_send_it_as_authorization_bearer_on_api_replace_optional-static-token_guidance", "source": "P2.REVIEW"}
 {"ts": "2026-07-16T14:24:16+09:00", "type": "slice_status_changed", "slice": "P2.REVIEW", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-07-16T14:24:16+09:00", "type": "phase_reviewed", "phase": "P2", "verdict": "pass", "reviewer": "slice-executor-high"}
+{"ts": "2026-07-16T14:47:26+09:00", "type": "slice_status_changed", "slice": "P3.DECOMP", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-07-16T14:48:07+09:00", "type": "slice_created", "phase": "P3", "slice": "P3.S1"}
+{"ts": "2026-07-16T14:48:07+09:00", "type": "slice_created", "phase": "P3", "slice": "P3.S2"}
+{"ts": "2026-07-16T14:48:07+09:00", "type": "slice_created", "phase": "P3", "slice": "P3.S3"}
+{"ts": "2026-07-16T14:48:07+09:00", "type": "slice_created", "phase": "P3", "slice": "P3.S4"}
+{"ts": "2026-07-16T14:50:37+09:00", "type": "slice_status_changed", "slice": "P3.DECOMP", "old_status": "in_progress", "new_status": "done"}
