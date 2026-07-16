@@ -1,0 +1,33 @@
+{
+  "id": "P4.S2",
+  "phase_id": "P4",
+  "name": "Auth + BFF proxy + authenticated app shell",
+  "kind": "implementation",
+  "status": "todo",
+  "order": 2,
+  "depends_on": [
+    "P4.S1"
+  ],
+  "created_at": "2026-07-16T19:53:36+09:00",
+  "started_at": null,
+  "completed_at": null,
+  "risk": "high",
+  "source": {
+    "type": "manual",
+    "id": null
+  },
+  "paths": {
+    "plan": "plan.md",
+    "result": "result.md"
+  },
+  "validation": {
+    "required": [],
+    "last_run": null,
+    "last_status": "pending"
+  },
+  "archive": {
+    "archived": false,
+    "archived_at": null,
+    "archive_path": null
+  }
+}

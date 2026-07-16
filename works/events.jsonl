@@ -103,3 +103,10 @@
 {"ts": "2026-07-16T18:52:17+09:00", "type": "doc_version_created", "doc": "backend", "version": "v0003_p7_mcp_server.py_fastmcp_bootstrap_capture_feedback_tool_module_is_mcp_path_broadened_ingest_guard_mcpcapturefeedbackinput", "source": "P7.REVIEW"}
 {"ts": "2026-07-16T19:00:39+09:00", "type": "slice_status_changed", "slice": "P7.REVIEW", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-07-16T19:00:39+09:00", "type": "phase_reviewed", "phase": "P7", "verdict": "pass", "reviewer": "slice-executor-high"}
+{"ts": "2026-07-16T19:51:52+09:00", "type": "slice_status_changed", "slice": "P4.DECOMP", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-07-16T19:53:36+09:00", "type": "slice_created", "phase": "P4", "slice": "P4.S1"}
+{"ts": "2026-07-16T19:53:36+09:00", "type": "slice_created", "phase": "P4", "slice": "P4.S2"}
+{"ts": "2026-07-16T19:53:36+09:00", "type": "slice_created", "phase": "P4", "slice": "P4.S3"}
+{"ts": "2026-07-16T19:53:37+09:00", "type": "slice_created", "phase": "P4", "slice": "P4.S4"}
+{"ts": "2026-07-16T19:53:37+09:00", "type": "slice_created", "phase": "P4", "slice": "P4.S5"}
+{"ts": "2026-07-16T19:56:40+09:00", "type": "slice_status_changed", "slice": "P4.DECOMP", "old_status": "in_progress", "new_status": "done"}
