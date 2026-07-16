@@ -20,6 +20,7 @@ from vocky.auth import AdminBearerAuthMiddleware, ProjectCredentialAuthMiddlewar
 from vocky.auth_api import routes as auth_routes
 from vocky.config import get_settings
 from vocky.db import dispose_engine
+from vocky.project_feedback_api import routes as project_feedback_routes
 from vocky.redis_client import dispose_redis_client
 
 
@@ -53,6 +54,7 @@ def create_app() -> Starlette:
             *admin_routes,
             *admin_ui_routes,
             *api_routes,
+            *project_feedback_routes,
             *attachment_routes,
         ],
         middleware=[

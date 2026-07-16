@@ -50,6 +50,35 @@ Four middle slices. **P3.S1 is the foundation; P3.S2, P3.S3, and P3.S4 all depen
 - **Last-used stamping wired (D-P3-5 groundwork):** `ProjectCredentialAuthMiddleware` best-effort stamps credential `last_used_at`; `accounts/auth.py::require_user` best-effort stamps auth-token `last_used_at`. Both wrapped in `try/except AccountsPersistenceError` → log + continue, so a stamping failure never turns a valid ingest/auth into a 500. No throttle (stamp-always, one indexed UPDATE by PK) — S4 can add one if it becomes hot. S4 surfaces these `last_used_at` values in usage endpoints.
 - **Test-fixture note (S2/S3/S4):** the end-user self-read is now project-scoped, so `_seed_feedback` rows that must be readable through `/api/*` need `project_id=str(configured_project_credential.project_id)`. `tests/test_user_feedback_api.py::_seed_feedback` gained an optional `project_id` param; reuse that pattern. Legacy NULL-project rows fall out of any project-scoped read.
 
+### P3.S2 outcomes — project-scoped `/api/*` review + manage landed (S3/S4 mirror these)
+
+- **New module `src/vocky/project_feedback_api.py`**, routes under the prefix
+  **`/api/project/feedback`** (distinct from the end-user self-read `GET /api/feedback`,
+  no collision), wired into `create_app()` in `app.py` and guarded automatically by the
+  existing `ProjectCredentialAuthMiddleware` (path `/api/…`). Verbs ported from
+  `admin_api.py`: list (filters + keyset paging) / get-one (+comments+attachments) /
+  PATCH review fields / DELETE / operator comments add+list / attachment download.
+- **`_load_project_feedback(feedback_id, project_id) -> record | None` + 404-on-cross-project
+  convention (S3/S4 mirror it):** loads via `get_feedback_event`, returns the record only
+  if `record.project_id == project_id`, else `None` → **404 (never 403)** so cross-project
+  existence never leaks (matches D-P2-5). Used in get/patch/delete/comments/attachment; for
+  mutating ops the ownership check runs before the mutation / `get_admin_attachment`
+  linkage read. List **forces** `query.filters.project_id = credential.project_id` (overrides
+  any caller value), relying on the S1 `_apply_query_filters` hook (no repository change
+  needed in S2).
+- **`serialize_record` now lives in `src/vocky/tools/query_feedback_common.py`** (lifted out
+  of `admin_api.py`, which now imports it; its local copy + unused `FeedbackEventRecord`
+  import were removed). **S3's cross-project read should reuse this shared serializer.**
+  Output is unchanged and carries **no `project_id` field** (the caller knows its own
+  project) — if S3's `/app/*` cross-project read needs to surface which project a record
+  belongs to, it must add that itself (e.g. a wrapping key) rather than change the shared
+  serializer.
+- **Tests:** `tests/test_project_feedback_api.py` mints a second project+credential under
+  the same tenant (`_mint_project_credential` via `get_accounts_service()`) to prove
+  isolation; seeds feedback rows with `project_id` via raw SQL. Reuse this second-credential
+  pattern for S3/S4 cross-project tests. `uv run pytest tests/test_project_feedback_api.py
+  tests/test_admin_api.py` = 21 passed; full suite 160 passed.
+
 ## Doc impact
 
 Running list the phase REVIEW consolidates into new durable-doc versions (one version per doc, covering the whole phase):
@@ -66,6 +95,7 @@ _Landed changes (for the review to consolidate):_
 
 - **P3.S1 → `data.md`:** `feedback_events` gains nullable `project_id` FK → `projects.id` (CASCADE) + `ix_feedback_events_project_id`; migration `20260716_1500` (chained on `20260715_1200`). Capture stamps `project_id` from the authenticating credential; legacy rows stay NULL (pre-MVP, no backfill).
 - **P3.S1 → `security.md` / `architecture.md`:** ingest middleware now threads the resolved per-project credential onto the ASGI scope (`vocky.project_credential`) and best-effort stamps credential + auth-token `last_used_at`; the `GET /api/feedback` end-user self-read is now additionally project-scoped by the credential's project (defense in depth, D-P3-6).
+- **P3.S2 → `api.md` / `product.md` / `experience.md` (also `architecture.md` / `security.md`):** new project-credential-authed `/api/project/feedback` review+manage endpoints — list (filters + keyset paging) / get-one (+comments+attachments) / PATCH review fields / DELETE / operator comments add+list / attachment download — scoped to the credential's project, returning 404 (never 403) on any cross-project id. External service admin panels can now read+manage their own project's feedback directly by API (`vk_` key), not just capture. No schema change; `serialize_record` is now shared in `tools/query_feedback_common.py`.
 
 ## Constraints
 

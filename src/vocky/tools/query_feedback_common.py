@@ -11,6 +11,7 @@ from uuid import UUID
 from vocky.feedback import (
     FeedbackAttachmentRecord,
     FeedbackCommentRecord,
+    FeedbackEventRecord,
     FeedbackListCursor,
 )
 from vocky.trigger import TriggerTypeValidationError, normalize_trigger_type
@@ -147,6 +148,48 @@ def serialize_datetime(value: datetime) -> str:
     """Serialize a timestamp as UTC ISO 8601."""
 
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def serialize_record(record: FeedbackEventRecord) -> dict[str, object]:
+    """Serialize a feedback record for REST responses.
+
+    Shared by the Admin REST surface and the project-scoped ``/api/*`` review
+    surface (and, later, the ``/app/*`` cross-project read) so the record shape
+    stays identical across surfaces. ``project_id`` is intentionally omitted: the
+    operator/admin surfaces are already global, and the project-scoped caller
+    knows its own project from its credential.
+    """
+
+    return {
+        "id": str(record.id),
+        "message": record.message,
+        "source_product": record.source_product,
+        "feedback_value": record.feedback_value,
+        "comment": record.comment,
+        "channel": record.channel,
+        "source_integration": record.source_integration,
+        "conversation_id": record.conversation_id,
+        "session_id": record.session_id,
+        "user_id": record.user_id,
+        "trigger_type": record.trigger_type,
+        "trigger_message": record.trigger_message,
+        "trigger_metadata": dict(record.trigger_metadata),
+        "target_type": record.target_type,
+        "target_id": record.target_id,
+        "target_role": record.target_role,
+        "target_text": record.target_text,
+        "event_at": (
+            serialize_datetime(record.event_at)
+            if record.event_at is not None
+            else None
+        ),
+        "ingested_at": serialize_datetime(record.ingested_at),
+        "tags": list(record.tags),
+        "messages": list(record.messages),
+        "used_context": list(record.used_context),
+        "source_metadata": dict(record.source_metadata),
+        "attributes": dict(record.attributes),
+    }
 
 
 def serialize_comment(comment: FeedbackCommentRecord) -> dict[str, object]:

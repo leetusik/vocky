@@ -16,7 +16,6 @@ from vocky.channel import ChannelValidationError, normalize_channel_write
 from vocky.feedback import (
     CreateFeedbackComment,
     FeedbackDailyMetricCount,
-    FeedbackEventRecord,
     FeedbackMetricCounts,
     FeedbackMetrics,
     FeedbackMetricsQuery,
@@ -46,6 +45,7 @@ from vocky.tools.query_feedback_common import (
     serialize_attachment,
     serialize_comment,
     serialize_datetime,
+    serialize_record,
     validate_time_window,
 )
 
@@ -121,41 +121,6 @@ def normalize_admin_channel_write(value: str | None) -> str | None:
         return normalize_channel_write(value)
     except ChannelValidationError as exc:
         raise FeedbackQueryValidationError(str(exc)) from exc
-
-
-def serialize_record(record: FeedbackEventRecord) -> dict[str, object]:
-    """Serialize a feedback record for Admin REST responses."""
-
-    return {
-        "id": str(record.id),
-        "message": record.message,
-        "source_product": record.source_product,
-        "feedback_value": record.feedback_value,
-        "comment": record.comment,
-        "channel": record.channel,
-        "source_integration": record.source_integration,
-        "conversation_id": record.conversation_id,
-        "session_id": record.session_id,
-        "user_id": record.user_id,
-        "trigger_type": record.trigger_type,
-        "trigger_message": record.trigger_message,
-        "trigger_metadata": dict(record.trigger_metadata),
-        "target_type": record.target_type,
-        "target_id": record.target_id,
-        "target_role": record.target_role,
-        "target_text": record.target_text,
-        "event_at": (
-            serialize_datetime(record.event_at)
-            if record.event_at is not None
-            else None
-        ),
-        "ingested_at": serialize_datetime(record.ingested_at),
-        "tags": list(record.tags),
-        "messages": list(record.messages),
-        "used_context": list(record.used_context),
-        "source_metadata": dict(record.source_metadata),
-        "attributes": dict(record.attributes),
-    }
 
 
 def normalize_list_query(request: Request) -> ListFeedbackQuery:
