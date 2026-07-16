@@ -11,6 +11,10 @@ Context — the operator's preceding message in the same exchange, which framed 
 
 > let me ask you a question. p4.s1 said design system foundation did but I can't find one. where is it? I meant design system for actual claude designs design system we didn't do that right?
 
+## Additional Operator Input (verbatim — 2026-07-17, at `P8.DECOMP` planning)
+
+> for the design system, make a design system only for vocky but inherit hi2vi vibe.
+
 ## Confirmed Intent (refined + clarified)
 
 Run vocky's **real Claude design gate** — the one P4 deliberately deferred — and implement its
@@ -70,6 +74,33 @@ implementation slices from the signed-off design, not from a presumed visual-onl
 - Q: P8 absorbs P6's landing design and landing build — should P6 be re-scoped now? — A: No. Note
   the consequence in P8's intent; leave P6 untouched and reconcile at P6.DECOMP.
 
+### Resolved at `P8.DECOMP` planning (2026-07-17)
+
+- Q: The app-section list above says "login, tenant dashboard, project detail, usage" but never names
+  the feedback list/detail that S5 shipped — how much canvas coverage? — A: **Every shipped surface**
+  (login/signup, app shell, dashboard, project detail, feedback list, feedback detail). The
+  "(the surfaces P4.S2–S5 shipped)" parenthetical is the operative scope.
+- Q: If the design session concludes on feature/UX changes, does that reopen the P2/P3 API contracts
+  or stay frontend-only? *(this file's third Open Question)* — A: **Backend in scope if needed.** P8
+  may reopen `src/vocky/**` and the P2/P3 contracts to serve what the design concludes. The phase's
+  true size stays unknown until the signoff; that is accepted.
+- Q: The implementation slices cannot be honestly scoped before the `SIGNOFF` exists, and only a
+  `kind: decomposition` slice may run `new-slice` — how should the phase be shaped? — A:
+  **Two-stage decomposition.** `P8.DECOMP` creates the canvas-prep slices + the gate + a *second*
+  `kind: decomposition` slice; that post-gate slice reads the signoff back and creates the
+  implementation slices sized to what was actually approved.
+- Q: "Inherit hi2vi vibe" collides with "canvas prep only, zero brand decisions" — how does the vibe
+  reach the session without the agent deciding vocky's brand? — A: **A reference card on the canvas.**
+  Cards ship at today's neutral placeholder plus one clearly-labeled `Reference — hi2vi vibe` card
+  showing hi2vi's real palette/type beside vocky's current values, so Claude Design can ask the
+  operator how far to carry it. The claude.ai project stays **vocky-only** otherwise.
+- Q: Must P4.REVIEW close before this phase starts? *(this file's second Open Question)* — A: Yes, and
+  it has — `P4.REVIEW` passed at commit `8cea96f`; P4 reads `done` / `pass`.
+- Q: Does the canvas push to a new claude.ai design-system project or an existing one? *(this file's
+  first Open Question)* — A: **New.** `DesignSync list_projects` returns four projects, none for vocky
+  (`Miracle Design System`, `hi2vi design system`, `Design System`, `Knowledge Base Design System`) →
+  `create_project` named `vocky design system`.
+
 ## Notes
 
 - **P6 consequence (deliberately not yet applied).** P8 absorbs both the landing *design* and the
@@ -99,9 +130,13 @@ implementation slices from the signed-off design, not from a presumed visual-onl
 
 ## Open Questions
 
-- Does the canvas push to a **new** claude.ai design-system project, or an existing one? (`DesignSync
-  list_projects` at DECOMP; note the target must be `type: PROJECT_TYPE_DESIGN_SYSTEM`, which is
-  immutable at creation.)
-- Must **P4.REVIEW** close before this phase starts?
-- If the design session concludes on **feature/UX changes**, how much of the app's feature surface is
-  in play — and does that reopen P2/P3 API contracts, or stay frontend-only?
+_All three were resolved at `P8.DECOMP` planning — see "Resolved at `P8.DECOMP` planning" above.
+Kept here as the record of what was open at capture._
+
+- ~~Does the canvas push to a **new** claude.ai design-system project, or an existing one?~~ →
+  **new**, `vocky design system`. (The target must be `type: PROJECT_TYPE_DESIGN_SYSTEM`, immutable at
+  creation.)
+- ~~Must **P4.REVIEW** close before this phase starts?~~ → **yes, and it has** (`8cea96f`).
+- ~~If the design session concludes on **feature/UX changes**, how much of the app's feature surface
+  is in play — and does that reopen P2/P3 API contracts, or stay frontend-only?~~ → **backend in
+  scope if needed.**

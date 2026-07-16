@@ -132,3 +132,13 @@
 {"ts": "2026-07-16T23:34:11+09:00", "type": "doc_version_created", "doc": "api", "version": "v0006_p4_correct_the_stale_admin-docs-try-it_forward_reference_p4_superseded_the_packaged_operator_ui_with_the_web_app_rather_than_updating_its_docs_removal_moves_to_p6_no_api_contract_change", "source": "P4.REVIEW"}
 {"ts": "2026-07-16T23:37:13+09:00", "type": "slice_status_changed", "slice": "P4.REVIEW", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-07-16T23:37:13+09:00", "type": "phase_reviewed", "phase": "P4", "verdict": "pass", "reviewer": "slice-executor-high"}
+{"ts": "2026-07-17T00:19:28+09:00", "type": "slice_status_changed", "slice": "P8.DECOMP", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-07-17T00:22:34+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S1"}
+{"ts": "2026-07-17T00:22:34+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S2"}
+{"ts": "2026-07-17T00:22:34+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S3"}
+{"ts": "2026-07-17T00:22:35+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S4"}
+{"ts": "2026-07-17T00:22:55+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S5"}
+{"ts": "2026-07-17T00:22:55+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S6"}
+{"ts": "2026-07-17T00:22:55+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S7"}
+{"ts": "2026-07-17T00:22:55+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S8"}
+{"ts": "2026-07-17T00:26:26+09:00", "type": "slice_status_changed", "slice": "P8.DECOMP", "old_status": "in_progress", "new_status": "done"}
