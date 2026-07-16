@@ -46,6 +46,32 @@ A non-REST caller needs exactly: build a `CreateFeedbackEvent` → set `project_
 - Confirmed hierarchy in `src/vocky/capture.py`: `BaseCaptureFeedbackInput` (32-55, shared, **no** `project_id`/`attachment_ids`) → `RestCaptureFeedbackInput` (58-64, adds `attachment_ids`). `_normalize_capture_payload` (252) is transport-neutral, typed on the base, reads `getattr(raw, "attachment_ids", None)`. `normalize_rest_payload` (290) is a thin wrapper.
 - **Recommended:** revive a thin `McpCaptureFeedbackInput(BaseCaptureFeedbackInput)` + a `normalize_mcp_payload` wrapper next to `normalize_rest_payload` — keeps `attachment_ids` out of the MCP tool schema (agents have no upload flow); no engine change. P1 stripped the old `McpCaptureFeedbackInput` / `normalize_mcp_payload` (confirmed absent from current `capture.py`; the retired `9550179^:src/vocky/tools/capture_feedback.py` still imports them, so it is a recoverable template).
 
+### P7.S1 — transport foundation shipped (mount decision + caveats)
+
+- **Mount = Option B, verified.** `Mount("/mcp", app=mcp.streamable_http_app())` + server
+  `streamable_http_path="/"`. Host route path is `/mcp` (non-empty) → the "no root catch-all"
+  invariant still holds (`assert "" not in route_paths` kept; added `assert "/mcp" in route_paths`).
+  No fallback to Option A needed.
+- **mcp 1.28.1** installed via `mcp[cli]>=1.27.0,<2.0.0`. FastMCP API matches the retired template
+  (`streamable_http_app()`, `session_manager`, `TransportSecuritySettings{enable_dns_rebinding_protection,allowed_hosts,allowed_origins}`).
+- **Lifespan nesting is mandatory.** `streamable_http_app()` builds a sub-Starlette with its **own**
+  lifespan that a host `Mount` does **not** trigger; the host must nest `async with mcp.session_manager.run():`
+  around its whole lifetime or `/mcp` 500s at request time. Done in `app.py`'s `lifespan`.
+- **Trailing slash:** bare `/mcp` 307-redirects to `/mcp/` (inner route `/`); MCP clients follow
+  redirects by default, so both paths handshake. Real clients can use the `/mcp` URL as-is.
+- **DNS-rebinding Host gotcha:** the allowlist matcher requires a **port** — `127.0.0.1:*` matches
+  `127.0.0.1:8000` but **not** portless `127.0.0.1`. Tests/clients must send a Host with a port
+  (or add the public host to `VOCKY_MCP_ALLOWED_HOSTS`).
+- **Session-manager is once-per-instance (S2 must respect this).** `StreamableHTTPSessionManager.run()`
+  raises if called twice on the same instance, and the module-level `mcp` singleton is shared across
+  tests. No existing test drives the full app lifespan (`test_admin_ui`: `TestClient` without `with`;
+  `test_credentials_api`: bare `ASGITransport`), so the new `tests/test_mcp_transport.py` is the sole
+  runner. Any S2 HTTP-level `/mcp` test must run `session_manager.run()` exactly once per process
+  (or construct a fresh `FastMCP`).
+- **Config:** re-added only `mcp_allowed_hosts` / `mcp_allowed_origins` (+ their `_values` properties).
+  `mcp_auth_token` / `api_auth_token` stay **retired** — per-project `vk_` auth (S2) replaces them.
+- Full suite green: **169 passed**; `validate` passes.
+
 ### Transport wiring & gotchas (mostly S1)
 
 - `create_app()` — `src/vocky/app.py:46-70`: flat `routes=[…]`, **no `Mount` today** (confirmed); `lifespan` at `app.py:35-43` disposes Redis + engine on shutdown. Retired precedent (`9550179^:src/vocky/app.py`): `Mount("/mcp", app=mcp.streamable_http_app())` in routes + nest `async with mcp.session_manager.run():` around the existing `try/yield/finally`. Single nesting — no multi-lifespan orchestration; `session_manager.run()` **must** wrap the app lifetime or streamable-HTTP 500s at request time.
@@ -74,6 +100,7 @@ _Seeded by `P7.DECOMP`; S1/S2 append one-liners as they change durable truth. Th
 - **backend** — new `mcp_server.py` + tool module.
 - **operations** — re-added `mcp[cli]` dep; any new MCP env vars (allowed hosts/origins).
 - Ancillary (non-versioned prose, not doc-set versions): `docs/local-public-access.md` and `docs/changple5-apply.md` describe the old static-token `/mcp` model and will need updating.
+- **[P7.S1]** architecture — `/mcp` FastMCP Streamable-HTTP mount restored (`Mount("/mcp")` + inner `streamable_http_path="/"`) with `session_manager.run()` nested in the host lifespan; still tool-less + unauthenticated. operations — re-added `mcp[cli]` dep (`mcp==1.28.1`) and MCP DNS-rebinding allowlist env (`VOCKY_MCP_ALLOWED_HOSTS` / `VOCKY_MCP_ALLOWED_ORIGINS`, localhost always allowed). security — transport-security decision confirmed: DNS-rebinding protection **on** by default, localhost allowlist, extendable via env (auth still deferred to S2).
 
 ## Open Questions
 

@@ -142,6 +142,8 @@ def test_core_rest_and_admin_routes_are_registered_without_a_catch_all_mount() -
     ):
         assert path in route_paths
 
-    # The retired MCP server was mounted at "/" (normalized to an empty path);
-    # its removal must leave no root catch-all mount behind.
+    # The FastMCP transport is mounted at a dedicated "/mcp" sub-path (not "/"),
+    # so the "no root catch-all mount" invariant still holds: a root mount would
+    # normalize to an empty path and could shadow the core routes above.
+    assert "/mcp" in route_paths
     assert "" not in route_paths

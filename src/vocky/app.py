@@ -8,7 +8,7 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.routing import Route
+from starlette.routing import Mount, Route
 
 from vocky.accounts.auth import AuthError, auth_error_handler
 from vocky.admin_api import routes as admin_routes
@@ -21,6 +21,7 @@ from vocky.auth import AdminBearerAuthMiddleware, ProjectCredentialAuthMiddlewar
 from vocky.auth_api import routes as auth_routes
 from vocky.config import get_settings
 from vocky.db import dispose_engine
+from vocky.mcp_server import mcp
 from vocky.project_feedback_api import routes as project_feedback_routes
 from vocky.redis_client import dispose_redis_client
 from vocky.usage_api import routes as usage_routes
@@ -34,13 +35,19 @@ async def healthz(_: Request) -> JSONResponse:
 
 @contextlib.asynccontextmanager
 async def lifespan(_: Starlette):
-    """Dispose shared resources when the host app shuts down."""
+    """Run the FastMCP session manager for the host app lifetime, then dispose resources.
 
-    try:
-        yield
-    finally:
-        await dispose_redis_client()
-        await dispose_engine()
+    ``session_manager.run()`` MUST wrap the whole app lifetime or the mounted
+    Streamable-HTTP app 500s at request time; a mounted sub-app's own lifespan is
+    not triggered by the host, so the host nests it here.
+    """
+
+    async with mcp.session_manager.run():
+        try:
+            yield
+        finally:
+            await dispose_redis_client()
+            await dispose_engine()
 
 
 def create_app() -> Starlette:
@@ -60,6 +67,10 @@ def create_app() -> Starlette:
             *api_routes,
             *project_feedback_routes,
             *attachment_routes,
+            # Mount the FastMCP Streamable-HTTP sub-app at ``/mcp`` (last route so it
+            # cannot shadow the core routes). The sub-app serves at its inner
+            # ``streamable_http_path="/"``, so the external endpoint is ``/mcp``.
+            Mount("/mcp", app=mcp.streamable_http_app()),
         ],
         middleware=[
             Middleware(ProjectCredentialAuthMiddleware),

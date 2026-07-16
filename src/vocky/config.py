@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0", alias="VOCKY_HOST")
     port: int = Field(default=8000, alias="VOCKY_PORT")
     log_level: str = Field(default="INFO", alias="VOCKY_LOG_LEVEL")
+    mcp_allowed_hosts: str = Field(default="", alias="VOCKY_MCP_ALLOWED_HOSTS")
+    mcp_allowed_origins: str = Field(default="", alias="VOCKY_MCP_ALLOWED_ORIGINS")
     admin_auth_token: str = Field(default="", alias="VOCKY_ADMIN_AUTH_TOKEN")
     attachments_dir: str = Field(default="./attachments", alias="VOCKY_ATTACHMENTS_DIR")
     attachments_max_bytes: int = Field(
@@ -44,6 +46,18 @@ class Settings(BaseSettings):
         default="image/jpeg,image/png,image/gif,image/webp",
         alias="VOCKY_ATTACHMENTS_ALLOWED_MIME_TYPES",
     )
+
+    @property
+    def mcp_allowed_host_values(self) -> tuple[str, ...]:
+        """Return configured MCP Host allowlist additions."""
+
+        return parse_csv_setting(self.mcp_allowed_hosts)
+
+    @property
+    def mcp_allowed_origin_values(self) -> tuple[str, ...]:
+        """Return configured MCP Origin allowlist additions."""
+
+        return parse_csv_setting(self.mcp_allowed_origins)
 
     @property
     def admin_auth_token_value(self) -> str:

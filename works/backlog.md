@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P7`
-- Current slice: `P7.S1`
-- Next slice: `P7.S2`
+- Current slice: `P7.S2`
+- Next slice: `P7.REVIEW`
 - Waiting on operator: `none`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-16T17:01:44+09:00`
+- Rebuilt at: `2026-07-16T18:08:54+09:00`
 
 ## Active Phases
 
@@ -19,7 +19,7 @@
 | [x] `P1` | `done` | `pass` | Relicense & Agent-Capture Retirement | `none` | `works/phases/active/P1` |
 | [x] `P2` | `done` | `pass` | Accounts, Tenancy & Projects Core | `none` | `works/phases/active/P2` |
 | [x] `P3` | `done` | `pass` | Feedback API v2, Search & Usage Monitoring | `none` | `works/phases/active/P3` |
-| [ ] `P7` | `planned` | `pending` | Agent-Capture Revival (MCP write-only) | `P7.S1` | `works/phases/active/P7` |
+| [ ] `P7` | `planned` | `pending` | Agent-Capture Revival (MCP write-only) | `P7.S2` | `works/phases/active/P7` |
 | [ ] `P4` | `planned` | `pending` | Web App: Tenant Dashboard & Project Pages | `P4.DECOMP` | `works/phases/active/P4` |
 | [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
 | [ ] `P6` | `planned` | `pending` | Landing Page, Webpage & Production Deploy | `P6.DECOMP` | `works/phases/active/P6` |
@@ -62,7 +62,7 @@
 | Slice | Status | Name | Kind | Path |
 |---|---|---|---|---|
 | [x] `P7.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P7/slices/P7.DECOMP` |
-| [ ] `P7.S1` | `todo` | MCP transport foundation: mcp dep, FastMCP server, /mcp mount, session_manager lifespan | `implementation` | `works/phases/active/P7/slices/P7.S1` |
+| [x] `P7.S1` | `done` | MCP transport foundation: mcp dep, FastMCP server, /mcp mount, session_manager lifespan | `implementation` | `works/phases/active/P7/slices/P7.S1` |
 | [ ] `P7.S2` | `todo` | capture_feedback write tool: per-project vk_ credential auth + capture-pipeline integration + integration test | `implementation` | `works/phases/active/P7/slices/P7.S2` |
 | [ ] `P7.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P7/slices/P7.REVIEW` |
 
