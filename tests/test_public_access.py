@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import httpx
+import pytest
 from starlette.applications import Starlette
 from starlette.responses import Response
 from starlette.routing import Route
@@ -9,8 +11,8 @@ from starlette.testclient import TestClient
 
 from vocky.app import create_app
 from vocky.auth import (
-    APIBearerAuthMiddleware,
     AdminBearerAuthMiddleware,
+    ProjectCredentialAuthMiddleware,
     is_admin_api_path,
     is_api_path,
     is_authorized_bearer,
@@ -84,21 +86,10 @@ def test_admin_bearer_auth_middleware_requires_configured_token() -> None:
     assert allowed_response.text == "ok"
 
 
-def test_api_bearer_auth_middleware_allows_disabled_token() -> None:
-    async def endpoint(_) -> Response:
-        return Response("ok")
-
-    app = Starlette(routes=[Route("/api/feedback", endpoint, methods=["POST"])])
-    app.add_middleware(APIBearerAuthMiddleware, token="")
-    client = TestClient(app)
-
-    response = client.post("/api/feedback")
-
-    assert response.status_code == 200
-    assert response.text == "ok"
-
-
-def test_api_bearer_auth_middleware_requires_configured_token() -> None:
+@pytest.mark.anyio
+async def test_project_credential_auth_middleware_enforces_mandatory_ingest_auth(
+    configured_project_credential,
+) -> None:
     async def endpoint(_) -> Response:
         return Response("ok")
 
@@ -108,25 +99,28 @@ def test_api_bearer_auth_middleware_requires_configured_token() -> None:
             Route("/api/feedback", endpoint, methods=["POST"]),
         ]
     )
-    app.add_middleware(APIBearerAuthMiddleware, token="secret")
-    client = TestClient(app)
+    app.add_middleware(ProjectCredentialAuthMiddleware)
 
-    health_response = client.get("/healthz")
-    missing_response = client.post("/api/feedback")
-    wrong_response = client.post(
-        "/api/feedback",
-        headers={"Authorization": "Bearer wrong"},
-    )
-    allowed_response = client.post(
-        "/api/feedback",
-        headers={"Authorization": "Bearer secret"},
-    )
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        health_response = await client.get("/healthz")
+        missing_response = await client.post("/api/feedback")
+        bad_response = await client.post(
+            "/api/feedback", headers={"Authorization": "Bearer vk_not-a-real-key"}
+        )
+        allowed_response = await client.post(
+            "/api/feedback",
+            headers={"Authorization": f"Bearer {configured_project_credential.key}"},
+        )
 
+    # Non-/api paths are never guarded by the ingest middleware.
     assert health_response.status_code == 200
+    # Missing and unknown/revoked keys both answer the same generic 401.
     assert missing_response.status_code == 401
     assert missing_response.headers["www-authenticate"] == "Bearer"
     assert missing_response.json() == {"detail": "Unauthorized"}
-    assert wrong_response.status_code == 401
+    assert bad_response.status_code == 401
+    # A seeded, active project key authenticates.
     assert allowed_response.status_code == 200
     assert allowed_response.text == "ok"
 
@@ -144,6 +138,7 @@ def test_core_rest_and_admin_routes_are_registered_without_a_catch_all_mount() -
         "/admin/assets/app.js",
         "/admin/assets/docs.json",
         "/api/feedback",
+        "/app/projects/{project_id}/credentials",
     ):
         assert path in route_paths
 

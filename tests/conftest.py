@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import Generator
+from typing import NamedTuple
+from uuid import UUID, uuid4
 
 import psycopg
 import pytest
@@ -15,10 +17,31 @@ from psycopg import sql
 from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
 
+from vocky.accounts import (
+    CreateProject,
+    CreateProjectCredential,
+    CreateUser,
+    get_accounts_service,
+)
+from vocky.accounts.security import generate_opaque_token, hash_password, sha256_hex
 from vocky.config import get_settings
 from vocky.db import dispose_engine, get_engine
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://vocky:vocky@127.0.0.1:55432/vocky"
+
+
+class SeededCredential(NamedTuple):
+    """A seeded user -> tenant -> project -> active credential for /api/* tests.
+
+    ``key`` is the plaintext ``vk_`` ingest key (valid Bearer for ``/api/*``);
+    the other ids let cross-tenant / scoping tests reference the seeded records.
+    """
+
+    key: str
+    project_id: UUID
+    tenant_id: UUID
+    user_id: UUID
+    credential_id: UUID
 
 
 def set_database_url(database_url: str) -> None:
@@ -134,3 +157,42 @@ async def configured_database(test_database_url: str) -> str:
         )
 
     await dispose_engine()
+
+
+@pytest_asyncio.fixture
+async def configured_project_credential(
+    configured_database: str,
+) -> SeededCredential:
+    """Seed a user, tenant, project, and active credential; return the raw key.
+
+    The plaintext ``vk_`` key it returns is a valid Bearer credential for the
+    ``/api/*`` ingest middleware; ``/api/*`` tests attach it to authenticate.
+    """
+
+    service = get_accounts_service()
+    user = await service.create_user(
+        CreateUser(
+            email=f"api-cred-{uuid4()}@example.com",
+            password_hash=hash_password("test-password-123"),
+        )
+    )
+    tenant, _member = await service.create_tenant_with_owner(user.id, "ingest workspace")
+    project = await service.create_project(
+        CreateProject(tenant_id=tenant.id, name="ingest project")
+    )
+    key = f"vk_{generate_opaque_token()}"
+    credential = await service.create_project_credential(
+        CreateProjectCredential(
+            project_id=project.id,
+            token_prefix=key[:12],
+            token_hash=sha256_hex(key),
+            name="test ingest key",
+        )
+    )
+    return SeededCredential(
+        key=key,
+        project_id=project.id,
+        tenant_id=tenant.id,
+        user_id=user.id,
+        credential_id=credential.id,
+    )

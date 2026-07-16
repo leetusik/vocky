@@ -16,7 +16,7 @@ from vocky.admin_ui import routes as admin_ui_routes
 from vocky.api import routes as api_routes
 from vocky.app_api import routes as app_api_routes
 from vocky.attachments_api import routes as attachment_routes
-from vocky.auth import APIBearerAuthMiddleware, AdminBearerAuthMiddleware
+from vocky.auth import AdminBearerAuthMiddleware, ProjectCredentialAuthMiddleware
 from vocky.auth_api import routes as auth_routes
 from vocky.config import get_settings
 from vocky.db import dispose_engine
@@ -56,7 +56,7 @@ def create_app() -> Starlette:
             *attachment_routes,
         ],
         middleware=[
-            Middleware(APIBearerAuthMiddleware, token=settings.api_auth_token_value),
+            Middleware(ProjectCredentialAuthMiddleware),
             Middleware(AdminBearerAuthMiddleware, token=settings.admin_auth_token_value),
         ],
         exception_handlers={AuthError: auth_error_handler},

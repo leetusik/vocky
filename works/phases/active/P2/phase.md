@@ -172,6 +172,53 @@ schema/CRUD slices at `medium` targets executor cost at the risk that actually w
   credential endpoints (`POST/GET/DELETE .../projects/{id}/credentials`) must resolve the project
   and 404 on a tenant mismatch **before** any credential work.
 
+**S4 delivered — per-project credentials + strictly-mandatory `/api/*` ingest auth (phase objective complete):**
+
+- **Credential `/app/*` contract (user-token authed, cross-tenant-404 like S3's project reads):**
+  - `POST /app/projects/{project_id}/credentials` — optional body `{name?}` (blank → null) → **201**
+    `{credential: {...}, key: "vk_<token>"}`. The plaintext `vk_` key is emitted **once, only here**;
+    only `token_hash = sha256_hex(key)` + display `token_prefix = key[:12]` are stored.
+  - `GET /app/projects/{project_id}/credentials` → **200** `{credentials: [{...}]}` (oldest-first,
+    metadata only — active and revoked).
+  - `DELETE /app/projects/{project_id}/credentials/{credential_id}` → **204** (soft-revoke via
+    `revoke_credential`; idempotent). **404** when the credential id isn't in that project's list.
+  - `serialize_credential` shape → `{id, project_id, name, token_prefix, created_at, last_used_at,
+    revoked_at}` — **never** `token_hash`/`key`. Reuse this exact shape for later credential serialization.
+  - Every credential handler resolves the project scoped to the caller's tenant **first** (`_load_scoped_project`):
+    400 on a malformed project_id UUID, **404** when the project is missing *or* cross-tenant — so a
+    caller can't probe/mutate another tenant's projects or credentials.
+- **Key convention (reuse everywhere a project key is minted):** `key = "vk_" + generate_opaque_token()`;
+  `token_prefix = key[:12]`; `token_hash = sha256_hex(key)`. The shared test fixture
+  `configured_project_credential` (in `tests/conftest.py`, on `configured_database`) seeds
+  user→tenant→project→active credential and returns a `SeededCredential(key, project_id, tenant_id,
+  user_id, credential_id)` — use it for any `/api/*` test.
+- **Mandatory ingest-auth model (`/api/*`):** `ProjectCredentialAuthMiddleware` (in `src/vocky/auth.py`,
+  raw ASGI) replaces the retired `APIBearerAuthMiddleware`. On http + `is_api_path`, it extracts the
+  bearer (`extract_bearer_credential`) and requires
+  `get_active_credential_by_token_hash(sha256_hex(token))` to return a non-None (non-revoked) credential;
+  **missing/malformed/unknown/revoked all → generic 401** `{"detail":"Unauthorized"}` + `WWW-Authenticate:
+  Bearer`. **No token arg, no open fallback** — auth is always enforced. **Identity-only:** it does NOT
+  stash project state on the scope and does NOT touch `last_used_at` (both are P3). Wired in
+  `create_app()` as `Middleware(ProjectCredentialAuthMiddleware)` (no token); `AdminBearerAuthMiddleware`
+  untouched. `is_api_path`/`is_admin_api_path`/`is_authorized_bearer` all kept.
+- **`VOCKY_API_AUTH_TOKEN` fully retired:** removed the `api_auth_token` field + `api_auth_token_value`
+  property from `config.py`, the `.env.example` line (replaced with a note that `/api/*` needs a
+  per-project credential), and all live references. **Left intentionally untouched (P4 retires the admin
+  UI):** `src/vocky/admin_assets/{docs.json,app.js}` and the `tests/test_admin_ui.py` assertion over that
+  packaged docs content still mention `VOCKY_API_AUTH_TOKEN` — do NOT scrub these in P2; they are the P4
+  operator-surface reshaping. So the "no `VOCKY_API_AUTH_TOKEN`" scrub is complete in the live auth path
+  but the packaged admin-UI docs still carry the string by design.
+- **Smoke E2E (`src/vocky/smoke.py`):** `run_rest_smoke` now provisions a real key end-to-end:
+  `POST /auth/signup` → `POST /app/projects` → `POST /app/projects/{id}/credentials`, then uses the
+  returned `vk_` key as the Bearer for `POST /api/feedback` → `GET /api/feedback`. `make_smoke_request_headers`
+  (the old `VOCKY_API_AUTH_TOKEN` logic) was removed; health-check helpers kept.
+- **Tests:** all `/api/*` test apps (`test_capture_api`, `test_user_feedback_api`, `test_attachments_api`)
+  now install `ProjectCredentialAuthMiddleware` and authenticate with the fixture key; each file's former
+  static-`token="secret"` case became a "no key / bad key → 401, seeded key → passes" case.
+  `test_public_access.py` swapped its two static-token middleware tests for one
+  `ProjectCredentialAuthMiddleware` test and asserts the credential route is registered. New
+  `tests/test_credentials_api.py` is the credential lifecycle + cross-tenant E2E. Full suite: 153 passed.
+
 ## Doc impact
 
 Durable-doc changes for `P2.REVIEW` to consolidate (do not version docs per slice):
@@ -223,6 +270,26 @@ _S3 additions (durable truth landed this slice, for REVIEW to consolidate):_
   distinct from the `/api/*` product data-plane (per-project credential auth after S4) and the
   admin surface; tenant isolation is enforced per-handler by comparing `project.tenant_id` against
   the caller's `ctx.tenant.id` and answering 404 on mismatch.
+
+_S4 additions (durable truth landed this slice, for REVIEW to consolidate):_
+
+- **api** — per-project credential control-plane on `/app/*` (user-token authed): `POST
+  /app/projects/{id}/credentials` (201; returns the plaintext `vk_` key **once** + credential
+  metadata), `GET /app/projects/{id}/credentials` (200, metadata list), `DELETE
+  /app/projects/{id}/credentials/{credential_id}` (204 soft-revoke); all answer **404 when the
+  project is missing or cross-tenant** (400 on malformed id). Credential serialized as `{id,
+  project_id, name, token_prefix, created_at, last_used_at, revoked_at}` — never `token_hash`.
+- **api / architecture** — public `/api/*` ingest auth is now **strictly mandatory per-project
+  credential auth**: every request needs a valid, non-revoked project key; missing/malformed/unknown/
+  revoked → generic 401. No open/no-token fallback. The middleware is identity-only in P2 (does not
+  yet thread project scope into capture — that's P3).
+- **security** — per-project ingest keys: `vk_`-prefixed opaque token, stored only as `sha256_hex`
+  `token_hash` (+ display `token_prefix`), plaintext returned once at creation and never recoverable;
+  soft-revoke via `revoked_at` immediately fails ingest (`get_active_credential_by_token_hash` filters
+  `revoked_at IS NULL`). The static `VOCKY_API_AUTH_TOKEN` global capture token is **retired**.
+- **config / deployment** — `VOCKY_API_AUTH_TOKEN` (and the `api_auth_token` setting) removed;
+  `.env.example` documents that `/api/*` now requires a per-project credential. (The packaged admin-UI
+  docs under `admin_assets/*` still reference `VOCKY_API_AUTH_TOKEN` — intentionally deferred to P4.)
 
 ## Constraints
 

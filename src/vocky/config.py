@@ -35,7 +35,6 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, alias="VOCKY_PORT")
     log_level: str = Field(default="INFO", alias="VOCKY_LOG_LEVEL")
     admin_auth_token: str = Field(default="", alias="VOCKY_ADMIN_AUTH_TOKEN")
-    api_auth_token: str = Field(default="", alias="VOCKY_API_AUTH_TOKEN")
     attachments_dir: str = Field(default="./attachments", alias="VOCKY_ATTACHMENTS_DIR")
     attachments_max_bytes: int = Field(
         default=5 * 1024 * 1024, alias="VOCKY_ATTACHMENTS_MAX_BYTES"
@@ -51,12 +50,6 @@ class Settings(BaseSettings):
         """Return the configured Admin REST bearer token, or an empty string when disabled."""
 
         return self.admin_auth_token.strip()
-
-    @property
-    def api_auth_token_value(self) -> str:
-        """Return the configured public REST bearer token, or an empty string when disabled."""
-
-        return self.api_auth_token.strip()
 
     @property
     def attachments_allowed_mime_type_values(self) -> tuple[str, ...]:

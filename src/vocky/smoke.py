@@ -20,34 +20,73 @@ def make_http_user_agent() -> str:
     return os.getenv("VOCKY_HTTP_USER_AGENT", "").strip() or DEFAULT_USER_AGENT
 
 
-def make_smoke_request_headers(auth_token: str | None = None) -> dict[str, str]:
-    """Return REST smoke client headers with an optional bearer token.
-
-    The public REST surface is guarded by ``APIBearerAuthMiddleware``, so the
-    Authorization header is included only when ``VOCKY_API_AUTH_TOKEN`` is set.
-    """
-
-    headers = {"User-Agent": make_http_user_agent()}
-    token = os.getenv("VOCKY_API_AUTH_TOKEN", "") if auth_token is None else auth_token
-    token = token.strip()
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    return headers
-
-
 def make_smoke_health_request(url: str) -> Request:
     """Build a health-check request with an explicit user agent."""
 
     return Request(url, headers={"User-Agent": make_http_user_agent()})
 
 
-def run_rest_smoke(base_url: str) -> tuple[str, int]:
-    """Exercise the public REST capture -> persist -> read loop.
+def _provision_ingest_key(client: httpx.Client, base_url: str, smoke_id: str) -> str:
+    """Sign up, create a project, and mint a per-project ingest key.
 
-    Posts one feedback event to ``POST /api/feedback`` and then polls the scoped
-    ``GET /api/feedback`` read until the worker-persisted record appears, asserting
-    the captured context round-tripped. Returns the capture request id and the
-    number of records returned by the successful read.
+    Public ``/api/*`` capture requires a per-project credential (there is no
+    global capture token), so the smoke first walks the account control-plane to
+    obtain a real ``vk_`` key. Returns the plaintext key.
+    """
+
+    signup_response = client.post(
+        f"{base_url}/auth/signup",
+        json={
+            "email": f"smoke-{smoke_id}@example.com",
+            "password": f"smoke-password-{smoke_id}",
+        },
+    )
+    if signup_response.status_code != 201:
+        raise SystemExit(
+            f"signup smoke failed: {signup_response.status_code} {signup_response.text}"
+        )
+    token = signup_response.json().get("token")
+    if not isinstance(token, str) or not token:
+        raise SystemExit(f"signup smoke returned no token: {signup_response.text}")
+    user_auth = {"Authorization": f"Bearer {token}"}
+
+    project_response = client.post(
+        f"{base_url}/app/projects",
+        headers=user_auth,
+        json={"name": f"smoke project {smoke_id}"},
+    )
+    if project_response.status_code != 201:
+        raise SystemExit(
+            f"project smoke failed: {project_response.status_code} {project_response.text}"
+        )
+    project_id = project_response.json().get("project", {}).get("id")
+    if not isinstance(project_id, str) or not project_id:
+        raise SystemExit(f"project smoke returned no id: {project_response.text}")
+
+    credential_response = client.post(
+        f"{base_url}/app/projects/{project_id}/credentials",
+        headers=user_auth,
+        json={"name": "smoke key"},
+    )
+    if credential_response.status_code != 201:
+        raise SystemExit(
+            "credential smoke failed: "
+            f"{credential_response.status_code} {credential_response.text}"
+        )
+    api_key = credential_response.json().get("key")
+    if not isinstance(api_key, str) or not api_key.startswith("vk_"):
+        raise SystemExit(f"credential smoke returned no key: {credential_response.text}")
+    return api_key
+
+
+def run_rest_smoke(base_url: str) -> tuple[str, int]:
+    """Exercise the account + public REST capture -> persist -> read loop.
+
+    Provisions a user, project, and per-project ingest key via ``/auth`` and
+    ``/app``, then posts one feedback event to ``POST /api/feedback`` with that
+    key and polls the scoped ``GET /api/feedback`` read until the worker-persisted
+    record appears, asserting the captured context round-tripped. Returns the
+    capture request id and the number of records returned by the successful read.
     """
 
     smoke_id = f"smoke-{uuid4()}"
@@ -56,11 +95,18 @@ def run_rest_smoke(base_url: str) -> tuple[str, int]:
     smoke_session_id = f"session-{smoke_id}"
     smoke_target_id = f"{smoke_id}-assistant"
     smoke_target_text = f"smoke target text {smoke_id}"
-    headers = make_smoke_request_headers()
 
-    with httpx.Client(headers=headers, follow_redirects=False, timeout=10) as client:
+    with httpx.Client(
+        headers={"User-Agent": make_http_user_agent()},
+        follow_redirects=False,
+        timeout=10,
+    ) as client:
+        api_key = _provision_ingest_key(client, base_url, smoke_id)
+        api_auth = {"Authorization": f"Bearer {api_key}"}
+
         capture_response = client.post(
             f"{base_url}/api/feedback",
+            headers=api_auth,
             json={
                 "message": smoke_message,
                 "source": {"product": "vocky-smoke", "integration": "make-smoke"},
@@ -89,6 +135,7 @@ def run_rest_smoke(base_url: str) -> tuple[str, int]:
         for _ in range(20):
             list_response = client.get(
                 f"{base_url}/api/feedback",
+                headers=api_auth,
                 params={
                     "user_id": smoke_user_id,
                     "source_product": "vocky-smoke",

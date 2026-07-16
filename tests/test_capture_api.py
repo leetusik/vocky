@@ -9,27 +9,41 @@ import httpx
 import pytest
 from starlette.applications import Starlette
 
+from vocky.auth import ProjectCredentialAuthMiddleware
 from vocky.capture_queue import CaptureQueue, CaptureQueueError
 import vocky.api as api_module
 from vocky.api import routes as api_routes
 
 
 def make_api_app() -> Starlette:
-    """Create a test app with only public REST API routes."""
+    """Create a test app with the public REST API routes behind ingest auth."""
 
-    return Starlette(routes=api_routes)
+    app = Starlette(routes=api_routes)
+    app.add_middleware(ProjectCredentialAuthMiddleware)
+    return app
+
+
+def _authed_client(key: str) -> httpx.AsyncClient:
+    """Return an ASGI client that presents ``key`` as the ingest Bearer token."""
+
+    transport = httpx.ASGITransport(app=make_api_app())
+    return httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        headers={"Authorization": f"Bearer {key}"},
+    )
 
 
 @pytest.mark.anyio
 async def test_capture_feedback_accepts_message_action_payload_and_enqueues(
     monkeypatch: pytest.MonkeyPatch,
+    configured_project_credential,
 ) -> None:
     redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     queue = CaptureQueue(redis_client)
     monkeypatch.setattr(api_module, "get_capture_queue", lambda: queue)
 
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.post(
             "/api/feedback",
             json={
@@ -94,13 +108,13 @@ async def test_capture_feedback_accepts_message_action_payload_and_enqueues(
 @pytest.mark.anyio
 async def test_capture_feedback_accepts_surface_product_payload_and_enqueues(
     monkeypatch: pytest.MonkeyPatch,
+    configured_project_credential,
 ) -> None:
     redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     queue = CaptureQueue(redis_client)
     monkeypatch.setattr(api_module, "get_capture_queue", lambda: queue)
 
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.post(
             "/api/feedback",
             json={
@@ -154,9 +168,10 @@ async def test_capture_feedback_accepts_surface_product_payload_and_enqueues(
 
 
 @pytest.mark.anyio
-async def test_capture_feedback_validation_error_returns_400() -> None:
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+async def test_capture_feedback_validation_error_returns_400(
+    configured_project_credential,
+) -> None:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.post(
             "/api/feedback",
             json={
@@ -170,9 +185,10 @@ async def test_capture_feedback_validation_error_returns_400() -> None:
 
 
 @pytest.mark.anyio
-async def test_capture_feedback_invalid_channel_returns_400() -> None:
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+async def test_capture_feedback_invalid_channel_returns_400(
+    configured_project_credential,
+) -> None:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.post(
             "/api/feedback",
             json={
@@ -187,9 +203,10 @@ async def test_capture_feedback_invalid_channel_returns_400() -> None:
 
 
 @pytest.mark.anyio
-async def test_capture_feedback_invalid_trigger_type_returns_400() -> None:
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+async def test_capture_feedback_invalid_trigger_type_returns_400(
+    configured_project_credential,
+) -> None:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.post(
             "/api/feedback",
             json={
@@ -206,9 +223,10 @@ async def test_capture_feedback_invalid_trigger_type_returns_400() -> None:
 
 
 @pytest.mark.anyio
-async def test_capture_feedback_invalid_trigger_metadata_returns_400() -> None:
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+async def test_capture_feedback_invalid_trigger_metadata_returns_400(
+    configured_project_credential,
+) -> None:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.post(
             "/api/feedback",
             json={
@@ -225,13 +243,13 @@ async def test_capture_feedback_invalid_trigger_metadata_returns_400() -> None:
 @pytest.mark.anyio
 async def test_capture_feedback_blank_channel_enqueues_null(
     monkeypatch: pytest.MonkeyPatch,
+    configured_project_credential,
 ) -> None:
     redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     queue = CaptureQueue(redis_client)
     monkeypatch.setattr(api_module, "get_capture_queue", lambda: queue)
 
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.post(
             "/api/feedback",
             json={
@@ -259,13 +277,13 @@ async def test_capture_feedback_blank_channel_enqueues_null(
 @pytest.mark.anyio
 async def test_capture_feedback_omitted_target_type_remains_compatible(
     monkeypatch: pytest.MonkeyPatch,
+    configured_project_credential,
 ) -> None:
     redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     queue = CaptureQueue(redis_client)
     monkeypatch.setattr(api_module, "get_capture_queue", lambda: queue)
 
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.post(
             "/api/feedback",
             json={
@@ -293,9 +311,10 @@ async def test_capture_feedback_omitted_target_type_remains_compatible(
 
 
 @pytest.mark.anyio
-async def test_capture_feedback_body_shape_errors_return_400() -> None:
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+async def test_capture_feedback_body_shape_errors_return_400(
+    configured_project_credential,
+) -> None:
+    async with _authed_client(configured_project_credential.key) as client:
         malformed_response = await client.post(
             "/api/feedback",
             content="{",
@@ -318,6 +337,7 @@ async def test_capture_feedback_body_shape_errors_return_400() -> None:
 @pytest.mark.anyio
 async def test_capture_feedback_queue_failure_returns_503(
     monkeypatch: pytest.MonkeyPatch,
+    configured_project_credential,
 ) -> None:
     class BrokenQueue:
         async def enqueue_feedback(self, payload):
@@ -325,8 +345,7 @@ async def test_capture_feedback_queue_failure_returns_503(
 
     monkeypatch.setattr(api_module, "get_capture_queue", lambda: BrokenQueue())
 
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.post(
             "/api/feedback",
             json={
@@ -337,3 +356,34 @@ async def test_capture_feedback_queue_failure_returns_503(
 
     assert response.status_code == 503
     assert response.json() == {"detail": "capture queue unavailable"}
+
+
+@pytest.mark.anyio
+async def test_capture_feedback_requires_project_credential(
+    monkeypatch: pytest.MonkeyPatch,
+    configured_project_credential,
+) -> None:
+    redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    queue = CaptureQueue(redis_client)
+    monkeypatch.setattr(api_module, "get_capture_queue", lambda: queue)
+
+    body = {"message": "Mandatory auth", "source": {"product": "vocky-cli"}}
+    transport = httpx.ASGITransport(app=make_api_app())
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        missing = await client.post("/api/feedback", json=body)
+        bad = await client.post(
+            "/api/feedback", json=body, headers={"Authorization": "Bearer vk_not-a-real-key"}
+        )
+        allowed = await client.post(
+            "/api/feedback",
+            json=body,
+            headers={"Authorization": f"Bearer {configured_project_credential.key}"},
+        )
+
+    assert missing.status_code == 401
+    assert missing.json() == {"detail": "Unauthorized"}
+    assert missing.headers["www-authenticate"] == "Bearer"
+    assert bad.status_code == 401
+    assert allowed.status_code == 202
+
+    await redis_client.aclose()

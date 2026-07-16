@@ -12,18 +12,28 @@ from sqlalchemy import text
 from starlette.applications import Starlette
 
 from vocky.api import routes as api_routes
-from vocky.auth import APIBearerAuthMiddleware
+from vocky.auth import ProjectCredentialAuthMiddleware
 from vocky.db import get_engine
 from vocky.storage import LocalFilesystemAttachmentStorage
 
 
-def make_api_app(*, token: str = "") -> Starlette:
-    """Create a test app with the public API routes and optional bearer auth."""
+def make_api_app() -> Starlette:
+    """Create a test app with the public API routes behind mandatory ingest auth."""
 
     app = Starlette(routes=api_routes)
-    if token:
-        app.add_middleware(APIBearerAuthMiddleware, token=token)
+    app.add_middleware(ProjectCredentialAuthMiddleware)
     return app
+
+
+def _authed_client(key: str) -> httpx.AsyncClient:
+    """Return an ASGI client that presents ``key`` as the ingest Bearer token."""
+
+    transport = httpx.ASGITransport(app=make_api_app())
+    return httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        headers={"Authorization": f"Bearer {key}"},
+    )
 
 
 @pytest.fixture
@@ -128,6 +138,7 @@ async def _seed_comment(
 @pytest.mark.anyio
 async def test_user_feedback_returns_only_caller_scope_with_comments(
     configured_database: str,
+    configured_project_credential,
 ) -> None:
     mine = "00000000-0000-0000-0000-0000000000a1"
     other_user = "00000000-0000-0000-0000-0000000000a2"
@@ -163,8 +174,7 @@ async def test_user_feedback_returns_only_caller_scope_with_comments(
         author="ops-jane",
     )
 
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.get(
             "/api/feedback",
             params={"user_id": "user-1", "source_product": "changple5"},
@@ -192,9 +202,9 @@ async def test_user_feedback_returns_only_caller_scope_with_comments(
 @pytest.mark.anyio
 async def test_user_feedback_requires_user_id_and_source_product(
     configured_database: str,
+    configured_project_credential,
 ) -> None:
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         missing_user = await client.get(
             "/api/feedback", params={"source_product": "changple5"}
         )
@@ -219,7 +229,10 @@ async def test_user_feedback_requires_user_id_and_source_product(
 
 
 @pytest.mark.anyio
-async def test_user_feedback_basic_filter_narrows(configured_database: str) -> None:
+async def test_user_feedback_basic_filter_narrows(
+    configured_database: str,
+    configured_project_credential,
+) -> None:
     like_id = "00000000-0000-0000-0000-0000000000b1"
     dislike_id = "00000000-0000-0000-0000-0000000000b2"
     await _seed_feedback(
@@ -239,8 +252,7 @@ async def test_user_feedback_basic_filter_narrows(configured_database: str) -> N
         message="disliked",
     )
 
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.get(
             "/api/feedback",
             params={
@@ -257,7 +269,10 @@ async def test_user_feedback_basic_filter_narrows(configured_database: str) -> N
 
 
 @pytest.mark.anyio
-async def test_user_feedback_paginates(configured_database: str) -> None:
+async def test_user_feedback_paginates(
+    configured_database: str,
+    configured_project_credential,
+) -> None:
     older = "00000000-0000-0000-0000-0000000000c1"
     newer = "00000000-0000-0000-0000-0000000000c2"
     await _seed_feedback(
@@ -275,8 +290,7 @@ async def test_user_feedback_paginates(configured_database: str) -> None:
         message="newer",
     )
 
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         first = await client.get(
             "/api/feedback",
             params={"user_id": "user-1", "source_product": "changple5", "limit": "1"},
@@ -303,8 +317,9 @@ async def test_user_feedback_paginates(configured_database: str) -> None:
 
 
 @pytest.mark.anyio
-async def test_user_feedback_requires_auth_when_token_configured(
+async def test_user_feedback_requires_project_credential(
     configured_database: str,
+    configured_project_credential,
 ) -> None:
     feedback_id = "00000000-0000-0000-0000-0000000000d1"
     await _seed_feedback(
@@ -315,15 +330,19 @@ async def test_user_feedback_requires_auth_when_token_configured(
         message="guarded",
     )
 
-    transport = httpx.ASGITransport(app=make_api_app(token="secret"))
+    transport = httpx.ASGITransport(app=make_api_app())
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         params = {"user_id": "user-1", "source_product": "changple5"}
         missing = await client.get("/api/feedback", params=params)
         wrong = await client.get(
-            "/api/feedback", params=params, headers={"Authorization": "Bearer wrong"}
+            "/api/feedback",
+            params=params,
+            headers={"Authorization": "Bearer vk_not-a-real-key"},
         )
         allowed = await client.get(
-            "/api/feedback", params=params, headers={"Authorization": "Bearer secret"}
+            "/api/feedback",
+            params=params,
+            headers={"Authorization": f"Bearer {configured_project_credential.key}"},
         )
 
     assert missing.status_code == 401
@@ -335,7 +354,10 @@ async def test_user_feedback_requires_auth_when_token_configured(
 
 
 @pytest.mark.anyio
-async def test_user_read_surfaces_only_own_attachments(configured_database: str) -> None:
+async def test_user_read_surfaces_only_own_attachments(
+    configured_database: str,
+    configured_project_credential,
+) -> None:
     mine = "00000000-0000-0000-0000-0000000000b1"
     other_user = "00000000-0000-0000-0000-0000000000b2"
     mine_attachment = "00000000-0000-0000-0000-0000000000b3"
@@ -368,8 +390,7 @@ async def test_user_read_surfaces_only_own_attachments(configured_database: str)
         created_at=datetime(2026, 6, 1, 11, 5, tzinfo=UTC),
     )
 
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.get(
             "/api/feedback",
             params={"user_id": "user-1", "source_product": "changple5"},
@@ -391,6 +412,7 @@ async def test_user_read_surfaces_only_own_attachments(configured_database: str)
 async def test_user_attachment_download_own_returns_bytes(
     configured_database: str,
     api_attachment_storage: LocalFilesystemAttachmentStorage,
+    configured_project_credential,
 ) -> None:
     feedback_id = "00000000-0000-0000-0000-0000000000c1"
     attachment_id = "00000000-0000-0000-0000-0000000000c2"
@@ -411,8 +433,7 @@ async def test_user_attachment_download_own_returns_bytes(
     )
     api_attachment_storage.save("user-key", payload)
 
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.get(
             f"/api/feedback/{feedback_id}/attachments/{attachment_id}",
             params={"user_id": "user-1", "source_product": "changple5"},
@@ -429,6 +450,7 @@ async def test_user_attachment_download_own_returns_bytes(
 async def test_user_attachment_download_other_user_returns_404(
     configured_database: str,
     api_attachment_storage: LocalFilesystemAttachmentStorage,
+    configured_project_credential,
 ) -> None:
     feedback_id = "00000000-0000-0000-0000-0000000000c3"
     attachment_id = "00000000-0000-0000-0000-0000000000c4"
@@ -447,8 +469,7 @@ async def test_user_attachment_download_other_user_returns_404(
     )
     api_attachment_storage.save("other-user-key", b"secret")
 
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.get(
             f"/api/feedback/{feedback_id}/attachments/{attachment_id}",
             params={"user_id": "user-1", "source_product": "changple5"},
@@ -461,6 +482,7 @@ async def test_user_attachment_download_other_user_returns_404(
 async def test_user_attachment_download_other_product_returns_404(
     configured_database: str,
     api_attachment_storage: LocalFilesystemAttachmentStorage,
+    configured_project_credential,
 ) -> None:
     feedback_id = "00000000-0000-0000-0000-0000000000c5"
     attachment_id = "00000000-0000-0000-0000-0000000000c6"
@@ -480,8 +502,7 @@ async def test_user_attachment_download_other_product_returns_404(
     )
     api_attachment_storage.save("other-product-key", b"secret")
 
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.get(
             f"/api/feedback/{feedback_id}/attachments/{attachment_id}",
             params={"user_id": "user-1", "source_product": "changple5"},
@@ -493,12 +514,12 @@ async def test_user_attachment_download_other_product_returns_404(
 @pytest.mark.anyio
 async def test_user_attachment_download_missing_scope_returns_400(
     configured_database: str,
+    configured_project_credential,
 ) -> None:
     feedback_id = "00000000-0000-0000-0000-0000000000c7"
     attachment_id = "00000000-0000-0000-0000-0000000000c8"
 
-    transport = httpx.ASGITransport(app=make_api_app())
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with _authed_client(configured_project_credential.key) as client:
         response = await client.get(
             f"/api/feedback/{feedback_id}/attachments/{attachment_id}",
             params={"user_id": "user-1"},
@@ -508,13 +529,14 @@ async def test_user_attachment_download_missing_scope_returns_400(
 
 
 @pytest.mark.anyio
-async def test_user_attachment_download_requires_bearer_when_configured(
+async def test_user_attachment_download_requires_project_credential(
     configured_database: str,
+    configured_project_credential,
 ) -> None:
     feedback_id = "00000000-0000-0000-0000-0000000000c9"
     attachment_id = "00000000-0000-0000-0000-0000000000ca"
 
-    transport = httpx.ASGITransport(app=make_api_app(token="secret"))
+    transport = httpx.ASGITransport(app=make_api_app())
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.get(
             f"/api/feedback/{feedback_id}/attachments/{attachment_id}",

@@ -3,14 +3,14 @@
   "phase_id": "P2",
   "name": "Per-project credentials + swap public ingest auth",
   "kind": "implementation",
-  "status": "todo",
+  "status": "done",
   "order": 4,
   "depends_on": [
     "P2.S3"
   ],
   "created_at": "2026-07-15T17:20:26+09:00",
-  "started_at": null,
-  "completed_at": null,
+  "started_at": "2026-07-16T13:42:58+09:00",
+  "completed_at": "2026-07-16T13:59:26+09:00",
   "risk": "high",
   "source": {
     "type": "manual",
