@@ -20,3 +20,10 @@ export type { AppNavItem } from "./app";
 // Tenant dashboard (P4.S3) — usage/trend/projects copy + the create-project form.
 export { CREATE_PROJECT_ERRORS, DASHBOARD } from "./dashboard";
 export type { StatTileCopy } from "./dashboard";
+
+// Project detail (P4.S4) — per-project usage + credentials, mint/revoke copy.
+export {
+  MINT_CREDENTIAL_ERRORS,
+  PROJECT,
+  REVOKE_CREDENTIAL_ERRORS,
+} from "./project";

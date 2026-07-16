@@ -123,3 +123,68 @@ export interface VockyUsage {
   daily_counts: VockyDailyMetricCount[];
   projects: VockyUsageProject[];
 }
+
+// ── /app/projects/{id} shapes (P4.S4) ──────────────────────────────────────
+// Mirroring `src/vocky/app_api.py::serialize_credential` and
+// `src/vocky/usage_api.py::_project_usage_response` verbatim.
+
+/**
+ * `serialize_credential` — one project ingest key's METADATA. Never carries
+ * `token_hash`, and never the plaintext key (see `VockyMintedCredential`).
+ *
+ * There is NO `status` field: a credential is Active exactly when
+ * `revoked_at === null`, Revoked otherwise. Revoked credentials REMAIN listed
+ * (vocky's revoke is a stamp, not a delete), so any consumer must derive the
+ * state rather than assume the list is live-only.
+ *
+ * `token_prefix` is `key[:12]` — `"vk_"` plus the first 9 characters of the
+ * opaque token. It is a DISPLAY STUB, not a usable credential.
+ */
+export interface VockyCredential {
+  id: string;
+  project_id: string;
+  /** Optional display label; `null` when the key was minted unnamed. */
+  name: string | null;
+  token_prefix: string;
+  created_at: string;
+  /** Stamped on each ingest call; `null` until the key is first used. */
+  last_used_at: string | null;
+  /** `null` ⇔ Active. */
+  revoked_at: string | null;
+}
+
+/**
+ * `GET /app/projects/{id}/usage` — one project's capture volume plus that
+ * project's credentials.
+ *
+ * A SEPARATE type from `VockyUsage`, not a shared/`Partial<>` one: this payload
+ * has NO `projects` list and instead bundles `credentials` (the endpoint exists
+ * to surface each key's `last_used_at`). The `window` / `totals` /
+ * `daily_counts` fields come from the same `serialize_metrics` and are identical.
+ *
+ * Unlike `VockyUsage`, `daily_counts` is ALWAYS zero-filled here:
+ * `_project_usage_response` has no zero-project short-circuit, so a project with
+ * no captures still gets one bucket per day of the window rather than `[]`.
+ */
+export interface VockyProjectUsage {
+  window: VockyUsageWindow;
+  totals: VockyMetricCounts;
+  daily_counts: VockyDailyMetricCount[];
+  /** `serialize_credential` — the SAME serializer as the standalone list route. */
+  credentials: VockyCredential[];
+}
+
+/**
+ * `POST /app/projects/{id}/credentials` → 201 `{credential, key}` — the one
+ * response that cannot be unwrapped to a single domain type.
+ *
+ * `key` is the PLAINTEXT `vk_…` credential, returned EXACTLY ONCE and never
+ * recoverable: vocky persists only `sha256_hex(key)` + `key[:12]`. Unwrapping
+ * this to a bare `VockyCredential` would throw away the only copy, so the
+ * envelope is public and the caller is forced to decide what to do with the
+ * secret. It must never be logged, put in a URL, or persisted.
+ */
+export interface VockyMintedCredential {
+  credential: VockyCredential;
+  key: string;
+}

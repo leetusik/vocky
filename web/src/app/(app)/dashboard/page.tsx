@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { Card, DataTable, type DataTableColumn } from "@/components/ui";
 import { StatTiles, TrendChart } from "@/components/usage";
@@ -28,10 +29,15 @@ const columns: DataTableColumn<VockyProject>[] = [
   {
     key: "name",
     header: DASHBOARD.projects.columns.name,
-    // No link to /projects/[id] yet — S4 owns that route and adds the link when
-    // it exists. S2 set the precedent of not shipping links that 404.
+    // The route exists as of S4, so the name is the way into the drill-down (the
+    // rail deliberately has no Projects entry — a project is reached from here).
     cell: (project) => (
-      <span className="font-medium text-ink">{project.name}</span>
+      <Link
+        href={`/projects/${project.id}`}
+        className="font-medium text-ink hover:underline"
+      >
+        {project.name}
+      </Link>
     ),
   },
   {
