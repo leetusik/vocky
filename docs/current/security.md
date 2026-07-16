@@ -1,17 +1,17 @@
 ---
 doc_id: security
-version: v0003
-created_at: 2026-07-16T16:32:12+09:00
-source: P3.REVIEW
-summary: P3: project-scoped read authz (404-never-403 on /api/project/* and /app/feedback), one vk_ key captures+reads+manages its project (no per-credential scopes), best-effort last_used_at stamping, tightened project-scoped self-read
-previous: v0002_argon2id_passwords_opaque_hashed_session_tokens_30-day_ttl_mint-once_hashed_vk__project_credentials_mandatory_ingest_auth_no_enumeration
+version: v0004
+created_at: 2026-07-16T18:52:17+09:00
+source: P7.REVIEW
+summary: P7: /mcp requires a per-project vk_ credential (same guard/401/last_used_at as /api/*); DNS-rebinding on; static token retired
+previous: v0003_p3_project-scoped_read_authz_404-never-403_on_api_project_and_app_feedback_one_vk__key_captures_reads_manages_its_project_no_per-credential_scopes_best-effort_last_used_at_stamping_tightened_project-scoped_self-read
 ---
 
 # Security
 
 ## Status
 
-Covers the authentication and secret-handling posture landed in P2 (password hashing, account session tokens, per-project ingest credentials, the mandatory `/api/*` ingest boundary) plus the P3 authorization posture for the new feedback surfaces: project-scoped read/manage authorization that answers 404-never-403 on cross-project/cross-tenant ids, the single-key project read/manage surface, best-effort `last_used_at` stamping, and the tightened project-scoped self-read. Attachment-download authorization and admin-token handling are covered in `architecture.md` / `api.md`.
+Covers the authentication and secret-handling posture landed in P2 (password hashing, account session tokens, per-project ingest credentials, the mandatory `/api/*` ingest boundary) plus the P3 authorization posture for the new feedback surfaces: project-scoped read/manage authorization that answers 404-never-403 on cross-project/cross-tenant ids, the single-key project read/manage surface, best-effort `last_used_at` stamping, and the tightened project-scoped self-read. As of **P7** it also covers the MCP capture endpoint: `/mcp` is guarded by the same mandatory per-project `vk_` credential auth as `/api/*`, and its Streamable-HTTP transport carries DNS-rebinding protection. Attachment-download authorization and admin-token handling are covered in `architecture.md` / `api.md`.
 
 ## Passwords
 
@@ -38,11 +38,16 @@ Covers the authentication and secret-handling posture landed in P2 (password has
 - Only `sha256_hex(key)` (`token_hash`, UNIQUE) and a short display `token_prefix = key[:12]` are stored. Credential records and list responses expose `token_prefix` but **never** `token_hash` or the raw key.
 - Revocation is a soft-revoke: `DELETE …/credentials/{id}` sets `revoked_at`. The ingest lookup (`get_active_credential_by_token_hash`) filters `revoked_at IS NULL`, so a revoked key fails `/api/*` auth immediately.
 
-## Mandatory `/api/*` Ingest Auth
+## Mandatory `/api/*` and `/mcp` Ingest Auth
 
 - Public REST ingestion is **strictly mandatory** credential auth. `ProjectCredentialAuthMiddleware` guards every `/api/*` HTTP request: it extracts the bearer, hashes it, and requires an active (non-revoked) project credential to match. There is **no** token argument and **no** open/unauthenticated fallback — the previous optional static-token model (`VOCKY_API_AUTH_TOKEN`) is retired.
+- As of **P7** the same guard also covers the **entire `/mcp` MCP endpoint** (the middleware predicate is `is_api_path(p) or is_mcp_path(p)`, where `is_mcp_path` matches `/mcp` and `/mcp/…`). The MCP `initialize` handshake is included, so an unauthenticated agent cannot even open a session; identical resolution, `401`, scope stash, and `last_used_at` stamp as `/api/*`. The retired **static `VOCKY_MCP_AUTH_TOKEN`** is **not** revived — MCP auth is now per-project `vk_` credentials.
 - Missing, malformed, unknown, and revoked credentials **all** answer an identical generic `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`, so a caller cannot distinguish "no key" from "wrong key" from "revoked key".
-- As of P3 the guard also **threads project scope**: on a successful auth it stashes the resolved `ProjectCredentialRecord` on the ASGI scope under the namespaced key `vocky.project_credential` (read by handlers via `get_request_credential`), and best-effort stamps the credential's `last_used_at` (see below). The namespaced scope key (not `request.state`) is deliberate — it survives any Starlette `scope["state"]` re-init inside the middleware stack.
+- As of P3 the guard also **threads project scope**: on a successful auth it stashes the resolved `ProjectCredentialRecord` on the ASGI scope under the namespaced key `vocky.project_credential` (read by handlers via `get_request_credential`), and best-effort stamps the credential's `last_used_at` (see below). The namespaced scope key (not `request.state`) is deliberate — it survives any Starlette `scope["state"]` re-init inside the middleware stack, and it also survives crossing into the mounted FastMCP sub-app so an MCP tool can read the credential back off `ctx.request_context.request`.
+
+## MCP Endpoint Transport Security (P7)
+
+- The `/mcp` FastMCP Streamable-HTTP transport enables **DNS-rebinding protection** by default: a strict `Host`/`Origin` allowlist (localhost — `127.0.0.1:*`, `localhost:*`, `[::1]:*` — always allowed, extendable via `VOCKY_MCP_ALLOWED_HOSTS` / `VOCKY_MCP_ALLOWED_ORIGINS`). A publicly-exposed `/mcp` must add its public `Host` (with port) to the allowlist or the transport rejects the request. This is defense against a browser being tricked into posting to a local MCP server; it is orthogonal to the credential auth above (which is the actual access boundary).
 
 ## Project-Scoped Read/Manage Authorization (P3)
 
@@ -58,7 +63,7 @@ P3 adds project-scoped feedback surfaces; all of them enforce authorization in t
 
 ## Best-Effort `last_used_at` Stamping (P3)
 
-- On each successful `/api/*` ingest auth, `ProjectCredentialAuthMiddleware` stamps the credential's `last_used_at`; on each authenticated `/auth/*`/`/app/*` call, `require_user` stamps the auth token's `last_used_at`. Both are one indexed `UPDATE` by PK.
+- On each successful `/api/*` **or `/mcp`** ingest auth, `ProjectCredentialAuthMiddleware` stamps the credential's `last_used_at`; on each authenticated `/auth/*`/`/app/*` call, `require_user` stamps the auth token's `last_used_at`. Both are one indexed `UPDATE` by PK.
 - Both stamps are wrapped in `try/except AccountsPersistenceError` → log and continue, so a stamping failure **never** turns an otherwise-valid ingest or authenticated request into a 500. There is no throttle (stamp-always); a throttle is a possible future optimization if the write becomes hot. The usage endpoints surface these values (operational visibility only — see D-P3-5, no metering/billing).
 
 ## Tenant Isolation

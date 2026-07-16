@@ -1,10 +1,10 @@
 ---
 doc_id: experience
-version: v0004
-created_at: 2026-07-16T16:37:16+09:00
-source: P3.REVIEW
-summary: P3: read+manage your project's feedback via vk_ key on /api/project/feedback; search across your projects via session on /app/feedback (Korean); view usage via /app/usage
-previous: v0003_integrate_via_signup_then_create_project_then_mint_vk__credential_send_it_as_authorization_bearer_on_api_replace_optional-static-token_guidance
+version: v0005
+created_at: 2026-07-16T18:48:22+09:00
+source: P7.REVIEW
+summary: P7: agents capture feedback via the write-only capture_feedback MCP tool at a project's /mcp endpoint, authed by the project's vk_ key
+previous: v0004_p3_read_manage_your_project_s_feedback_via_vk__key_on_api_project_feedback_search_across_your_projects_via_session_on_app_feedback_korean_view_usage_via_app_usage
 ---
 
 # Action Feedback Integration
@@ -151,6 +151,42 @@ curl -X POST "https://vocky.example.com/api/feedback" \
 ```
 
 Every `/api/*` request must carry a valid, non-revoked project key as `Authorization: Bearer vk_…` — there is no unauthenticated path. A missing, malformed, unknown, or revoked key returns `401 Unauthorized`.
+
+## Agent Capture Over MCP (write-only)
+
+If your product is an **AI agent**, the agent can save feedback at its own judgement through Vocky's **write-only** MCP endpoint instead of (or alongside) REST. Point the agent's MCP client at the project's `/mcp` URL and authenticate with the **same `vk_` project key** — the whole endpoint (the `initialize` handshake included) requires it, so an unauthenticated agent cannot even open a session. The captured event feeds the same queue/store as REST and is scoped to the key's project automatically; there is no project parameter.
+
+There is exactly **one** tool, `capture_feedback` (write-only — no read/query/liked-conversation tools). Its inputs are the same capture fields as REST **minus** `attachment_ids` (agents have no upload flow), with `source` as the only nested object.
+
+LangChain-style client shape (send the key as a Bearer header):
+
+```python
+client = MultiServerMCPClient({
+    "vocky": {
+        "transport": "streamable_http",
+        "url": "https://vocky.example.com/mcp",
+        "headers": {"Authorization": "Bearer vk_<your-project-key>"},
+    }
+})
+```
+
+Then call the tool when the agent decides an interaction is worth capturing:
+
+```json
+{
+  "message": "User was frustrated the export kept failing",
+  "source": {"product": "my-agent", "integration": "agent-runtime"},
+  "feedback_value": 2,
+  "user_id": "user_123",
+  "conversation_id": "conv_123",
+  "trigger_type": "dislike",
+  "target_type": "message",
+  "target_role": "assistant",
+  "target_text": "Try clicking Export again."
+}
+```
+
+A successful call returns a capture receipt (`{ request_id, accepted_at, status: "accepted" }`) — the same async semantics as REST: the record becomes queryable after the worker persists it. Use MCP capture only when the agent runtime is intentionally deciding to capture voice-of-customer feedback; explicit human UI actions (like/dislike buttons, page/widget feedback) should still go through REST capture. A public `/mcp` deployment must also add its public host to `VOCKY_MCP_ALLOWED_HOSTS` (DNS-rebinding protection is on by default).
 
 ## Read Back A User's Own Feedback
 

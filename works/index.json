@@ -40,13 +40,13 @@
       "id": "P7",
       "name": "Agent-Capture Revival (MCP write-only)",
       "objective": "Reintroduce the retired agent-decided feedback capture as a write-only MCP surface: agents linked to a project's Vocky MCP endpoint save user feedback at their own judgement via a single capture_feedback tool, feeding the same feedback queue/store as REST. Scoped by P2 per-project credentials and aligned with P3's v2 capture shape; the three retired read tools stay retired.",
-      "status": "planned",
+      "status": "done",
       "order": 3.5,
       "path": "works/phases/active/P7",
-      "review_status": "pending",
-      "current_slice": "P7.REVIEW",
+      "review_status": "pass",
+      "current_slice": null,
       "slice_count": 4,
-      "done_slice_count": 3
+      "done_slice_count": 4
     },
     {
       "id": "P4",
@@ -88,5 +88,5 @@
   "deferred_open_count": 4,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 0,
-  "last_rebuilt_at": "2026-07-16T18:34:33+09:00"
+  "last_rebuilt_at": "2026-07-16T19:00:39+09:00"
 }

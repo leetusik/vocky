@@ -1,17 +1,17 @@
 ---
 doc_id: api
-version: v0004
-created_at: 2026-07-16T16:33:57+09:00
-source: P3.REVIEW
-summary: P3 Feedback API v2: project-scoped read+manage, cross-project read+search, usage endpoints
-previous: v0003_add_account_auth_auth_tenant_project_credential_control-plane_app_and_mandatory_per-project_credential_auth_on_api
+version: v0005
+created_at: 2026-07-16T18:48:22+09:00
+source: P7.REVIEW
+summary: P7: add write-only capture_feedback MCP tool contract (flat inputs, source nested, no attachment_ids; capture receipt) and the /mcp per-project vk_ credential auth model; un-retire MCP as a write-only surface
+previous: v0004_p3_feedback_api_v2_project-scoped_read_manage_cross-project_read_search_usage_endpoints
 ---
 
 # API
 
 ## Status
 
-The Web Feedback Capture REST API, the Feedback Attachment Upload REST API, the scoped End-User Feedback Read REST API (with `target_type` and other read filters), and the Admin REST API (list/detail/metrics filters, review-field patch, operator comments, and delete) are implemented. REST is the sole capture and read ingress; the AI-agent-decided MCP capture tool and the MCP review/query/liked-conversation tools have been retired (recoverable through git history).
+The Web Feedback Capture REST API, the Feedback Attachment Upload REST API, the scoped End-User Feedback Read REST API (with `target_type` and other read filters), and the Admin REST API (list/detail/metrics filters, review-field patch, operator comments, and delete) are implemented. As of **P7**, capture also has a **write-only MCP surface**: a single `capture_feedback` tool at the `/mcp` endpoint (see the MCP Capture Tool contract below). Reads remain REST-only — the three MCP review/query/liked-conversation tools retired in P1 stay retired (recoverable through git history).
 
 The account and tenancy surfaces are also implemented: a public **Account Auth API** (`/auth/*`: signup, login, logout, me) and a session-token-authed **Account Control-Plane API** (`/app/*`: the caller's tenant, projects, and per-project credentials). Public `/api/*` ingest auth changed: the optional static-token model (`VOCKY_API_AUTH_TOKEN`) is retired and replaced by **mandatory per-project credential auth** — every `/api/*` request must present a valid, non-revoked project key (`vk_…`) as `Authorization: Bearer`, and missing/malformed/unknown/revoked all answer `401`.
 
@@ -26,6 +26,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Account Auth API contract for user signup, login, logout, and identity (`/auth/*`)
 - Account Control-Plane API contract for a user's tenant, projects, and per-project credentials (`/app/*`)
 - Web Feedback Capture REST API contract for server-to-server website and product feedback ingestion, plus operator-only Admin Docs try-it against the same endpoint
+- MCP Capture Tool contract for agent-decided, write-only feedback capture at the `/mcp` endpoint (`capture_feedback`)
 - Feedback Attachment Upload REST API contract for uploading an image and receiving an `attachment_id` to reference from a later capture call
 - End-User Feedback Read REST API contract for a scoped server-to-server read of a single user's own feedback plus operator comments
 - Project Feedback API (v2) contract for a project credential to read and manage its own project's feedback (`/api/project/feedback`)
@@ -146,6 +147,31 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Notes:
   - As of P3 the guard threads project scope: on success it stashes the resolved credential (carrying its `project_id`) on the ASGI scope, so `/api/*` handlers scope capture and reads to the credential's project with no path/query project parameter. Capture stamps the record's `project_id` from it, and the guard best-effort stamps the credential's `last_used_at` (a stamping failure never fails the request).
   - The credential's project is a single project; there are no per-credential scopes — one `vk_` key does capture **and** project read+manage (`/api/project/feedback`) for its project.
+
+### MCP Capture Tool (`capture_feedback`)
+
+- Status: implemented (P7)
+- Consumers: AI agents / agent runtimes linked to a project's Vocky MCP endpoint, deciding at their own judgement that an interaction should be captured as feedback
+- Purpose: Agent-decided, **write-only** feedback capture that feeds the **same** shared queue/store as REST capture — no separate storage path. Reads stay REST-only (the three retired MCP read/query tools are not revived).
+- Endpoint: `/mcp` — a FastMCP **Streamable HTTP** transport. The sole registered tool is `capture_feedback`; `initialize` + `tools/list` return exactly this one tool.
+- Auth or permissions (the `/mcp` Per-Project `vk_` Auth Model):
+  - The **whole** `/mcp` endpoint (the `initialize` handshake included) requires a valid, non-revoked per-project credential as `Authorization: Bearer vk_<token>` — the **same** `ProjectCredentialAuthMiddleware` boundary as `/api/*` (its predicate is `is_api_path(p) or is_mcp_path(p)`).
+  - Missing, malformed, unknown, and revoked keys **all** return `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer` before the MCP transport runs.
+  - The retired static `VOCKY_MCP_AUTH_TOKEN` bearer is **not** revived. The captured event is scoped to the **authenticating credential's project** — there is no project parameter in the tool inputs; the credential resolved by the middleware supplies `project_id`.
+  - Transport security: DNS-rebinding protection is on by default with a localhost `Host`/`Origin` allowlist, extendable via `VOCKY_MCP_ALLOWED_HOSTS` / `VOCKY_MCP_ALLOWED_ORIGINS` (a public host must be added there, with its port).
+- Inputs (flat tool parameters — the same capture field set as REST **minus** `attachment_ids`; agents have no upload flow):
+  - `message: string` required; `source: { product: string, integration?: string }` required (the only nested input).
+  - Optional: `feedback_value` (`1` like / `2` dislike), `comment`, `channel` (`web` / `mobile` / `support` / null), `conversation_id`, `session_id`, `user_id`, `trigger_type` (`like`/`dislike`/`comment`/`rating`/`survey`/`manual`/`other`), `trigger_message`, `trigger_metadata` (object), `target_type` (`message`/`conversation`/`surface`), `target_id`, `target_role` (`user`/`assistant`/`system`/`tool`), `target_text`, `event_at` (timezone-aware ISO 8601), `tags` (string[]), `messages` (array), `used_context` (array), `source_metadata` (object), `attributes` (object).
+  - Normalization/validation is identical to REST capture (shared `normalize_*_payload` seam). There is **no** `attachment_ids` parameter, and no `project_id` parameter (it comes from the credential).
+- Outputs: an MCP `CallToolResult`:
+  - Success: `isError=false` with a `structuredContent` capture receipt `{ request_id, accepted_at, status: "accepted" }` plus a text block `Accepted feedback capture <request_id>`. As with REST, success means the job was accepted for background persistence, not that the record is already queryable.
+- Errors (returned as `isError=true` tool results, not transport errors):
+  - Capture validation failures return an error result carrying the validation message.
+  - A queue-accept failure returns an error result `capture queue unavailable`.
+  - (Auth failures are handled earlier by the `/mcp` middleware as a transport-level `401`, so an unauthenticated caller never reaches the tool.)
+- Notes:
+  - Write-only by construction: `capture_feedback` is the only tool; there is no MCP read, query, summary, or liked-conversation surface.
+  - The tool reuses the transport-neutral capture pipeline (`enqueue_feedback` → worker → `feedback_events`) and stamps `project_id` from the credential the transport authenticated — identical downstream behavior to `POST /api/feedback`. No DB schema change.
 
 ### Shared Channel Category Rules
 

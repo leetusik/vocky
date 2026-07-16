@@ -1,17 +1,17 @@
 ---
 doc_id: decisions
-version: v0003
-created_at: 2026-07-16T16:30:09+09:00
-source: P3.REVIEW
-summary: Record P3 feedback-API-v2 decisions: project scope on feedback, /api/project + /app read-manage split, pg_trgm Korean-safe substring search, derived usage no metering, tightened self-read
-previous: v0002_p2_auth-model_and_tenancy-shape_decisions_email_password_opaque_db_tokens_multi-tenant_solo-owner_app_vs_api_split_mandatory_ingest_auth
+version: v0004
+created_at: 2026-07-16T18:52:17+09:00
+source: P7.REVIEW
+summary: P7 MCP-revival decisions: write-only scope, broadened-middleware auth binding, thin McpCaptureFeedbackInput, transport security on
+previous: v0003_record_p3_feedback-api-v2_decisions_project_scope_on_feedback_api_project_app_read-manage_split_pg_trgm_korean-safe_substring_search_derived_usage_no_metering_tightened_self-read
 ---
 
 # Decisions
 
 ## Status
 
-Records the durable design decisions made in phases P2 (accounts, tenancy, projects core) and P3 (feedback API v2, cross-project search, usage monitoring). Each was operator-approved during decomposition and should not be re-litigated without a new decision superseding it.
+Records the durable design decisions made in phases P2 (accounts, tenancy, projects core), P3 (feedback API v2, cross-project search, usage monitoring), and P7 (agent-capture revival — the write-only MCP surface). Each was operator-approved during decomposition and should not be re-litigated without a new decision superseding it.
 
 ## D-P2-1 — Account auth: email + password + opaque DB-backed bearer tokens
 
@@ -90,3 +90,27 @@ Records the durable design decisions made in phases P2 (accounts, tenancy, proje
 - **Decision:** The existing end-user self-read (`GET /api/feedback`, scoped by required `user_id` + `source_product`) is **additionally** scoped to the authenticating credential's project (defense in depth), now that `project_id` is threaded.
 - **Why:** Before P3 the self-read authorized purely on caller-supplied `user_id` + `source_product`, which are not bound to the credential; adding the credential's project narrows the read so one product's key can never surface another project's rows even under a colliding `(user_id, source_product)`.
 - **Consequences:** The self-read list matches on the credential's project, so legacy NULL-project rows fall out of it (acceptable pre-MVP). The sibling end-user attachment download (`GET /api/feedback/{id}/attachments/{id}`) remains scoped by `user_id` + `source_product` only (it is not part of the D-P3-6 list tightening and additionally requires knowing the exact feedback + attachment UUIDs); a future hardening slice could extend project scope to it.
+
+## D-P7-1 — Revive MCP capture write-only; the three read tools stay retired
+
+- **Decision:** Bring back the agent-decided feedback capture retired in P1, but **only the write path** — the single `capture_feedback` tool. The three retired MCP read/query tools (`list_feedback`, `summarize_feedback`, `list_liked_conversations`) stay retired; all reads remain REST-only. `mcp.list_tools()` returns exactly `["capture_feedback"]`.
+- **Why:** The operator intent is specifically "only post — the agents linked to Vocky MCP save user feedback at their own judgement". Reads already have first-class scoped/authenticated REST + `/app` surfaces (P3), so reviving read tools would duplicate surface with weaker scoping.
+- **Consequences:** MCP is a capture-only ingress feeding the shared queue/store; no read data ever leaves through MCP. A future read tool would be a new decision, not an implicit part of this revival.
+
+## D-P7-2 — MCP auth binds via the broadened ingest middleware + ASGI-scope read (not a FastMCP TokenVerifier), and the static token stays retired
+
+- **Decision:** Authenticate the **whole** `/mcp` endpoint by broadening the existing `ProjectCredentialAuthMiddleware` (predicate `is_api_path(p) or is_mcp_path(p)`) rather than adding a FastMCP-native bearer/`TokenVerifier` provider. The middleware runs before the `/mcp` `Mount` dispatches, stashes the resolved `ProjectCredentialRecord` on the ASGI scope, and the tool reads it back via `get_request_credential(ctx.request_context.request)` to stamp `project_id`. The static `VOCKY_MCP_AUTH_TOKEN` is **not** revived — MCP uses the same per-project `vk_` credentials as `/api/*`.
+- **Why:** One auth path, one 401 shape, one `last_used_at` stamp for both ingress surfaces is simpler and less duplicative than a parallel FastMCP auth provider, and it guards the `initialize` handshake too (a FastMCP token verifier would only gate tool calls). It was empirically proven: an authed streamable-HTTP capture enqueues with the authenticating credential's `project_id`.
+- **Consequences:** MCP capture is scoped to exactly one project (the credential's), with no project parameter in the tool schema. The credential propagates across the mounted sub-app boundary via the namespaced scope key, so no MCP-specific auth state is needed.
+
+## D-P7-3 — Thin `McpCaptureFeedbackInput` (no `attachment_ids`), reusing the transport-neutral capture seam
+
+- **Decision:** Revive a thin `McpCaptureFeedbackInput(BaseCaptureFeedbackInput)` (empty subclass) + a `normalize_mcp_payload` wrapper next to the REST ones, keeping `attachment_ids` **out** of the MCP tool schema. The tool builds this input, normalizes it, stamps `project_id`, and calls the same `enqueue_feedback` → worker → `feedback_events` pipeline as REST. No engine or schema change (`_normalize_capture_payload` reads `attachment_ids` via `getattr`, absent for MCP).
+- **Why:** Agents have no upload flow, so exposing `attachment_ids` in the MCP schema would be dead surface. Reusing the transport-neutral seam keeps MCP and REST capture behaviorally identical downstream with no duplicated pipeline.
+- **Consequences:** MCP capture aligns with the P3 v2 capture shape and stays attachment-free; the retired `CaptureFeedbackInput` alias was not revived (unneeded).
+
+## D-P7-4 — MCP transport security (DNS-rebinding) on by default for a public `/mcp`
+
+- **Decision:** Keep the FastMCP Streamable-HTTP transport's **DNS-rebinding protection on** with a localhost `Host`/`Origin` allowlist, extendable via `VOCKY_MCP_ALLOWED_HOSTS` / `VOCKY_MCP_ALLOWED_ORIGINS`, rather than descoping it. (Auth is still the real access boundary — the per-project `vk_` credential.)
+- **Why:** `/mcp` is intended to be publicly exposed (e.g. behind a Cloudflare Tunnel), where DNS-rebinding is a real browser-side risk; a minimal configurable allowlist is cheap and safe by default.
+- **Consequences:** A public deployment must add its public `Host` (with port) to `VOCKY_MCP_ALLOWED_HOSTS`; the matcher requires a port, so a portless `Host` is rejected. Localhost always works without config.

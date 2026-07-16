@@ -2,16 +2,16 @@
   "id": "P7",
   "name": "Agent-Capture Revival (MCP write-only)",
   "objective": "Reintroduce the retired agent-decided feedback capture as a write-only MCP surface: agents linked to a project's Vocky MCP endpoint save user feedback at their own judgement via a single capture_feedback tool, feeding the same feedback queue/store as REST. Scoped by P2 per-project credentials and aligned with P3's v2 capture shape; the three retired read tools stay retired.",
-  "status": "planned",
+  "status": "done",
   "order": 3.5,
   "created_at": "2026-07-15T16:51:04+09:00",
   "started_at": null,
-  "completed_at": null,
+  "completed_at": "2026-07-16T19:00:39+09:00",
   "review": {
-    "status": "pending",
-    "reviewed_at": null,
-    "reviewer": null,
-    "note": null
+    "status": "pass",
+    "reviewed_at": "2026-07-16T19:00:39+09:00",
+    "reviewer": "slice-executor-high",
+    "note": "All P7 slices validate green together (full suite 169 passed; authed MCP write-path proof + /mcp 401 guard 6 passed; state validate passed; list_tools()==['capture_feedback'] write-only). No regressions. Consolidated 7 durable-doc versions (architecture v0005, api v0005, security v0004, product v0005, experience v0005, decisions v0004, backend v0003) and updated the two ancillary prose docs (local-public-access, changple5-apply) from the static-token to the vk_ per-project model."
   },
   "paths": {
     "phase_md": "phase.md",

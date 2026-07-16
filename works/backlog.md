@@ -5,12 +5,12 @@
 
 ## Pointer
 
-- Current phase: `P7`
-- Current slice: `P7.REVIEW`
-- Next slice: `none`
+- Current phase: `P4`
+- Current slice: `P4.DECOMP`
+- Next slice: `P4.REVIEW`
 - Waiting on operator: `none`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-16T18:34:33+09:00`
+- Rebuilt at: `2026-07-16T19:00:39+09:00`
 
 ## Active Phases
 
@@ -19,7 +19,7 @@
 | [x] `P1` | `done` | `pass` | Relicense & Agent-Capture Retirement | `none` | `works/phases/active/P1` |
 | [x] `P2` | `done` | `pass` | Accounts, Tenancy & Projects Core | `none` | `works/phases/active/P2` |
 | [x] `P3` | `done` | `pass` | Feedback API v2, Search & Usage Monitoring | `none` | `works/phases/active/P3` |
-| [ ] `P7` | `planned` | `pending` | Agent-Capture Revival (MCP write-only) | `P7.REVIEW` | `works/phases/active/P7` |
+| [x] `P7` | `done` | `pass` | Agent-Capture Revival (MCP write-only) | `none` | `works/phases/active/P7` |
 | [ ] `P4` | `planned` | `pending` | Web App: Tenant Dashboard & Project Pages | `P4.DECOMP` | `works/phases/active/P4` |
 | [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
 | [ ] `P6` | `planned` | `pending` | Landing Page, Webpage & Production Deploy | `P6.DECOMP` | `works/phases/active/P6` |
@@ -64,7 +64,7 @@
 | [x] `P7.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P7/slices/P7.DECOMP` |
 | [x] `P7.S1` | `done` | MCP transport foundation: mcp dep, FastMCP server, /mcp mount, session_manager lifespan | `implementation` | `works/phases/active/P7/slices/P7.S1` |
 | [x] `P7.S2` | `done` | capture_feedback write tool: per-project vk_ credential auth + capture-pipeline integration + integration test | `implementation` | `works/phases/active/P7/slices/P7.S2` |
-| [ ] `P7.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P7/slices/P7.REVIEW` |
+| [x] `P7.REVIEW` | `done` | phase review | `review` | `works/phases/active/P7/slices/P7.REVIEW` |
 
 ## Phase P4: Web App: Tenant Dashboard & Project Pages
 

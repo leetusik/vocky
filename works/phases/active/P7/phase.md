@@ -133,6 +133,30 @@ _Seeded by `P7.DECOMP`; S1/S2 append one-liners as they change durable truth. Th
 - **[P7.S1]** architecture — `/mcp` FastMCP Streamable-HTTP mount restored (`Mount("/mcp")` + inner `streamable_http_path="/"`) with `session_manager.run()` nested in the host lifespan; still tool-less + unauthenticated. operations — re-added `mcp[cli]` dep (`mcp==1.28.1`) and MCP DNS-rebinding allowlist env (`VOCKY_MCP_ALLOWED_HOSTS` / `VOCKY_MCP_ALLOWED_ORIGINS`, localhost always allowed). security — transport-security decision confirmed: DNS-rebinding protection **on** by default, localhost allowlist, extendable via env (auth still deferred to S2).
 - **[P7.S2]** api — new write-only `capture_feedback` MCP tool contract (flat params, `source` nested, no `attachment_ids`; returns a capture receipt); `/mcp` authenticates with a per-project `vk_` Bearer key (the whole endpoint, initialize included); flip the "MCP retired" API status line. security — `/mcp` now requires a valid non-revoked per-project `vk_` credential via the broadened `ProjectCredentialAuthMiddleware` (same 401 + `last_used_at` stamp as `/api/*`); the static `VOCKY_MCP_AUTH_TOKEN` stays retired. architecture — the MCP write path feeds the shared capture queue/store (same `enqueue_feedback` → worker → `feedback_events` pipeline as REST), stamping `project_id` from the authenticating credential read off the ASGI scope via `ctx.request_context.request`; no separate storage path, no schema change. product + experience — agent-decided, write-only feedback capture is live again: an agent linked to a project's `/mcp` endpoint saves feedback at its own judgement. decisions — auth-binding = broaden the existing middleware + read the stashed credential off the request scope (not FastMCP-native `TokenVerifier`); input-model = thin `McpCaptureFeedbackInput` subclass; write-only scope kept (three read tools stay retired). backend — new `src/vocky/tools/capture_feedback.py` + re-added `install_protocol_aware_call_handler`/`make_error_result` in `mcp_server.py`. (`data` unchanged — reuses `feedback_events.project_id`.)
 
+### P7.REVIEW — phase review PASSED + docs consolidated
+
+- **Validation (all slices together):** `uv run pytest` → **169 passed**;
+  `uv run pytest tests/test_mcp_transport.py tests/test_public_access.py` → **6 passed**;
+  `python3 scripts/workflow.py validate` → passed; `mcp.list_tools()` → **`['capture_feedback']`**
+  (write-only confirmed — the three read tools stay retired). Re-ran `validate` after doc
+  consolidation — still passed.
+- **Review:** every intent point holds against the code — write-only tool only; `/mcp` whole
+  endpoint authed by per-project `vk_` (broadened `ProjectCredentialAuthMiddleware`, `initialize`
+  included); capture feeds the shared queue stamping `project_id` off the ASGI scope; thin
+  `McpCaptureFeedbackInput` (no `attachment_ids`), P3 v2-aligned; no separate storage path, no
+  schema change; static `VOCKY_MCP_AUTH_TOKEN` retired; `/api/*` auth unchanged;
+  `install_protocol_aware_call_handler` installed. No regressions, no gaps → **`pass`**.
+- **Docs consolidated (source `P7.REVIEW`):** architecture `v0005`, api `v0005`, security `v0004`,
+  product `v0005`, experience `v0005`, decisions `v0004` (D-P7-1..4), backend `v0003`.
+  **Not versioned:** `data` (no schema change) and `operations` (bootstrap placeholder — MCP dep/env
+  folded into architecture's Configuration Surface instead, per plan; no empty-delta version).
+  **Ancillary prose edited (not versioned):** `docs/local-public-access.md` and
+  `docs/changple5-apply.md` moved from the static-token `/mcp` model to the per-project `vk_` model
+  (and write-only — retired read tools removed).
+- **Gotcha for future doc versions:** keep `--summary` short. Long summaries produce very long
+  version-slug filenames that can exceed the macOS 255-byte filename limit — architecture/security/
+  decisions/backend had to be recreated with shorter summaries here.
+
 ## Open Questions
 
 - **Transport security for a public `/mcp` (decide in S1):** re-add a minimal, configurable `TransportSecuritySettings` (DNS-rebinding protection + `VOCKY_MCP_ALLOWED_HOSTS` / `_ORIGINS`) for the publicly-exposed endpoint, or descope to a deferred job? Recommend re-adding the minimal version. The old static `VOCKY_MCP_AUTH_TOKEN` is **not** revived regardless (per-project credentials replace it).

@@ -1,17 +1,17 @@
 ---
 doc_id: architecture
-version: v0004
-created_at: 2026-07-16T16:36:09+09:00
-source: P3.REVIEW
-summary: P3: feedback project scoping, ingest-scope threading, pg_trgm substring search subsystem, derived usage
-previous: v0003_add_identity_tenancy_layer_auth_app_control-plane_mandatory_per-project_credential_auth_on_api
+version: v0005
+created_at: 2026-07-16T18:48:28+09:00
+source: P7.REVIEW
+summary: P7: revive MCP as a write-only capture surface (/mcp mount + session_manager lifespan) feeding the shared queue; MCP env in Configuration Surface
+previous: v0004_p3_feedback_project_scoping_ingest-scope_threading_pg_trgm_substring_search_subsystem_derived_usage
 ---
 
 # Architecture
 
 ## Status
 
-This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through server-to-server REST using Redis-backed queueing plus a dedicated worker while exposing a scoped end-user REST read, separate Admin REST endpoints, and a same-origin self-hosted Admin Web UI with dashboard metrics, feedback review management, in-app operator documentation, and REST capture try-it over the same PostgreSQL feedback store. The earlier MCP/agent-decided capture and MCP read tools have been retired (recoverable through git history).
+This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through server-to-server REST using Redis-backed queueing plus a dedicated worker while exposing a scoped end-user REST read, separate Admin REST endpoints, and a same-origin self-hosted Admin Web UI with dashboard metrics, feedback review management, in-app operator documentation, and REST capture try-it over the same PostgreSQL feedback store. As of **P7**, a **write-only MCP capture surface** is also mounted at `/mcp` (see "MCP Write-Only Capture Surface" below): agents linked to a project's MCP endpoint save feedback through a single `capture_feedback` tool that feeds the same queue/store as REST. The three MCP read/query tools retired in P1 (`list_feedback`, `summarize_feedback`, `list_liked_conversations`) stay retired — reads remain REST-only.
 
 On top of that capture core, Vocky now has an **identity and tenancy layer**: real user accounts (email + password), a multi-tenant model (tenants → projects), per-project ingest credentials, a public `/auth/*` auth surface, a session-token-authed `/app/*` account control-plane, and a `src/vocky/accounts/` domain package. Public `/api/*` ingestion is guarded by **mandatory per-project credential auth** (`ProjectCredentialAuthMiddleware`), which replaced the old optional static-token `APIBearerAuthMiddleware`.
 
@@ -50,12 +50,13 @@ The current service uses these choices:
 - A separate worker process for background capture persistence
 - Redis-backed queueing between the app and worker
 - Public REST capture route and scoped end-user read route under `/api/*`
+- A write-only **FastMCP Streamable-HTTP** transport mounted at `/mcp` (its `session_manager` nested in the host lifespan), exposing the single `capture_feedback` tool
 - Public account-auth routes under `/auth/*` (signup, login, logout, me)
 - Session-token-authed account control-plane routes under `/app/*` (tenant, projects, per-project credentials)
 - Starlette Admin REST routes under `/admin/api/*`
 - Starlette Admin Web UI routes under `/admin` and packaged static assets under `/admin/assets/*`
 - A plain `/healthz` endpoint on the same host app for smoke checks
-- **Mandatory** per-project credential auth for public REST `/api/*` traffic via `ProjectCredentialAuthMiddleware` (no open fallback)
+- **Mandatory** per-project credential auth for public REST `/api/*` **and** `/mcp` traffic via `ProjectCredentialAuthMiddleware` (no open fallback)
 - Optional bearer-token protection for Admin REST traffic when `VOCKY_ADMIN_AUTH_TOKEN` is set
 - Docker builds install runtime dependencies and the local project into the image, while Compose app and worker commands use `uv run --no-sync` so container startup does not repeat dependency sync
 - REST capture and Admin REST handlers share validation helpers, service, and persistence layers, and the worker reuses the same persistence path
@@ -93,6 +94,15 @@ P3 threads the authenticated project through capture and reads, and adds three f
 - **Multilingual substring-search subsystem (D-P3-4).** The `search` predicate is a case-insensitive substring match (`_feedback_search_target().icontains(q, autoescape=True)`) over the immutable concatenation `coalesce(message,'')||' '||coalesce(comment,'')||' '||coalesce(target_text,'')||' '||coalesce(trigger_message,'')`. It is language-agnostic (Korean 조사-attached forms + English), with **no** `to_tsvector('english', …)`. A `pg_trgm` trigram GIN index (`ix_feedback_events_search_trgm`, migration `20260716_1600`) over that same expression accelerates it — the predicate expression and the index expression are kept byte-for-byte in lock-step (only immutable `||`/`coalesce`, since STABLE `concat`/`concat_ws` cannot back an expression index), and the planner uses a `Bitmap Index Scan` on it. Search is a filter, newest-first — it composes with the existing keyset paging; `list_feedback` is unchanged.
 - **Usage monitoring (`src/vocky/usage_api.py`).** Three read-only endpoints (`/app/usage`, `/app/projects/{id}/usage`, `/api/project/usage`) are **pure reuse** of `get_feedback_metrics` scoped through the same `_apply_query_filters` chokepoint — no new query, table, or migration. The window defaults to the last 30 days when omitted. The per-project surfaces also list the project's credentials (surfacing the ingest-stamped `last_used_at`). This is operational visibility, not billing (D-P3-5); `serialize_metrics` is imported from `admin_api` (admin metrics untouched).
 
+## MCP Write-Only Capture Surface (P7)
+
+P7 revives the agent-decided capture path retired in P1 as a **write-only** MCP surface, re-aligned to the P2/P3 tenancy + v2-capture shape (not a verbatim restore of the retired code). It reuses the existing transport-neutral capture pipeline end-to-end — no engine change, no schema change.
+
+- **Transport (`src/vocky/mcp_server.py`).** A module-level `FastMCP` singleton (bundled with the official `mcp[cli]` SDK) is mounted into the Starlette host via `Mount("/mcp", app=mcp.streamable_http_app())`, with the server's inner `streamable_http_path="/"` so the external endpoint is `/mcp` (a non-empty sub-path — the "no root catch-all mount" invariant still holds). `streamable_http_app()` builds its own sub-Starlette whose lifespan the host `Mount` does **not** trigger, so `create_app()`'s `lifespan` **nests `async with mcp.session_manager.run():`** around the whole app lifetime; without it `/mcp` 500s at request time. `stateless_http=True`, `json_response=True`.
+- **Transport security.** `make_transport_security_settings` enables DNS-rebinding protection with a localhost allowlist (`127.0.0.1:*`, `localhost:*`, `[::1]:*`) extendable via `VOCKY_MCP_ALLOWED_HOSTS` / `VOCKY_MCP_ALLOWED_ORIGINS`. The allowlist matcher requires a port, so a public deployment must add its `Host` (with port) to `VOCKY_MCP_ALLOWED_HOSTS`.
+- **Auth (whole endpoint).** `/mcp` is guarded by the same `ProjectCredentialAuthMiddleware` as `/api/*`: its predicate is now `is_api_path(p) or is_mcp_path(p)`, so the **entire** transport (including `initialize`) requires a valid, non-revoked per-project `vk_` credential; missing/unknown/revoked answer the same generic `401`, and `last_used_at` is stamped best-effort. The static `VOCKY_MCP_AUTH_TOKEN` is **not** revived. Because the app-level middleware runs before the mount dispatches, its `scope[PROJECT_CREDENTIAL_SCOPE_KEY]` stash propagates into the mounted sub-app.
+- **The `capture_feedback` tool (`src/vocky/tools/capture_feedback.py`).** The **sole** registered tool (`mcp.list_tools() == ["capture_feedback"]`), write-only. Flat parameter list (`source` nested), with an injected `ctx: Context` that FastMCP excludes from the tool schema. It builds a thin `McpCaptureFeedbackInput` → `normalize_mcp_payload` (no `attachment_ids` — agents have no upload flow), reads the stashed credential back off `ctx.request_context.request` via `get_request_credential`, stamps `payload.project_id = credential.project_id`, then `get_capture_queue().enqueue_feedback(...)` — the **same** shared queue → worker → `feedback_events` path as REST. It returns a raw `CallToolResult` (structured capture receipt, or an `isError=True` result on validation / queue failure); `install_protocol_aware_call_handler(mcp)` passes that raw result straight through as the `ServerResult` and keeps unknown-tool a protocol error.
+
 ## Configuration Surface
 
 The runtime configuration surface is intentionally small:
@@ -104,7 +114,9 @@ The runtime configuration surface is intentionally small:
 - `VOCKY_LOG_LEVEL`: application log level
 - `VOCKY_ADMIN_AUTH_TOKEN`: optional bearer token required for Admin REST traffic. Public deployments that expose `/admin/api` should set it.
 
-`/api/*` traffic no longer uses an env-var bearer token. The retired `VOCKY_API_AUTH_TOKEN` / `api_auth_token` setting has been removed; `/api/*` is now authenticated exclusively by per-project credentials minted through `/app/*`, and auth is mandatory rather than deployment-optional.
+`/api/*` traffic no longer uses an env-var bearer token. The retired `VOCKY_API_AUTH_TOKEN` / `api_auth_token` setting has been removed; `/api/*` is now authenticated exclusively by per-project credentials minted through `/app/*`, and auth is mandatory rather than deployment-optional. `/mcp` uses the **same** per-project credential auth (P7); the retired static `VOCKY_MCP_AUTH_TOKEN` / `mcp_auth_token` setting is likewise not restored.
+- `VOCKY_MCP_ALLOWED_HOSTS`: comma-separated extra `Host` values allowed by the `/mcp` DNS-rebinding matcher (P7). Localhost (`127.0.0.1:*`, `localhost:*`, `[::1]:*`) is always allowed; a public deployment must add its public `Host` **with port**. Default `""`.
+- `VOCKY_MCP_ALLOWED_ORIGINS`: comma-separated extra `Origin` values allowed by the `/mcp` DNS-rebinding matcher (P7). Localhost origins are always allowed. Default `""`.
 - `VOCKY_ATTACHMENTS_DIR`: directory the local attachment storage backend reads and writes. In Docker this is a named volume mounted on both the app and worker.
 - `VOCKY_ATTACHMENTS_MAX_BYTES`: maximum size in bytes of a single uploaded attachment. Default `5242880` (5 MiB).
 - `VOCKY_ATTACHMENTS_MAX_COUNT`: maximum number of attachments that may be linked to one feedback event. Default `10`.
@@ -135,8 +147,8 @@ For Cloudflare Tunnel users, the recommended public shape is a hostname-to-servi
 ## MVP Boundaries
 
 - Multi-tenant: real accounts, tenants, projects, and per-project credentials; the MVP tenancy flow is solo-owner (invites/roles management UI is out of scope)
-- Capture ingestion is limited to server-to-server REST in the MVP; browser-direct unauthenticated ingestion is outside scope
-- `/api/*` ingest auth is mandatory per-project credential auth; there is no unauthenticated or globally-shared-token ingest path
+- Capture ingestion is server-to-server REST **plus** a write-only MCP `capture_feedback` tool (P7) for agents; browser-direct unauthenticated ingestion is outside scope. MCP is write-only — no MCP read/query tools
+- `/api/*` and `/mcp` ingest auth is mandatory per-project credential auth; there is no unauthenticated or globally-shared-token ingest path
 - Free service — no billing, usage metering, or plan tiers
 - No automatic classification or summarization in the MVP
 - Admin Web UI includes a same-origin self-hosted operator shell, dashboard metrics, recent activity, feedback list/filter/detail inspection, review-field editing, guarded delete, in-app operator docs, and an operator-only REST capture try-it form (its packaged docs still reference the retired static token; reshaping is P4)

@@ -1,17 +1,17 @@
 ---
 doc_id: product
-version: v0004
-created_at: 2026-07-16T16:32:58+09:00
-source: P3.REVIEW
-summary: P3: feedback is project-scoped; add project-scoped Feedback API v2 (read+manage), cross-project search, and operational usage monitoring (no billing); flip the broad-public-REST-management non-goal
-previous: v0003_free_multi-tenant_saas_core_accounts_tenants_projects_per-project_credentials_no_billing
+version: v0005
+created_at: 2026-07-16T18:48:22+09:00
+source: P7.REVIEW
+summary: P7: agent-decided write-only feedback capture returns as an MCP surface (agents linked to a project's /mcp save feedback with the project's vk_ key); three read tools stay retired
+previous: v0004_p3_feedback_is_project-scoped_add_project-scoped_feedback_api_v2_read_manage_cross-project_search_and_operational_usage_monitoring_no_billing_flip_the_broad-public-rest-management_non-goal
 ---
 
 # Product
 
 ## Status
 
-Vocky is pre-MVP and mid-pivot from a self-hosted single-tenant capture service into a **free multi-tenant SaaS**. The capture/review core is implemented with server-to-server REST capture, a scoped end-user REST read, Admin REST, a self-hosted operator Admin Web UI with dashboard metrics, feedback review management, in-app documentation, and REST capture try-it, PostgreSQL persistence, Redis-backed queueing, a background worker, and Compose-first local verification. The earlier AI-agent-decided MCP capture and MCP read tools have been retired (recoverable through git history).
+Vocky is pre-MVP and mid-pivot from a self-hosted single-tenant capture service into a **free multi-tenant SaaS**. The capture/review core is implemented with server-to-server REST capture, a scoped end-user REST read, Admin REST, a self-hosted operator Admin Web UI with dashboard metrics, feedback review management, in-app documentation, and REST capture try-it, PostgreSQL persistence, Redis-backed queueing, a background worker, and Compose-first local verification. As of **P7** the agent-decided capture path is back as a **write-only MCP surface**: an AI agent linked to a project's Vocky MCP endpoint saves feedback at its own judgement through a single `capture_feedback` tool, feeding the same queue/store as REST and scoped by the project's `vk_` credential. It is write-only — the three MCP read/query tools retired in P1 stay retired (reads remain REST-only).
 
 The SaaS accounts and tenancy core is now in place: real user accounts (email + password signup/login), a multi-tenant model (tenants → projects), and per-project ingest credentials. The old optional static `VOCKY_API_AUTH_TOKEN` bearer for `/api/*` has been retired in favor of **mandatory per-project credential auth**. Feedback is now **project-scoped**: every captured event records its project, an external service's own admin panel can read and manage its project's feedback directly over a project-scoped REST API (Feedback API v2, `/api/project/feedback`), signed-in users can read and search feedback across all their projects (`/app/feedback`, Korean-safe), and per-tenant/project usage monitoring surfaces derived capture volume and credential last-used (operational visibility only — no billing or metering). Still upcoming in later phases: the tenant/project web app (P4); a CLI + agent-first onboarding path (P5); and the landing page plus production deploy (P6). The contracts should still be treated as early-stage.
 
@@ -26,6 +26,7 @@ The first MVP is intentionally narrow:
 - Real user accounts (email + password signup/login) over a multi-tenant core: each account owns a tenant (workspace) with projects and per-project ingest credentials
 - Free service — no paid plans, billing, usage metering, or plan tiers
 - Server-to-server REST ingestion for explicit human-triggered website or product feedback, gated by a mandatory per-project credential
+- A write-only MCP `capture_feedback` tool at `/mcp` for agent-decided capture, gated by the same per-project credential and feeding the same store as REST (no MCP read tools)
 - Async capture that accepts quickly over REST and persists in the background
 - Explicit user action feedback capture, including like/dislike values, optional comments, conversation context, and basic metadata
 - A scoped end-user REST read that returns one user's own records plus operator comments
@@ -110,6 +111,7 @@ Vocky uses one canonical feedback store and one shared capture field set, but th
 - The **account auth** surface (`/auth/*`) is public and unauthenticated-to-enter: `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, and `GET /auth/me` establish and inspect a user session.
 - The **account control-plane** (`/app/*`, session-token authed) is where a user reads their tenant and creates/lists/reads projects and mints/lists/revokes per-project credentials. It is tenant-scoped: a caller can never see or touch another tenant's projects or credentials. It also hosts the signed-in user's **cross-project feedback read + search** (`/app/feedback`: list/search across all their projects, get-one, attachment download — Korean-safe substring search, read-only) and **usage monitoring** (`/app/usage` whole-tenant capture volume + a project list; `/app/projects/{id}/usage` one project's volume + its credentials' last-used). Every read answers 404 (never 403) on a cross-tenant id.
 - **Public REST** (`/api/*`) is for trusted server-to-server product integrations and requires a valid per-project credential on every request. It carries: capture (`POST /api/feedback`, `POST /api/feedback/attachments`); the scoped end-user self-read (`GET /api/feedback` + its attachment download, scoped by `user_id` + `source_product` + the credential's project); the project-scoped **Feedback API v2** for an external service's own admin panel (`/api/project/feedback`: list/get/PATCH review fields/DELETE/operator comments/attachment download over **its own project's** feedback, 404 on any cross-project id); and per-project usage (`GET /api/project/usage`: the credential's project capture volume + its credentials). A `vk_` key thus does capture **and** project read+manage for its one project — there are no per-credential scopes in the MVP.
+- **MCP capture** (`/mcp`) is the agent-decided **write-only** ingress (P7): an AI agent linked to a project's Vocky MCP endpoint calls the single `capture_feedback` tool to save feedback at its own judgement. The whole endpoint is authed by the project's `vk_` credential (the same boundary as `/api/*`), and captured events feed the same shared queue/store scoped to that credential's project. There are no MCP read/query tools — reads stay on the REST/`/app` surfaces above.
 - **Admin REST** is for human/operator review and management. `/admin/api/*` powers dashboards, list/detail inspection, review-field editing, metrics, and deletion over the same stored feedback records. It keeps its own separate `VOCKY_ADMIN_AUTH_TOKEN` bearer (untouched by the accounts/feedback-API work).
 
 ## Current Field Taxonomy

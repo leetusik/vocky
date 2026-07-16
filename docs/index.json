@@ -1,7 +1,7 @@
 {
   "docs": {
     "product": {
-      "latest": "v0004_p3_feedback_is_project-scoped_add_project-scoped_feedback_api_v2_read_manage_cross-project_search_and_operational_usage_monitoring_no_billing_flip_the_broad-public-rest-management_non-goal",
+      "latest": "v0005_p7_agent-decided_write-only_feedback_capture_returns_as_an_mcp_surface_agents_linked_to_a_project_s_mcp_save_feedback_with_the_project_s_vk__key_three_read_tools_stay_retired",
       "current_path": "docs/current/product.md",
       "versions": [
         {
@@ -35,11 +35,19 @@
           "source": "P3.REVIEW",
           "summary": "P3: feedback is project-scoped; add project-scoped Feedback API v2 (read+manage), cross-project search, and operational usage monitoring (no billing); flip the broad-public-REST-management non-goal",
           "previous": "v0003_free_multi-tenant_saas_core_accounts_tenants_projects_per-project_credentials_no_billing"
+        },
+        {
+          "id": "v0005_p7_agent-decided_write-only_feedback_capture_returns_as_an_mcp_surface_agents_linked_to_a_project_s_mcp_save_feedback_with_the_project_s_vk__key_three_read_tools_stay_retired",
+          "path": "docs/versions/product/v0005_p7_agent-decided_write-only_feedback_capture_returns_as_an_mcp_surface_agents_linked_to_a_project_s_mcp_save_feedback_with_the_project_s_vk__key_three_read_tools_stay_retired.md",
+          "created_at": "2026-07-16T18:48:22+09:00",
+          "source": "P7.REVIEW",
+          "summary": "P7: agent-decided write-only feedback capture returns as an MCP surface (agents linked to a project's /mcp save feedback with the project's vk_ key); three read tools stay retired",
+          "previous": "v0004_p3_feedback_is_project-scoped_add_project-scoped_feedback_api_v2_read_manage_cross-project_search_and_operational_usage_monitoring_no_billing_flip_the_broad-public-rest-management_non-goal"
         }
       ]
     },
     "experience": {
-      "latest": "v0004_p3_read_manage_your_project_s_feedback_via_vk__key_on_api_project_feedback_search_across_your_projects_via_session_on_app_feedback_korean_view_usage_via_app_usage",
+      "latest": "v0005_p7_agents_capture_feedback_via_the_write-only_capture_feedback_mcp_tool_at_a_project_s_mcp_endpoint_authed_by_the_project_s_vk__key",
       "current_path": "docs/current/experience.md",
       "versions": [
         {
@@ -73,11 +81,19 @@
           "source": "P3.REVIEW",
           "summary": "P3: read+manage your project's feedback via vk_ key on /api/project/feedback; search across your projects via session on /app/feedback (Korean); view usage via /app/usage",
           "previous": "v0003_integrate_via_signup_then_create_project_then_mint_vk__credential_send_it_as_authorization_bearer_on_api_replace_optional-static-token_guidance"
+        },
+        {
+          "id": "v0005_p7_agents_capture_feedback_via_the_write-only_capture_feedback_mcp_tool_at_a_project_s_mcp_endpoint_authed_by_the_project_s_vk__key",
+          "path": "docs/versions/experience/v0005_p7_agents_capture_feedback_via_the_write-only_capture_feedback_mcp_tool_at_a_project_s_mcp_endpoint_authed_by_the_project_s_vk__key.md",
+          "created_at": "2026-07-16T18:48:22+09:00",
+          "source": "P7.REVIEW",
+          "summary": "P7: agents capture feedback via the write-only capture_feedback MCP tool at a project's /mcp endpoint, authed by the project's vk_ key",
+          "previous": "v0004_p3_read_manage_your_project_s_feedback_via_vk__key_on_api_project_feedback_search_across_your_projects_via_session_on_app_feedback_korean_view_usage_via_app_usage"
         }
       ]
     },
     "architecture": {
-      "latest": "v0004_p3_feedback_project_scoping_ingest-scope_threading_pg_trgm_substring_search_subsystem_derived_usage",
+      "latest": "v0005_p7_revive_mcp_as_a_write-only_capture_surface_mcp_mount_session_manager_lifespan_feeding_the_shared_queue_mcp_env_in_configuration_surface",
       "current_path": "docs/current/architecture.md",
       "versions": [
         {
@@ -111,6 +127,14 @@
           "source": "P3.REVIEW",
           "summary": "P3: feedback project scoping, ingest-scope threading, pg_trgm substring search subsystem, derived usage",
           "previous": "v0003_add_identity_tenancy_layer_auth_app_control-plane_mandatory_per-project_credential_auth_on_api"
+        },
+        {
+          "id": "v0005_p7_revive_mcp_as_a_write-only_capture_surface_mcp_mount_session_manager_lifespan_feeding_the_shared_queue_mcp_env_in_configuration_surface",
+          "path": "docs/versions/architecture/v0005_p7_revive_mcp_as_a_write-only_capture_surface_mcp_mount_session_manager_lifespan_feeding_the_shared_queue_mcp_env_in_configuration_surface.md",
+          "created_at": "2026-07-16T18:48:28+09:00",
+          "source": "P7.REVIEW",
+          "summary": "P7: revive MCP as a write-only capture surface (/mcp mount + session_manager lifespan) feeding the shared queue; MCP env in Configuration Surface",
+          "previous": "v0004_p3_feedback_project_scoping_ingest-scope_threading_pg_trgm_substring_search_subsystem_derived_usage"
         }
       ]
     },
@@ -129,7 +153,7 @@
       ]
     },
     "backend": {
-      "latest": "v0002_accounts_domain_package_require_user_authcontext_autherror_guard_security_primitives_and_auth_api_app_api_route_modules",
+      "latest": "v0003_p7_mcp_server.py_fastmcp_bootstrap_capture_feedback_tool_module_is_mcp_path_broadened_ingest_guard_mcpcapturefeedbackinput",
       "current_path": "docs/current/backend.md",
       "versions": [
         {
@@ -147,6 +171,14 @@
           "source": "P2.REVIEW",
           "summary": "Accounts domain package, require_user/AuthContext/AuthError guard, security primitives, and auth_api/app_api route modules",
           "previous": "v0001_bootstrap"
+        },
+        {
+          "id": "v0003_p7_mcp_server.py_fastmcp_bootstrap_capture_feedback_tool_module_is_mcp_path_broadened_ingest_guard_mcpcapturefeedbackinput",
+          "path": "docs/versions/backend/v0003_p7_mcp_server.py_fastmcp_bootstrap_capture_feedback_tool_module_is_mcp_path_broadened_ingest_guard_mcpcapturefeedbackinput.md",
+          "created_at": "2026-07-16T18:52:17+09:00",
+          "source": "P7.REVIEW",
+          "summary": "P7: mcp_server.py FastMCP bootstrap, capture_feedback tool module, is_mcp_path broadened ingest guard, McpCaptureFeedbackInput",
+          "previous": "v0002_accounts_domain_package_require_user_authcontext_autherror_guard_security_primitives_and_auth_api_app_api_route_modules"
         }
       ]
     },
@@ -181,7 +213,7 @@
       ]
     },
     "api": {
-      "latest": "v0004_p3_feedback_api_v2_project-scoped_read_manage_cross-project_read_search_usage_endpoints",
+      "latest": "v0005_p7_add_write-only_capture_feedback_mcp_tool_contract_flat_inputs_source_nested_no_attachment_ids_capture_receipt_and_the_mcp_per-project_vk__credential_auth_model_un-retire_mcp_as_a_write-only_surface",
       "current_path": "docs/current/api.md",
       "versions": [
         {
@@ -215,6 +247,14 @@
           "source": "P3.REVIEW",
           "summary": "P3 Feedback API v2: project-scoped read+manage, cross-project read+search, usage endpoints",
           "previous": "v0003_add_account_auth_auth_tenant_project_credential_control-plane_app_and_mandatory_per-project_credential_auth_on_api"
+        },
+        {
+          "id": "v0005_p7_add_write-only_capture_feedback_mcp_tool_contract_flat_inputs_source_nested_no_attachment_ids_capture_receipt_and_the_mcp_per-project_vk__credential_auth_model_un-retire_mcp_as_a_write-only_surface",
+          "path": "docs/versions/api/v0005_p7_add_write-only_capture_feedback_mcp_tool_contract_flat_inputs_source_nested_no_attachment_ids_capture_receipt_and_the_mcp_per-project_vk__credential_auth_model_un-retire_mcp_as_a_write-only_surface.md",
+          "created_at": "2026-07-16T18:48:22+09:00",
+          "source": "P7.REVIEW",
+          "summary": "P7: add write-only capture_feedback MCP tool contract (flat inputs, source nested, no attachment_ids; capture receipt) and the /mcp per-project vk_ credential auth model; un-retire MCP as a write-only surface",
+          "previous": "v0004_p3_feedback_api_v2_project-scoped_read_manage_cross-project_read_search_usage_endpoints"
         }
       ]
     },
@@ -233,7 +273,7 @@
       ]
     },
     "security": {
-      "latest": "v0003_p3_project-scoped_read_authz_404-never-403_on_api_project_and_app_feedback_one_vk__key_captures_reads_manages_its_project_no_per-credential_scopes_best-effort_last_used_at_stamping_tightened_project-scoped_self-read",
+      "latest": "v0004_p7_mcp_requires_a_per-project_vk__credential_same_guard_401_last_used_at_as_api_dns-rebinding_on_static_token_retired",
       "current_path": "docs/current/security.md",
       "versions": [
         {
@@ -259,6 +299,14 @@
           "source": "P3.REVIEW",
           "summary": "P3: project-scoped read authz (404-never-403 on /api/project/* and /app/feedback), one vk_ key captures+reads+manages its project (no per-credential scopes), best-effort last_used_at stamping, tightened project-scoped self-read",
           "previous": "v0002_argon2id_passwords_opaque_hashed_session_tokens_30-day_ttl_mint-once_hashed_vk__project_credentials_mandatory_ingest_auth_no_enumeration"
+        },
+        {
+          "id": "v0004_p7_mcp_requires_a_per-project_vk__credential_same_guard_401_last_used_at_as_api_dns-rebinding_on_static_token_retired",
+          "path": "docs/versions/security/v0004_p7_mcp_requires_a_per-project_vk__credential_same_guard_401_last_used_at_as_api_dns-rebinding_on_static_token_retired.md",
+          "created_at": "2026-07-16T18:52:17+09:00",
+          "source": "P7.REVIEW",
+          "summary": "P7: /mcp requires a per-project vk_ credential (same guard/401/last_used_at as /api/*); DNS-rebinding on; static token retired",
+          "previous": "v0003_p3_project-scoped_read_authz_404-never-403_on_api_project_and_app_feedback_one_vk__key_captures_reads_manages_its_project_no_per-credential_scopes_best-effort_last_used_at_stamping_tightened_project-scoped_self-read"
         }
       ]
     },
@@ -277,7 +325,7 @@
       ]
     },
     "decisions": {
-      "latest": "v0003_record_p3_feedback-api-v2_decisions_project_scope_on_feedback_api_project_app_read-manage_split_pg_trgm_korean-safe_substring_search_derived_usage_no_metering_tightened_self-read",
+      "latest": "v0004_p7_mcp-revival_decisions_write-only_scope_broadened-middleware_auth_binding_thin_mcpcapturefeedbackinput_transport_security_on",
       "current_path": "docs/current/decisions.md",
       "versions": [
         {
@@ -303,9 +351,17 @@
           "source": "P3.REVIEW",
           "summary": "Record P3 feedback-API-v2 decisions: project scope on feedback, /api/project + /app read-manage split, pg_trgm Korean-safe substring search, derived usage no metering, tightened self-read",
           "previous": "v0002_p2_auth-model_and_tenancy-shape_decisions_email_password_opaque_db_tokens_multi-tenant_solo-owner_app_vs_api_split_mandatory_ingest_auth"
+        },
+        {
+          "id": "v0004_p7_mcp-revival_decisions_write-only_scope_broadened-middleware_auth_binding_thin_mcpcapturefeedbackinput_transport_security_on",
+          "path": "docs/versions/decisions/v0004_p7_mcp-revival_decisions_write-only_scope_broadened-middleware_auth_binding_thin_mcpcapturefeedbackinput_transport_security_on.md",
+          "created_at": "2026-07-16T18:52:17+09:00",
+          "source": "P7.REVIEW",
+          "summary": "P7 MCP-revival decisions: write-only scope, broadened-middleware auth binding, thin McpCaptureFeedbackInput, transport security on",
+          "previous": "v0003_record_p3_feedback-api-v2_decisions_project_scope_on_feedback_api_project_app_read-manage_split_pg_trgm_korean-safe_substring_search_derived_usage_no_metering_tightened_self-read"
         }
       ]
     }
   },
-  "last_rebuilt_at": "2026-07-16T16:37:44+09:00"
+  "last_rebuilt_at": "2026-07-16T19:00:05+09:00"
 }
