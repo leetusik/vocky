@@ -3,14 +3,17 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import {
   createCredential,
   createProject,
+  getFeedbackDetail,
   getProject,
   getProjectUsage,
   getUsage,
+  listFeedback,
   listProjects,
   revokeCredential,
 } from "@/lib/vocky/app";
 import type {
   VockyCredential,
+  VockyFeedback,
   VockyProject,
   VockyUsage,
 } from "@/lib/vocky/types";
@@ -290,5 +293,142 @@ describe("getProjectUsage", () => {
     expect(usage.credentials).toEqual([CREDENTIAL]);
     // Active ⇔ revoked_at === null; there is no `status` field to read.
     expect(usage.credentials[0]).not.toHaveProperty("status");
+  });
+});
+
+// ── /app/feedback — cross-project read + search (P4.S5) ─────────────────────
+// The app's first query-string caller, so these lock down the URL BUILDING as
+// much as the unwrapping: the two shapes that bite are `next_cursor`'s absence
+// and the blank params vocky 400s on.
+
+const FEEDBACK: VockyFeedback = {
+  id: "7e6d5c4b-3333-4f2a-9b8c-7d6e5f4a3b2c",
+  message: "결제 오류가 있어요",
+  source_product: "checkout",
+  feedback_value: 2,
+  comment: null,
+  channel: null,
+  source_integration: null,
+  conversation_id: null,
+  session_id: null,
+  user_id: null,
+  trigger_type: "dislike",
+  trigger_message: null,
+  trigger_metadata: {},
+  target_type: null,
+  target_id: null,
+  target_role: null,
+  target_text: null,
+  event_at: null,
+  ingested_at: "2026-07-16T09:31:02Z",
+  tags: [],
+  messages: [],
+  used_context: [],
+  source_metadata: {},
+  attributes: {},
+  project_id: PROJECT.id,
+};
+
+describe("listFeedback", () => {
+  it("calls /app/feedback BARE when no params are given", async () => {
+    stubVocky(200, { records: [FEEDBACK] });
+
+    await expect(listFeedback(TOKEN)).resolves.toEqual({
+      records: [FEEDBACK],
+    });
+
+    const { url, headers } = lastCall();
+    // No trailing `?` — the bare path, exactly as the other GETs send it.
+    expect(url).toBe("http://vocky.test:8000/app/feedback");
+    expect(headers.Authorization).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it("encodes params (spaces as +) and omits every blank one", async () => {
+    stubVocky(200, { records: [] });
+
+    await listFeedback(TOKEN, {
+      q: "결제 오류",
+      project_id: PROJECT.id,
+      feedback_value: 2,
+      // Blank/undefined must be OMITTED, not sent: vocky 400s on a blank `tag`
+      // or `cursor`, and a GET filter form submits its empty fields.
+      tag: "",
+      cursor: "   ",
+      channel: undefined,
+    });
+
+    // URLSearchParams does all the escaping — `+` for the space (Starlette
+    // decodes it back) and one layer of percent-encoding for the Korean.
+    expect(lastCall().url).toBe(
+      "http://vocky.test:8000/app/feedback" +
+        `?q=%EA%B2%B0%EC%A0%9C+%EC%98%A4%EB%A5%98&project_id=${PROJECT.id}&feedback_value=2`,
+    );
+  });
+
+  it("surfaces next_cursor when vocky sends one", async () => {
+    stubVocky(200, { records: [FEEDBACK], next_cursor: "eyJpZCI6ImEifQ" });
+
+    const page = await listFeedback(TOKEN, { limit: 1 });
+    expect(page.next_cursor).toBe("eyJpZCI6ImEifQ");
+    expect(lastCall().url).toBe("http://vocky.test:8000/app/feedback?limit=1");
+  });
+
+  it("yields next_cursor === undefined when the key is OMITTED (never null)", async () => {
+    // The shape that bites: vocky DROPS the key on the last page rather than
+    // sending null, so a `!== null` test would page forever.
+    stubVocky(200, { records: [FEEDBACK] });
+
+    const page = await listFeedback(TOKEN);
+    expect(page.next_cursor).toBeUndefined();
+    expect("next_cursor" in page).toBe(false);
+  });
+});
+
+describe("getFeedbackDetail", () => {
+  it("unwraps the {record} envelope with its comments + attachments", async () => {
+    // Wrapped, unlike the list's bare `records` — the asymmetry this unwraps.
+    stubVocky(200, {
+      record: {
+        ...FEEDBACK,
+        comments: [
+          {
+            id: "c1",
+            author: null,
+            body: "refunded",
+            created_at: "2026-07-16T10:00:00Z",
+          },
+        ],
+        attachments: [
+          {
+            id: "a1",
+            content_type: "image/png",
+            byte_size: 1024,
+            filename: "shot.png",
+            created_at: "2026-07-16T10:00:00Z",
+            url: `/app/feedback/${FEEDBACK.id}/attachments/a1`,
+          },
+        ],
+      },
+    });
+
+    const record = await getFeedbackDetail(TOKEN, FEEDBACK.id);
+    expect(record.message).toBe(FEEDBACK.message);
+    expect(record.comments[0].author).toBeNull();
+    // vocky-relative and bearer-gated — the page proxies it, never links it.
+    expect(record.attachments[0].url).toBe(
+      `/app/feedback/${FEEDBACK.id}/attachments/a1`,
+    );
+    expect(lastCall().url).toBe(
+      `http://vocky.test:8000/app/feedback/${FEEDBACK.id}`,
+    );
+  });
+
+  it("throws ApiError(404) for a missing OR cross-tenant id (vocky never 403s)", async () => {
+    stubVocky(404, { detail: "feedback not found" });
+
+    await expect(getFeedbackDetail(TOKEN, FEEDBACK.id)).rejects.toMatchObject({
+      name: "ApiError",
+      status: 404,
+    });
   });
 });

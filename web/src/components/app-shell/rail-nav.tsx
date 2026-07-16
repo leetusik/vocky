@@ -10,8 +10,10 @@ import { cn } from "@/lib/utils";
  * The shell's rail navigation (P4.S2). A client island only because the active
  * item is derived from `usePathname()`; the rest of the shell stays server-rendered.
  *
- * Items flagged `soon` (routes a later slice ships — /feedback is S5) render as
- * muted, non-interactive text with a "Soon" tag rather than links that would 404.
+ * Items flagged `soon` (a route announced before it exists) render as muted,
+ * non-interactive text with a "Soon" tag rather than links that would 404. No
+ * item sets it today — S5 shipped /feedback, the last one — but the affordance
+ * stays for future surfaces.
  * Below 900px the rail collapses to a horizontal strip above the main column.
  */
 export function RailNav() {

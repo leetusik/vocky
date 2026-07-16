@@ -188,3 +188,154 @@ export interface VockyMintedCredential {
   credential: VockyCredential;
   key: string;
 }
+
+// ── /app/feedback shapes (P4.S5) ───────────────────────────────────────────
+// Mirroring `src/vocky/app_feedback_api.py::_serialize_app_record` and the
+// serializers it composes from `tools/query_feedback_common.py`
+// (`serialize_record` / `serialize_comment` / `serialize_attachment`) verbatim.
+//
+// EVERY string field here is CALLER-SUPPLIED, UNTRUSTED text: it arrives from
+// whatever service holds a `vk_` ingest key. Render it as text only — never
+// through `dangerouslySetInnerHTML`, never as a URL/href.
+
+/**
+ * `_serialize_app_record` — one feedback record on the cross-project `/app/*`
+ * surface: `serialize_record` PLUS `project_id`.
+ *
+ * A SUPERSET of the `/api/*` record, and so its own named type rather than a
+ * shared/extended one (the house rule since `VockyUsageProject`): the `/api/*`
+ * surface deliberately OMITS `project_id` — a project-credential caller already
+ * knows its project — while a cross-project reader cannot tell the rows apart
+ * without it.
+ *
+ * `project_id` is typed nullable because the serializer emits `null` for legacy
+ * rows captured before projects existed. Those rows are UNREACHABLE here in
+ * practice — the list filters by an owned-id set (SQL `IN` never matches NULL)
+ * and get-one 404s them — but the type mirrors the serializer, not the filter.
+ */
+export interface VockyFeedback {
+  id: string;
+  /** The end user's feedback text. Always present (vocky requires it). */
+  message: string;
+  source_product: string;
+  /** vocky's explicit-action rating: `1` = like, `2` = dislike, `null` = unrated. */
+  feedback_value: 1 | 2 | null;
+  comment: string | null;
+  channel: string | null;
+  source_integration: string | null;
+  conversation_id: string | null;
+  session_id: string | null;
+  user_id: string | null;
+  trigger_type: string | null;
+  trigger_message: string | null;
+  /** Free-form caller-supplied JSON object — no schema vocky enforces. */
+  trigger_metadata: Record<string, unknown>;
+  target_type: string | null;
+  target_id: string | null;
+  target_role: string | null;
+  target_text: string | null;
+  /** When the feedback HAPPENED (caller-reported, optional). */
+  event_at: string | null;
+  /** When vocky STORED it — the list's sort key (`ingested_at DESC, id DESC`). */
+  ingested_at: string;
+  tags: string[];
+  /** Free-form caller-supplied JSON arrays — element shape is not vocky's to know. */
+  messages: unknown[];
+  used_context: unknown[];
+  source_metadata: Record<string, unknown>;
+  attributes: Record<string, unknown>;
+  /** The `/app/*` addition; `null` only for legacy pre-project rows (see above). */
+  project_id: string | null;
+}
+
+/** `serialize_comment` — an operator note on a record. Read-only on this surface. */
+export interface VockyFeedbackComment {
+  id: string;
+  /** `null` when the comment was left unattributed. */
+  author: string | null;
+  body: string;
+  created_at: string;
+}
+
+/** `serialize_attachment` — an uploaded file's METADATA (never its bytes). */
+export interface VockyFeedbackAttachment {
+  id: string;
+  /** The STORED content type, i.e. whatever the uploader declared — untrusted. */
+  content_type: string;
+  byte_size: number;
+  filename: string | null;
+  created_at: string;
+  /**
+   * A VOCKY-RELATIVE path (`/app/feedback/{id}/attachments/{aid}`), not a URL the
+   * browser can follow: fetching it needs the session bearer, which lives only on
+   * our server. The browser gets our own proxy route instead — so this field is
+   * never rendered into an `href` directly.
+   */
+  url: string;
+}
+
+/**
+ * `GET /app/feedback/{id}` → the record WRAPPED in `{record}`, with its comments
+ * and attachments nested. Note the asymmetry with the list, which returns
+ * `records` BARE (no wrapper) — hence two different unwrapping rules in `app.ts`.
+ */
+export interface VockyFeedbackDetail extends VockyFeedback {
+  comments: VockyFeedbackComment[];
+  attachments: VockyFeedbackAttachment[];
+}
+
+/**
+ * `GET /app/feedback` — one keyset-paged page, newest-first.
+ *
+ * `next_cursor` is OPTIONAL, never `null`: vocky OMITS the key entirely when the
+ * page is exhausted (`if page.next_cursor is not None: payload[...] = ...`), so
+ * "no more pages" is `next_cursor === undefined`. A `!== null` check would read
+ * TRUE forever and page endlessly.
+ */
+export interface VockyFeedbackPage {
+  records: VockyFeedback[];
+  next_cursor?: string;
+}
+
+/**
+ * The `GET /app/feedback` query — every param optional, vocky ignores unknown
+ * ones. The UI surfaces only `q` / `project_id` / `feedback_value`; the rest stay
+ * URL-reachable and are preserved across filtering + pagination.
+ *
+ * Sharp edges, all encoded in `listFeedback`'s param builder:
+ *   - `tag` REJECTS blank with a 400 (`normalize_tag`), while every other text
+ *     field collapses blank to "no filter" — so blanks are omitted, not sent;
+ *   - `cursor` likewise 400s when blank;
+ *   - `feedback_value` accepts ONLY 1 or 2 (never 0, never a bool);
+ *   - `limit` is 1–100, defaulting to 50.
+ */
+export interface VockyFeedbackQuery {
+  /** Case-insensitive SUBSTRING match over message+comment+target_text+trigger_message. */
+  q?: string;
+  project_id?: string;
+  start_ingested_at?: string;
+  end_ingested_at?: string;
+  source_product?: string;
+  source_integration?: string;
+  conversation_id?: string;
+  session_id?: string;
+  user_id?: string;
+  /** 1 = like, 2 = dislike. Anything else is a 400. */
+  feedback_value?: 1 | 2;
+  channel?: string;
+  target_type?: "message" | "conversation" | "surface";
+  trigger_type?:
+    | "like"
+    | "dislike"
+    | "comment"
+    | "rating"
+    | "survey"
+    | "manual"
+    | "other";
+  /** Blank is a 400 here, unlike the other text filters. */
+  tag?: string;
+  /** 1–100; vocky defaults to 50. */
+  limit?: number;
+  /** Opaque base64url keyset cursor from a previous page's `next_cursor`. */
+  cursor?: string;
+}

@@ -2,6 +2,9 @@ import "server-only";
 
 import { getJson, sendJson } from "./client";
 import type {
+  VockyFeedbackDetail,
+  VockyFeedbackPage,
+  VockyFeedbackQuery,
   VockyMintedCredential,
   VockyProject,
   VockyProjectUsage,
@@ -194,4 +197,109 @@ export async function getProjectUsage(
     `/app/projects/${encodeURIComponent(projectId)}/usage`,
     { token, signal },
   );
+}
+
+// ── /app/feedback — the cross-project read + search surface (P4.S5) ─────────
+// READ ONLY. Feedback MANAGEMENT (edit/delete/comment) lives on the `vk_`-keyed
+// `/api/project/feedback` surface — a different credential entirely — and is out
+// of scope for this app, so there is no `updateFeedback` here to add later.
+
+/** The `GET /app/feedback/{id}` envelope. */
+interface RawFeedbackDetailResponse {
+  record: VockyFeedbackDetail;
+}
+
+/**
+ * Build the `?…` suffix for `listFeedback`, or `""` when nothing is active.
+ *
+ * The app's FIRST query string, so the rules it settles:
+ *   - BLANK IS OMITTED, NEVER SENT. vocky collapses a blank text filter to "no
+ *     filter", but `tag` and `cursor` REJECT blank with a 400 (`normalize_tag` /
+ *     `decode_cursor`), and `project_id`/`feedback_value`/`limit` 400 on an
+ *     unparseable value — so a blank param is never merely redundant, it is a
+ *     failure waiting to happen. A GET form necessarily submits its empty fields
+ *     (`?q=&project_id=`), which makes this the common case, not the edge case.
+ *   - Values are trimmed to match vocky's own normalization, so the URL and the
+ *     filter vocky applies never disagree.
+ *   - `URLSearchParams` does ALL the escaping. Do NOT `encodeURIComponent` on top
+ *     of it — that double-encodes (`결제` → `%25EA%25B2%25B0…`) and silently
+ *     searches for the literal escape text. It encodes a space as `+`, which
+ *     Starlette decodes back to a space correctly.
+ *   - No params ⇒ the path stays BARE (`/app/feedback`, no trailing `?`).
+ */
+function feedbackQueryString(params: VockyFeedbackQuery): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    const raw = typeof value === "string" ? value.trim() : String(value);
+    if (raw === "") continue;
+    search.set(key, raw);
+  }
+  const query = search.toString();
+  return query === "" ? "" : `?${query}`;
+}
+
+/**
+ * `GET /app/feedback` (bearer) → 200 `{records, next_cursor?}` — feedback across
+ * ALL the caller's tenant's projects, newest-first (`ingested_at DESC, id DESC`)
+ * and keyset-paged.
+ *
+ * Takes an OPTIONS OBJECT, unlike every other call in this file (which take
+ * scalars): vocky accepts 16 optional filters, and threading those positionally
+ * would be unreadable and unsafe at every call site.
+ *
+ * TWO THINGS THAT BITE:
+ *   - `next_cursor` is an OMITTED KEY when the page is exhausted, never `null`.
+ *     "More pages?" is `next_cursor !== undefined`; a `!== null` test reads true
+ *     forever and pages endlessly.
+ *   - THE CURSOR DOES NOT ENCODE THE FILTERS. It carries only `{ingested_at, id}`,
+ *     so a next-page call MUST resend every active filter or the scope silently
+ *     widens mid-pagination.
+ *
+ * A tenant with no projects (or a scope that resolves to none) answers
+ * `{records: []}` without touching the DB. `project_id` narrows the scope: a
+ * malformed one is a 400, one the tenant does not own is a 404 (never 403).
+ */
+export async function listFeedback(
+  token: string,
+  params: VockyFeedbackQuery = {},
+  signal?: AbortSignal,
+): Promise<VockyFeedbackPage> {
+  const page = await getJson<VockyFeedbackPage>(
+    `/app/feedback${feedbackQueryString(params)}`,
+    { token, signal },
+  );
+  // Spread-then-default: preserves the ABSENCE of `next_cursor` (spreading a
+  // missing key never creates it) while defending `records`, which vocky always
+  // sends. Rebuilding the object field-by-field would materialize
+  // `next_cursor: undefined` and blur "exhausted" into "present but empty".
+  return { ...page, records: page.records ?? [] };
+}
+
+/**
+ * `GET /app/feedback/{id}` (bearer) → 200 `{record: {…, comments, attachments}}`.
+ *
+ * WRAPPED in `{record}` — unlike the list, whose `records` arrives bare. The
+ * record is the same `_serialize_app_record` shape plus nested `comments[]` and
+ * `attachments[]`.
+ *
+ * 400 (not a UUID) / 404 (missing OR outside the caller's tenant, including
+ * legacy NULL-project rows — 404-never-403, so ids cannot be probed) / 500
+ * (storage read failure). Callers map 400+404 to the same not-found page and
+ * rethrow the rest.
+ *
+ * Each attachment's `url` is a VOCKY-relative path needing the session bearer —
+ * not something a browser can fetch. The web app proxies it instead; see
+ * `app/api/app/feedback/[feedbackId]/attachments/[attachmentId]/route.ts`.
+ */
+export async function getFeedbackDetail(
+  token: string,
+  feedbackId: string,
+  signal?: AbortSignal,
+): Promise<VockyFeedbackDetail> {
+  const raw = await getJson<RawFeedbackDetailResponse>(
+    `/app/feedback/${encodeURIComponent(feedbackId)}`,
+    { token, signal },
+  );
+  return raw.record;
 }

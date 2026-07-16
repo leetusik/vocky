@@ -85,6 +85,35 @@ export async function getJson<T>(
 }
 
 /**
+ * `GET <base><path>` with the bearer injected, returning the RAW `Response` with
+ * its body UNREAD — for the one vocky route that answers bytes, not JSON
+ * (`/app/feedback/{id}/attachments/{aid}`), which the attachment proxy relays
+ * straight to the browser (P4.S5).
+ *
+ * The sibling of `getJson`, not a replacement: identical URL/bearer/no-store
+ * construction and the same `ApiError`-on-non-2xx contract (vocky's ERROR bodies
+ * are still JSON, so `toError` reads them normally) — it simply hands the caller
+ * the stream instead of `JSON.parse`ing it. No `Accept` header: the caller cannot
+ * know the stored content type, and vocky does not content-negotiate.
+ *
+ * The caller MUST consume or relay the body; on the success path nothing here
+ * reads it.
+ */
+export async function getRaw(
+  path: string,
+  options: VockyRequestOptions = {},
+): Promise<Response> {
+  const res = await fetch(vockyUrl(path), {
+    method: "GET",
+    headers: authHeaders(options.token),
+    cache: "no-store",
+    signal: options.signal,
+  });
+  if (!res.ok) throw await toError(res);
+  return res;
+}
+
+/**
  * `POST|PATCH|PUT|DELETE <base><path>` with an optional JSON body + the bearer
  * injected. Throws `ApiError` on non-2xx; returns the parsed body (or `undefined`
  * for a 204, e.g. `POST /auth/logout`).

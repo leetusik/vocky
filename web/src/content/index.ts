@@ -1,6 +1,5 @@
 // Barrel for the typed @/content module. Consumers import structured content +
-// types from "@/content" — never hardcode copy or anchor ids inline. Feature
-// copy (dashboard / project / feedback surfaces) is added by later slices.
+// types from "@/content" — never hardcode copy or anchor ids inline.
 export { SECTION_IDS } from "./section-ids";
 export type { SectionId } from "./section-ids";
 
@@ -27,3 +26,6 @@ export {
   PROJECT,
   REVOKE_CREDENTIAL_ERRORS,
 } from "./project";
+
+// Feedback (P4.S5) — the cross-project list/search + one record's detail.
+export { FEEDBACK } from "./feedback";

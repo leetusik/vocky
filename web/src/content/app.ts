@@ -6,22 +6,24 @@ export interface AppNavItem {
   href: string;
   /**
    * True when the destination route does not exist yet — rendered as a muted,
-   * non-interactive rail item with a "Soon" tag instead of a link that 404s.
-   * The slice that ships the route drops this flag.
+   * non-interactive rail item with a "Soon" tag instead of a link that 404s. The
+   * slice that ships the route drops this flag (S5 dropped the last one, so no
+   * item sets it today; the affordance stays for the surfaces P6 announces
+   * before it builds them).
    */
   soon?: boolean;
 }
 
 /**
- * Rail navigation. `/dashboard` is the real tenant dashboard from S3.
- * `/feedback` is the cross-project feedback surface that lands in S5 — marked
- * `soon` until then. Project detail (`/projects/[id]`, S4) is reached from the
- * dashboard's project list, not the rail — S4 adds that link when it ships the
- * route (S3 renders the rows without navigation rather than linking to a 404).
+ * Rail navigation — both destinations are real routes as of S5: `/dashboard` is
+ * the tenant dashboard (S3) and `/feedback` the cross-project feedback list +
+ * search (S5). Project detail (`/projects/[id]`, S4) is deliberately NOT here —
+ * a project is reached from the dashboard's project list, and a feedback record
+ * from the feedback list; the rail carries only the two top-level surfaces.
  */
 export const APP_NAV: AppNavItem[] = [
   { label: "Dashboard", href: "/dashboard" },
-  { label: "Feedback", href: "/feedback", soon: true },
+  { label: "Feedback", href: "/feedback" },
 ];
 
 export const APP_SHELL = {
