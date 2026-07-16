@@ -1,10 +1,10 @@
 ---
 doc_id: architecture
-version: v0003
-created_at: 2026-07-16T14:14:29+09:00
-source: P2.REVIEW
-summary: Add identity + tenancy layer; /auth + /app control-plane; mandatory per-project credential auth on /api
-previous: v0002_retire_mcp_track_rest-only_two-track_api_public_rest_admin_rest
+version: v0004
+created_at: 2026-07-16T16:36:09+09:00
+source: P3.REVIEW
+summary: P3: feedback project scoping, ingest-scope threading, pg_trgm substring search subsystem, derived usage
+previous: v0003_add_identity_tenancy_layer_auth_app_control-plane_mandatory_per-project_credential_auth_on_api
 ---
 
 # Architecture
@@ -13,7 +13,9 @@ previous: v0002_retire_mcp_track_rest-only_two-track_api_public_rest_admin_rest
 
 This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through server-to-server REST using Redis-backed queueing plus a dedicated worker while exposing a scoped end-user REST read, separate Admin REST endpoints, and a same-origin self-hosted Admin Web UI with dashboard metrics, feedback review management, in-app operator documentation, and REST capture try-it over the same PostgreSQL feedback store. The earlier MCP/agent-decided capture and MCP read tools have been retired (recoverable through git history).
 
-On top of that capture core, Vocky now has an **identity and tenancy layer**: real user accounts (email + password), a multi-tenant model (tenants → projects), per-project ingest credentials, a public `/auth/*` auth surface, a session-token-authed `/app/*` account control-plane, and a `src/vocky/accounts/` domain package. Public `/api/*` ingestion is now guarded by **mandatory per-project credential auth** (`ProjectCredentialAuthMiddleware`), which replaced the old optional static-token `APIBearerAuthMiddleware`. This layer is identity-only in P2: authenticated `/api/*` requests are accepted, but the credential's project/tenant is not yet threaded into the feedback record (that scoping is P3).
+On top of that capture core, Vocky now has an **identity and tenancy layer**: real user accounts (email + password), a multi-tenant model (tenants → projects), per-project ingest credentials, a public `/auth/*` auth surface, a session-token-authed `/app/*` account control-plane, and a `src/vocky/accounts/` domain package. Public `/api/*` ingestion is guarded by **mandatory per-project credential auth** (`ProjectCredentialAuthMiddleware`), which replaced the old optional static-token `APIBearerAuthMiddleware`.
+
+On top of that, **P3 makes feedback project-scoped** (Feedback API v2). `feedback_events` gains a nullable `project_id`; the ingest middleware threads the resolved credential onto the ASGI scope so capture stamps the record's project and reads scope to it; three new feedback surfaces sit over the scoped store — the project-credential-authed `/api/project/feedback` (an external service's own admin panel reads + manages its own project's feedback), the session-authed `/app/feedback` (a signed-in user reads + searches across all their projects, Korean-safe via a `pg_trgm` substring-search subsystem), and derived usage-monitoring endpoints (`/app/usage`, `/app/projects/{id}/usage`, `/api/project/usage`). The ingest guard now also best-effort stamps `last_used_at`. See "Feedback Project Scoping & the P3 Feedback API" below.
 
 ## Current Repo Shape
 
@@ -75,12 +77,21 @@ The accounts layer adds three route groups and one domain package on top of the 
 
 - **`/auth/*` (public account auth, `src/vocky/auth_api.py`)** — `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`. Registered first in the route list. These paths match neither `is_api_path` nor `is_admin_api_path`, so no bearer middleware guards them. Signup provisions a user + tenant + owner membership and mints a session token; login re-issues one.
 - **`/app/*` (account control-plane, `src/vocky/app_api.py`)** — `GET /app/tenant`, `GET|POST /app/projects`, `GET /app/projects/{id}`, and `POST|GET|DELETE /app/projects/{id}/credentials[/{credential_id}]`. Also outside `/api/*` and `/admin/api/*`, so it bypasses both bearer middlewares and is guarded per-handler by `require_user` (each handler starts `ctx = await require_user(request)`; a raised `AuthError` renders the shared generic 401 via the app-wide `exception_handlers={AuthError: auth_error_handler}`).
-- **`/api/*` credential guard (`ProjectCredentialAuthMiddleware`, `src/vocky/auth.py`)** — a raw-ASGI middleware that, on every `/api/*` HTTP request, extracts the bearer, hashes it, and requires `get_active_credential_by_token_hash` to return a non-revoked credential; missing/malformed/unknown/revoked all answer a generic 401. It takes no token argument and has no open fallback — auth is always enforced. It is identity-only: it does not stash project/tenant state on the ASGI scope and does not touch `last_used_at` (both deferred to P3). It replaced the retired static-token `APIBearerAuthMiddleware`. `AdminBearerAuthMiddleware` is untouched.
+- **`/api/*` credential guard (`ProjectCredentialAuthMiddleware`, `src/vocky/auth.py`)** — a raw-ASGI middleware that, on every `/api/*` HTTP request, extracts the bearer, hashes it, and requires `get_active_credential_by_token_hash` to return a non-revoked credential; missing/malformed/unknown/revoked all answer a generic 401. It takes no token argument and has no open fallback — auth is always enforced. As of P3 it also **stashes the resolved `ProjectCredentialRecord` on the ASGI scope** under the namespaced key `vocky.project_credential` (constant `PROJECT_CREDENTIAL_SCOPE_KEY`; handlers read it via `get_request_credential(request)`) and **best-effort stamps the credential's `last_used_at`** (wrapped so a stamping failure never 500s a valid ingest). It replaced the retired static-token `APIBearerAuthMiddleware`. `AdminBearerAuthMiddleware` is untouched.
 - **`src/vocky/accounts/` domain package** — mirrors `src/vocky/feedback/`: `types.py` (transport-neutral dataclasses), `repository.py` (the sole ORM boundary, no commit), `service.py` (`AccountsService` owning the session lifecycle + commit + error translation, plus `get_accounts_service()`), `security.py` (argon2id password hashing + opaque-token/sha256 primitives), and `auth.py` (the reusable `require_user` / `AuthContext` / `AuthError` guard). Raw session tokens and project keys never cross this boundary; records carry only hashes' display prefixes, never the hashes themselves.
 
 **Tenant isolation** is enforced in the control-plane handlers, not the database: `create_project` binds `tenant_id = ctx.tenant.id`, list reads are tenant-scoped, and every per-project read/mutation resolves the project first and answers **404 (never 403)** when `project is None or project.tenant_id != ctx.tenant.id`, so a caller can neither read nor probe the existence of another tenant's projects or credentials.
 
-**P2/P3 boundary:** the `/api/*` guard authenticates the request but does not yet carry the resolved project/tenant into capture. The `feedback_events` schema is unchanged — no `project_id` column, no reshaped capture payload. Threading the authenticated project into stored feedback (and per-project scoping, search, and usage monitoring) is P3.
+## Feedback Project Scoping & the P3 Feedback API
+
+P3 threads the authenticated project through capture and reads, and adds three feedback surfaces over the now project-scoped store. All of it reuses the existing feedback service/repository — the only schema change is the `feedback_events.project_id` column plus the search index (see `data.md`).
+
+- **Scope threading (capture).** `ProjectCredentialAuthMiddleware` stashes the resolved credential on the ASGI scope (`vocky.project_credential`); `POST /api/feedback` reads it via `get_request_credential(request)` and sets `payload.project_id = credential.project_id` before enqueue. The value rides the existing Redis capture queue (serializer/deserializer carry `project_id`) and the worker persists it unchanged. Legacy rows stay NULL (no backfill).
+- **Read-model chokepoint.** `FeedbackQueryFilters` gained `project_id` (single), `project_ids` (set → `IN`), and `search`; `FeedbackRepository._apply_query_filters` applies each additively. This one chokepoint serves every scoped read: the single-project `/api/*` surfaces set `project_id`, the cross-project `/app/*` surfaces set `project_ids` to the tenant's project set, and usage reuses the same filters. An empty project set is short-circuited in the handler (return an empty page / zeroed metrics) — never passed to a query.
+- **Project Feedback API (`src/vocky/project_feedback_api.py`, `/api/project/feedback`).** Project-credential-authed (auto-guarded by the `/api/*` middleware). Ports the operator verbs from `admin_api.py` — list / get-one / PATCH review fields / DELETE / operator comments add+list / attachment download — scoped to `credential.project_id`. The list **forces** the project filter; per-feedback ops load through `_load_project_feedback`, which returns the record only when `record.project_id == credential.project_id`, else 404 (never 403). `serialize_record` was lifted into `src/vocky/tools/query_feedback_common.py` and is now shared by Admin REST, `/api/project/*`, and `/app/*` (Admin output unchanged); the `/api/project/*` record omits `project_id` (single project).
+- **App Feedback API (`src/vocky/app_feedback_api.py`, `/app/feedback`).** Session-authed (`require_user`, wired outside both `/api/*` middlewares; a raised `AuthError` renders the app-wide 401). Read + search only. Each handler resolves the caller's project set via `list_projects_for_tenant(ctx.tenant.id)`; feedback outside that set (incl. legacy NULL-project rows) answers 404 via `_load_scoped_feedback`. Optional `?project_id` narrowing validates membership (400 malformed / 404 not-owned). Records are serialized with the shared serializer **augmented with `project_id`** (the caller has many projects).
+- **Multilingual substring-search subsystem (D-P3-4).** The `search` predicate is a case-insensitive substring match (`_feedback_search_target().icontains(q, autoescape=True)`) over the immutable concatenation `coalesce(message,'')||' '||coalesce(comment,'')||' '||coalesce(target_text,'')||' '||coalesce(trigger_message,'')`. It is language-agnostic (Korean 조사-attached forms + English), with **no** `to_tsvector('english', …)`. A `pg_trgm` trigram GIN index (`ix_feedback_events_search_trgm`, migration `20260716_1600`) over that same expression accelerates it — the predicate expression and the index expression are kept byte-for-byte in lock-step (only immutable `||`/`coalesce`, since STABLE `concat`/`concat_ws` cannot back an expression index), and the planner uses a `Bitmap Index Scan` on it. Search is a filter, newest-first — it composes with the existing keyset paging; `list_feedback` is unchanged.
+- **Usage monitoring (`src/vocky/usage_api.py`).** Three read-only endpoints (`/app/usage`, `/app/projects/{id}/usage`, `/api/project/usage`) are **pure reuse** of `get_feedback_metrics` scoped through the same `_apply_query_filters` chokepoint — no new query, table, or migration. The window defaults to the last 30 days when omitted. The per-project surfaces also list the project's credentials (surfacing the ingest-stamped `last_used_at`). This is operational visibility, not billing (D-P3-5); `serialize_metrics` is imported from `admin_api` (admin metrics untouched).
 
 ## Configuration Surface
 
@@ -131,7 +142,7 @@ For Cloudflare Tunnel users, the recommended public shape is a hostname-to-servi
 - Admin Web UI includes a same-origin self-hosted operator shell, dashboard metrics, recent activity, feedback list/filter/detail inspection, review-field editing, guarded delete, in-app operator docs, and an operator-only REST capture try-it form (its packaged docs still reference the retired static token; reshaping is P4)
 - Channel handling uses the built-in nullable MVP categories `web`, `mobile`, and `support`; custom category management and deployment-configured category lists are outside the MVP
 - No separate Admin REST database or per-surface feedback store
-- Feedback records are not yet scoped to a tenant/project (no `project_id` on `feedback_events`); per-project capture scoping is P3
+- Feedback is project-scoped: `feedback_events.project_id` is stamped at capture from the authenticating credential; project-scoped review/manage (`/api/project/feedback`), cross-project read/search (`/app/feedback`), and derived usage monitoring are implemented. Usage is operational only — derived capture volume + last-used, no metering/billing
 - No public job-status API or dashboard in the MVP
 
 ## MVP Data Expectations
@@ -329,6 +340,7 @@ The implemented P1 read query model uses these constraints:
 
 ## Open Questions
 
-- How the authenticated `/api/*` project/tenant should thread into stored feedback and per-project review scoping (P3)
 - How the account control-plane and admin-review surfaces converge once the tenant/project web app lands (P4) and the packaged same-origin Admin UI retires
 - Whether completed-job receipts or dead-letter inspection should become part of a later public review surface
+- Whether the end-user attachment download (`GET /api/feedback/{id}/attachments/{id}`) should also be project-scoped for parity with the D-P3-6 self-read tightening (currently `user_id`+`source_product`+exact-UUID scoped; a possible future hardening)
+- Whether per-credential scopes are ever needed (P3 MVP deliberately gives one `vk_` key full capture + project read/manage)

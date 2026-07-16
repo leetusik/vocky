@@ -1,0 +1,11 @@
+{
+  "id": "D4",
+  "title": "Project-scope the end-user attachment download endpoint",
+  "status": "deferred",
+  "source": "P3.REVIEW",
+  "reason": "GET /api/feedback/{id}/attachments/{aid} stays user_id+source_product-scoped, not project-scoped like the S1-tightened GET /api/feedback self-read (D-P3-6). UUID-gated and non-blocking, but a small isolation asymmetry worth closing for consistency.",
+  "trigger": "operator promotes, or the next time the /api/* attachment surface is touched",
+  "created_at": "2026-07-16T16:40:21+09:00",
+  "promoted_to": null,
+  "dropped_reason": null
+}

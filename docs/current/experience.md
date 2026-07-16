@@ -1,10 +1,10 @@
 ---
 doc_id: experience
-version: v0003
-created_at: 2026-07-16T14:21:33+09:00
-source: P2.REVIEW
-summary: Integrate via signup then create project then mint vk_ credential; send it as Authorization: Bearer on /api/*; replace optional-static-token guidance
-previous: v0002_rest-only_capture_flow_remove_mcp_capture-surface_choice_and_liked-conversation_mcp_tool
+version: v0004
+created_at: 2026-07-16T16:37:16+09:00
+source: P3.REVIEW
+summary: P3: read+manage your project's feedback via vk_ key on /api/project/feedback; search across your projects via session on /app/feedback (Korean); view usage via /app/usage
+previous: v0003_integrate_via_signup_then_create_project_then_mint_vk__credential_send_it_as_authorization_bearer_on_api_replace_optional-static-token_guidance
 ---
 
 # Action Feedback Integration
@@ -163,6 +163,61 @@ curl "https://vocky.example.com/api/feedback?user_id=user_456&source_product=mar
 
 Optional filters (`feedback_value`, `channel`, `target_type`, `trigger_type`, `source_integration`, `conversation_id`, `session_id`, `tag`, `start_ingested_at`, `end_ingested_at`, `limit`, and `cursor`) are AND-combined with the required `user_id` + `source_product` scope, so the read never returns another user's data. Operator comments are surfaced read-only as one-way operator-to-user visibility; there are no end-user replies. Broad review, query, summary, and management stay on Admin REST.
 
+## Read & Manage Your Project's Feedback (Feedback API v2)
+
+Your product's own admin panel / operator page can read **and manage** its project's feedback directly, using the **same `vk_` project key** it captures with — send it as `Authorization: Bearer vk_…` on `/api/project/feedback`. The project is implicit in the key; there is no project id in the path. Every id that belongs to another project answers `404` (never `403`).
+
+```sh
+# List this project's feedback (newest-first, keyset paging + the usual filters)
+curl "https://vocky.example.com/api/project/feedback?feedback_value=2&limit=50" \
+  -H "Authorization: Bearer vk_<your-project-key>"
+# -> 200 { "records": [ ... ], "next_cursor"?: "..." }
+
+# Get one record (+ operator comments + attachments)
+curl "https://vocky.example.com/api/project/feedback/<feedback-id>" \
+  -H "Authorization: Bearer vk_<your-project-key>"
+
+# Edit review fields (feedback_value, comment, channel, tags, source_metadata, attributes)
+curl -X PATCH "https://vocky.example.com/api/project/feedback/<feedback-id>" \
+  -H "Authorization: Bearer vk_<your-project-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"channel":"support","tags":["triaged"]}'
+
+# Add an operator comment / delete a record
+curl -X POST "https://vocky.example.com/api/project/feedback/<feedback-id>/comments" \
+  -H "Authorization: Bearer vk_<your-project-key>" \
+  -H "Content-Type: application/json" -d '{"body":"Following up","author":"support"}'
+curl -X DELETE "https://vocky.example.com/api/project/feedback/<feedback-id>" \
+  -H "Authorization: Bearer vk_<your-project-key>"   # -> 204
+```
+
+This is the external-admin-panel path: one `vk_` key does capture and full read+manage for its one project (no per-credential scopes in the MVP).
+
+## Search Across All Your Projects (signed-in)
+
+As a signed-in Vocky user you can read and **search** feedback across **all your projects** at once with your **session token** on `/app/feedback` (read + search only — management stays on the `vk_`-key `/api/project/feedback` above). Search (`?q=`) is a case-insensitive substring match and works in **Korean** as well as English — for example `?q=결제` matches both `결제 오류가 있어요` and the particle-attached `결제를 못 했습니다`.
+
+```sh
+# Search across every project you own; each record carries its project_id
+curl "https://vocky.example.com/app/feedback?q=결제&limit=50" \
+  -H "Authorization: Bearer <session-token>"
+
+# Narrow to one of your projects, or add the usual filters
+curl "https://vocky.example.com/app/feedback?q=export&project_id=<project-id>&feedback_value=1" \
+  -H "Authorization: Bearer <session-token>"
+```
+
+Feedback outside your tenant answers `404`; a `?project_id` you do not own also answers `404`.
+
+## View Usage
+
+Check derived capture volume and credential last-used (operational visibility — no billing or metering). With your session token, `GET /app/usage` reports your whole-tenant volume plus a project list, and `GET /app/projects/{project_id}/usage` drills into one project and lists its credentials (with each key's `last_used_at`). A project can also read its own usage with its `vk_` key at `GET /api/project/usage`. The window defaults to the last 30 days when you pass no bounds.
+
+```sh
+curl "https://vocky.example.com/app/usage" -H "Authorization: Bearer <session-token>"
+curl "https://vocky.example.com/api/project/usage" -H "Authorization: Bearer vk_<your-project-key>"
+```
+
 ## Human Review Boundary
 
-Public REST is capture plus a single scoped end-user read: `POST /api/feedback` ingests feedback and `GET /api/feedback` returns one user's own records plus operator comments. Human operators and dashboards should use the dedicated Admin REST API endpoints, not the public capture or scoped-read endpoints. When `VOCKY_ADMIN_AUTH_TOKEN` is set, Admin REST clients must send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`.
+Feedback review and management are now first-class but always scoped and authenticated: a project's `vk_` key reads/manages its own project's feedback (`/api/project/feedback`); a signed-in user reads/searches across all their projects (`/app/feedback`); the end-user self-read (`GET /api/feedback`) returns one product user's own records. Self-hosted operators can also use the dedicated Admin REST API endpoints; when `VOCKY_ADMIN_AUTH_TOKEN` is set, Admin REST clients must send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`. There is no unscoped or cross-tenant public query surface.

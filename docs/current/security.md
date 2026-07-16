@@ -1,17 +1,17 @@
 ---
 doc_id: security
-version: v0002
-created_at: 2026-07-16T14:20:12+09:00
-source: P2.REVIEW
-summary: Argon2id passwords, opaque hashed session tokens (30-day TTL), mint-once hashed vk_ project credentials, mandatory ingest auth, no enumeration
-previous: v0001_bootstrap
+version: v0003
+created_at: 2026-07-16T16:32:12+09:00
+source: P3.REVIEW
+summary: P3: project-scoped read authz (404-never-403 on /api/project/* and /app/feedback), one vk_ key captures+reads+manages its project (no per-credential scopes), best-effort last_used_at stamping, tightened project-scoped self-read
+previous: v0002_argon2id_passwords_opaque_hashed_session_tokens_30-day_ttl_mint-once_hashed_vk__project_credentials_mandatory_ingest_auth_no_enumeration
 ---
 
 # Security
 
 ## Status
 
-Covers the authentication and secret-handling posture landed in P2: password hashing, account session tokens, per-project ingest credentials, and the mandatory `/api/*` ingest boundary. Attachment-download authorization and admin-token handling are covered in `architecture.md` / `api.md`.
+Covers the authentication and secret-handling posture landed in P2 (password hashing, account session tokens, per-project ingest credentials, the mandatory `/api/*` ingest boundary) plus the P3 authorization posture for the new feedback surfaces: project-scoped read/manage authorization that answers 404-never-403 on cross-project/cross-tenant ids, the single-key project read/manage surface, best-effort `last_used_at` stamping, and the tightened project-scoped self-read. Attachment-download authorization and admin-token handling are covered in `architecture.md` / `api.md`.
 
 ## Passwords
 
@@ -42,7 +42,24 @@ Covers the authentication and secret-handling posture landed in P2: password has
 
 - Public REST ingestion is **strictly mandatory** credential auth. `ProjectCredentialAuthMiddleware` guards every `/api/*` HTTP request: it extracts the bearer, hashes it, and requires an active (non-revoked) project credential to match. There is **no** token argument and **no** open/unauthenticated fallback — the previous optional static-token model (`VOCKY_API_AUTH_TOKEN`) is retired.
 - Missing, malformed, unknown, and revoked credentials **all** answer an identical generic `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`, so a caller cannot distinguish "no key" from "wrong key" from "revoked key".
-- The guard is identity-only in P2: it does not stash project/tenant state onto the ASGI scope and does not stamp `last_used_at` (both P3).
+- As of P3 the guard also **threads project scope**: on a successful auth it stashes the resolved `ProjectCredentialRecord` on the ASGI scope under the namespaced key `vocky.project_credential` (read by handlers via `get_request_credential`), and best-effort stamps the credential's `last_used_at` (see below). The namespaced scope key (not `request.state`) is deliberate — it survives any Starlette `scope["state"]` re-init inside the middleware stack.
+
+## Project-Scoped Read/Manage Authorization (P3)
+
+P3 adds project-scoped feedback surfaces; all of them enforce authorization in the handler and answer **404 (never 403)** on any id outside the caller's scope, so cross-project/cross-tenant existence is never leaked (the same stance as D-P2-5):
+
+- **`/api/project/feedback` (project-credential authed, single-project).** The authenticating project comes from the credential the ingest middleware resolved — never a path or query parameter. The list endpoint **forces** `filters.project_id = credential.project_id`, overriding any caller-supplied value, so a key can only ever read its own project. Every per-feedback op (`get` / `patch` / `delete` / `comments` / `attachment`) loads through `_load_project_feedback`, which returns the record only when `record.project_id == credential.project_id`, else `None` → 404; for mutating ops the ownership check runs **before** the mutation or any attachment-linkage read. Because `project_credentials.project_id` is `NOT NULL`, the forced filter can never degrade to an unscoped read, and legacy NULL-`project_id` feedback rows (None) never equal a real project id.
+- **`/app/feedback` (session authed, cross-project).** Every handler resolves the caller's project set via `list_projects_for_tenant(ctx.tenant.id)` and scopes reads to it; any feedback outside that set (including legacy NULL-project rows) answers 404 via `_load_scoped_feedback`. Optional `?project_id` narrowing validates membership: malformed → 400, not-owned/unknown → 404. The list normalizer (`normalize_list_query`) does not read `project_id`/`project_ids`/`search` from the query string, so a caller cannot inject a project filter to escape their tenant scope — the handler sets the scope authoritatively.
+- **Tightened self-read (D-P3-6).** `GET /api/feedback` (end-user self-read, scoped by required `user_id` + `source_product`) now additionally scopes to the authenticating credential's project as defense in depth, so a product key cannot surface another project's rows even under a colliding `(user_id, source_product)`. Its sibling attachment download (`GET /api/feedback/{id}/attachments/{id}`) remains scoped by `user_id` + `source_product` only and additionally requires the exact feedback + attachment UUIDs; extending project scope to it is a possible future hardening.
+
+## Single-Key Project Read/Manage Surface (P3, D-P3-2)
+
+- One `vk_` project credential does **everything for its project**: capture **and** project-scoped read + manage on `/api/project/feedback`. There are **no per-credential scopes** in the MVP — the authorization boundary is the credential's project, not a per-key permission set. A future least-privilege split would add scopes without changing the project boundary.
+
+## Best-Effort `last_used_at` Stamping (P3)
+
+- On each successful `/api/*` ingest auth, `ProjectCredentialAuthMiddleware` stamps the credential's `last_used_at`; on each authenticated `/auth/*`/`/app/*` call, `require_user` stamps the auth token's `last_used_at`. Both are one indexed `UPDATE` by PK.
+- Both stamps are wrapped in `try/except AccountsPersistenceError` → log and continue, so a stamping failure **never** turns an otherwise-valid ingest or authenticated request into a 500. There is no throttle (stamp-always); a throttle is a possible future optimization if the write becomes hot. The usage endpoints surface these values (operational visibility only — see D-P3-5, no metering/billing).
 
 ## Tenant Isolation
 

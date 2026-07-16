@@ -71,3 +71,14 @@
 {"ts": "2026-07-16T16:04:43+09:00", "type": "slice_status_changed", "slice": "P3.S3", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-07-16T16:14:59+09:00", "type": "slice_status_changed", "slice": "P3.S4", "old_status": "todo", "new_status": "in_progress"}
 {"ts": "2026-07-16T16:21:42+09:00", "type": "slice_status_changed", "slice": "P3.S4", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-07-16T16:25:14+09:00", "type": "slice_status_changed", "slice": "P3.REVIEW", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-07-16T16:30:09+09:00", "type": "doc_version_created", "doc": "decisions", "version": "v0003_record_p3_feedback-api-v2_decisions_project_scope_on_feedback_api_project_app_read-manage_split_pg_trgm_korean-safe_substring_search_derived_usage_no_metering_tightened_self-read", "source": "P3.REVIEW"}
+{"ts": "2026-07-16T16:31:14+09:00", "type": "doc_version_created", "doc": "data", "version": "v0003_p3_feedback_events.project_id_fk_index_migration_20260716_1500_pg_trgm_trigram_gin_search_index_20260716_1600_head_credential_auth-token_last_used_at_now_stamped", "source": "P3.REVIEW"}
+{"ts": "2026-07-16T16:32:12+09:00", "type": "doc_version_created", "doc": "security", "version": "v0003_p3_project-scoped_read_authz_404-never-403_on_api_project_and_app_feedback_one_vk__key_captures_reads_manages_its_project_no_per-credential_scopes_best-effort_last_used_at_stamping_tightened_project-scoped_self-read", "source": "P3.REVIEW"}
+{"ts": "2026-07-16T16:32:58+09:00", "type": "doc_version_created", "doc": "product", "version": "v0004_p3_feedback_is_project-scoped_add_project-scoped_feedback_api_v2_read_manage_cross-project_search_and_operational_usage_monitoring_no_billing_flip_the_broad-public-rest-management_non-goal", "source": "P3.REVIEW"}
+{"ts": "2026-07-16T16:33:57+09:00", "type": "doc_version_created", "doc": "api", "version": "v0004_p3_feedback_api_v2_project-scoped_read_manage_cross-project_read_search_usage_endpoints", "source": "P3.REVIEW"}
+{"ts": "2026-07-16T16:36:09+09:00", "type": "doc_version_created", "doc": "architecture", "version": "v0004_p3_feedback_project_scoping_ingest-scope_threading_pg_trgm_substring_search_subsystem_derived_usage", "source": "P3.REVIEW"}
+{"ts": "2026-07-16T16:37:16+09:00", "type": "doc_version_created", "doc": "experience", "version": "v0004_p3_read_manage_your_project_s_feedback_via_vk__key_on_api_project_feedback_search_across_your_projects_via_session_on_app_feedback_korean_view_usage_via_app_usage", "source": "P3.REVIEW"}
+{"ts": "2026-07-16T16:40:10+09:00", "type": "slice_status_changed", "slice": "P3.REVIEW", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-07-16T16:40:10+09:00", "type": "phase_reviewed", "phase": "P3", "verdict": "pass", "reviewer": "slice-executor-high"}
+{"ts": "2026-07-16T16:40:21+09:00", "type": "deferred_created", "deferred": "D4", "source": "P3.REVIEW"}

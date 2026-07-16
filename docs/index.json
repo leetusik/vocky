@@ -1,7 +1,7 @@
 {
   "docs": {
     "product": {
-      "latest": "v0003_free_multi-tenant_saas_core_accounts_tenants_projects_per-project_credentials_no_billing",
+      "latest": "v0004_p3_feedback_is_project-scoped_add_project-scoped_feedback_api_v2_read_manage_cross-project_search_and_operational_usage_monitoring_no_billing_flip_the_broad-public-rest-management_non-goal",
       "current_path": "docs/current/product.md",
       "versions": [
         {
@@ -27,11 +27,19 @@
           "source": "P2.REVIEW",
           "summary": "Free multi-tenant SaaS core: accounts, tenants, projects, per-project credentials; no billing",
           "previous": "v0002_refocus_on_human-triggered_rest_feedback_retire_ai-agent_mcp_capture"
+        },
+        {
+          "id": "v0004_p3_feedback_is_project-scoped_add_project-scoped_feedback_api_v2_read_manage_cross-project_search_and_operational_usage_monitoring_no_billing_flip_the_broad-public-rest-management_non-goal",
+          "path": "docs/versions/product/v0004_p3_feedback_is_project-scoped_add_project-scoped_feedback_api_v2_read_manage_cross-project_search_and_operational_usage_monitoring_no_billing_flip_the_broad-public-rest-management_non-goal.md",
+          "created_at": "2026-07-16T16:32:58+09:00",
+          "source": "P3.REVIEW",
+          "summary": "P3: feedback is project-scoped; add project-scoped Feedback API v2 (read+manage), cross-project search, and operational usage monitoring (no billing); flip the broad-public-REST-management non-goal",
+          "previous": "v0003_free_multi-tenant_saas_core_accounts_tenants_projects_per-project_credentials_no_billing"
         }
       ]
     },
     "experience": {
-      "latest": "v0003_integrate_via_signup_then_create_project_then_mint_vk__credential_send_it_as_authorization_bearer_on_api_replace_optional-static-token_guidance",
+      "latest": "v0004_p3_read_manage_your_project_s_feedback_via_vk__key_on_api_project_feedback_search_across_your_projects_via_session_on_app_feedback_korean_view_usage_via_app_usage",
       "current_path": "docs/current/experience.md",
       "versions": [
         {
@@ -57,11 +65,19 @@
           "source": "P2.REVIEW",
           "summary": "Integrate via signup then create project then mint vk_ credential; send it as Authorization: Bearer on /api/*; replace optional-static-token guidance",
           "previous": "v0002_rest-only_capture_flow_remove_mcp_capture-surface_choice_and_liked-conversation_mcp_tool"
+        },
+        {
+          "id": "v0004_p3_read_manage_your_project_s_feedback_via_vk__key_on_api_project_feedback_search_across_your_projects_via_session_on_app_feedback_korean_view_usage_via_app_usage",
+          "path": "docs/versions/experience/v0004_p3_read_manage_your_project_s_feedback_via_vk__key_on_api_project_feedback_search_across_your_projects_via_session_on_app_feedback_korean_view_usage_via_app_usage.md",
+          "created_at": "2026-07-16T16:37:16+09:00",
+          "source": "P3.REVIEW",
+          "summary": "P3: read+manage your project's feedback via vk_ key on /api/project/feedback; search across your projects via session on /app/feedback (Korean); view usage via /app/usage",
+          "previous": "v0003_integrate_via_signup_then_create_project_then_mint_vk__credential_send_it_as_authorization_bearer_on_api_replace_optional-static-token_guidance"
         }
       ]
     },
     "architecture": {
-      "latest": "v0003_add_identity_tenancy_layer_auth_app_control-plane_mandatory_per-project_credential_auth_on_api",
+      "latest": "v0004_p3_feedback_project_scoping_ingest-scope_threading_pg_trgm_substring_search_subsystem_derived_usage",
       "current_path": "docs/current/architecture.md",
       "versions": [
         {
@@ -87,6 +103,14 @@
           "source": "P2.REVIEW",
           "summary": "Add identity + tenancy layer; /auth + /app control-plane; mandatory per-project credential auth on /api",
           "previous": "v0002_retire_mcp_track_rest-only_two-track_api_public_rest_admin_rest"
+        },
+        {
+          "id": "v0004_p3_feedback_project_scoping_ingest-scope_threading_pg_trgm_substring_search_subsystem_derived_usage",
+          "path": "docs/versions/architecture/v0004_p3_feedback_project_scoping_ingest-scope_threading_pg_trgm_substring_search_subsystem_derived_usage.md",
+          "created_at": "2026-07-16T16:36:09+09:00",
+          "source": "P3.REVIEW",
+          "summary": "P3: feedback project scoping, ingest-scope threading, pg_trgm substring search subsystem, derived usage",
+          "previous": "v0003_add_identity_tenancy_layer_auth_app_control-plane_mandatory_per-project_credential_auth_on_api"
         }
       ]
     },
@@ -127,7 +151,7 @@
       ]
     },
     "data": {
-      "latest": "v0002_accounts_and_tenancy_schema_users_tenants_tenant_members_projects_project_credentials_auth_tokens_migration_20260715_1200",
+      "latest": "v0003_p3_feedback_events.project_id_fk_index_migration_20260716_1500_pg_trgm_trigram_gin_search_index_20260716_1600_head_credential_auth-token_last_used_at_now_stamped",
       "current_path": "docs/current/data.md",
       "versions": [
         {
@@ -145,11 +169,19 @@
           "source": "P2.REVIEW",
           "summary": "Accounts and tenancy schema: users, tenants, tenant_members, projects, project_credentials, auth_tokens (migration 20260715_1200)",
           "previous": "v0001_bootstrap"
+        },
+        {
+          "id": "v0003_p3_feedback_events.project_id_fk_index_migration_20260716_1500_pg_trgm_trigram_gin_search_index_20260716_1600_head_credential_auth-token_last_used_at_now_stamped",
+          "path": "docs/versions/data/v0003_p3_feedback_events.project_id_fk_index_migration_20260716_1500_pg_trgm_trigram_gin_search_index_20260716_1600_head_credential_auth-token_last_used_at_now_stamped.md",
+          "created_at": "2026-07-16T16:31:14+09:00",
+          "source": "P3.REVIEW",
+          "summary": "P3: feedback_events.project_id FK+index (migration 20260716_1500), pg_trgm trigram GIN search index (20260716_1600, head); credential/auth-token last_used_at now stamped",
+          "previous": "v0002_accounts_and_tenancy_schema_users_tenants_tenant_members_projects_project_credentials_auth_tokens_migration_20260715_1200"
         }
       ]
     },
     "api": {
-      "latest": "v0003_add_account_auth_auth_tenant_project_credential_control-plane_app_and_mandatory_per-project_credential_auth_on_api",
+      "latest": "v0004_p3_feedback_api_v2_project-scoped_read_manage_cross-project_read_search_usage_endpoints",
       "current_path": "docs/current/api.md",
       "versions": [
         {
@@ -175,6 +207,14 @@
           "source": "P2.REVIEW",
           "summary": "Add account auth (/auth), tenant/project/credential control-plane (/app), and mandatory per-project credential auth on /api",
           "previous": "v0002_retire_mcp_agent-capture_rest-only_feedback_surface"
+        },
+        {
+          "id": "v0004_p3_feedback_api_v2_project-scoped_read_manage_cross-project_read_search_usage_endpoints",
+          "path": "docs/versions/api/v0004_p3_feedback_api_v2_project-scoped_read_manage_cross-project_read_search_usage_endpoints.md",
+          "created_at": "2026-07-16T16:33:57+09:00",
+          "source": "P3.REVIEW",
+          "summary": "P3 Feedback API v2: project-scoped read+manage, cross-project read+search, usage endpoints",
+          "previous": "v0003_add_account_auth_auth_tenant_project_credential_control-plane_app_and_mandatory_per-project_credential_auth_on_api"
         }
       ]
     },
@@ -193,7 +233,7 @@
       ]
     },
     "security": {
-      "latest": "v0002_argon2id_passwords_opaque_hashed_session_tokens_30-day_ttl_mint-once_hashed_vk__project_credentials_mandatory_ingest_auth_no_enumeration",
+      "latest": "v0003_p3_project-scoped_read_authz_404-never-403_on_api_project_and_app_feedback_one_vk__key_captures_reads_manages_its_project_no_per-credential_scopes_best-effort_last_used_at_stamping_tightened_project-scoped_self-read",
       "current_path": "docs/current/security.md",
       "versions": [
         {
@@ -211,6 +251,14 @@
           "source": "P2.REVIEW",
           "summary": "Argon2id passwords, opaque hashed session tokens (30-day TTL), mint-once hashed vk_ project credentials, mandatory ingest auth, no enumeration",
           "previous": "v0001_bootstrap"
+        },
+        {
+          "id": "v0003_p3_project-scoped_read_authz_404-never-403_on_api_project_and_app_feedback_one_vk__key_captures_reads_manages_its_project_no_per-credential_scopes_best-effort_last_used_at_stamping_tightened_project-scoped_self-read",
+          "path": "docs/versions/security/v0003_p3_project-scoped_read_authz_404-never-403_on_api_project_and_app_feedback_one_vk__key_captures_reads_manages_its_project_no_per-credential_scopes_best-effort_last_used_at_stamping_tightened_project-scoped_self-read.md",
+          "created_at": "2026-07-16T16:32:12+09:00",
+          "source": "P3.REVIEW",
+          "summary": "P3: project-scoped read authz (404-never-403 on /api/project/* and /app/feedback), one vk_ key captures+reads+manages its project (no per-credential scopes), best-effort last_used_at stamping, tightened project-scoped self-read",
+          "previous": "v0002_argon2id_passwords_opaque_hashed_session_tokens_30-day_ttl_mint-once_hashed_vk__project_credentials_mandatory_ingest_auth_no_enumeration"
         }
       ]
     },
@@ -229,7 +277,7 @@
       ]
     },
     "decisions": {
-      "latest": "v0002_p2_auth-model_and_tenancy-shape_decisions_email_password_opaque_db_tokens_multi-tenant_solo-owner_app_vs_api_split_mandatory_ingest_auth",
+      "latest": "v0003_record_p3_feedback-api-v2_decisions_project_scope_on_feedback_api_project_app_read-manage_split_pg_trgm_korean-safe_substring_search_derived_usage_no_metering_tightened_self-read",
       "current_path": "docs/current/decisions.md",
       "versions": [
         {
@@ -247,9 +295,17 @@
           "source": "P2.REVIEW",
           "summary": "P2 auth-model and tenancy-shape decisions: email/password + opaque DB tokens, multi-tenant solo-owner, /app vs /api split, mandatory ingest auth",
           "previous": "v0001_bootstrap"
+        },
+        {
+          "id": "v0003_record_p3_feedback-api-v2_decisions_project_scope_on_feedback_api_project_app_read-manage_split_pg_trgm_korean-safe_substring_search_derived_usage_no_metering_tightened_self-read",
+          "path": "docs/versions/decisions/v0003_record_p3_feedback-api-v2_decisions_project_scope_on_feedback_api_project_app_read-manage_split_pg_trgm_korean-safe_substring_search_derived_usage_no_metering_tightened_self-read.md",
+          "created_at": "2026-07-16T16:30:09+09:00",
+          "source": "P3.REVIEW",
+          "summary": "Record P3 feedback-API-v2 decisions: project scope on feedback, /api/project + /app read-manage split, pg_trgm Korean-safe substring search, derived usage no metering, tightened self-read",
+          "previous": "v0002_p2_auth-model_and_tenancy-shape_decisions_email_password_opaque_db_tokens_multi-tenant_solo-owner_app_vs_api_split_mandatory_ingest_auth"
         }
       ]
     }
   },
-  "last_rebuilt_at": "2026-07-16T14:22:22+09:00"
+  "last_rebuilt_at": "2026-07-16T16:37:44+09:00"
 }

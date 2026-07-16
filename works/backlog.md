@@ -5,12 +5,12 @@
 
 ## Pointer
 
-- Current phase: `P3`
-- Current slice: `P3.REVIEW`
-- Next slice: `none`
+- Current phase: `P7`
+- Current slice: `P7.DECOMP`
+- Next slice: `P7.REVIEW`
 - Waiting on operator: `none`
-- Open deferred jobs: `3`
-- Rebuilt at: `2026-07-16T16:21:42+09:00`
+- Open deferred jobs: `4`
+- Rebuilt at: `2026-07-16T16:40:21+09:00`
 
 ## Active Phases
 
@@ -18,7 +18,7 @@
 |---|---|---|---|---|---|
 | [x] `P1` | `done` | `pass` | Relicense & Agent-Capture Retirement | `none` | `works/phases/active/P1` |
 | [x] `P2` | `done` | `pass` | Accounts, Tenancy & Projects Core | `none` | `works/phases/active/P2` |
-| [ ] `P3` | `planned` | `pending` | Feedback API v2, Search & Usage Monitoring | `P3.REVIEW` | `works/phases/active/P3` |
+| [x] `P3` | `done` | `pass` | Feedback API v2, Search & Usage Monitoring | `none` | `works/phases/active/P3` |
 | [ ] `P7` | `planned` | `pending` | Agent-Capture Revival (MCP write-only) | `P7.DECOMP` | `works/phases/active/P7` |
 | [ ] `P4` | `planned` | `pending` | Web App: Tenant Dashboard & Project Pages | `P4.DECOMP` | `works/phases/active/P4` |
 | [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
@@ -55,7 +55,7 @@
 | [x] `P3.S2` | `done` | /api project-scoped feedback review + manage (project-credential authed) | `implementation` | `works/phases/active/P3/slices/P3.S2` |
 | [x] `P3.S3` | `done` | /app cross-project feedback read + multilingual Postgres search | `implementation` | `works/phases/active/P3/slices/P3.S3` |
 | [x] `P3.S4` | `done` | Usage monitoring: per-tenant/project derived metrics + surfaced last-used | `implementation` | `works/phases/active/P3/slices/P3.S4` |
-| [ ] `P3.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P3/slices/P3.REVIEW` |
+| [x] `P3.REVIEW` | `done` | phase review | `review` | `works/phases/active/P3/slices/P3.REVIEW` |
 
 ## Phase P7: Agent-Capture Revival (MCP write-only)
 

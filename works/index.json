@@ -28,13 +28,13 @@
       "id": "P3",
       "name": "Feedback API v2, Search & Usage Monitoring",
       "objective": "Expose a full tenant/project-scoped REST API over feedback (capture plus get/list/manage) so external services' admin panels can consume feedback directly; add proper feedback search across a user's projects and per-tenant/project usage monitoring.",
-      "status": "planned",
+      "status": "done",
       "order": 3,
       "path": "works/phases/active/P3",
-      "review_status": "pending",
-      "current_slice": "P3.REVIEW",
+      "review_status": "pass",
+      "current_slice": null,
       "slice_count": 6,
-      "done_slice_count": 5
+      "done_slice_count": 6
     },
     {
       "id": "P7",
@@ -85,8 +85,8 @@
       "done_slice_count": 0
     }
   ],
-  "deferred_open_count": 3,
+  "deferred_open_count": 4,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 0,
-  "last_rebuilt_at": "2026-07-16T16:21:42+09:00"
+  "last_rebuilt_at": "2026-07-16T16:40:21+09:00"
 }

@@ -1,10 +1,10 @@
 ---
 doc_id: api
-version: v0003
-created_at: 2026-07-16T14:16:49+09:00
-source: P2.REVIEW
-summary: Add account auth (/auth), tenant/project/credential control-plane (/app), and mandatory per-project credential auth on /api
-previous: v0002_retire_mcp_agent-capture_rest-only_feedback_surface
+version: v0004
+created_at: 2026-07-16T16:33:57+09:00
+source: P3.REVIEW
+summary: P3 Feedback API v2: project-scoped read+manage, cross-project read+search, usage endpoints
+previous: v0003_add_account_auth_auth_tenant_project_credential_control-plane_app_and_mandatory_per-project_credential_auth_on_api
 ---
 
 # API
@@ -13,7 +13,9 @@ previous: v0002_retire_mcp_agent-capture_rest-only_feedback_surface
 
 The Web Feedback Capture REST API, the Feedback Attachment Upload REST API, the scoped End-User Feedback Read REST API (with `target_type` and other read filters), and the Admin REST API (list/detail/metrics filters, review-field patch, operator comments, and delete) are implemented. REST is the sole capture and read ingress; the AI-agent-decided MCP capture tool and the MCP review/query/liked-conversation tools have been retired (recoverable through git history).
 
-The account and tenancy surfaces are also implemented: a public **Account Auth API** (`/auth/*`: signup, login, logout, me) and a session-token-authed **Account Control-Plane API** (`/app/*`: the caller's tenant, projects, and per-project credentials). Public `/api/*` ingest auth changed: the optional static-token model (`VOCKY_API_AUTH_TOKEN`) is retired and replaced by **mandatory per-project credential auth** — every `/api/*` request must present a valid, non-revoked project key (`vk_…`) as `Authorization: Bearer`, and missing/malformed/unknown/revoked all answer `401`. These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
+The account and tenancy surfaces are also implemented: a public **Account Auth API** (`/auth/*`: signup, login, logout, me) and a session-token-authed **Account Control-Plane API** (`/app/*`: the caller's tenant, projects, and per-project credentials). Public `/api/*` ingest auth changed: the optional static-token model (`VOCKY_API_AUTH_TOKEN`) is retired and replaced by **mandatory per-project credential auth** — every `/api/*` request must present a valid, non-revoked project key (`vk_…`) as `Authorization: Bearer`, and missing/malformed/unknown/revoked all answer `401`.
+
+**Feedback API v2 (P3)** is also implemented: feedback is now project-scoped, and three new surfaces sit over it — the project-credential-authed **Project Feedback API** (`/api/project/feedback`: an external service's own admin panel reads and manages **its own project's** feedback), the session-authed **App Feedback API** (`/app/feedback`: a signed-in user reads and searches feedback across **all their projects**, Korean-safe), and **Usage Monitoring** (`/app/usage`, `/app/projects/{id}/usage`, `/api/project/usage`: derived capture volume + credential last-used, operational-only, no metering). All project/tenant-scoped reads answer **404 (never 403)** on a foreign id. These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
 
 ## Purpose
 
@@ -26,6 +28,9 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Web Feedback Capture REST API contract for server-to-server website and product feedback ingestion, plus operator-only Admin Docs try-it against the same endpoint
 - Feedback Attachment Upload REST API contract for uploading an image and receiving an `attachment_id` to reference from a later capture call
 - End-User Feedback Read REST API contract for a scoped server-to-server read of a single user's own feedback plus operator comments
+- Project Feedback API (v2) contract for a project credential to read and manage its own project's feedback (`/api/project/feedback`)
+- App Feedback API contract for a signed-in user to read and search feedback across all their projects (`/app/feedback`)
+- Usage Monitoring API contract for derived per-tenant/project capture volume and credential last-used (`/app/usage`, `/app/projects/{id}/usage`, `/api/project/usage`)
 - Admin REST API contract for human/operator review and dashboard metrics
 
 ## Documentation Rules
@@ -127,19 +132,20 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Notes:
   - A credential is minted as `key = "vk_" + <opaque token>`. Send it as `Authorization: Bearer vk_…` on `/api/*` (see the Public `/api/*` Credential Auth Model below).
   - Revoking a credential fails `/api/*` auth immediately (the ingest lookup filters `revoked_at IS NULL`).
-  - `last_used_at` is not yet stamped by the ingest path in P2 (deferred to P3), so it stays `null` for now.
+  - `last_used_at` is stamped best-effort on each successful `/api/*` ingest auth (P3) and surfaced by the usage endpoints; it stays `null` until the credential is first used.
 
 ### Public `/api/*` Credential Auth Model
 
 - Status: implemented
-- Applies to: every public REST endpoint under `/api/*` (`POST /api/feedback`, `POST /api/feedback/attachments`, `GET /api/feedback`, and the end-user attachment download)
+- Applies to: every public REST endpoint under `/api/*` (`POST /api/feedback`, `POST /api/feedback/attachments`, `GET /api/feedback`, the end-user attachment download, and the P3 `/api/project/feedback` + `/api/project/usage` surfaces)
 - Model:
   - Auth is **mandatory** — there is no unauthenticated or globally-shared-token path. The old optional static `VOCKY_API_AUTH_TOKEN` bearer is retired.
   - Each request must send a valid, non-revoked per-project credential as `Authorization: Bearer vk_<token>`.
   - `ProjectCredentialAuthMiddleware` extracts the bearer, hashes it (sha256), and requires an active credential (`revoked_at IS NULL`) to match.
   - Missing, malformed, unknown, and revoked keys **all** return an identical `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`.
 - Notes:
-  - The guard is identity-only in P2: it authenticates the request but does not thread the credential's project/tenant into the stored feedback record (per-project capture scoping is P3). The feedback wire shape is unchanged.
+  - As of P3 the guard threads project scope: on success it stashes the resolved credential (carrying its `project_id`) on the ASGI scope, so `/api/*` handlers scope capture and reads to the credential's project with no path/query project parameter. Capture stamps the record's `project_id` from it, and the guard best-effort stamps the credential's `last_used_at` (a stamping failure never fails the request).
+  - The credential's project is a single project; there are no per-credential scopes — one `vk_` key does capture **and** project read+manage (`/api/project/feedback`) for its project.
 
 ### Shared Channel Category Rules
 
@@ -326,7 +332,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Auth or permissions:
   - Trusted server-to-server. The integrating product authenticates its own end user, then calls Vocky with that `user_id` and a per-project credential; Vocky has no native end-user accounts (the capture `user_id` is the product's own end user, distinct from a Vocky account).
   - Mandatory per-project credential auth (`Authorization: Bearer vk_<token>`), the same boundary as REST capture; missing/invalid/revoked → `401`.
-  - Vocky enforces `user_id` + `source_product` scoping server-side and never returns cross-user or cross-product data.
+  - Vocky enforces `user_id` + `source_product` scoping server-side and never returns cross-user or cross-product data. As of P3 (D-P3-6, defense in depth) the read is **additionally** scoped to the authenticating credential's project, so it never returns another project's rows even under a colliding `(user_id, source_product)`; legacy rows with a NULL `project_id` fall out of this read.
 - Endpoint:
   - `GET /api/feedback`
 - Inputs (query parameters):
@@ -358,7 +364,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Missing or blank `user_id` or `source_product`, invalid filter values, invalid limits, blank `tag`, invalid time windows, and invalid cursors return `400 {"detail":"..."}`
   - Storage read failures return `500 {"detail":"storage read failed"}`
 - Notes:
-  - This is the only public REST read. It is deliberately scoped to a single user's own feedback and is not a general query, review, or summary API; those remain Admin REST concerns.
+  - This is the **end-user self-read**: deliberately scoped to a single product user's own feedback (by `user_id` + `source_product` + the credential's project). It is not a general query or management API. Project-scoped operator review/management is the separate **Project Feedback API** (`/api/project/feedback`) below; cross-project read/search for a signed-in user is the **App Feedback API** (`/app/feedback`); self-hosted operator review remains Admin REST.
   - Operator comments are returned read-only. This phase is one-way operator-to-user visibility with no end-user replies or two-way threads.
   - The read reuses the same `feedback_events` store, indexed `user_id` / `source_product` filters, and cursor pagination as the Admin read surface, with batched operator-comment and attachment fetches to avoid N+1 lookups.
   - Each record's image attachments are surfaced as an `attachments` array; the bytes are served by the scoped end-user attachment download below.
@@ -371,6 +377,77 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Authorization: the attachment is authorized off its linked feedback row's `(user_id, source_product)`. A request for another user's or product's attachment, an unlinked attachment, a missing attachment, or a missing feedback all return `404` — existence is never leaked.
 - Outputs: `200 OK` streaming the attachment bytes with the stored `content_type`, `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, and `Cache-Control: private, no-store`.
 - Errors: missing/invalid/revoked per-project credential → `401`; missing/blank `user_id` or `source_product`, or a malformed id → `400`; any authorization miss or a missing stored object → `404`; storage read failure → `503`.
+
+### Project Feedback API (v2)
+
+- Status: implemented
+- Consumers: An external service's own admin panel / operator page (for example the operator's changple5 projects) reading and managing its project's feedback directly by API
+- Purpose: Let a project's `vk_` credential read **and manage** its own project's feedback — the external-admin-panel path (D-P3-2). Ports the operator verbs from Admin REST, scoped to one project.
+- Base path: `/api/project/feedback`
+- Auth or permissions:
+  - Mandatory per-project credential auth (`Authorization: Bearer vk_<token>`), the same `/api/*` boundary as capture; missing/invalid/revoked → `401`.
+  - The project is **implicit in the credential** — there is no project path or query parameter. Every operation is scoped to `credential.project_id`. There are no per-credential scopes: one `vk_` key does capture and full read+manage for its project.
+  - Any feedback id belonging to another project answers **404 (never 403)** so cross-project existence is never leaked (mirrors D-P2-5); mutating ops verify ownership before the mutation.
+- Endpoints:
+  - `GET /api/project/feedback`
+    - Lists the credential's own project's feedback, newest-first, with keyset pagination. Supports the same optional filters as the Admin list (`start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `feedback_value`, exact `channel`, exact `target_type`, exact `trigger_type`, `tag`, `limit`, `cursor`). The project filter is **forced** to the credential's project and overrides any caller-supplied value.
+    - `200 { "records": [<record>, ...], "next_cursor"?: string }`. Records use the Admin record shape **without** a `project_id` field (the caller knows its own project).
+  - `GET /api/project/feedback/{feedback_id}`
+    - `200 { "record": <record + comments[] + attachments[]> }`; attachment `url` = `/api/project/feedback/{feedback_id}/attachments/{id}`.
+    - `404 {"detail":"feedback not found"}` when missing or in another project; `400` on a malformed id.
+  - `PATCH /api/project/feedback/{feedback_id}`
+    - Updates review-oriented fields only: `feedback_value`, `comment`, `channel`, `tags`, `source_metadata`, `attributes` (same rules as Admin patch). Ownership is verified before the update.
+    - `200 { "record": <record> }`; `400` on an empty/invalid body or invalid non-null `channel`; `404` cross-project/missing.
+  - `DELETE /api/project/feedback/{feedback_id}`
+    - Deletes the record (comments + attachment rows cascade) and best-effort deletes the attachment files → `204`. `404` cross-project/missing.
+  - `GET|POST /api/project/feedback/{feedback_id}/comments`
+    - `GET` lists the record's operator comments oldest-first (`200 { "comments": [...] }`). `POST` adds one (`body` required non-blank, optional `author`) → `201 { "comment": <comment> }`. `404` cross-project/missing; `400` on a blank/missing `body`.
+  - `GET /api/project/feedback/{feedback_id}/attachments/{attachment_id}`
+    - Streams one attachment linked to the project's feedback (`X-Content-Type-Options: nosniff`). `404` cross-project, unlinked, or missing object; `503` on storage failure.
+- Errors: `401` (auth), `400` (malformed id/body/filters), `404` (cross-project or missing — never 403), `500 {"detail":"storage read failed"}` / `503` (attachment storage) on storage errors.
+- Notes:
+  - Record / comment / attachment shapes match the Admin Feedback REST API below, except the record omits `project_id`. `serialize_record` is shared with Admin REST (`tools/query_feedback_common.py`); Admin REST output is unchanged.
+
+### App Feedback API (cross-project read + search)
+
+- Status: implemented
+- Consumers: The Vocky web app (P4) and CLI (P5), acting for a signed-in user who owns many projects
+- Purpose: Let a signed-in user **read and search** feedback across **all their tenant's projects** at once. Read + search only — management stays on the Project Feedback API.
+- Base path: `/app/feedback` (session-token authed; outside `/api/*` and `/admin/api/*`)
+- Auth or permissions:
+  - Session bearer token required (`Authorization: Bearer <token>`); a missing/invalid/expired token returns `401 {"detail":"Unauthorized"}`.
+  - Scoped to the caller's tenant's project set (`list_projects_for_tenant`). Any feedback outside that set — including legacy NULL-`project_id` rows — answers **404 (never 403)**.
+- Endpoints:
+  - `GET /app/feedback`
+    - Cross-project list/search, newest-first, keyset paginated. Query: `q` (free-text search), optional `project_id` (narrow to one owned project), plus the standard filters (`start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `feedback_value`, `channel`, `target_type`, `trigger_type`, `tag`, `limit`, `cursor`).
+    - `200 { "records": [<record + project_id>, ...], "next_cursor"?: string }`. Each record **includes** `project_id` (the caller has many projects). A caller with no projects (or an empty owned narrow) returns `{ "records": [] }`.
+    - `?project_id` narrowing validates membership: malformed → `400 {"detail":"project_id must be a valid UUID"}`, not-owned/unknown → `404 {"detail":"project not found"}`.
+  - `GET /app/feedback/{feedback_id}`
+    - `200 { "record": <record + project_id + comments[] + attachments[]> }`; attachment `url` = `/app/feedback/{feedback_id}/attachments/{id}`. `404` cross-tenant/missing; `400` malformed id.
+  - `GET /app/feedback/{feedback_id}/attachments/{attachment_id}`
+    - Streams one attachment linked to a feedback record in the caller's tenant (`X-Content-Type-Options: nosniff`). `404` cross-tenant, unlinked, or missing object; `503` storage failure.
+- Search (`q`) semantics:
+  - Case-insensitive **substring** (`ILIKE`) match over the concatenated user-visible text (`message`, `comment`, `target_text`, `trigger_message`). Language-agnostic: it matches Korean 조사-attached forms (`결제` matches both `결제 오류` and `결제를`) and English uniformly. Deliberately **no** `to_tsvector('english', …)` (D-P3-4).
+  - Search is a **filter, newest-first** — not relevance ranking — and composes with the standard filters and keyset paging. It is accelerated by a `pg_trgm` trigram GIN index but returns identical results with or without it.
+- Errors: `401` (session), `400` (malformed id/`project_id`/filters), `404` (cross-tenant/not-owned/missing — never 403), `500 {"detail":"storage read failed"}` / `503` (attachment storage).
+
+### Usage Monitoring API
+
+- Status: implemented
+- Consumers: The Vocky web app (P4) and CLI (P5); an external admin panel viewing its project's usage
+- Purpose: Report **derived** feedback-capture volume over a time window plus surfaced credential `last_used_at` — operational visibility, **not** billing (D-P3-5). No new tables, no request-count metering; the metrics reuse the same feedback query as Admin metrics, scoped by project/tenant.
+- Endpoints:
+  - `GET /app/usage` (session): the caller's **whole-tenant** capture volume aggregated across every project it owns, plus a light project list.
+    - `200 { "window": {...}, "totals": {...}, "daily_counts": [...], "projects": [{ "id", "name", "created_at" }, ...] }`. A tenant with no projects returns zeroed metrics and an empty `projects` list.
+  - `GET /app/projects/{project_id}/usage` (session): one owned project's capture volume plus that project's credentials (each carrying `last_used_at`).
+    - `200 { "window": {...}, "totals": {...}, "daily_counts": [...], "credentials": [<credential>, ...] }`. `400` malformed id; `404` cross-tenant/unknown project.
+  - `GET /api/project/usage` (project `vk_` credential): the credential's own project's capture volume plus its credentials.
+    - `200 { "window": {...}, "totals": {...}, "daily_counts": [...], "credentials": [<credential>, ...] }`. `401` on missing/invalid/revoked key.
+- Window:
+  - Optional `start_ingested_at` / `end_ingested_at` (timezone-aware ISO 8601). With **both omitted** the window defaults to the **last 30 days** ending now; with only one given the other is filled (`end` = now, or `start` = `end` − 30d). A malformed bound or an inverted window → `400`.
+- Response shape:
+  - `window.start_ingested_at` / `window.end_ingested_at` (UTC ISO 8601), `totals.{total,liked,disliked,unrated}`, and zero-filled UTC `daily_counts` (each `{day,total,liked,disliked,unrated}`) — the same metrics shape as the Admin metrics contract. `credentials[]` use the control-plane credential shape (with `last_used_at`); `projects[]` are `{id,name,created_at}`.
+- Errors: `401` (auth), `400` (bad window / malformed `project_id`), `404` (cross-tenant project), `500 {"detail":"storage read failed"}`.
 
 ### Admin Feedback REST API
 

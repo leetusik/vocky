@@ -1,10 +1,10 @@
 ---
 doc_id: product
-version: v0003
-created_at: 2026-07-16T14:12:40+09:00
-source: P2.REVIEW
-summary: Free multi-tenant SaaS core: accounts, tenants, projects, per-project credentials; no billing
-previous: v0002_refocus_on_human-triggered_rest_feedback_retire_ai-agent_mcp_capture
+version: v0004
+created_at: 2026-07-16T16:32:58+09:00
+source: P3.REVIEW
+summary: P3: feedback is project-scoped; add project-scoped Feedback API v2 (read+manage), cross-project search, and operational usage monitoring (no billing); flip the broad-public-REST-management non-goal
+previous: v0003_free_multi-tenant_saas_core_accounts_tenants_projects_per-project_credentials_no_billing
 ---
 
 # Product
@@ -13,7 +13,7 @@ previous: v0002_refocus_on_human-triggered_rest_feedback_retire_ai-agent_mcp_cap
 
 Vocky is pre-MVP and mid-pivot from a self-hosted single-tenant capture service into a **free multi-tenant SaaS**. The capture/review core is implemented with server-to-server REST capture, a scoped end-user REST read, Admin REST, a self-hosted operator Admin Web UI with dashboard metrics, feedback review management, in-app documentation, and REST capture try-it, PostgreSQL persistence, Redis-backed queueing, a background worker, and Compose-first local verification. The earlier AI-agent-decided MCP capture and MCP read tools have been retired (recoverable through git history).
 
-The SaaS accounts and tenancy core is now in place: real user accounts (email + password signup/login), a multi-tenant model (tenants → projects), and per-project ingest credentials. The old optional static `VOCKY_API_AUTH_TOKEN` bearer for `/api/*` has been retired in favor of **mandatory per-project credential auth**. Still upcoming in later phases: per-project feedback scoping, search, and usage monitoring (P3); the tenant/project web app (P4); a CLI + agent-first onboarding path (P5); and the landing page plus production deploy (P6). The contracts should still be treated as early-stage.
+The SaaS accounts and tenancy core is now in place: real user accounts (email + password signup/login), a multi-tenant model (tenants → projects), and per-project ingest credentials. The old optional static `VOCKY_API_AUTH_TOKEN` bearer for `/api/*` has been retired in favor of **mandatory per-project credential auth**. Feedback is now **project-scoped**: every captured event records its project, an external service's own admin panel can read and manage its project's feedback directly over a project-scoped REST API (Feedback API v2, `/api/project/feedback`), signed-in users can read and search feedback across all their projects (`/app/feedback`, Korean-safe), and per-tenant/project usage monitoring surfaces derived capture volume and credential last-used (operational visibility only — no billing or metering). Still upcoming in later phases: the tenant/project web app (P4); a CLI + agent-first onboarding path (P5); and the landing page plus production deploy (P6). The contracts should still be treated as early-stage.
 
 ## Summary
 
@@ -64,7 +64,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - Automatic classification or taxonomy assignment
 - A production-ready analytics suite
 - Browser-direct unauthenticated ingestion paths
-- Broad public REST review, query, summary, or management APIs. The only public read is a narrowly scoped end-user self-read (`GET /api/feedback`) that returns a single caller-identified user's own feedback plus operator comments, scoped by required `user_id` and `source_product`; all other review, query, summary, job-status, and management stays on Admin REST.
+- Broad *unauthenticated* public REST review/query/management. Review, query, and management of stored feedback are now first-class but always **scoped and authenticated**: a project's `vk_` credential reads and manages **its own project's** feedback over `/api/project/feedback` (Feedback API v2), a signed-in user reads and searches feedback across **all their own projects** over `/app/feedback`, and the end-user self-read (`GET /api/feedback`) still returns a single caller-identified user's own feedback (scoped by `user_id` + `source_product`, and now the credential's project). There is no unscoped or cross-tenant public query surface. (Admin REST remains the self-hosted operator surface over the same records.)
 - Custom channel category management, deployment-configured channel lists, or automatic channel classification
 - Paid plans, billing, usage metering, or plan tiers — the SaaS is free
 - Enterprise-grade compliance or heavyweight org/admin workflows
@@ -108,9 +108,9 @@ Vocky is a multi-tenant SaaS. The identity and tenancy model is:
 Vocky uses one canonical feedback store and one shared capture field set, but the public-facing surfaces have different jobs:
 
 - The **account auth** surface (`/auth/*`) is public and unauthenticated-to-enter: `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, and `GET /auth/me` establish and inspect a user session.
-- The **account control-plane** (`/app/*`, session-token authed) is where a user reads their tenant and creates/lists/reads projects and mints/lists/revokes per-project credentials. It is tenant-scoped: a caller can never see or touch another tenant's projects or credentials.
-- **Public REST** (`/api/*`) is for trusted server-to-server product integrations and now requires a valid per-project credential on every request: capture plus a single scoped end-user read. `POST /api/feedback` is the ingestion path for explicit human-triggered product-surface actions such as likes, dislikes, page feedback, widgets, or surveys, and `POST /api/feedback/attachments` uploads an image to reference from a capture call. `GET /api/feedback` returns one end user's own feedback (scoped by required `user_id` + `source_product`) together with operator comments and image attachments, and `GET /api/feedback/{feedback_id}/attachments/{attachment_id}` downloads one of the caller's own attachments under the same scope. It does not expose broad query, summary, job-status, or management endpoints.
-- **Admin REST** is for human/operator review and management. `/admin/api/*` powers dashboards, list/detail inspection, review-field editing, metrics, and deletion over the same stored feedback records. It keeps its own separate `VOCKY_ADMIN_AUTH_TOKEN` bearer (untouched by the accounts work).
+- The **account control-plane** (`/app/*`, session-token authed) is where a user reads their tenant and creates/lists/reads projects and mints/lists/revokes per-project credentials. It is tenant-scoped: a caller can never see or touch another tenant's projects or credentials. It also hosts the signed-in user's **cross-project feedback read + search** (`/app/feedback`: list/search across all their projects, get-one, attachment download — Korean-safe substring search, read-only) and **usage monitoring** (`/app/usage` whole-tenant capture volume + a project list; `/app/projects/{id}/usage` one project's volume + its credentials' last-used). Every read answers 404 (never 403) on a cross-tenant id.
+- **Public REST** (`/api/*`) is for trusted server-to-server product integrations and requires a valid per-project credential on every request. It carries: capture (`POST /api/feedback`, `POST /api/feedback/attachments`); the scoped end-user self-read (`GET /api/feedback` + its attachment download, scoped by `user_id` + `source_product` + the credential's project); the project-scoped **Feedback API v2** for an external service's own admin panel (`/api/project/feedback`: list/get/PATCH review fields/DELETE/operator comments/attachment download over **its own project's** feedback, 404 on any cross-project id); and per-project usage (`GET /api/project/usage`: the credential's project capture volume + its credentials). A `vk_` key thus does capture **and** project read+manage for its one project — there are no per-credential scopes in the MVP.
+- **Admin REST** is for human/operator review and management. `/admin/api/*` powers dashboards, list/detail inspection, review-field editing, metrics, and deletion over the same stored feedback records. It keeps its own separate `VOCKY_ADMIN_AUTH_TOKEN` bearer (untouched by the accounts/feedback-API work).
 
 ## Current Field Taxonomy
 
