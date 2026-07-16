@@ -1,17 +1,17 @@
 ---
 doc_id: security
-version: v0004
-created_at: 2026-07-16T18:52:17+09:00
-source: P7.REVIEW
-summary: P7: /mcp requires a per-project vk_ credential (same guard/401/last_used_at as /api/*); DNS-rebinding on; static token retired
-previous: v0003_p3_project-scoped_read_authz_404-never-403_on_api_project_and_app_feedback_one_vk__key_captures_reads_manages_its_project_no_per-credential_scopes_best-effort_last_used_at_stamping_tightened_project-scoped_self-read
+version: v0005
+created_at: 2026-07-16T23:31:28+09:00
+source: P4.REVIEW
+summary: P4: the web app's browser credential — AES-256-GCM sealed httpOnly session cookie via the BFF (token never in browser JS), rate-limited public auth routes, the show-once vk_ key crossing, and forced attachment download
+previous: v0004_p7_mcp_requires_a_per-project_vk__credential_same_guard_401_last_used_at_as_api_dns-rebinding_on_static_token_retired
 ---
 
 # Security
 
 ## Status
 
-Covers the authentication and secret-handling posture landed in P2 (password hashing, account session tokens, per-project ingest credentials, the mandatory `/api/*` ingest boundary) plus the P3 authorization posture for the new feedback surfaces: project-scoped read/manage authorization that answers 404-never-403 on cross-project/cross-tenant ids, the single-key project read/manage surface, best-effort `last_used_at` stamping, and the tightened project-scoped self-read. As of **P7** it also covers the MCP capture endpoint: `/mcp` is guarded by the same mandatory per-project `vk_` credential auth as `/api/*`, and its Streamable-HTTP transport carries DNS-rebinding protection. Attachment-download authorization and admin-token handling are covered in `architecture.md` / `api.md`.
+Covers the authentication and secret-handling posture landed in P2 (password hashing, account session tokens, per-project ingest credentials, the mandatory `/api/*` ingest boundary) plus the P3 authorization posture for the new feedback surfaces: project-scoped read/manage authorization that answers 404-never-403 on cross-project/cross-tenant ids, the single-key project read/manage surface, best-effort `last_used_at` stamping, and the tightened project-scoped self-read. As of **P7** it also covers the MCP capture endpoint: `/mcp` is guarded by the same mandatory per-project `vk_` credential auth as `/api/*`, and its Streamable-HTTP transport carries DNS-rebinding protection. As of **P4** it also covers the **browser** — the web app in `web/` introduced vocky's first browser-held credential (a sealed httpOnly session cookie), its first public rate-limited auth surface, and the first place a plaintext `vk_` key is displayed to a human. Attachment-download authorization and admin-token handling are covered in `architecture.md` / `api.md`.
 
 ## Passwords
 
@@ -75,6 +75,53 @@ P3 adds project-scoped feedback surfaces; all of them enforce authorization in t
 - Response serializers never emit secrets: `serialize_user` omits `password_hash`; `serialize_tenant`/`serialize_project` carry no secret; `serialize_credential` omits `token_hash` and the raw key; token/credential records carry only `token_prefix`.
 - Raw session tokens and project keys are returned exactly once (at mint time) and only as sha256 hashes thereafter; the DB never holds a recoverable password, session token, or ingest key.
 
+## The Web App's Browser Credential (P4)
+
+The `web/` app is the first place a vocky credential lives **in a browser**. Its whole security posture follows from one decision (D-P4-2): the browser talks only to the Next.js origin, and the Next.js server talks to vocky server-to-server.
+
+- **The vocky session token never reaches browser JS.** It is sealed into an httpOnly cookie the Next app sets for itself, and the server unseals it per request to inject the `Authorization: Bearer`. There is no token in `localStorage`, no token in a JS variable, and no token in rendered HTML — so an XSS on our origin cannot exfiltrate a 30-day session bearer. It also means **vocky needs no CORS**: no browser ever calls it directly.
+- **Cookie sealing.** `vocky_session` = `v1.<iv>.<ct>.<tag>` (base64url parts), **AES-256-GCM**, key = `sha256(SESSION_SECRET)`, a **fresh random 12-byte IV per seal**, sealed plaintext JSON `{token, exp}`. GCM means the cookie is both encrypted and authenticated — a tampered IV, ciphertext, or tag fails the tag check.
+- **The open path never throws and never partially trusts.** `openSession` returns the token or **`null` for every failure** — wrong shape/version, tag mismatch, bad JSON, expired `exp`, rotated or missing secret — so a caller cannot accidentally treat a damaged cookie as a valid one; all failures collapse to "no session".
+- **Cookie attributes.** `httpOnly`, `SameSite=Strict`, `path=/`, `maxAge` 30d (deliberately matching vocky's own session TTL, so the cookie cannot outlive the token it carries), and `Secure` when `NODE_ENV === "production"`.
+- **`SESSION_SECRET` is the key to every live session.** Rotating it invalidates all of them (every user must sign in again) — the intended behavior, and the emergency lever if it is ever exposed. It and `VOCKY_API_BASE_URL` are **server-only** (never `NEXT_PUBLIC_`, read behind `server-only`).
+- **A crypto-valid cookie is not a live session.** The signed-out bounce **verifies against `/auth/me` before redirecting**, so a cookie whose vocky token was revoked out-of-band renders the login form instead of ping-ponging. Only a **401** logs you out; other errors (vocky down) are rethrown rather than silently treated as a logout.
+
+## The Web App's Public Auth Surface (P4)
+
+The BFF routes `POST /api/auth/{login,signup,logout}` are the app's only unauthenticated entry — the one place a caller has no session yet — and therefore its attack surface. All three run **one audited pipeline** (`src/lib/bff.ts`) rather than duplicated per-route copies:
+
+```
+JSON-only 415 → same-origin 403 → per-IP rate limit 429 → parse 400 / schema 422 → vocky → seal cookie 200
+```
+
+- **vocky's `detail` is never echoed.** The response body is only `{ok}`; the client keys off the status. Pass-through statuses are deliberately narrow (login `[401, 400]`, signup `[409, 400]`); anything else upstream → 502. This preserves the backend's **no-enumeration** property at the browser edge: a wrong password and an unknown email produce the same 401 with no distinguishing text.
+- **Rate limits are per-IP and per-route-namespaced** (`auth-login:` / `auth-signup:` + IP): login **5/15min** (the stricter, because it is the guessable one), signup **10/15min**. The namespacing is a real control, not tidiness — a shared bare-IP bucket would let login attempts drain signup's budget (and vice versa).
+- **Same-origin is enforced** on every credential POST (403 otherwise), and the session cookie is `SameSite=Strict`, so a cross-site page can neither drive these routes nor ride an existing session.
+- **Logout never fails open**: it revokes at vocky best-effort and then **unconditionally** clears the cookie, so a vocky outage can never leave a signed-out user still holding a live session cookie.
+
+## The Show-Once `vk_` Key in a Browser (P4)
+
+Minting a project credential in the web app is the **only** place vocky displays a plaintext secret to a human, and the single deliberate exception to the app's "no vocky data crosses a client boundary" rule.
+
+- The key crosses to the client in the **server action's state**, never in the server-rendered page tree. That placement is what makes it survive the post-mint revalidation yet **vanish on the next submit or navigation**. It is never logged, never placed in a URL, and never persisted anywhere in the web app.
+- After any reload only the 12-character `token_prefix` stub remains — the backend keeps only `sha256_hex(key)`, so it is genuinely unrecoverable (see "Per-Project Ingest Credentials" above).
+- Dismissal is keyed by the action state's `ok` stamp rather than a sticky boolean: a `dismissed` flag would silently swallow the *next* minted key — the one failure mode where a missed render is unrecoverable rather than merely annoying.
+
+## Forced Attachment Download (P4)
+
+The web app's attachment proxy (`/api/app/feedback/{id}/attachments/{id}`) exists because the browser holds no bearer, so bytes must be relayed server-side. It **forces `Content-Disposition: attachment`** — this is a security control, not a UX preference:
+
+- The bytes **and their declared content type** are uploader-supplied. `X-Content-Type-Options: nosniff` does not save you here, because the danger is not MIME **sniffing** — it is the declared type being *honestly* `text/html`. Serving that inline from our own origin is **stored XSS against our own session cookie**.
+- Forcing the download makes the content type irrelevant to safety. The proxy also sends `nosniff` and `cache-control: private, no-store` (a per-user private response must never land in a shared cache), and maps vocky's 401 → 401, 404 → 404, malformed ids → 400, everything unexpected → 500.
+
+## Backend Authorization Preserved at the Web Surface (P4)
+
+The web app enforces **no** authorization of its own — it is a renderer of the backend's stance, which is the point: there is no second, weaker copy of the rules to drift.
+
+- **404-never-403** survives end-to-end: the app maps vocky's `404` **and** `400` → its own not-found page. Collapsing the two is deliberate — a malformed id is effectively not-found, and distinguishing "malformed" from "not yours" leaks the shape of what exists.
+- Legacy NULL-`project_id` feedback rows stay invisible in the app because `/app/feedback` already scopes them out; the app adds no path around that scope.
+- The app renders no vocky token, `vk_` key, or cookie value into any page, on any route.
+
 ## Admin Surface (unchanged)
 
-- `AdminBearerAuthMiddleware` and `VOCKY_ADMIN_AUTH_TOKEN` are untouched by the accounts work; `/admin/api/*` keeps its own separate bearer boundary. Reshaping the operator surface is P4.
+- `AdminBearerAuthMiddleware` and `VOCKY_ADMIN_AUTH_TOKEN` are untouched by the accounts work; `/admin/api/*` keeps its own separate bearer boundary. **P4 resolved the operator-surface reshaping by replacement**: the `web/` app is the new browser surface, and the packaged Admin Web UI is superseded but still mounted (its packaged docs still reference the retired static `VOCKY_API_AUTH_TOKEN` and are not current guidance). Physical removal of that UI is **P6**; until then, a deployment exposing `/admin` should still set `VOCKY_ADMIN_AUTH_TOKEN`.

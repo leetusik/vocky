@@ -1,10 +1,10 @@
 ---
 doc_id: api
-version: v0005
-created_at: 2026-07-16T18:48:22+09:00
-source: P7.REVIEW
-summary: P7: add write-only capture_feedback MCP tool contract (flat inputs, source nested, no attachment_ids; capture receipt) and the /mcp per-project vk_ credential auth model; un-retire MCP as a write-only surface
-previous: v0004_p3_feedback_api_v2_project-scoped_read_manage_cross-project_read_search_usage_endpoints
+version: v0006
+created_at: 2026-07-16T23:34:11+09:00
+source: P4.REVIEW
+summary: P4: correct the stale Admin-Docs-try-it forward reference — P4 superseded the packaged operator UI with the web app rather than updating its docs; removal moves to P6 (no API contract change)
+previous: v0005_p7_add_write-only_capture_feedback_mcp_tool_contract_flat_inputs_source_nested_no_attachment_ids_capture_receipt_and_the_mcp_per-project_vk__credential_auth_model_un-retire_mcp_as_a_write-only_surface
 ---
 
 # API
@@ -265,7 +265,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Base path: `/api`
 - Auth or permissions:
   - Mandatory per-project credential auth (see the Public `/api/*` Credential Auth Model). Every request must send `Authorization: Bearer vk_<token>` for a valid, non-revoked project credential; missing/malformed/unknown/revoked all return `401`.
-  - The retired static `VOCKY_API_AUTH_TOKEN` bearer is gone. (The packaged Admin Docs try-it flow still references it and is deferred to P4; its guidance no longer matches the live model.)
+  - The retired static `VOCKY_API_AUTH_TOKEN` bearer is gone. (The packaged Admin Docs try-it flow still references it and is **not** current guidance. P4 superseded that operator surface with the `web/` app rather than updating its packaged docs, so both are removed together in **P6**.)
 - Endpoint:
   - `POST /api/feedback`
 - Inputs:

@@ -1,7 +1,7 @@
 {
   "docs": {
     "product": {
-      "latest": "v0005_p7_agent-decided_write-only_feedback_capture_returns_as_an_mcp_surface_agents_linked_to_a_project_s_mcp_save_feedback_with_the_project_s_vk__key_three_read_tools_stay_retired",
+      "latest": "v0006_p4_the_authenticated_web_app_is_vocky_s_primary_user_surface_tenant_dashboard_project_detail_cross-project_feedback_search_superseding_the_packaged_operator_admin_web_ui",
       "current_path": "docs/current/product.md",
       "versions": [
         {
@@ -43,11 +43,19 @@
           "source": "P7.REVIEW",
           "summary": "P7: agent-decided write-only feedback capture returns as an MCP surface (agents linked to a project's /mcp save feedback with the project's vk_ key); three read tools stay retired",
           "previous": "v0004_p3_feedback_is_project-scoped_add_project-scoped_feedback_api_v2_read_manage_cross-project_search_and_operational_usage_monitoring_no_billing_flip_the_broad-public-rest-management_non-goal"
+        },
+        {
+          "id": "v0006_p4_the_authenticated_web_app_is_vocky_s_primary_user_surface_tenant_dashboard_project_detail_cross-project_feedback_search_superseding_the_packaged_operator_admin_web_ui",
+          "path": "docs/versions/product/v0006_p4_the_authenticated_web_app_is_vocky_s_primary_user_surface_tenant_dashboard_project_detail_cross-project_feedback_search_superseding_the_packaged_operator_admin_web_ui.md",
+          "created_at": "2026-07-16T23:32:23+09:00",
+          "source": "P4.REVIEW",
+          "summary": "P4: the authenticated web app is vocky's primary user surface (tenant dashboard, project detail, cross-project feedback search), superseding the packaged operator Admin Web UI",
+          "previous": "v0005_p7_agent-decided_write-only_feedback_capture_returns_as_an_mcp_surface_agents_linked_to_a_project_s_mcp_save_feedback_with_the_project_s_vk__key_three_read_tools_stay_retired"
         }
       ]
     },
     "experience": {
-      "latest": "v0005_p7_agents_capture_feedback_via_the_write-only_capture_feedback_mcp_tool_at_a_project_s_mcp_endpoint_authed_by_the_project_s_vk__key",
+      "latest": "v0006_p4_the_vocky_web_app_sign_up_in_the_browser_tenant_dashboard_project_drill-down_with_show-once_key_mint_revoke_and_cross-project_korean-safe_feedback_search_read",
       "current_path": "docs/current/experience.md",
       "versions": [
         {
@@ -89,11 +97,19 @@
           "source": "P7.REVIEW",
           "summary": "P7: agents capture feedback via the write-only capture_feedback MCP tool at a project's /mcp endpoint, authed by the project's vk_ key",
           "previous": "v0004_p3_read_manage_your_project_s_feedback_via_vk__key_on_api_project_feedback_search_across_your_projects_via_session_on_app_feedback_korean_view_usage_via_app_usage"
+        },
+        {
+          "id": "v0006_p4_the_vocky_web_app_sign_up_in_the_browser_tenant_dashboard_project_drill-down_with_show-once_key_mint_revoke_and_cross-project_korean-safe_feedback_search_read",
+          "path": "docs/versions/experience/v0006_p4_the_vocky_web_app_sign_up_in_the_browser_tenant_dashboard_project_drill-down_with_show-once_key_mint_revoke_and_cross-project_korean-safe_feedback_search_read.md",
+          "created_at": "2026-07-16T23:30:30+09:00",
+          "source": "P4.REVIEW",
+          "summary": "P4: the vocky web app — sign up in the browser, tenant dashboard, project drill-down with show-once key mint/revoke, and cross-project Korean-safe feedback search/read",
+          "previous": "v0005_p7_agents_capture_feedback_via_the_write-only_capture_feedback_mcp_tool_at_a_project_s_mcp_endpoint_authed_by_the_project_s_vk__key"
         }
       ]
     },
     "architecture": {
-      "latest": "v0005_p7_revive_mcp_as_a_write-only_capture_surface_mcp_mount_session_manager_lifespan_feeding_the_shared_queue_mcp_env_in_configuration_surface",
+      "latest": "v0006_p4_the_web_next.js_app_server-side_bff_as_vocky_s_browser_surface_sealed_httponly_cookie_no_cors_no_web-side_db_admin-ui_convergence_resolved_replacement_built_in_p4_physical_removal_deferred_to_p6",
       "current_path": "docs/current/architecture.md",
       "versions": [
         {
@@ -135,11 +151,19 @@
           "source": "P7.REVIEW",
           "summary": "P7: revive MCP as a write-only capture surface (/mcp mount + session_manager lifespan) feeding the shared queue; MCP env in Configuration Surface",
           "previous": "v0004_p3_feedback_project_scoping_ingest-scope_threading_pg_trgm_substring_search_subsystem_derived_usage"
+        },
+        {
+          "id": "v0006_p4_the_web_next.js_app_server-side_bff_as_vocky_s_browser_surface_sealed_httponly_cookie_no_cors_no_web-side_db_admin-ui_convergence_resolved_replacement_built_in_p4_physical_removal_deferred_to_p6",
+          "path": "docs/versions/architecture/v0006_p4_the_web_next.js_app_server-side_bff_as_vocky_s_browser_surface_sealed_httponly_cookie_no_cors_no_web-side_db_admin-ui_convergence_resolved_replacement_built_in_p4_physical_removal_deferred_to_p6.md",
+          "created_at": "2026-07-16T23:29:08+09:00",
+          "source": "P4.REVIEW",
+          "summary": "P4: the web/ Next.js app + server-side BFF as vocky's browser surface (sealed httpOnly cookie, no CORS, no web-side DB); admin-UI convergence resolved — replacement built in P4, physical removal deferred to P6",
+          "previous": "v0005_p7_revive_mcp_as_a_write-only_capture_surface_mcp_mount_session_manager_lifespan_feeding_the_shared_queue_mcp_env_in_configuration_surface"
         }
       ]
     },
     "frontend": {
-      "latest": "v0001_bootstrap",
+      "latest": "v0002_p4_the_vocky_web_app_next.js_16_app_in_web_ported_tailwind-v4_design_system_server-side_bff_sealed-cookie_session_and_the_dashboard_project_feedback_page_inventory",
       "current_path": "docs/current/frontend.md",
       "versions": [
         {
@@ -149,6 +173,14 @@
           "source": "bootstrap",
           "summary": "Initial frontend doc",
           "previous": null
+        },
+        {
+          "id": "v0002_p4_the_vocky_web_app_next.js_16_app_in_web_ported_tailwind-v4_design_system_server-side_bff_sealed-cookie_session_and_the_dashboard_project_feedback_page_inventory",
+          "path": "docs/versions/frontend/v0002_p4_the_vocky_web_app_next.js_16_app_in_web_ported_tailwind-v4_design_system_server-side_bff_sealed-cookie_session_and_the_dashboard_project_feedback_page_inventory.md",
+          "created_at": "2026-07-16T23:25:16+09:00",
+          "source": "P4.REVIEW",
+          "summary": "P4: the vocky web app — Next.js 16 app in web/, ported Tailwind-v4 design system, server-side BFF + sealed-cookie session, and the dashboard/project/feedback page inventory",
+          "previous": "v0001_bootstrap"
         }
       ]
     },
@@ -213,7 +245,7 @@
       ]
     },
     "api": {
-      "latest": "v0005_p7_add_write-only_capture_feedback_mcp_tool_contract_flat_inputs_source_nested_no_attachment_ids_capture_receipt_and_the_mcp_per-project_vk__credential_auth_model_un-retire_mcp_as_a_write-only_surface",
+      "latest": "v0006_p4_correct_the_stale_admin-docs-try-it_forward_reference_p4_superseded_the_packaged_operator_ui_with_the_web_app_rather_than_updating_its_docs_removal_moves_to_p6_no_api_contract_change",
       "current_path": "docs/current/api.md",
       "versions": [
         {
@@ -255,11 +287,19 @@
           "source": "P7.REVIEW",
           "summary": "P7: add write-only capture_feedback MCP tool contract (flat inputs, source nested, no attachment_ids; capture receipt) and the /mcp per-project vk_ credential auth model; un-retire MCP as a write-only surface",
           "previous": "v0004_p3_feedback_api_v2_project-scoped_read_manage_cross-project_read_search_usage_endpoints"
+        },
+        {
+          "id": "v0006_p4_correct_the_stale_admin-docs-try-it_forward_reference_p4_superseded_the_packaged_operator_ui_with_the_web_app_rather_than_updating_its_docs_removal_moves_to_p6_no_api_contract_change",
+          "path": "docs/versions/api/v0006_p4_correct_the_stale_admin-docs-try-it_forward_reference_p4_superseded_the_packaged_operator_ui_with_the_web_app_rather_than_updating_its_docs_removal_moves_to_p6_no_api_contract_change.md",
+          "created_at": "2026-07-16T23:34:11+09:00",
+          "source": "P4.REVIEW",
+          "summary": "P4: correct the stale Admin-Docs-try-it forward reference — P4 superseded the packaged operator UI with the web app rather than updating its docs; removal moves to P6 (no API contract change)",
+          "previous": "v0005_p7_add_write-only_capture_feedback_mcp_tool_contract_flat_inputs_source_nested_no_attachment_ids_capture_receipt_and_the_mcp_per-project_vk__credential_auth_model_un-retire_mcp_as_a_write-only_surface"
         }
       ]
     },
     "operations": {
-      "latest": "v0001_bootstrap",
+      "latest": "v0002_p4_web_app_build_run_pnpm_dev_on_3030_output_standalone_and_its_two_server-only_env_keys_production_deploy_remains_p6",
       "current_path": "docs/current/operations.md",
       "versions": [
         {
@@ -269,11 +309,19 @@
           "source": "bootstrap",
           "summary": "Initial operations doc",
           "previous": null
+        },
+        {
+          "id": "v0002_p4_web_app_build_run_pnpm_dev_on_3030_output_standalone_and_its_two_server-only_env_keys_production_deploy_remains_p6",
+          "path": "docs/versions/operations/v0002_p4_web_app_build_run_pnpm_dev_on_3030_output_standalone_and_its_two_server-only_env_keys_production_deploy_remains_p6.md",
+          "created_at": "2026-07-16T23:27:22+09:00",
+          "source": "P4.REVIEW",
+          "summary": "P4: web app build/run (pnpm dev on :3030, output standalone) and its two server-only env keys; production deploy remains P6",
+          "previous": "v0001_bootstrap"
         }
       ]
     },
     "security": {
-      "latest": "v0004_p7_mcp_requires_a_per-project_vk__credential_same_guard_401_last_used_at_as_api_dns-rebinding_on_static_token_retired",
+      "latest": "v0005_p4_the_web_app_s_browser_credential_aes-256-gcm_sealed_httponly_session_cookie_via_the_bff_token_never_in_browser_js_rate-limited_public_auth_routes_the_show-once_vk__key_crossing_and_forced_attachment_download",
       "current_path": "docs/current/security.md",
       "versions": [
         {
@@ -307,6 +355,14 @@
           "source": "P7.REVIEW",
           "summary": "P7: /mcp requires a per-project vk_ credential (same guard/401/last_used_at as /api/*); DNS-rebinding on; static token retired",
           "previous": "v0003_p3_project-scoped_read_authz_404-never-403_on_api_project_and_app_feedback_one_vk__key_captures_reads_manages_its_project_no_per-credential_scopes_best-effort_last_used_at_stamping_tightened_project-scoped_self-read"
+        },
+        {
+          "id": "v0005_p4_the_web_app_s_browser_credential_aes-256-gcm_sealed_httponly_session_cookie_via_the_bff_token_never_in_browser_js_rate-limited_public_auth_routes_the_show-once_vk__key_crossing_and_forced_attachment_download",
+          "path": "docs/versions/security/v0005_p4_the_web_app_s_browser_credential_aes-256-gcm_sealed_httponly_session_cookie_via_the_bff_token_never_in_browser_js_rate-limited_public_auth_routes_the_show-once_vk__key_crossing_and_forced_attachment_download.md",
+          "created_at": "2026-07-16T23:31:28+09:00",
+          "source": "P4.REVIEW",
+          "summary": "P4: the web app's browser credential — AES-256-GCM sealed httpOnly session cookie via the BFF (token never in browser JS), rate-limited public auth routes, the show-once vk_ key crossing, and forced attachment download",
+          "previous": "v0004_p7_mcp_requires_a_per-project_vk__credential_same_guard_401_last_used_at_as_api_dns-rebinding_on_static_token_retired"
         }
       ]
     },
@@ -325,7 +381,7 @@
       ]
     },
     "decisions": {
-      "latest": "v0004_p7_mcp-revival_decisions_write-only_scope_broadened-middleware_auth_binding_thin_mcpcapturefeedbackinput_transport_security_on",
+      "latest": "v0005_p4_web-app_decisions_app_in_a_repo_subdir_web_server-side_bff_sealed_httponly_cookie_no_cors_no_web-side_db_port_the_design_system_and_defer_the_heavy_design_gate_to_p6",
       "current_path": "docs/current/decisions.md",
       "versions": [
         {
@@ -359,9 +415,17 @@
           "source": "P7.REVIEW",
           "summary": "P7 MCP-revival decisions: write-only scope, broadened-middleware auth binding, thin McpCaptureFeedbackInput, transport security on",
           "previous": "v0003_record_p3_feedback-api-v2_decisions_project_scope_on_feedback_api_project_app_read-manage_split_pg_trgm_korean-safe_substring_search_derived_usage_no_metering_tightened_self-read"
+        },
+        {
+          "id": "v0005_p4_web-app_decisions_app_in_a_repo_subdir_web_server-side_bff_sealed_httponly_cookie_no_cors_no_web-side_db_port_the_design_system_and_defer_the_heavy_design_gate_to_p6",
+          "path": "docs/versions/decisions/v0005_p4_web-app_decisions_app_in_a_repo_subdir_web_server-side_bff_sealed_httponly_cookie_no_cors_no_web-side_db_port_the_design_system_and_defer_the_heavy_design_gate_to_p6.md",
+          "created_at": "2026-07-16T23:28:21+09:00",
+          "source": "P4.REVIEW",
+          "summary": "P4 web-app decisions: app in a repo subdir web/, server-side BFF + sealed httpOnly cookie (no CORS, no web-side DB), port the design system and defer the heavy design gate to P6",
+          "previous": "v0004_p7_mcp-revival_decisions_write-only_scope_broadened-middleware_auth_binding_thin_mcpcapturefeedbackinput_transport_security_on"
         }
       ]
     }
   },
-  "last_rebuilt_at": "2026-07-16T19:00:05+09:00"
+  "last_rebuilt_at": "2026-07-16T23:34:29+09:00"
 }

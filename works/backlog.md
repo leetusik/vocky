@@ -5,12 +5,12 @@
 
 ## Pointer
 
-- Current phase: `P4`
-- Current slice: `P4.REVIEW`
-- Next slice: `none`
+- Current phase: `P8`
+- Current slice: `P8.DECOMP`
+- Next slice: `P8.REVIEW`
 - Waiting on operator: `none`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-16T22:51:15+09:00`
+- Rebuilt at: `2026-07-16T23:37:14+09:00`
 
 ## Active Phases
 
@@ -20,7 +20,8 @@
 | [x] `P2` | `done` | `pass` | Accounts, Tenancy & Projects Core | `none` | `works/phases/active/P2` |
 | [x] `P3` | `done` | `pass` | Feedback API v2, Search & Usage Monitoring | `none` | `works/phases/active/P3` |
 | [x] `P7` | `done` | `pass` | Agent-Capture Revival (MCP write-only) | `none` | `works/phases/active/P7` |
-| [ ] `P4` | `planned` | `pending` | Web App: Tenant Dashboard & Project Pages | `P4.REVIEW` | `works/phases/active/P4` |
+| [x] `P4` | `done` | `pass` | Web App: Tenant Dashboard & Project Pages | `none` | `works/phases/active/P4` |
+| [ ] `P8` | `planned` | `pending` | Design Gate: Brand, App UI & Landing | `P8.DECOMP` | `works/phases/active/P8` |
 | [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
 | [ ] `P6` | `planned` | `pending` | Landing Page, Webpage & Production Deploy | `P6.DECOMP` | `works/phases/active/P6` |
 
@@ -76,7 +77,14 @@
 | [x] `P4.S3` | `done` | Tenant dashboard: projects + create + tenant usage | `implementation` | `works/phases/active/P4/slices/P4.S3` |
 | [x] `P4.S4` | `done` | Project detail: info + credentials + project usage | `implementation` | `works/phases/active/P4/slices/P4.S4` |
 | [x] `P4.S5` | `done` | Cross-project feedback list + Korean-safe search + detail | `implementation` | `works/phases/active/P4/slices/P4.S5` |
-| [ ] `P4.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P4/slices/P4.REVIEW` |
+| [x] `P4.REVIEW` | `done` | phase review | `review` | `works/phases/active/P4/slices/P4.REVIEW` |
+
+## Phase P8: Design Gate: Brand, App UI & Landing
+
+| Slice | Status | Name | Kind | Path |
+|---|---|---|---|---|
+| [ ] `P8.DECOMP` | `todo` | decompose phase | `decomposition` | `works/phases/active/P8/slices/P8.DECOMP` |
+| [ ] `P8.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P8/slices/P8.REVIEW` |
 
 ## Phase P5: CLI & Agent-First Onboarding
 

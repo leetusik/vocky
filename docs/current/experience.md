@@ -1,19 +1,21 @@
 ---
 doc_id: experience
-version: v0005
-created_at: 2026-07-16T18:48:22+09:00
-source: P7.REVIEW
-summary: P7: agents capture feedback via the write-only capture_feedback MCP tool at a project's /mcp endpoint, authed by the project's vk_ key
-previous: v0004_p3_read_manage_your_project_s_feedback_via_vk__key_on_api_project_feedback_search_across_your_projects_via_session_on_app_feedback_korean_view_usage_via_app_usage
+version: v0006
+created_at: 2026-07-16T23:30:30+09:00
+source: P4.REVIEW
+summary: P4: the vocky web app — sign up in the browser, tenant dashboard, project drill-down with show-once key mint/revoke, and cross-project Korean-safe feedback search/read
+previous: v0005_p7_agents_capture_feedback_via_the_write-only_capture_feedback_mcp_tool_at_a_project_s_mcp_endpoint_authed_by_the_project_s_vk__key
 ---
 
 # Action Feedback Integration
 
 This guide describes how a product can integrate Vocky for explicit human-triggered user feedback actions over REST.
 
+There are two ways to do the account/project/credential setup below: **the web app** (point-and-click — see "The Web App" at the end of this guide) or the **REST calls** shown here. They are the same operations against the same API; use whichever suits you. Everything after setup — capture and reads — is API-only.
+
 ## Onboarding: Get a Project Credential
 
-`/api/*` ingestion is authenticated by a **per-project credential** — there is no unauthenticated or shared-token path (the old optional `VOCKY_API_AUTH_TOKEN` is retired). Before capturing feedback, mint a key once:
+`/api/*` ingestion is authenticated by a **per-project credential** — there is no unauthenticated or shared-token path (the old optional `VOCKY_API_AUTH_TOKEN` is retired). Before capturing feedback, mint a key once (or do all three steps in the web app):
 
 1. **Sign up** (or log in) for a Vocky account. You get a session token and a tenant (workspace):
 
@@ -254,6 +256,55 @@ curl "https://vocky.example.com/app/usage" -H "Authorization: Bearer <session-to
 curl "https://vocky.example.com/api/project/usage" -H "Authorization: Bearer vk_<your-project-key>"
 ```
 
+## The Web App
+
+Everything above is the API. As of **P4** there is also a **web app** — Vocky's authenticated browser surface, and the replacement for the packaged self-hosted operator Admin Web UI. It does the account/project/credential work and the cross-project feedback reading **without curl**. (It runs locally today; the public deployment at `vocky.hi2vi.com` is P6.)
+
+It is a signed-in **tenant owner's** surface, not an end-user one: you see your own tenant, your own projects, and your own feedback. Anything belonging to someone else answers "not found" — never "forbidden" — so you cannot even probe what exists.
+
+### Sign up, sign in, sign out
+
+Sign up with an email and password and you land straight in the app — signup provisions your account, your tenant (workspace, auto-named from your email), and your session in one step. Logging in later takes you to the same place. Wrong password and unknown email give the **identical** error, so nobody can use the login form to discover which emails are registered.
+
+Your session lives in a secure cookie the app sets for itself; the browser never holds your Vocky token, and no page ever renders it. Signing out revokes the session at Vocky and clears the cookie. Visiting any signed-in page while signed out simply bounces you to the login form; a session revoked out from under you does the same, without any redirect loop.
+
+### The shell
+
+Every signed-in page shares one layout: a topbar (your workspace and email, and the sign-out button) and a left rail with **Dashboard** and **Feedback**. The rail collapses to a horizontal strip on narrow screens. There is no dark-mode toggle.
+
+### The tenant dashboard (`/dashboard`)
+
+Your post-login home, and the whole-tenant view:
+
+- **Usage totals** for the window — total records, likes, dislikes, unrated. The window is the last 30 days unless you say otherwise. This is operational visibility, not billing; Vocky has no metering.
+- **A daily trend chart** of capture volume across the window, zero-filled so quiet days read as zero rather than vanishing. A tenant that has never captured anything shows an explicit empty state instead of an empty chart.
+- **Your projects**, with a create-project form. A new project appears in the list immediately. Names are not unique — two projects may share a name and remain distinct records.
+- Each project name **links into its detail page**.
+
+### Project detail (`/projects/{id}`)
+
+The per-project drill-down:
+
+- **Project info** and that project's own usage totals + trend (the same shapes as the dashboard, scoped to one project).
+- **Credentials** — the project's `vk_` keys, each with its 12-character display prefix, its status (Active / Revoked), and its **last-used** time, so you can tell a live key from a forgotten one.
+- **Mint a key** (optionally naming it). **The plaintext `vk_…` key is shown exactly once**, right after minting, with an explicit warning that this is the only time you will ever see it. Copy it into your product backend then. Reload the page and it is gone for good — only the prefix stub remains, because Vocky stores only a hash and genuinely cannot show it again.
+- **Revoke a key** behind a confirm step. A revoked key stops working immediately and stays listed as Revoked (so the history is auditable) rather than disappearing.
+
+### Feedback: search and read (`/feedback`)
+
+The cross-project read surface — everything your projects have captured, newest-first, in one place:
+
+- **Search (`?q=`) works in Korean.** It is a substring match, not a tokenizer, so `결제` finds both `결제 오류가 있어요` and the 조사-attached `결제를 못 했습니다` — and it matches the operator **comment**, not just the message. English works the same way, case-insensitively.
+- **Filter** by project and by feedback value (liked / disliked / unrated); submitting a new query resets you to the first page. Rows show the **project name**, not a raw id.
+- **Page forward** through results. Each page is its own URL, so your browser's Back button is Previous. Filters stay applied across pages — page 2 of a search is still that search.
+- **Distinct empty states**: "no projects yet" is not the same message as "no feedback matches these filters."
+- **Open a record** for the full detail: message, the user's comment, project, integration, trigger, conversation/session/user ids, target text, tags, operator comments, and attachments. **Times are shown in UTC**, labeled as such.
+- **Attachments download; they never render inline.** That is deliberate — attachment bytes are uploader-supplied, and displaying them in the page would be a security hole (see `security.md`).
+
+**The web app is read + search only for feedback.** There is no editing, commenting, or deleting here: feedback **management** stays on the `vk_`-keyed `/api/project/feedback` above, for your product's own admin panel. The web app is where a human *finds* feedback across projects.
+
 ## Human Review Boundary
 
-Feedback review and management are now first-class but always scoped and authenticated: a project's `vk_` key reads/manages its own project's feedback (`/api/project/feedback`); a signed-in user reads/searches across all their projects (`/app/feedback`); the end-user self-read (`GET /api/feedback`) returns one product user's own records. Self-hosted operators can also use the dedicated Admin REST API endpoints; when `VOCKY_ADMIN_AUTH_TOKEN` is set, Admin REST clients must send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`. There is no unscoped or cross-tenant public query surface.
+Feedback review and management are now first-class but always scoped and authenticated: a project's `vk_` key reads/manages its own project's feedback (`/api/project/feedback`); a signed-in user reads/searches across all their projects (`/app/feedback`, or the same thing point-and-click in the web app); the end-user self-read (`GET /api/feedback`) returns one product user's own records. Self-hosted operators can also use the dedicated Admin REST API endpoints; when `VOCKY_ADMIN_AUTH_TOKEN` is set, Admin REST clients must send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`. There is no unscoped or cross-tenant public query surface.
+
+The **web app** (P4) is the browser expression of the session-authed `/app/*` surface — it adds no capability of its own, and deliberately carries **no** feedback management (that stays on `/api/project/feedback`). The packaged same-origin Admin Web UI it replaces is superseded but still shipped; it is removed in P6.

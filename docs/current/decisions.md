@@ -1,17 +1,17 @@
 ---
 doc_id: decisions
-version: v0004
-created_at: 2026-07-16T18:52:17+09:00
-source: P7.REVIEW
-summary: P7 MCP-revival decisions: write-only scope, broadened-middleware auth binding, thin McpCaptureFeedbackInput, transport security on
-previous: v0003_record_p3_feedback-api-v2_decisions_project_scope_on_feedback_api_project_app_read-manage_split_pg_trgm_korean-safe_substring_search_derived_usage_no_metering_tightened_self-read
+version: v0005
+created_at: 2026-07-16T23:28:21+09:00
+source: P4.REVIEW
+summary: P4 web-app decisions: app in a repo subdir web/, server-side BFF + sealed httpOnly cookie (no CORS, no web-side DB), port the design system and defer the heavy design gate to P6
+previous: v0004_p7_mcp-revival_decisions_write-only_scope_broadened-middleware_auth_binding_thin_mcpcapturefeedbackinput_transport_security_on
 ---
 
 # Decisions
 
 ## Status
 
-Records the durable design decisions made in phases P2 (accounts, tenancy, projects core), P3 (feedback API v2, cross-project search, usage monitoring), and P7 (agent-capture revival — the write-only MCP surface). Each was operator-approved during decomposition and should not be re-litigated without a new decision superseding it.
+Records the durable design decisions made in phases P2 (accounts, tenancy, projects core), P3 (feedback API v2, cross-project search, usage monitoring), P7 (agent-capture revival — the write-only MCP surface), and P4 (the authenticated web app). Each was operator-approved during decomposition and should not be re-litigated without a new decision superseding it.
 
 ## D-P2-1 — Account auth: email + password + opaque DB-backed bearer tokens
 
@@ -35,7 +35,7 @@ Records the durable design decisions made in phases P2 (accounts, tenancy, proje
 
 - **Decision:** `/api/*` auth is **mandatory** per-project credential auth with no open fallback. `ProjectCredentialAuthMiddleware` replaced the optional static-token `APIBearerAuthMiddleware`, and `VOCKY_API_AUTH_TOKEN` / the `api_auth_token` setting were removed. Missing/malformed/unknown/revoked keys all answer a generic 401.
 - **Why:** A single shared global token is a weak, unrevocable-per-consumer boundary for a multi-tenant SaaS. Per-project keys are individually revocable, attributable to a project, and make "no unauthenticated ingest path" enforceable by construction.
-- **Consequences:** There is no way to run `/api/*` unauthenticated or with a deployment-wide token; every integration must mint a project key first. The packaged Admin UI docs still reference the retired token and are deferred to P4.
+- **Consequences:** There is no way to run `/api/*` unauthenticated or with a deployment-wide token; every integration must mint a project key first. The packaged Admin UI docs still reference the retired token; P4 superseded that surface with the `web/` app rather than updating it, so those stale docs are removed with the UI itself in **P6** (they are not current guidance in the meantime).
 
 ## D-P2-5 — Cross-tenant isolation answers 404, never 403
 
@@ -114,3 +114,21 @@ Records the durable design decisions made in phases P2 (accounts, tenancy, proje
 - **Decision:** Keep the FastMCP Streamable-HTTP transport's **DNS-rebinding protection on** with a localhost `Host`/`Origin` allowlist, extendable via `VOCKY_MCP_ALLOWED_HOSTS` / `VOCKY_MCP_ALLOWED_ORIGINS`, rather than descoping it. (Auth is still the real access boundary — the per-project `vk_` credential.)
 - **Why:** `/mcp` is intended to be publicly exposed (e.g. behind a Cloudflare Tunnel), where DNS-rebinding is a real browser-side risk; a minimal configurable allowlist is cheap and safe by default.
 - **Consequences:** A public deployment must add its public `Host` (with port) to `VOCKY_MCP_ALLOWED_HOSTS`; the matcher requires a port, so a portless `Host` is rejected. Localhost always works without config.
+
+## D-P4-1 — The web app lives in a repo subdirectory `web/`, not a separate repo
+
+- **Decision:** The authenticated web app is a subdirectory **`web/`** of this repository, versioned and committed by the existing workflow engine alongside the backend. "hi2vi_web-style" (the operator's reference, `~/projects/personal/hi2vi_web`) means **stack, patterns, and the Claude design-gate workflow** — *not* repo topology: hi2vi_web is a separate repo we **template from**, never vendor or import.
+- **Why:** One repo keeps the frontend and the API contract it consumes in the same review loop, the same slice workflow, and the same commit history — a contract change and its client move together. A second repo would buy independence the project does not need at pre-MVP and would cost cross-repo coordination on every `/app/*` change.
+- **Consequences:** The frontend rides the backend's phase/slice process and doc set (`frontend.md` is part of this doc set). The same app will later carry the P6 landing page. The repo is now polyglot: Python (`uv`) for the service, TypeScript (`pnpm`) under `web/`, each with its own toolchain and gate.
+
+## D-P4-2 — Browser↔API goes through a Next.js server-side BFF with a sealed httpOnly cookie
+
+- **Decision:** The browser talks **only** to the Next.js origin; the Next.js server calls vocky server-to-server with `Authorization: Bearer`. The vocky session token is **sealed into an AES-256-GCM httpOnly cookie** (`vocky_session`) that the Next app sets for itself, never exposed to browser JS. **No CORS change to vocky, and no web-side database.**
+- **Why:** The alternative — the browser calling vocky directly with a token in JS-reachable storage — would require opening CORS on vocky, and would put a 30-day session bearer where any XSS could read it. Sealing it in an httpOnly cookie means a script on our origin cannot exfiltrate the token, and keeping vocky same-origin-free means the API surface needs no browser-facing changes at all. A web-side DB would fork session state across two stores for no gain; the cookie *is* the state.
+- **Consequences:** Two server-only env keys (`VOCKY_API_BASE_URL`, `SESSION_SECRET`); rotating `SESSION_SECRET` invalidates every live session. Authed mutations are **server actions** while the **public** auth surface (login/signup/logout) is BFF route handlers — the one place a caller has no session yet — and binary attachments need an explicit relay proxy because the browser holds no bearer. The cookie is `Secure` only in production, which makes plain-http local runs (`pnpm dev`) the supported way to drive an end-to-end check. The app is a stateless client; its only persistent state is the user's cookie.
+
+## D-P4-3 — Port the design system and build functional pages; defer the heavy design gate to P6
+
+- **Decision:** P4 **ports** hi2vi_web's Tailwind-v4 CSS-first `@theme` token system, `cn()`, and CVA primitives (adding a net-new `data-table`), and builds **functional** dashboard/project/feedback pages. It scaffolds `web/design/canvas/` plus the DesignSync/`SIGNOFF` convention but **defers the intensive operator design session to P6**, alongside the landing page. The brand palette is an explicit **neutral placeholder** (slate + one indigo accent) that keeps hi2vi's token *names*.
+- **Why:** The dashboard's value is that it works — the design gate is a separate, operator-intensive activity that belongs with the landing page, where the brand is actually decided. Porting a proven token system now (rather than inventing one) keeps P4 focused on the auth/data surfaces, and doing it under hi2vi's token *names* means the later gate swaps **values only**, never call sites.
+- **Consequences:** The app is visually provisional but structurally complete. Token names are load-bearing and must stay stable until P6; **no dark-mode toggle** exists (surfaces are explicit tokens, no `.dark` block). The `TrendChart` is a dependency-free inline SVG rather than a chart library — deliberately a P6 question. New components should not add palette tokens or CVA variants without a design reason.

@@ -52,13 +52,25 @@
       "id": "P4",
       "name": "Web App: Tenant Dashboard & Project Pages",
       "objective": "Build the authenticated web app — tenant dashboard and project detail pages — in a new Next.js app (hi2vi_web-style), replacing the packaged operator admin UI.",
-      "status": "planned",
+      "status": "done",
       "order": 4,
       "path": "works/phases/active/P4",
-      "review_status": "pending",
-      "current_slice": "P4.REVIEW",
+      "review_status": "pass",
+      "current_slice": null,
       "slice_count": 7,
-      "done_slice_count": 6
+      "done_slice_count": 7
+    },
+    {
+      "id": "P8",
+      "name": "Design Gate: Brand, App UI & Landing",
+      "objective": "Run the Claude design gate for vocky — prepare the app + landing canvas at the placeholder palette, hand off to the operator's Claude Design session for all brand decisions, then implement the signed-off outcome across the app and the landing page, including any feature or UX changes the session concludes on.",
+      "status": "planned",
+      "order": 4.5,
+      "path": "works/phases/active/P8",
+      "review_status": "pending",
+      "current_slice": "P8.DECOMP",
+      "slice_count": 2,
+      "done_slice_count": 0
     },
     {
       "id": "P5",
@@ -88,5 +100,5 @@
   "deferred_open_count": 4,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 0,
-  "last_rebuilt_at": "2026-07-16T22:51:15+09:00"
+  "last_rebuilt_at": "2026-07-16T23:37:14+09:00"
 }
