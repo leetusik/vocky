@@ -1,15 +1,54 @@
 ---
 doc_id: experience
-version: v0002
-created_at: 2026-07-15T16:35:55+09:00
-source: P1.REVIEW
-summary: REST-only capture flow; remove MCP capture-surface choice and liked-conversation MCP tool
-previous: v0001_bootstrap
+version: v0003
+created_at: 2026-07-16T14:21:33+09:00
+source: P2.REVIEW
+summary: Integrate via signup then create project then mint vk_ credential; send it as Authorization: Bearer on /api/*; replace optional-static-token guidance
+previous: v0002_rest-only_capture_flow_remove_mcp_capture-surface_choice_and_liked-conversation_mcp_tool
 ---
 
 # Action Feedback Integration
 
-This guide describes how a product can integrate Vocky for explicit human-triggered user feedback actions over REST. It is intentionally generic: use it for local, private-network, or public self-hosted Vocky deployments.
+This guide describes how a product can integrate Vocky for explicit human-triggered user feedback actions over REST.
+
+## Onboarding: Get a Project Credential
+
+`/api/*` ingestion is authenticated by a **per-project credential** — there is no unauthenticated or shared-token path (the old optional `VOCKY_API_AUTH_TOKEN` is retired). Before capturing feedback, mint a key once:
+
+1. **Sign up** (or log in) for a Vocky account. You get a session token and a tenant (workspace):
+
+   ```sh
+   curl -X POST "https://vocky.example.com/auth/signup" \
+     -H "Content-Type: application/json" \
+     -d '{"email":"you@example.com","password":"a-strong-password"}'
+   # -> 201 { "token": "<session-token>", "user": {...}, "tenant": {...} }
+   ```
+
+   (Already have an account? `POST /auth/login` with the same body returns a fresh `token` and your `tenants`.)
+
+2. **Create a project** with the session token:
+
+   ```sh
+   curl -X POST "https://vocky.example.com/app/projects" \
+     -H "Authorization: Bearer <session-token>" \
+     -H "Content-Type: application/json" \
+     -d '{"name":"marketing-site"}'
+   # -> 201 { "project": { "id": "<project-id>", ... } }
+   ```
+
+3. **Mint a project credential** for that project:
+
+   ```sh
+   curl -X POST "https://vocky.example.com/app/projects/<project-id>/credentials" \
+     -H "Authorization: Bearer <session-token>" \
+     -H "Content-Type: application/json" \
+     -d '{"name":"web-backend"}'
+   # -> 201 { "credential": {...}, "key": "vk_..." }
+   ```
+
+   The `vk_…` **`key` is shown exactly once** — store it as a secret in your product backend. Vocky keeps only a hash and cannot show it again. You can list credentials (metadata only) with `GET /app/projects/<project-id>/credentials` and revoke one with `DELETE /app/projects/<project-id>/credentials/<credential-id>` (a revoked key stops working immediately).
+
+Your product backend then sends this `vk_…` key as `Authorization: Bearer` on every `/api/*` request below. Keep the session token for account/project management; keep the project key for ingestion.
 
 ## Capture Over REST
 
@@ -90,7 +129,7 @@ Send explicit website or product UI feedback as the JSON body of `POST /api/feed
 ```sh
 curl -X POST "https://vocky.example.com/api/feedback" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <VOCKY_API_AUTH_TOKEN>" \
+  -H "Authorization: Bearer vk_<your-project-key>" \
   -d '{
     "message": "Pricing page feedback button was hard to find",
     "source": {"product": "marketing-site", "integration": "web-backend"},
@@ -111,7 +150,7 @@ curl -X POST "https://vocky.example.com/api/feedback" \
   }'
 ```
 
-When `VOCKY_API_AUTH_TOKEN` is unset in a trusted local or private deployment, omit the bearer header. Public deployments should set it before exposing `/api/*`.
+Every `/api/*` request must carry a valid, non-revoked project key as `Authorization: Bearer vk_…` — there is no unauthenticated path. A missing, malformed, unknown, or revoked key returns `401 Unauthorized`.
 
 ## Read Back A User's Own Feedback
 
@@ -119,7 +158,7 @@ After your backend has authenticated a user, you can render that user's own feed
 
 ```sh
 curl "https://vocky.example.com/api/feedback?user_id=user_456&source_product=marketing-site" \
-  -H "Authorization: Bearer <VOCKY_API_AUTH_TOKEN>"
+  -H "Authorization: Bearer vk_<your-project-key>"
 ```
 
 Optional filters (`feedback_value`, `channel`, `target_type`, `trigger_type`, `source_integration`, `conversation_id`, `session_id`, `tag`, `start_ingested_at`, `end_ingested_at`, `limit`, and `cursor`) are AND-combined with the required `user_id` + `source_product` scope, so the read never returns another user's data. Operator comments are surfaced read-only as one-way operator-to-user visibility; there are no end-user replies. Broad review, query, summary, and management stay on Admin REST.

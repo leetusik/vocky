@@ -1,7 +1,7 @@
 {
   "docs": {
     "product": {
-      "latest": "v0002_refocus_on_human-triggered_rest_feedback_retire_ai-agent_mcp_capture",
+      "latest": "v0003_free_multi-tenant_saas_core_accounts_tenants_projects_per-project_credentials_no_billing",
       "current_path": "docs/current/product.md",
       "versions": [
         {
@@ -19,11 +19,19 @@
           "source": "P1.REVIEW",
           "summary": "Refocus on human-triggered REST feedback; retire AI-agent MCP capture",
           "previous": "v0001_bootstrap"
+        },
+        {
+          "id": "v0003_free_multi-tenant_saas_core_accounts_tenants_projects_per-project_credentials_no_billing",
+          "path": "docs/versions/product/v0003_free_multi-tenant_saas_core_accounts_tenants_projects_per-project_credentials_no_billing.md",
+          "created_at": "2026-07-16T14:12:40+09:00",
+          "source": "P2.REVIEW",
+          "summary": "Free multi-tenant SaaS core: accounts, tenants, projects, per-project credentials; no billing",
+          "previous": "v0002_refocus_on_human-triggered_rest_feedback_retire_ai-agent_mcp_capture"
         }
       ]
     },
     "experience": {
-      "latest": "v0002_rest-only_capture_flow_remove_mcp_capture-surface_choice_and_liked-conversation_mcp_tool",
+      "latest": "v0003_integrate_via_signup_then_create_project_then_mint_vk__credential_send_it_as_authorization_bearer_on_api_replace_optional-static-token_guidance",
       "current_path": "docs/current/experience.md",
       "versions": [
         {
@@ -41,11 +49,19 @@
           "source": "P1.REVIEW",
           "summary": "REST-only capture flow; remove MCP capture-surface choice and liked-conversation MCP tool",
           "previous": "v0001_bootstrap"
+        },
+        {
+          "id": "v0003_integrate_via_signup_then_create_project_then_mint_vk__credential_send_it_as_authorization_bearer_on_api_replace_optional-static-token_guidance",
+          "path": "docs/versions/experience/v0003_integrate_via_signup_then_create_project_then_mint_vk__credential_send_it_as_authorization_bearer_on_api_replace_optional-static-token_guidance.md",
+          "created_at": "2026-07-16T14:21:33+09:00",
+          "source": "P2.REVIEW",
+          "summary": "Integrate via signup then create project then mint vk_ credential; send it as Authorization: Bearer on /api/*; replace optional-static-token guidance",
+          "previous": "v0002_rest-only_capture_flow_remove_mcp_capture-surface_choice_and_liked-conversation_mcp_tool"
         }
       ]
     },
     "architecture": {
-      "latest": "v0002_retire_mcp_track_rest-only_two-track_api_public_rest_admin_rest",
+      "latest": "v0003_add_identity_tenancy_layer_auth_app_control-plane_mandatory_per-project_credential_auth_on_api",
       "current_path": "docs/current/architecture.md",
       "versions": [
         {
@@ -63,6 +79,14 @@
           "source": "P1.REVIEW",
           "summary": "Retire MCP track; REST-only two-track API (public REST + Admin REST)",
           "previous": "v0001_bootstrap"
+        },
+        {
+          "id": "v0003_add_identity_tenancy_layer_auth_app_control-plane_mandatory_per-project_credential_auth_on_api",
+          "path": "docs/versions/architecture/v0003_add_identity_tenancy_layer_auth_app_control-plane_mandatory_per-project_credential_auth_on_api.md",
+          "created_at": "2026-07-16T14:14:29+09:00",
+          "source": "P2.REVIEW",
+          "summary": "Add identity + tenancy layer; /auth + /app control-plane; mandatory per-project credential auth on /api",
+          "previous": "v0002_retire_mcp_track_rest-only_two-track_api_public_rest_admin_rest"
         }
       ]
     },
@@ -81,7 +105,7 @@
       ]
     },
     "backend": {
-      "latest": "v0001_bootstrap",
+      "latest": "v0002_accounts_domain_package_require_user_authcontext_autherror_guard_security_primitives_and_auth_api_app_api_route_modules",
       "current_path": "docs/current/backend.md",
       "versions": [
         {
@@ -91,11 +115,19 @@
           "source": "bootstrap",
           "summary": "Initial backend doc",
           "previous": null
+        },
+        {
+          "id": "v0002_accounts_domain_package_require_user_authcontext_autherror_guard_security_primitives_and_auth_api_app_api_route_modules",
+          "path": "docs/versions/backend/v0002_accounts_domain_package_require_user_authcontext_autherror_guard_security_primitives_and_auth_api_app_api_route_modules.md",
+          "created_at": "2026-07-16T14:19:35+09:00",
+          "source": "P2.REVIEW",
+          "summary": "Accounts domain package, require_user/AuthContext/AuthError guard, security primitives, and auth_api/app_api route modules",
+          "previous": "v0001_bootstrap"
         }
       ]
     },
     "data": {
-      "latest": "v0001_bootstrap",
+      "latest": "v0002_accounts_and_tenancy_schema_users_tenants_tenant_members_projects_project_credentials_auth_tokens_migration_20260715_1200",
       "current_path": "docs/current/data.md",
       "versions": [
         {
@@ -105,11 +137,19 @@
           "source": "bootstrap",
           "summary": "Initial data doc",
           "previous": null
+        },
+        {
+          "id": "v0002_accounts_and_tenancy_schema_users_tenants_tenant_members_projects_project_credentials_auth_tokens_migration_20260715_1200",
+          "path": "docs/versions/data/v0002_accounts_and_tenancy_schema_users_tenants_tenant_members_projects_project_credentials_auth_tokens_migration_20260715_1200.md",
+          "created_at": "2026-07-16T14:18:50+09:00",
+          "source": "P2.REVIEW",
+          "summary": "Accounts and tenancy schema: users, tenants, tenant_members, projects, project_credentials, auth_tokens (migration 20260715_1200)",
+          "previous": "v0001_bootstrap"
         }
       ]
     },
     "api": {
-      "latest": "v0002_retire_mcp_agent-capture_rest-only_feedback_surface",
+      "latest": "v0003_add_account_auth_auth_tenant_project_credential_control-plane_app_and_mandatory_per-project_credential_auth_on_api",
       "current_path": "docs/current/api.md",
       "versions": [
         {
@@ -127,6 +167,14 @@
           "source": "P1.REVIEW",
           "summary": "Retire MCP/agent-capture; REST-only feedback surface",
           "previous": "v0001_bootstrap"
+        },
+        {
+          "id": "v0003_add_account_auth_auth_tenant_project_credential_control-plane_app_and_mandatory_per-project_credential_auth_on_api",
+          "path": "docs/versions/api/v0003_add_account_auth_auth_tenant_project_credential_control-plane_app_and_mandatory_per-project_credential_auth_on_api.md",
+          "created_at": "2026-07-16T14:16:49+09:00",
+          "source": "P2.REVIEW",
+          "summary": "Add account auth (/auth), tenant/project/credential control-plane (/app), and mandatory per-project credential auth on /api",
+          "previous": "v0002_retire_mcp_agent-capture_rest-only_feedback_surface"
         }
       ]
     },
@@ -145,7 +193,7 @@
       ]
     },
     "security": {
-      "latest": "v0001_bootstrap",
+      "latest": "v0002_argon2id_passwords_opaque_hashed_session_tokens_30-day_ttl_mint-once_hashed_vk__project_credentials_mandatory_ingest_auth_no_enumeration",
       "current_path": "docs/current/security.md",
       "versions": [
         {
@@ -155,6 +203,14 @@
           "source": "bootstrap",
           "summary": "Initial security doc",
           "previous": null
+        },
+        {
+          "id": "v0002_argon2id_passwords_opaque_hashed_session_tokens_30-day_ttl_mint-once_hashed_vk__project_credentials_mandatory_ingest_auth_no_enumeration",
+          "path": "docs/versions/security/v0002_argon2id_passwords_opaque_hashed_session_tokens_30-day_ttl_mint-once_hashed_vk__project_credentials_mandatory_ingest_auth_no_enumeration.md",
+          "created_at": "2026-07-16T14:20:12+09:00",
+          "source": "P2.REVIEW",
+          "summary": "Argon2id passwords, opaque hashed session tokens (30-day TTL), mint-once hashed vk_ project credentials, mandatory ingest auth, no enumeration",
+          "previous": "v0001_bootstrap"
         }
       ]
     },
@@ -173,7 +229,7 @@
       ]
     },
     "decisions": {
-      "latest": "v0001_bootstrap",
+      "latest": "v0002_p2_auth-model_and_tenancy-shape_decisions_email_password_opaque_db_tokens_multi-tenant_solo-owner_app_vs_api_split_mandatory_ingest_auth",
       "current_path": "docs/current/decisions.md",
       "versions": [
         {
@@ -183,9 +239,17 @@
           "source": "bootstrap",
           "summary": "Initial decisions doc",
           "previous": null
+        },
+        {
+          "id": "v0002_p2_auth-model_and_tenancy-shape_decisions_email_password_opaque_db_tokens_multi-tenant_solo-owner_app_vs_api_split_mandatory_ingest_auth",
+          "path": "docs/versions/decisions/v0002_p2_auth-model_and_tenancy-shape_decisions_email_password_opaque_db_tokens_multi-tenant_solo-owner_app_vs_api_split_mandatory_ingest_auth.md",
+          "created_at": "2026-07-16T14:20:56+09:00",
+          "source": "P2.REVIEW",
+          "summary": "P2 auth-model and tenancy-shape decisions: email/password + opaque DB tokens, multi-tenant solo-owner, /app vs /api split, mandatory ingest auth",
+          "previous": "v0001_bootstrap"
         }
       ]
     }
   },
-  "last_rebuilt_at": "2026-07-15T16:37:46+09:00"
+  "last_rebuilt_at": "2026-07-16T14:22:22+09:00"
 }

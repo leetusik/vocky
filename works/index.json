@@ -16,13 +16,13 @@
       "id": "P2",
       "name": "Accounts, Tenancy & Projects Core",
       "objective": "Replace static env-var bearer-token auth with real user accounts (signup/login) and introduce the multi-tenant SaaS core: tenants, projects, and per-project credentials. Free service — no paid plans or billing.",
-      "status": "planned",
+      "status": "done",
       "order": 2,
       "path": "works/phases/active/P2",
-      "review_status": "pending",
-      "current_slice": "P2.REVIEW",
+      "review_status": "pass",
+      "current_slice": null,
       "slice_count": 6,
-      "done_slice_count": 5
+      "done_slice_count": 6
     },
     {
       "id": "P3",
@@ -88,5 +88,5 @@
   "deferred_open_count": 3,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 0,
-  "last_rebuilt_at": "2026-07-16T13:59:26+09:00"
+  "last_rebuilt_at": "2026-07-16T14:24:16+09:00"
 }

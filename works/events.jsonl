@@ -46,3 +46,14 @@
 {"ts": "2026-07-16T13:31:48+09:00", "type": "slice_status_changed", "slice": "P2.S3", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-07-16T13:42:58+09:00", "type": "slice_status_changed", "slice": "P2.S4", "old_status": "todo", "new_status": "in_progress"}
 {"ts": "2026-07-16T13:59:26+09:00", "type": "slice_status_changed", "slice": "P2.S4", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-07-16T14:09:53+09:00", "type": "slice_status_changed", "slice": "P2.REVIEW", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-07-16T14:12:40+09:00", "type": "doc_version_created", "doc": "product", "version": "v0003_free_multi-tenant_saas_core_accounts_tenants_projects_per-project_credentials_no_billing", "source": "P2.REVIEW"}
+{"ts": "2026-07-16T14:14:29+09:00", "type": "doc_version_created", "doc": "architecture", "version": "v0003_add_identity_tenancy_layer_auth_app_control-plane_mandatory_per-project_credential_auth_on_api", "source": "P2.REVIEW"}
+{"ts": "2026-07-16T14:16:49+09:00", "type": "doc_version_created", "doc": "api", "version": "v0003_add_account_auth_auth_tenant_project_credential_control-plane_app_and_mandatory_per-project_credential_auth_on_api", "source": "P2.REVIEW"}
+{"ts": "2026-07-16T14:18:50+09:00", "type": "doc_version_created", "doc": "data", "version": "v0002_accounts_and_tenancy_schema_users_tenants_tenant_members_projects_project_credentials_auth_tokens_migration_20260715_1200", "source": "P2.REVIEW"}
+{"ts": "2026-07-16T14:19:35+09:00", "type": "doc_version_created", "doc": "backend", "version": "v0002_accounts_domain_package_require_user_authcontext_autherror_guard_security_primitives_and_auth_api_app_api_route_modules", "source": "P2.REVIEW"}
+{"ts": "2026-07-16T14:20:12+09:00", "type": "doc_version_created", "doc": "security", "version": "v0002_argon2id_passwords_opaque_hashed_session_tokens_30-day_ttl_mint-once_hashed_vk__project_credentials_mandatory_ingest_auth_no_enumeration", "source": "P2.REVIEW"}
+{"ts": "2026-07-16T14:20:56+09:00", "type": "doc_version_created", "doc": "decisions", "version": "v0002_p2_auth-model_and_tenancy-shape_decisions_email_password_opaque_db_tokens_multi-tenant_solo-owner_app_vs_api_split_mandatory_ingest_auth", "source": "P2.REVIEW"}
+{"ts": "2026-07-16T14:21:33+09:00", "type": "doc_version_created", "doc": "experience", "version": "v0003_integrate_via_signup_then_create_project_then_mint_vk__credential_send_it_as_authorization_bearer_on_api_replace_optional-static-token_guidance", "source": "P2.REVIEW"}
+{"ts": "2026-07-16T14:24:16+09:00", "type": "slice_status_changed", "slice": "P2.REVIEW", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-07-16T14:24:16+09:00", "type": "phase_reviewed", "phase": "P2", "verdict": "pass", "reviewer": "slice-executor-high"}

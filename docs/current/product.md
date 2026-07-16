@@ -1,28 +1,31 @@
 ---
 doc_id: product
-version: v0002
-created_at: 2026-07-15T16:33:17+09:00
-source: P1.REVIEW
-summary: Refocus on human-triggered REST feedback; retire AI-agent MCP capture
-previous: v0001_bootstrap
+version: v0003
+created_at: 2026-07-16T14:12:40+09:00
+source: P2.REVIEW
+summary: Free multi-tenant SaaS core: accounts, tenants, projects, per-project credentials; no billing
+previous: v0002_refocus_on_human-triggered_rest_feedback_retire_ai-agent_mcp_capture
 ---
 
 # Product
 
 ## Status
 
-Vocky is pre-MVP. The first runnable self-hosted capture plus review service is implemented with server-to-server REST capture, a scoped end-user REST read, Admin REST, a self-hosted operator Admin Web UI with dashboard metrics, feedback review management, in-app documentation, and REST capture try-it, PostgreSQL persistence, Redis-backed queueing, a background worker, and Compose-first local verification. The earlier AI-agent-decided MCP capture and MCP read tools have been retired (recoverable through git history). The contracts should still be treated as early-stage.
+Vocky is pre-MVP and mid-pivot from a self-hosted single-tenant capture service into a **free multi-tenant SaaS**. The capture/review core is implemented with server-to-server REST capture, a scoped end-user REST read, Admin REST, a self-hosted operator Admin Web UI with dashboard metrics, feedback review management, in-app documentation, and REST capture try-it, PostgreSQL persistence, Redis-backed queueing, a background worker, and Compose-first local verification. The earlier AI-agent-decided MCP capture and MCP read tools have been retired (recoverable through git history).
+
+The SaaS accounts and tenancy core is now in place: real user accounts (email + password signup/login), a multi-tenant model (tenants → projects), and per-project ingest credentials. The old optional static `VOCKY_API_AUTH_TOKEN` bearer for `/api/*` has been retired in favor of **mandatory per-project credential auth**. Still upcoming in later phases: per-project feedback scoping, search, and usage monitoring (P3); the tenant/project web app (P4); a CLI + agent-first onboarding path (P5); and the landing page plus production deploy (P6). The contracts should still be treated as early-stage.
 
 ## Summary
 
-Vocky is a feedback layer for products and the surfaces around them. It aims to capture human-triggered user feedback from websites and product experiences, structure it into usable signals, and help teams understand what customers are asking for, praising, or struggling with.
+Vocky is a feedback layer for products and the surfaces around them. It captures human-triggered user feedback from websites and product experiences, structures it into usable signals, and helps teams understand what customers are asking for, praising, or struggling with. It is delivered as a free multi-tenant SaaS: a user signs up, gets a tenant (workspace) with projects, and mints per-project credentials that their product backend uses for server-to-server capture. There are no paid plans or billing — the service is free.
 
 ## First MVP
 
 The first MVP is intentionally narrow:
 
-- Self-hosted and single-tenant
-- Server-to-server REST ingestion for explicit human-triggered website or product feedback
+- Real user accounts (email + password signup/login) over a multi-tenant core: each account owns a tenant (workspace) with projects and per-project ingest credentials
+- Free service — no paid plans, billing, usage metering, or plan tiers
+- Server-to-server REST ingestion for explicit human-triggered website or product feedback, gated by a mandatory per-project credential
 - Async capture that accepts quickly over REST and persists in the background
 - Explicit user action feedback capture, including like/dislike values, optional comments, conversation context, and basic metadata
 - A scoped end-user REST read that returns one user's own records plus operator comments
@@ -63,9 +66,9 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - Browser-direct unauthenticated ingestion paths
 - Broad public REST review, query, summary, or management APIs. The only public read is a narrowly scoped end-user self-read (`GET /api/feedback`) that returns a single caller-identified user's own feedback plus operator comments, scoped by required `user_id` and `source_product`; all other review, query, summary, job-status, and management stays on Admin REST.
 - Custom channel category management, deployment-configured channel lists, or automatic channel classification
-- Multi-tenant managed-cloud architecture
-- Enterprise-grade compliance or admin workflows
-- SaaS account, organization, billing, or tenant-selection UI concepts
+- Paid plans, billing, usage metering, or plan tiers — the SaaS is free
+- Enterprise-grade compliance or heavyweight org/admin workflows
+- Multi-user tenant collaboration UI (invites, roles): the tenancy schema supports members and roles, but the MVP flow is solo-owner and the invite/role management surface is out of scope for now
 - Finalized public API commitments
 
 ## Product Direction
@@ -74,7 +77,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - The first MVP should optimize for self-hosted deployment before managed concerns.
 - Self-hosted deployments may be local/private or publicly reachable behind an operator-managed custom domain, provided public REST capture and Admin REST access are protected where exposed.
 - The Admin Web UI is an operator surface for self-hosted deployments. It should stay same-origin with the app, use Admin REST for protected data, include practical dashboard metrics, feedback review management, operator documentation, and an operator-only REST capture try-it flow, and avoid managed-SaaS assumptions.
-- The Admin Docs REST capture try-it flow should send a real same-origin `POST /api/feedback` request for operator verification. A successful try intentionally creates queued feedback, uses the separate `/api/*` bearer token when `VOCKY_API_AUTH_TOKEN` is configured, and must not imply a browser-direct unauthenticated product ingestion pattern.
+- `/api/*` ingest auth is now mandatory per-project credential auth: a product backend mints a `vk_` key for its project through the control-plane and sends it as `Authorization: Bearer` on every capture/read request. The old optional static global `VOCKY_API_AUTH_TOKEN` bearer is retired. (The packaged Admin Docs try-it flow still references the old token and is deferred to P4's operator-surface reshaping; its guidance no longer reflects the live auth model.)
 - The default local workflow should stay loopback-first and Compose-first, while public custom-domain access should be operator-managed through an HTTPS reverse proxy such as Cloudflare Tunnel and verified separately from local checks.
 - The capture path should acknowledge accepted work quickly and complete persistence asynchronously in the background.
 - The REST capture path is the sole ingestion path for explicit human-triggered product/UI feedback, such as like/dislike controls, page feedback, widgets, surveys, or other product-surface feedback, using the shared capture fields instead of REST-only aliases or a separate endpoint.
@@ -91,12 +94,23 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 - A managed offering may exist later around convenience, operations, and richer workflows.
 - The repo should stay honest about what is planned versus what is already implemented.
 
+## Accounts and Tenancy
+
+Vocky is a multi-tenant SaaS. The identity and tenancy model is:
+
+- A **user** authenticates with an email and password. Signup provisions the user, creates their **tenant** (workspace, auto-named from the email local part), and adds them as its sole `owner` member; login and signup mint an opaque session bearer token. The tenancy schema supports multiple members with roles, but the MVP flow is solo-owner.
+- A **tenant** owns **projects**. A user manages their tenant and projects through the account control-plane (`/app/*`, session-token authed).
+- Each project mints **per-project credentials** (`vk_`-prefixed keys). A credential's plaintext key is shown exactly once at creation; only a hash is stored, so it is never recoverable. Keys can be listed (metadata only) and revoked. A product backend sends a project key as `Authorization: Bearer` on `/api/*` to capture feedback for that project.
+- The service is free — accounts, tenants, projects, and credentials carry no billing, metering, or plan tiers.
+
 ## Product Surface Roles
 
 Vocky uses one canonical feedback store and one shared capture field set, but the public-facing surfaces have different jobs:
 
-- Public REST is for trusted server-to-server product integrations: capture plus a single scoped end-user read. `POST /api/feedback` is the ingestion path for explicit human-triggered product-surface actions such as likes, dislikes, page feedback, widgets, or surveys, and `POST /api/feedback/attachments` uploads an image to reference from a capture call. `GET /api/feedback` returns one end user's own feedback (scoped by required `user_id` + `source_product`) together with operator comments and image attachments, and `GET /api/feedback/{feedback_id}/attachments/{attachment_id}` downloads one of the caller's own attachments under the same scope. It does not expose broad query, summary, job-status, or management endpoints.
-- Admin REST is for human/operator review and management. `/admin/api/*` powers dashboards, list/detail inspection, review-field editing, metrics, and deletion over the same stored feedback records.
+- The **account auth** surface (`/auth/*`) is public and unauthenticated-to-enter: `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, and `GET /auth/me` establish and inspect a user session.
+- The **account control-plane** (`/app/*`, session-token authed) is where a user reads their tenant and creates/lists/reads projects and mints/lists/revokes per-project credentials. It is tenant-scoped: a caller can never see or touch another tenant's projects or credentials.
+- **Public REST** (`/api/*`) is for trusted server-to-server product integrations and now requires a valid per-project credential on every request: capture plus a single scoped end-user read. `POST /api/feedback` is the ingestion path for explicit human-triggered product-surface actions such as likes, dislikes, page feedback, widgets, or surveys, and `POST /api/feedback/attachments` uploads an image to reference from a capture call. `GET /api/feedback` returns one end user's own feedback (scoped by required `user_id` + `source_product`) together with operator comments and image attachments, and `GET /api/feedback/{feedback_id}/attachments/{attachment_id}` downloads one of the caller's own attachments under the same scope. It does not expose broad query, summary, job-status, or management endpoints.
+- **Admin REST** is for human/operator review and management. `/admin/api/*` powers dashboards, list/detail inspection, review-field editing, metrics, and deletion over the same stored feedback records. It keeps its own separate `VOCKY_ADMIN_AUTH_TOKEN` bearer (untouched by the accounts work).
 
 ## Current Field Taxonomy
 
@@ -115,6 +129,11 @@ Current feedback fields are grouped by responsibility, not by transport. Public 
 ## Terminology
 
 - `VoC`: voice of customer
+- `user` / `account`: a Vocky user identified by email, authenticated with a password. Distinct from the capture `user_id`, which identifies an integrating product's own end user.
+- `tenant`: a workspace owned by users through `tenant_members` rows. Signup auto-creates one tenant per user with that user as the sole `owner`. A tenant owns projects.
+- `project`: a named unit under a tenant that groups feedback ingestion and owns per-project credentials.
+- `project credential`: a `vk_`-prefixed opaque ingest key scoped to one project. The plaintext is shown once at creation and only a hash is stored; it authenticates `/api/*` capture for that project and can be revoked.
+- `session token`: the opaque bearer token minted on signup/login for the account control-plane (`/auth/*`, `/app/*`). Stored only as a hash, with a 30-day expiry.
 - `message`: the required human-readable feedback summary or display text. It is the text Vocky shows as the primary feedback record label, not an implicit pointer to the reviewed agent message.
 - `comment`: the end user's own optional comment captured at feedback time. It is distinct from an operator comment.
 - `operator comment`: an operator-authored note attached to a stored feedback event, kept in a separate store keyed by feedback id. Operators add and list operator comments through Admin REST; the scoped end-user read returns them read-only to the originating user. `author` is an optional caller-supplied operator label because Vocky has no native operator accounts.

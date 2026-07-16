@@ -291,6 +291,19 @@ _S4 additions (durable truth landed this slice, for REVIEW to consolidate):_
   `.env.example` documents that `/api/*` now requires a per-project credential. (The packaged admin-UI
   docs under `admin_assets/*` still reference `VOCKY_API_AUTH_TOKEN` — intentionally deferred to P4.)
 
+## P2.REVIEW — verdict: PASS (docs consolidated)
+
+Validated all four slices together, then consolidated the phase's durable-doc versions.
+
+**Validation (all green):**
+- `uv run pytest` → **153 passed** (hard gate).
+- `uv run alembic upgrade head` → clean; DB head `20260715_1200`.
+- `python3 scripts/workflow.py validate` → passed.
+- Scrub: `api_auth_token` / `APIBearerAuthMiddleware` → none in `src/` or `tests/`; `VOCKY_API_AUTH_TOKEN` remains only in `admin_assets/{docs.json,app.js}` + one `test_admin_ui.py:232` assertion (all P4-deferred, as designed).
+- Objective met end-to-end from code: accounts (S2 `/auth/*`), tenants+projects (S1 schema, S3 `/app/*`), per-project credentials (S1 schema, S4 mint/list/revoke), mandatory `/api/*` credential auth via `ProjectCredentialAuthMiddleware` with the static token retired (S4), free/no billing. No regressions or security gaps found; the `/api/*` guard is correctly identity-only (project scoping left to P3).
+
+**Docs consolidated (8, all `--source P2.REVIEW`):** product v0003, architecture v0003, api v0003, experience v0003 (evolved); data v0002, backend v0002, security v0002, decisions v0002 (stubs authored). `frontend`/`operations`/`qa` left untouched. `rebuild-docs` regenerated `docs/current/*`. All lingering `VOCKY_API_AUTH_TOKEN` mentions in the durable docs are explicit "retired / P4-deferred" notes, not live guidance.
+
 ## Constraints
 
 ## Open Questions

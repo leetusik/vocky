@@ -1,17 +1,19 @@
 ---
 doc_id: api
-version: v0002
-created_at: 2026-07-15T16:25:45+09:00
-source: P1.REVIEW
-summary: Retire MCP/agent-capture; REST-only feedback surface
-previous: v0001_bootstrap
+version: v0003
+created_at: 2026-07-16T14:16:49+09:00
+source: P2.REVIEW
+summary: Add account auth (/auth), tenant/project/credential control-plane (/app), and mandatory per-project credential auth on /api
+previous: v0002_retire_mcp_agent-capture_rest-only_feedback_surface
 ---
 
 # API
 
 ## Status
 
-The Web Feedback Capture REST API, the Feedback Attachment Upload REST API, the scoped End-User Feedback Read REST API (with `target_type` and other read filters), and the Admin REST API (list/detail/metrics filters, review-field patch, operator comments, and delete) are implemented. REST is the sole capture and read ingress; the AI-agent-decided MCP capture tool and the MCP review/query/liked-conversation tools have been retired (recoverable through git history). These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
+The Web Feedback Capture REST API, the Feedback Attachment Upload REST API, the scoped End-User Feedback Read REST API (with `target_type` and other read filters), and the Admin REST API (list/detail/metrics filters, review-field patch, operator comments, and delete) are implemented. REST is the sole capture and read ingress; the AI-agent-decided MCP capture tool and the MCP review/query/liked-conversation tools have been retired (recoverable through git history).
+
+The account and tenancy surfaces are also implemented: a public **Account Auth API** (`/auth/*`: signup, login, logout, me) and a session-token-authed **Account Control-Plane API** (`/app/*`: the caller's tenant, projects, and per-project credentials). Public `/api/*` ingest auth changed: the optional static-token model (`VOCKY_API_AUTH_TOKEN`) is retired and replaced by **mandatory per-project credential auth** — every `/api/*` request must present a valid, non-revoked project key (`vk_…`) as `Authorization: Bearer`, and missing/malformed/unknown/revoked all answer `401`. These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
 
 ## Purpose
 
@@ -19,6 +21,8 @@ Use this file to record public-facing contracts as they are implemented. The cur
 
 ## MVP Surfaces
 
+- Account Auth API contract for user signup, login, logout, and identity (`/auth/*`)
+- Account Control-Plane API contract for a user's tenant, projects, and per-project credentials (`/app/*`)
 - Web Feedback Capture REST API contract for server-to-server website and product feedback ingestion, plus operator-only Admin Docs try-it against the same endpoint
 - Feedback Attachment Upload REST API contract for uploading an image and receiving an `attachment_id` to reference from a later capture call
 - End-User Feedback Read REST API contract for a scoped server-to-server read of a single user's own feedback plus operator comments
@@ -45,6 +49,97 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Notes:
 
 ## Contracts
+
+### Account Auth API
+
+- Status: implemented
+- Consumers: The Vocky web app (P4) and CLI (P5); any client establishing a user session
+- Purpose: Real user accounts — email + password signup/login — issuing an opaque DB-backed session bearer token
+- Base path: `/auth` (public; outside `/api/*` and `/admin/api/*`, so no ingest/admin middleware guards it)
+- Auth or permissions:
+  - `signup` and `login` are unauthenticated (they establish a session)
+  - `logout` and `me` take the session bearer token: `Authorization: Bearer <token>`
+- Endpoints:
+  - `POST /auth/signup`
+    - Body: `{ "email": string, "password": string }`. Email is trimmed + lowercased and must contain `@`; password must be at least 8 characters.
+    - Provisions a user, a tenant (auto-named `"<email-local-part>'s workspace"`), and the caller's `owner` membership, then mints a session token.
+    - `201` with `{ "token": string, "user": {id, email, created_at}, "tenant": {id, name, created_at} }`
+    - `409 {"detail":"a user with this email already exists"}` on a duplicate email
+    - `400 {"detail":"..."}` on a malformed body, a blank/invalid email, or a short password
+  - `POST /auth/login`
+    - Body: `{ "email": string, "password": string }` (same normalization)
+    - `200` with `{ "token": string, "user": {...}, "tenants": [{id, name, created_at}, ...] }`
+    - `401 {"detail":"invalid email or password"}` — **identical** for an unknown email and a wrong password, so registered accounts cannot be enumerated
+    - `400 {"detail":"..."}` on a malformed body
+  - `POST /auth/logout`
+    - Takes the bearer token; deletes that session token. Idempotent.
+    - `204` (always, even when the token is missing or already gone)
+  - `GET /auth/me`
+    - Takes the bearer token; returns the caller and their tenants.
+    - `200` with `{ "user": {...}, "tenants": [...] }`
+    - `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer` on a missing/invalid/expired token
+- Notes:
+  - The session token is opaque and high-entropy; only its sha256 hash is stored, with a 30-day expiry. Raw tokens are returned once (signup/login) and never re-exposed.
+  - `user` serializes as `{id, email, created_at}` and `tenant` as `{id, name, created_at}`; responses never include `password_hash` or any `token_hash`.
+
+### Account Control-Plane API — Tenant & Projects
+
+- Status: implemented
+- Consumers: The Vocky web app (P4) and CLI (P5), acting for a signed-in user
+- Purpose: Read the caller's tenant and create/list/read the tenant's projects
+- Base path: `/app` (session-token authed; outside `/api/*` and `/admin/api/*`)
+- Auth or permissions:
+  - Every endpoint requires the session bearer token: `Authorization: Bearer <token>`
+  - A missing/invalid/expired token returns `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`
+  - All reads/writes are scoped to the caller's tenant (solo-owner MVP: the caller's first/only tenant)
+- Endpoints:
+  - `GET /app/tenant` → `200 { "tenant": {id, name, created_at} }`
+  - `GET /app/projects` → `200 { "projects": [<project>, ...] }` (tenant-scoped, oldest-first)
+  - `POST /app/projects`
+    - Body: `{ "name": string }`. Name is trimmed, `min_length=1`, `max_length=200`; stored trimmed.
+    - `201 { "project": <project> }`; `400 {"detail":"..."}` on a bad/blank/oversized name or malformed body
+  - `GET /app/projects/{project_id}`
+    - `200 { "project": <project> }`
+    - `400 {"detail":"project_id must be a valid UUID"}` on a malformed id
+    - `404 {"detail":"project not found"}` when the project is missing **or** belongs to another tenant (cross-tenant existence is never leaked — 404, never 403)
+- Project shape: `{ "id": string, "name": string, "tenant_id": string, "created_at": string }` (ISO-8601)
+
+### Account Control-Plane API — Project Credentials
+
+- Status: implemented
+- Consumers: The Vocky web app (P4) and CLI (P5); a user minting the per-project keys their product backend uses on `/api/*`
+- Purpose: Mint, list, and revoke a project's ingest credentials
+- Base path: `/app` (session-token authed; same tenant scoping and cross-tenant-404 rule as projects)
+- Auth or permissions:
+  - Session bearer token required (same `401` behavior as above)
+  - Every credential endpoint resolves the project scoped to the caller's tenant **first**: `400` on a malformed `project_id`, `404` when the project is missing or cross-tenant — so a caller cannot probe or mutate another tenant's projects/credentials
+- Endpoints:
+  - `POST /app/projects/{project_id}/credentials`
+    - Optional body: `{ "name"?: string }` (trimmed; blank → `null`). An empty body is allowed.
+    - `201 { "credential": <credential>, "key": "vk_<token>" }`
+    - The plaintext `key` is emitted **once, only in this response**. Only its sha256 hash (`token_hash`) and a short display `token_prefix` (`key[:12]`) are stored; the raw key is never recoverable.
+  - `GET /app/projects/{project_id}/credentials`
+    - `200 { "credentials": [<credential>, ...] }` (oldest-first, metadata only, active and revoked)
+  - `DELETE /app/projects/{project_id}/credentials/{credential_id}`
+    - Soft-revokes the credential (sets `revoked_at`; idempotent). `204` on success.
+    - `400` on a malformed `credential_id`; `404 {"detail":"credential not found"}` when the credential is not in that project
+- Credential shape: `{ "id": string, "project_id": string, "name": string | null, "token_prefix": string, "created_at": string, "last_used_at": string | null, "revoked_at": string | null }` — never `token_hash` or the raw key
+- Notes:
+  - A credential is minted as `key = "vk_" + <opaque token>`. Send it as `Authorization: Bearer vk_…` on `/api/*` (see the Public `/api/*` Credential Auth Model below).
+  - Revoking a credential fails `/api/*` auth immediately (the ingest lookup filters `revoked_at IS NULL`).
+  - `last_used_at` is not yet stamped by the ingest path in P2 (deferred to P3), so it stays `null` for now.
+
+### Public `/api/*` Credential Auth Model
+
+- Status: implemented
+- Applies to: every public REST endpoint under `/api/*` (`POST /api/feedback`, `POST /api/feedback/attachments`, `GET /api/feedback`, and the end-user attachment download)
+- Model:
+  - Auth is **mandatory** — there is no unauthenticated or globally-shared-token path. The old optional static `VOCKY_API_AUTH_TOKEN` bearer is retired.
+  - Each request must send a valid, non-revoked per-project credential as `Authorization: Bearer vk_<token>`.
+  - `ProjectCredentialAuthMiddleware` extracts the bearer, hashes it (sha256), and requires an active credential (`revoked_at IS NULL`) to match.
+  - Missing, malformed, unknown, and revoked keys **all** return an identical `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`.
+- Notes:
+  - The guard is identity-only in P2: it authenticates the request but does not thread the credential's project/tenant into the stored feedback record (per-project capture scoping is P3). The feedback wire shape is unchanged.
 
 ### Shared Channel Category Rules
 
@@ -137,10 +232,8 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Purpose: Submit a single explicit product/UI feedback event for asynchronous persistence through the shared capture field set
 - Base path: `/api`
 - Auth or permissions:
-  - Deployment-specific for the self-hosted MVP
-  - When `VOCKY_API_AUTH_TOKEN` is set, `/api/*` requests must include `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>`
-  - Public deployments should set `VOCKY_API_AUTH_TOKEN` before exposing `/api/*`
-  - The Admin Docs try-it flow uses this API token, not `VOCKY_ADMIN_AUTH_TOKEN`; the operator-entered API token is a browser-session value for trying capture and is not a durable Vocky setting.
+  - Mandatory per-project credential auth (see the Public `/api/*` Credential Auth Model). Every request must send `Authorization: Bearer vk_<token>` for a valid, non-revoked project credential; missing/malformed/unknown/revoked all return `401`.
+  - The retired static `VOCKY_API_AUTH_TOKEN` bearer is gone. (The packaged Admin Docs try-it flow still references it and is deferred to P4; its guidance no longer matches the live model.)
 - Endpoint:
   - `POST /api/feedback`
 - Inputs:
@@ -175,7 +268,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `accepted_at: string` UTC ISO 8601 timestamp generated when the queue accepts the job
     - `status: string` fixed to `accepted`
 - Errors:
-  - Missing or invalid bearer token when auth is configured returns `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`
+  - A missing, invalid, unknown, or revoked per-project credential returns `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`
   - Malformed JSON, non-object request bodies, schema errors, invalid non-null `channel` or `trigger_type` values, and semantic validation failures return `400 {"detail":"..."}`
   - Queue-accept failures return `503 {"detail":"capture queue unavailable"}`
 - Notes:
@@ -195,7 +288,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Purpose: Synchronously upload one image and receive an `attachment_id` to reference from a later capture call. Capture is asynchronous and binaries cannot ride the JSON queue, so images are uploaded first and linked to the feedback row after the worker persists it.
 - Base path: `/api`
 - Auth or permissions:
-  - Same boundary as REST capture: when `VOCKY_API_AUTH_TOKEN` is set, `/api/*` requests must include `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>`.
+  - Same boundary as REST capture: mandatory per-project credential auth (`Authorization: Bearer vk_<token>`); missing/invalid/revoked → `401`.
   - The caller asserts scope with required `user_id` + `source_product`; these are recorded on the attachment and the worker links the attachment only to a feedback event with the same `(user_id, source_product)`.
 - Endpoint:
   - `POST /api/feedback/attachments`
@@ -214,7 +307,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `byte_size: integer` stored byte size
     - `filename: string | null` sanitized client filename, or `null`
 - Errors:
-  - Missing or invalid bearer token when auth is configured returns `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`
+  - A missing, invalid, unknown, or revoked per-project credential returns `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`
   - Missing or blank `user_id` or `source_product`, a missing `file` part, an empty file, malformed multipart, or an invalid `Content-Length` return `400 {"detail":"..."}`
   - A file larger than the configured maximum returns `413 {"detail":"attachment too large"}`
   - A file whose sniffed type is not an allowed image type (including SVG and spoofed declarations) returns `415 {"detail":"unsupported image type"}`
@@ -231,8 +324,8 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Purpose: Return one end user's own stored feedback, scoped strictly by `user_id` + `source_product`, together with operator comments, using basic review filters and cursor pagination
 - Base path: `/api`
 - Auth or permissions:
-  - Trusted server-to-server. The integrating product authenticates its own user, then calls Vocky with that `user_id` and the API bearer token; Vocky has no native end-user accounts.
-  - When `VOCKY_API_AUTH_TOKEN` is set, `/api/*` requests must include `Authorization: Bearer <VOCKY_API_AUTH_TOKEN>` (the same boundary as REST capture).
+  - Trusted server-to-server. The integrating product authenticates its own end user, then calls Vocky with that `user_id` and a per-project credential; Vocky has no native end-user accounts (the capture `user_id` is the product's own end user, distinct from a Vocky account).
+  - Mandatory per-project credential auth (`Authorization: Bearer vk_<token>`), the same boundary as REST capture; missing/invalid/revoked → `401`.
   - Vocky enforces `user_id` + `source_product` scoping server-side and never returns cross-user or cross-product data.
 - Endpoint:
   - `GET /api/feedback`
@@ -261,7 +354,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `comments: object[]` operator comments for the record, oldest-first, each `{id, author, body, created_at}` (the Admin Comment shape)
     - `attachments: object[]` image attachments for the record, oldest-first, each `{id, content_type, byte_size, filename, created_at, url}` where `url` is the relative end-user download path `/api/feedback/{feedback_id}/attachments/{id}`
 - Errors:
-  - Missing or invalid bearer token when auth is configured returns `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`
+  - A missing, invalid, unknown, or revoked per-project credential returns `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`
   - Missing or blank `user_id` or `source_product`, invalid filter values, invalid limits, blank `tag`, invalid time windows, and invalid cursors return `400 {"detail":"..."}`
   - Storage read failures return `500 {"detail":"storage read failed"}`
 - Notes:
@@ -277,7 +370,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Inputs (query parameters): `user_id` and `source_product`, both required and non-blank (the same scope as the read).
 - Authorization: the attachment is authorized off its linked feedback row's `(user_id, source_product)`. A request for another user's or product's attachment, an unlinked attachment, a missing attachment, or a missing feedback all return `404` — existence is never leaked.
 - Outputs: `200 OK` streaming the attachment bytes with the stored `content_type`, `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, and `Cache-Control: private, no-store`.
-- Errors: missing/invalid bearer when configured → `401`; missing/blank `user_id` or `source_product`, or a malformed id → `400`; any authorization miss or a missing stored object → `404`; storage read failure → `503`.
+- Errors: missing/invalid/revoked per-project credential → `401`; missing/blank `user_id` or `source_product`, or a malformed id → `400`; any authorization miss or a missing stored object → `404`; storage read failure → `503`.
 
 ### Admin Feedback REST API
 
