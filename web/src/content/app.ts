@@ -13,10 +13,11 @@ export interface AppNavItem {
 }
 
 /**
- * Rail navigation. `/dashboard` is real from S2 (the placeholder page, replaced by
- * the tenant dashboard in S3). `/feedback` is the cross-project feedback surface
- * that lands in S5 — marked `soon` until then. Project detail (`/projects/[id]`,
- * S4) is reached from the dashboard's project list, not the rail.
+ * Rail navigation. `/dashboard` is the real tenant dashboard from S3.
+ * `/feedback` is the cross-project feedback surface that lands in S5 — marked
+ * `soon` until then. Project detail (`/projects/[id]`, S4) is reached from the
+ * dashboard's project list, not the rail — S4 adds that link when it ships the
+ * route (S3 renders the rows without navigation rather than linking to a 404).
  */
 export const APP_NAV: AppNavItem[] = [
   { label: "Dashboard", href: "/dashboard" },
@@ -33,18 +34,4 @@ export const APP_SHELL = {
   logoutPendingLabel: "Signing out…",
   /** Fallback when a user somehow has no tenant (signup always provisions one). */
   noTenant: "—",
-} as const;
-
-/**
- * The S2 dashboard placeholder — its only job is to PROVE the auth round-trip
- * (sealed cookie → server guard → bearer-injected `GET /auth/me`). S3 replaces
- * this page with the real tenant dashboard.
- */
-export const DASHBOARD_PLACEHOLDER = {
-  title: "Dashboard",
-  lead: "Dashboard",
-  signedInPrefix: "Signed in as",
-  note: "Authentication is live: this page is server-guarded, and the identity above came from vocky's /auth/me — fetched server-to-server with the bearer token unsealed from your httpOnly session cookie.",
-  nextUp:
-    "Projects, tenant usage, credentials, and cross-project feedback search land in the next slices.",
 } as const;

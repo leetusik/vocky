@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P4`
-- Current slice: `P4.S3`
-- Next slice: `P4.S4`
+- Current slice: `P4.S4`
+- Next slice: `P4.S5`
 - Waiting on operator: `none`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-16T21:07:57+09:00`
+- Rebuilt at: `2026-07-16T21:40:13+09:00`
 
 ## Active Phases
 
@@ -20,7 +20,7 @@
 | [x] `P2` | `done` | `pass` | Accounts, Tenancy & Projects Core | `none` | `works/phases/active/P2` |
 | [x] `P3` | `done` | `pass` | Feedback API v2, Search & Usage Monitoring | `none` | `works/phases/active/P3` |
 | [x] `P7` | `done` | `pass` | Agent-Capture Revival (MCP write-only) | `none` | `works/phases/active/P7` |
-| [ ] `P4` | `planned` | `pending` | Web App: Tenant Dashboard & Project Pages | `P4.S3` | `works/phases/active/P4` |
+| [ ] `P4` | `planned` | `pending` | Web App: Tenant Dashboard & Project Pages | `P4.S4` | `works/phases/active/P4` |
 | [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
 | [ ] `P6` | `planned` | `pending` | Landing Page, Webpage & Production Deploy | `P6.DECOMP` | `works/phases/active/P6` |
 
@@ -73,7 +73,7 @@
 | [x] `P4.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P4/slices/P4.DECOMP` |
 | [x] `P4.S1` | `done` | App scaffold + design-system foundation | `implementation` | `works/phases/active/P4/slices/P4.S1` |
 | [x] `P4.S2` | `done` | Auth + BFF proxy + authenticated app shell | `implementation` | `works/phases/active/P4/slices/P4.S2` |
-| [ ] `P4.S3` | `todo` | Tenant dashboard: projects + create + tenant usage | `implementation` | `works/phases/active/P4/slices/P4.S3` |
+| [x] `P4.S3` | `done` | Tenant dashboard: projects + create + tenant usage | `implementation` | `works/phases/active/P4/slices/P4.S3` |
 | [ ] `P4.S4` | `todo` | Project detail: info + credentials + project usage | `implementation` | `works/phases/active/P4/slices/P4.S4` |
 | [ ] `P4.S5` | `todo` | Cross-project feedback list + Korean-safe search + detail | `implementation` | `works/phases/active/P4/slices/P4.S5` |
 | [ ] `P4.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P4/slices/P4.REVIEW` |
