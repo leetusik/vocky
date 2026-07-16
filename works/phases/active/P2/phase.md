@@ -145,6 +145,33 @@ schema/CRUD slices at `medium` targets executor cost at the risk that actually w
 - **Reuse note (`format_pydantic_error`):** `auth_api` imports `format_pydantic_error` from
   `vocky.api` (not re-defined) — if S3 also needs Pydantic error formatting, import it from there.
 
+**S3 delivered — `/app/*` account control-plane (what S4/P4/P5 build on):**
+
+- **New route module `src/vocky/app_api.py`**, wired into `create_app()` as `*app_api_routes`
+  (right after `*auth_routes`). Top-level **`/app/*`** prefix — matches neither `is_api_path` nor
+  `is_admin_api_path`, so it bypasses **both** bearer middlewares and is guarded per-handler by
+  S2's `require_user` (each handler starts `ctx = await require_user(request)`; the app-wide
+  `AuthError` handler renders the generic 401 — no per-handler catch). Reuses `serialize_tenant`
+  (`vocky.auth_api`) and `format_pydantic_error` (`vocky.api`); no new deps, no schema/middleware
+  changes.
+- **`/app/*` contract (Bearer user token):**
+  - `GET /app/tenant` → **200** `{tenant: serialize_tenant(ctx.tenant)}`.
+  - `GET /app/projects` → **200** `{projects: [...]}` (tenant-scoped, oldest-first).
+  - `POST /app/projects` `{name}` → **201** `{project: ...}`; **400** on bad body
+    (`CreateProjectInput`: name stripped, `min_length=1`, `max_length=200`; stored value stripped).
+  - `GET /app/projects/{project_id}` → **200** `{project: ...}`; **400** on malformed (non-UUID)
+    id; **404** when missing **or** cross-tenant.
+  - All routes → **401** on missing/invalid token (shared generic `{"detail":"Unauthorized"}` +
+    `WWW-Authenticate: Bearer`).
+- **`serialize_project(ProjectRecord)` shape** → `{id, name, tenant_id, created_at}` (all strings,
+  `created_at` ISO-8601). Reuse this exact shape for any later project serialization.
+- **Cross-tenant-isolation (404) authorization rule — S4 MUST also follow:** any per-project read
+  answers **404, never 403**, when `project is None or project.tenant_id != ctx.tenant.id`, so
+  cross-tenant existence never leaks. `create_project` binds `tenant_id=ctx.tenant.id` and
+  `list_projects_for_tenant` is tenant-scoped, so writes/lists can't cross tenants either. S4's
+  credential endpoints (`POST/GET/DELETE .../projects/{id}/credentials`) must resolve the project
+  and 404 on a tenant mismatch **before** any credential work.
+
 ## Doc impact
 
 Durable-doc changes for `P2.REVIEW` to consolidate (do not version docs per slice):
@@ -184,6 +211,18 @@ _S2 additions (durable truth landed this slice, for REVIEW to consolidate):_
   `vocky.accounts.auth`; pure primitives in `vocky.accounts.security`
   (`hash_password`/`verify_password`/`generate_opaque_token`/`sha256_hex`); `vocky.auth_api` routes
   wired into `create_app()` with `exception_handlers={AuthError: auth_error_handler}`.
+
+_S3 additions (durable truth landed this slice, for REVIEW to consolidate):_
+
+- **api** — user-authenticated **`/app/*`** control-plane (top-level prefix, guarded by
+  `require_user`, outside `/api/*` so no bearer middleware touches it): `GET /app/tenant` (200),
+  `GET /app/projects` (200, tenant-scoped list), `POST /app/projects` (201; 400 on bad name),
+  `GET /app/projects/{id}` (200; 400 malformed id; **404 when missing or cross-tenant** — no
+  existence leak); project serialized as `{id, name, tenant_id, created_at}`.
+- **architecture** — the account/tenant management surface lives on `/app/*` (user-token auth),
+  distinct from the `/api/*` product data-plane (per-project credential auth after S4) and the
+  admin surface; tenant isolation is enforced per-handler by comparing `project.tenant_id` against
+  the caller's `ctx.tenant.id` and answering 404 on mismatch.
 
 ## Constraints
 

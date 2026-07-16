@@ -14,6 +14,7 @@ from vocky.accounts.auth import AuthError, auth_error_handler
 from vocky.admin_api import routes as admin_routes
 from vocky.admin_ui import routes as admin_ui_routes
 from vocky.api import routes as api_routes
+from vocky.app_api import routes as app_api_routes
 from vocky.attachments_api import routes as attachment_routes
 from vocky.auth import APIBearerAuthMiddleware, AdminBearerAuthMiddleware
 from vocky.auth_api import routes as auth_routes
@@ -48,6 +49,7 @@ def create_app() -> Starlette:
         routes=[
             Route("/healthz", healthz),
             *auth_routes,
+            *app_api_routes,
             *admin_routes,
             *admin_ui_routes,
             *api_routes,
