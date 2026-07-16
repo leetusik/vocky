@@ -59,6 +59,7 @@ def _serialize_payload(payload: CreateFeedbackEvent) -> dict[str, Any]:
     return {
         "message": payload.message,
         "source_product": payload.source_product,
+        "project_id": str(payload.project_id) if payload.project_id is not None else None,
         "feedback_value": payload.feedback_value,
         "comment": payload.comment,
         "channel": payload.channel,
@@ -93,6 +94,11 @@ def _deserialize_payload(raw: dict[str, Any]) -> CreateFeedbackEvent:
     return CreateFeedbackEvent(
         message=str(raw["message"]),
         source_product=str(raw["source_product"]),
+        project_id=(
+            UUID(str(raw["project_id"]))
+            if raw.get("project_id") is not None
+            else None
+        ),
         feedback_value=(
             int(raw["feedback_value"])
             if raw.get("feedback_value") is not None

@@ -52,6 +52,7 @@ class FeedbackRepository:
         """Persist a feedback event and return the stored record."""
 
         model = FeedbackEventModel(
+            project_id=payload.project_id,
             message=payload.message,
             source_product=payload.source_product,
             feedback_value=payload.feedback_value,
@@ -529,6 +530,10 @@ class FeedbackRepository:
     ) -> Select[Any]:
         """Apply the supported read filters to a statement."""
 
+        if filters.project_id is not None:
+            statement = statement.where(
+                FeedbackEventModel.project_id == filters.project_id
+            )
         if filters.start_ingested_at is not None:
             statement = statement.where(
                 FeedbackEventModel.ingested_at >= filters.start_ingested_at
@@ -571,6 +576,7 @@ class FeedbackRepository:
 
         return FeedbackEventRecord(
             id=model.id,
+            project_id=model.project_id,
             message=model.message,
             source_product=model.source_product,
             feedback_value=model.feedback_value,

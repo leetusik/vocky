@@ -41,6 +41,15 @@ Four middle slices. **P3.S1 is the foundation; P3.S2, P3.S3, and P3.S4 all depen
 - Migration: head `20260715_1200`; GIN precedent `postgresql_using="gin"`.
 - Tests: use real Postgres + the `configured_project_credential` fixture; any new table must be appended to both TRUNCATE lists (`tests/conftest.py:142-155`).
 
+### P3.S1 outcomes — foundation landed (S2/S3/S4 build on these)
+
+- **Migration revision id: `20260716_1500`** (`add_feedback_project_id`, down_revision `20260715_1200`, now head). Any new P3 migration (e.g. S3's search index) must chain `down_revision = "20260716_1500"`. Fully reversible (verified downgrade→upgrade). Adds nullable `feedback_events.project_id` FK → `projects.id` (`ondelete=CASCADE`, name `fk_feedback_events_project_id_projects`) + index `ix_feedback_events_project_id`.
+- **Scope-threading contract (S2 reuses):** on a successful `/api/*` auth, `ProjectCredentialAuthMiddleware` stashes the resolved `ProjectCredentialRecord` on the ASGI scope under the namespaced key `vocky.project_credential` (constant `vocky.auth.PROJECT_CREDENTIAL_SCOPE_KEY`). Handlers read it via **`vocky.auth.get_request_credential(request) -> ProjectCredentialRecord`** (carries `.id` + `.project_id`). S2's `/api/*` review/manage routes should scope by `get_request_credential(request).project_id`; **no path params or query for project** — the project comes from the credential. A namespaced scope key (not `request.state`) is deliberate: immune to Starlette `scope["state"]` re-init inside the middleware stack.
+- **Read-model hook (S2/S3 reuse):** `FeedbackQueryFilters` gained `project_id: UUID | None = None`; `_apply_query_filters` (`feedback/repository.py`) applies `FeedbackEventModel.project_id == filters.project_id` when set. This is the shared chokepoint — S2 (`/api/*` list) sets it from the credential's project; S3 (`/app/*` cross-project) leaves it unset and instead scopes by the caller-tenant's project set (its own predicate) or sets it for optional single-project narrowing.
+- **Capture threading:** `CreateFeedbackEvent.project_id` + `FeedbackEventRecord.project_id` added; threaded handler→`capture_queue` (serialize/deserialize, keeps `project_id` across the Redis round trip)→repository. **Worker unchanged** (it just persists the payload). Attachments were intentionally left without `project_id` in S1 (they inherit scope via their linked feedback row).
+- **Last-used stamping wired (D-P3-5 groundwork):** `ProjectCredentialAuthMiddleware` best-effort stamps credential `last_used_at`; `accounts/auth.py::require_user` best-effort stamps auth-token `last_used_at`. Both wrapped in `try/except AccountsPersistenceError` → log + continue, so a stamping failure never turns a valid ingest/auth into a 500. No throttle (stamp-always, one indexed UPDATE by PK) — S4 can add one if it becomes hot. S4 surfaces these `last_used_at` values in usage endpoints.
+- **Test-fixture note (S2/S3/S4):** the end-user self-read is now project-scoped, so `_seed_feedback` rows that must be readable through `/api/*` need `project_id=str(configured_project_credential.project_id)`. `tests/test_user_feedback_api.py::_seed_feedback` gained an optional `project_id` param; reuse that pattern. Legacy NULL-project rows fall out of any project-scoped read.
+
 ## Doc impact
 
 Running list the phase REVIEW consolidates into new durable-doc versions (one version per doc, covering the whole phase):
@@ -52,6 +61,11 @@ Running list the phase REVIEW consolidates into new durable-doc versions (one ve
 - `security.md` — project-scoped authz on reads; the credential read/manage surface.
 - `decisions.md` — D-P3-1…6.
 - `experience.md` — how to read/search/manage feedback via the new API.
+
+_Landed changes (for the review to consolidate):_
+
+- **P3.S1 → `data.md`:** `feedback_events` gains nullable `project_id` FK → `projects.id` (CASCADE) + `ix_feedback_events_project_id`; migration `20260716_1500` (chained on `20260715_1200`). Capture stamps `project_id` from the authenticating credential; legacy rows stay NULL (pre-MVP, no backfill).
+- **P3.S1 → `security.md` / `architecture.md`:** ingest middleware now threads the resolved per-project credential onto the ASGI scope (`vocky.project_credential`) and best-effort stamps credential + auth-token `last_used_at`; the `GET /api/feedback` end-user self-read is now additionally project-scoped by the credential's project (defense in depth, D-P3-6).
 
 ## Constraints
 

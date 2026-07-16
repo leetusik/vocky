@@ -9,6 +9,7 @@ import httpx
 import pytest
 from starlette.applications import Starlette
 
+from vocky.accounts import get_accounts_service
 from vocky.auth import ProjectCredentialAuthMiddleware
 from vocky.capture_queue import CaptureQueue, CaptureQueueError
 import vocky.api as api_module
@@ -356,6 +357,43 @@ async def test_capture_feedback_queue_failure_returns_503(
 
     assert response.status_code == 503
     assert response.json() == {"detail": "capture queue unavailable"}
+
+
+@pytest.mark.anyio
+async def test_capture_stamps_authenticating_project_id_and_last_used(
+    monkeypatch: pytest.MonkeyPatch,
+    configured_project_credential,
+) -> None:
+    redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    queue = CaptureQueue(redis_client)
+    monkeypatch.setattr(api_module, "get_capture_queue", lambda: queue)
+
+    before = await get_accounts_service().list_project_credentials(
+        configured_project_credential.project_id
+    )
+    assert before[0].last_used_at is None
+
+    async with _authed_client(configured_project_credential.key) as client:
+        response = await client.post(
+            "/api/feedback",
+            json={"message": "Scoped capture", "source": {"product": "vocky-cli"}},
+        )
+
+    assert response.status_code == 202
+
+    # The enqueued payload carries the authenticating credential's project_id,
+    # surviving the serialize -> deserialize round trip.
+    queued_job = await queue.pop_job(timeout_seconds=1)
+    assert queued_job is not None
+    assert queued_job.payload.project_id == configured_project_credential.project_id
+
+    # The ingest middleware stamped the credential's last_used_at.
+    after = await get_accounts_service().list_project_credentials(
+        configured_project_credential.project_id
+    )
+    assert after[0].last_used_at is not None
+
+    await redis_client.aclose()
 
 
 @pytest.mark.anyio

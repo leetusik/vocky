@@ -8,7 +8,9 @@ import httpx
 import pytest
 from starlette.applications import Starlette
 
+from vocky.accounts import get_accounts_service
 from vocky.accounts.auth import AuthError, auth_error_handler
+from vocky.accounts.security import sha256_hex
 from vocky.app_api import routes as app_api_routes
 from vocky.auth_api import routes as auth_routes
 
@@ -94,6 +96,31 @@ async def test_get_tenant_returns_callers_tenant(configured_database: str) -> No
 
     assert response.status_code == 200
     assert response.json()["tenant"]["name"] == "carol's workspace"
+
+
+@pytest.mark.anyio
+async def test_authed_app_call_stamps_auth_token_last_used(
+    configured_database: str,
+) -> None:
+    async with _client() as client:
+        token = await _signup(client, "stamp@example.com")
+        # Signup issues the token but require_user has not run yet.
+        before = await get_accounts_service().get_active_auth_token_by_hash(
+            sha256_hex(token)
+        )
+        assert before is not None
+        assert before.last_used_at is None
+
+        response = await client.get(
+            "/app/tenant", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+
+    after = await get_accounts_service().get_active_auth_token_by_hash(
+        sha256_hex(token)
+    )
+    assert after is not None
+    assert after.last_used_at is not None
 
 
 @pytest.mark.anyio

@@ -14,6 +14,7 @@ class CreateFeedbackEvent:
 
     message: str
     source_product: str
+    project_id: UUID | None = None
     feedback_value: int | None = None
     comment: str | None = None
     channel: str | None = None
@@ -42,6 +43,7 @@ class FeedbackEventRecord:
     """Stored feedback event returned by the service layer."""
 
     id: UUID
+    project_id: UUID | None
     message: str
     source_product: str
     feedback_value: int | None
@@ -118,6 +120,7 @@ class FeedbackAttachmentRecord:
 class FeedbackQueryFilters:
     """Supported filters for feedback read queries."""
 
+    project_id: UUID | None = None
     start_ingested_at: datetime | None = None
     end_ingested_at: datetime | None = None
     source_product: str | None = None

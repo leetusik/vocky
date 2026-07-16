@@ -3,20 +3,24 @@
 ``require_user`` resolves an opaque ``Authorization: Bearer`` token to the
 active user plus their (solo-owner MVP) tenant, raising ``AuthError`` on any
 miss. S3/S4 import ``require_user`` / ``AuthContext`` / ``AuthError`` from here;
-``auth_error_handler`` renders the shared generic 401. This layer never touches
-``last_used_at`` (deferred to P3).
+``auth_error_handler`` renders the shared generic 401. On a successful token
+resolve it stamps the token's ``last_used_at`` best-effort — a stamping failure
+is logged and never fails auth.
 """
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from vocky.accounts.security import sha256_hex
-from vocky.accounts.service import get_accounts_service
+from vocky.accounts.service import AccountsPersistenceError, get_accounts_service
 from vocky.accounts.types import TenantRecord, UserRecord
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -66,9 +70,17 @@ async def require_user(request: Request) -> AuthContext:
         raise AuthError("missing bearer token")
 
     service = get_accounts_service()
-    auth_token = await service.get_active_auth_token_by_hash(sha256_hex(token))
+    token_hash = sha256_hex(token)
+    auth_token = await service.get_active_auth_token_by_hash(token_hash)
     if auth_token is None:
         raise AuthError("invalid or expired token")
+
+    # Best-effort usage stamp (one indexed UPDATE by token_hash); a failure is
+    # logged and must never fail auth.
+    try:
+        await service.touch_auth_token_last_used(token_hash)
+    except AccountsPersistenceError:
+        logger.warning("failed to stamp last_used_at for auth token", exc_info=True)
 
     user = await service.get_user_by_id(auth_token.user_id)
     if user is None:

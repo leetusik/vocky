@@ -18,6 +18,7 @@ from vocky.capture import (
     normalize_rest_payload,
     serialize_capture_receipt,
 )
+from vocky.auth import get_request_credential
 from vocky.capture_queue import CaptureQueueError, get_capture_queue
 from vocky.feedback import (
     FeedbackAttachmentRecord,
@@ -94,6 +95,8 @@ async def capture_feedback(request: Request) -> JSONResponse:
         normalized = normalize_rest_payload(raw_payload)
     except (CaptureAPIValidationError, CaptureFeedbackValidationError) as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    normalized.payload.project_id = get_request_credential(request).project_id
 
     try:
         receipt = await get_capture_queue().enqueue_feedback(normalized.payload)
@@ -217,14 +220,20 @@ def serialize_user_feedback_record(
 async def list_user_feedback(request: Request) -> JSONResponse:
     """Return one end user's own feedback plus operator comments.
 
-    Scoped strictly by required `user_id` + `source_product`; never returns
-    cross-user or cross-product data.
+    Scoped strictly by required `user_id` + `source_product` and, defense in
+    depth, by the authenticating credential's project; never returns cross-user,
+    cross-product, or cross-project data. Legacy rows with a NULL `project_id`
+    fall out of the scoped read (acceptable pre-MVP).
     """
 
     try:
         query = normalize_user_feedback_query(request)
     except FeedbackQueryValidationError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    # Defense in depth (D-P3-6): the self-read is additionally scoped to the
+    # authenticating credential's project, on top of user_id + source_product.
+    query.filters.project_id = get_request_credential(request).project_id
 
     try:
         (

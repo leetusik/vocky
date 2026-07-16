@@ -35,9 +35,15 @@ class FeedbackEventModel(Base):
         Index("ix_feedback_events_trigger_type", "trigger_type"),
         Index("ix_feedback_events_target_type", "target_type"),
         Index("ix_feedback_events_tags_gin", "tags", postgresql_using="gin"),
+        Index("ix_feedback_events_project_id", "project_id"),
     )
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    project_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=True,
+    )
     message: Mapped[str] = mapped_column(Text, nullable=False)
     source_product: Mapped[str] = mapped_column(Text, nullable=False)
     feedback_value: Mapped[int | None] = mapped_column(nullable=True)

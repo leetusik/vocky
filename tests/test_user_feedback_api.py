@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy import text
 from starlette.applications import Starlette
 
+from vocky.accounts import CreateProject, get_accounts_service
 from vocky.api import routes as api_routes
 from vocky.auth import ProjectCredentialAuthMiddleware
 from vocky.db import get_engine
@@ -90,14 +91,17 @@ async def _seed_feedback(
     feedback_value: int | None = None,
     comment: str | None = None,
     message: str = "feedback row",
+    project_id: str | None = None,
 ) -> None:
     async with get_engine().begin() as connection:
         await connection.execute(
             text(
                 "INSERT INTO feedback_events ("
-                "id, message, source_product, user_id, feedback_value, comment, ingested_at"
+                "id, message, source_product, user_id, feedback_value, comment, "
+                "ingested_at, project_id"
                 ") VALUES ("
-                ":id, :message, :source_product, :user_id, :feedback_value, :comment, :ingested_at"
+                ":id, :message, :source_product, :user_id, :feedback_value, :comment, "
+                ":ingested_at, :project_id"
                 ")"
             ),
             {
@@ -108,6 +112,7 @@ async def _seed_feedback(
                 "feedback_value": feedback_value,
                 "comment": comment,
                 "ingested_at": ingested_at,
+                "project_id": project_id,
             },
         )
 
@@ -152,6 +157,7 @@ async def test_user_feedback_returns_only_caller_scope_with_comments(
         feedback_value=1,
         comment="my own comment",
         message="mine",
+        project_id=str(configured_project_credential.project_id),
     )
     await _seed_feedback(
         feedback_id=other_user,
@@ -200,6 +206,49 @@ async def test_user_feedback_returns_only_caller_scope_with_comments(
 
 
 @pytest.mark.anyio
+async def test_user_feedback_is_scoped_to_credential_project(
+    configured_database: str,
+    configured_project_credential,
+) -> None:
+    # A second project under the same tenant: a project-B row must not be
+    # readable by a project-A credential even when user_id/source_product match.
+    other_project = await get_accounts_service().create_project(
+        CreateProject(
+            tenant_id=configured_project_credential.tenant_id, name="project B"
+        )
+    )
+
+    mine = "00000000-0000-0000-0000-0000000000e1"
+    other = "00000000-0000-0000-0000-0000000000e2"
+    await _seed_feedback(
+        feedback_id=mine,
+        user_id="user-1",
+        source_product="changple5",
+        ingested_at=datetime(2026, 6, 1, 10, 0, tzinfo=UTC),
+        message="my project",
+        project_id=str(configured_project_credential.project_id),
+    )
+    await _seed_feedback(
+        feedback_id=other,
+        user_id="user-1",
+        source_product="changple5",
+        ingested_at=datetime(2026, 6, 1, 11, 0, tzinfo=UTC),
+        message="other project, same user and product",
+        project_id=str(other_project.id),
+    )
+
+    async with _authed_client(configured_project_credential.key) as client:
+        response = await client.get(
+            "/api/feedback",
+            params={"user_id": "user-1", "source_product": "changple5"},
+        )
+
+    assert response.status_code == 200
+    records = response.json()["records"]
+    assert [record["id"] for record in records] == [mine]
+
+
+@pytest.mark.anyio
 async def test_user_feedback_requires_user_id_and_source_product(
     configured_database: str,
     configured_project_credential,
@@ -242,6 +291,7 @@ async def test_user_feedback_basic_filter_narrows(
         ingested_at=datetime(2026, 6, 1, 10, 0, tzinfo=UTC),
         feedback_value=1,
         message="liked",
+        project_id=str(configured_project_credential.project_id),
     )
     await _seed_feedback(
         feedback_id=dislike_id,
@@ -250,6 +300,7 @@ async def test_user_feedback_basic_filter_narrows(
         ingested_at=datetime(2026, 6, 1, 11, 0, tzinfo=UTC),
         feedback_value=2,
         message="disliked",
+        project_id=str(configured_project_credential.project_id),
     )
 
     async with _authed_client(configured_project_credential.key) as client:
@@ -281,6 +332,7 @@ async def test_user_feedback_paginates(
         source_product="changple5",
         ingested_at=datetime(2026, 6, 1, 10, 0, tzinfo=UTC),
         message="older",
+        project_id=str(configured_project_credential.project_id),
     )
     await _seed_feedback(
         feedback_id=newer,
@@ -288,6 +340,7 @@ async def test_user_feedback_paginates(
         source_product="changple5",
         ingested_at=datetime(2026, 6, 1, 11, 0, tzinfo=UTC),
         message="newer",
+        project_id=str(configured_project_credential.project_id),
     )
 
     async with _authed_client(configured_project_credential.key) as client:
@@ -328,6 +381,7 @@ async def test_user_feedback_requires_project_credential(
         source_product="changple5",
         ingested_at=datetime(2026, 6, 1, 10, 0, tzinfo=UTC),
         message="guarded",
+        project_id=str(configured_project_credential.project_id),
     )
 
     transport = httpx.ASGITransport(app=make_api_app())
@@ -368,6 +422,7 @@ async def test_user_read_surfaces_only_own_attachments(
         source_product="changple5",
         ingested_at=datetime(2026, 6, 1, 10, 0, tzinfo=UTC),
         message="mine",
+        project_id=str(configured_project_credential.project_id),
     )
     await _seed_feedback(
         feedback_id=other_user,
