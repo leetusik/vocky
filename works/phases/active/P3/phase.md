@@ -134,6 +134,47 @@ Four middle slices. **P3.S1 is the foundation; P3.S2, P3.S3, and P3.S4 all depen
   163 passed (was 160). Reuse the "2 projects via `POST /app/projects` + raw-SQL
   `project_id` seed + second signed-up tenant" pattern for S4 `/app/*` tests.
 
+### P3.S4 outcomes — usage monitoring (derived + last-used) landed (final middle slice)
+
+- **New module `src/vocky/usage_api.py`**, three read-only usage endpoints, all
+  **pure reuse** of `get_feedback_metrics` scoped via the S1/S3
+  `_apply_query_filters` chokepoint — **no repository change, no new query, no
+  migration, no new tables** (honors D-P3-5, operational visibility not billing):
+  - `GET /app/usage` (session/`require_user`) — whole-tenant capture volume
+    across `list_projects_for_tenant(ctx.tenant.id)` (set as
+    `FeedbackQueryFilters.project_ids`) + a light `projects:[{id,name,created_at}]`
+    list. **Empty tenant short-circuits to zeroed metrics** (never queries an
+    empty id set — the S3 convention), reusing `serialize_metrics(_zeroed_metrics(), query)`.
+  - `GET /app/projects/{project_id}/usage` (session) — one project's volume
+    (scoped by `project_id` via `_load_scoped_project`, 404 cross-tenant) +
+    `credentials:[serialize_credential]`.
+  - `GET /api/project/usage` (project `vk_` key via `get_request_credential`,
+    auto-guarded by `ProjectCredentialAuthMiddleware`) — the credential's project
+    volume + its credentials.
+- **Window:** `_resolve_usage_window` reuses `parse_timestamp` +
+  `validate_time_window`; **defaults to the last 30 days** (`utc_now()`-anchored)
+  when both bounds omitted, fills the missing bound when only one given.
+- **Surfaces the S1 `last_used_at` stamp:** the per-project surfaces return the
+  project's credentials via the shared `serialize_credential`, which carries
+  `last_used_at` (stamped best-effort by the ingest middleware in S1).
+- **Metrics serializers NOT lifted:** `serialize_metrics` is **imported from
+  `admin_api`** (matches the established cross-module pattern — `app_feedback_api`
+  / `project_feedback_api` already import helpers from `admin_api`), rather than
+  lifted into `tools/query_feedback_common.py`. Lower churn, admin metrics
+  untouched by construction. If a future slice wants them shared, the lift is
+  still available.
+- **Wiring:** `*usage_routes` spliced into `create_app()` after
+  `*app_feedback_routes`; no route-order collision (the `/usage` suffix
+  distinguishes the `/app/projects/{id}/usage` path; `/api/project/usage` is
+  distinct from `/api/project/feedback/...`).
+- **Tests:** `tests/test_usage_api.py` (terse) — tenant aggregate across 2
+  projects with the correct liked/disliked/unrated split + second-tenant
+  isolation + empty-tenant zeroed short-circuit; per-project drill-down + 404 on
+  a cross-tenant project id + `last_used_at` surfaced; `/api/project/usage`
+  scoped to the credential's project; default 30-day window vs explicit window;
+  401 on all three surfaces. `uv run pytest tests/test_usage_api.py
+  tests/test_admin_api.py` = 22 passed; full suite 168 passed (was 163).
+
 ## Doc impact
 
 Running list the phase REVIEW consolidates into new durable-doc versions (one version per doc, covering the whole phase):
@@ -151,6 +192,7 @@ _Landed changes (for the review to consolidate):_
 - **P3.S1 → `data.md`:** `feedback_events` gains nullable `project_id` FK → `projects.id` (CASCADE) + `ix_feedback_events_project_id`; migration `20260716_1500` (chained on `20260715_1200`). Capture stamps `project_id` from the authenticating credential; legacy rows stay NULL (pre-MVP, no backfill).
 - **P3.S1 → `security.md` / `architecture.md`:** ingest middleware now threads the resolved per-project credential onto the ASGI scope (`vocky.project_credential`) and best-effort stamps credential + auth-token `last_used_at`; the `GET /api/feedback` end-user self-read is now additionally project-scoped by the credential's project (defense in depth, D-P3-6).
 - **P3.S2 → `api.md` / `product.md` / `experience.md` (also `architecture.md` / `security.md`):** new project-credential-authed `/api/project/feedback` review+manage endpoints — list (filters + keyset paging) / get-one (+comments+attachments) / PATCH review fields / DELETE / operator comments add+list / attachment download — scoped to the credential's project, returning 404 (never 403) on any cross-project id. External service admin panels can now read+manage their own project's feedback directly by API (`vk_` key), not just capture. No schema change; `serialize_record` is now shared in `tools/query_feedback_common.py`.
+- **P3.S4 → `api.md`:** new read-only usage endpoints — `GET /app/usage` (session, whole-tenant capture volume across all the caller's projects + a light project list), `GET /app/projects/{project_id}/usage` (session, one project's volume + its credentials surfacing `last_used_at`; 404 on cross-tenant project id), `GET /api/project/usage` (project `vk_` key, the credential's project volume + its credentials). Window defaults to the last 30 days when omitted. **`product.md`:** usage monitoring is **operational-only — derived capture volume + last-used, no billing/metering** (D-P3-5). **`architecture.md`:** usage is **derived** from the existing `get_feedback_metrics` scoped by project/tenant through the shared `_apply_query_filters` chokepoint — **no new tables, queries, or migration**; the endpoints also surface the S1-wired credential/auth-token `last_used_at` stamps.
 - **P3.S3 → `api.md`:** new session-authed (`require_user`) `/app/feedback` **read + search** endpoints — `GET /app/feedback` (cross-project list/search across all the caller's tenant's projects: `?q` free-text + optional `?project_id` narrow + standard filters + keyset paging), `GET /app/feedback/{id}` (+comments+attachments), `GET /app/feedback/{id}/attachments/{aid}` (download). Records carry `project_id`. Cross-tenant / not-owned ids → 404 (never 403); read-only (management stays on `/api/project/feedback`). **`architecture.md` / `data.md`:** new multilingual free-text search subsystem — case-insensitive `ILIKE` substring predicate over concatenated text columns (Korean 조사-safe + English; **no `to_tsvector('english')`**, D-P3-4) accelerated by a `pg_trgm` trigram GIN index `ix_feedback_events_search_trgm` on the immutable concatenated expression; migration `20260716_1600` (chained on `20260716_1500`, `CREATE EXTENSION pg_trgm` + index; reversible, downgrade leaves the extension). `FeedbackQueryFilters` gained `project_ids` + `search`. **`product.md`:** cross-project feedback search for signed-in users, read-only boundary (owner reads/searches across their projects; management is the project-credential surface).
 
 ## Constraints

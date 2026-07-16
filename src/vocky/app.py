@@ -23,6 +23,7 @@ from vocky.config import get_settings
 from vocky.db import dispose_engine
 from vocky.project_feedback_api import routes as project_feedback_routes
 from vocky.redis_client import dispose_redis_client
+from vocky.usage_api import routes as usage_routes
 
 
 async def healthz(_: Request) -> JSONResponse:
@@ -53,6 +54,7 @@ def create_app() -> Starlette:
             *auth_routes,
             *app_api_routes,
             *app_feedback_routes,
+            *usage_routes,
             *admin_routes,
             *admin_ui_routes,
             *api_routes,
