@@ -98,3 +98,5 @@ Running list the phase REVIEW consolidates into new durable-doc versions (one ve
 - `product.md` (possibly) — the authenticated web app as the primary **user surface**, replacing the operator admin UI.
 
 _Landed changes (each middle slice appends its own one-line note here as it finishes; the review consolidates them):_
+
+- **P4.S1** — Stood up the `web/` Next.js 16 app + ported design system (Tailwind-v4 `@theme` tokens, `cn()`, CVA primitives + the **new `data-table` primitive**, `src/content/` copy-as-data, `next/font/google` Noto Sans KR + JetBrains Mono, `design/canvas/` mirror). **Neutral placeholder palette** (slate surfaces + one indigo accent + red/amber signals) keeping hi2vi's token *names* — real vocky brand is P6. Purely presentational; `output: "standalone"` set for the P6 deploy. Verified: install / typecheck / lint / build all green, no backend calls. → feeds `frontend.md` (design system + `web/` structure + primitive/data-table inventory), `operations.md` (`pnpm dev` / standalone build stub), `decisions.md` (D-P4-1/-3), `architecture.md` (the new `web/` browser surface).

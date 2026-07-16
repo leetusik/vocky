@@ -1,0 +1,39 @@
+<!-- @dsCard group="Components" name="Badge" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>vocky · Badge</title>
+<link rel="stylesheet" href="../tokens.css" />
+<style>
+  body { margin: 0; padding: 40px; background: var(--color-canvas); color: var(--color-ink); font-family: var(--font-sans); }
+  .eyebrow { font-size: var(--text-micro); letter-spacing: var(--text-micro--letter-spacing); font-weight: var(--text-micro--font-weight); text-transform: uppercase; color: var(--color-green-dark); }
+  h1 { margin: 6px 0 4px; font-size: var(--text-heading-2); font-weight: var(--text-heading-2--font-weight); }
+  .lede { margin: 0 0 28px; max-width: 64ch; font-size: var(--text-body-md); line-height: var(--text-body-md--line-height); color: var(--color-slate); }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .badge { display: inline-flex; align-items: center; border-radius: var(--radius-full); padding: 4px 10px; font-size: var(--text-caption); }
+  .badge--signal { background: var(--color-green); color: var(--color-on-primary); }
+  .badge--soft-green { background: var(--color-green-soft); color: var(--color-green-dark); }
+  .badge--archive { background: var(--color-archive-cream); color: var(--color-slate); }
+  .badge--security { background: var(--color-security-mint); color: var(--color-ink); }
+  .badge--dark { background: var(--color-ink); color: var(--color-green); }
+</style>
+</head>
+<body>
+  <p class="eyebrow">Components · Badge</p>
+  <h1>Badge</h1>
+  <p class="lede">
+    The five <code>badgeVariants</code> from <code>web/src/components/ui/badge.tsx</code> —
+    a non-interactive <code>&lt;span&gt;</code> label chip, <code>text-caption</code>,
+    pill-shaped. Retoned to the placeholder palette.
+  </p>
+  <div class="row">
+    <span class="badge badge--signal">signal</span>
+    <span class="badge badge--soft-green">soft accent</span>
+    <span class="badge badge--security">security</span>
+    <span class="badge badge--archive">archive</span>
+    <span class="badge badge--dark">dark</span>
+  </div>
+</body>
+</html>

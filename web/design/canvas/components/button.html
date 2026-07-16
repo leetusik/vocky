@@ -1,0 +1,45 @@
+<!-- @dsCard group="Components" name="Button" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>vocky · Button</title>
+<link rel="stylesheet" href="../tokens.css" />
+<style>
+  body { margin: 0; padding: 40px; background: var(--color-canvas); color: var(--color-ink); font-family: var(--font-sans); }
+  .eyebrow { font-size: var(--text-micro); letter-spacing: var(--text-micro--letter-spacing); font-weight: var(--text-micro--font-weight); text-transform: uppercase; color: var(--color-green-dark); }
+  h1 { margin: 6px 0 4px; font-size: var(--text-heading-2); line-height: var(--text-heading-2--line-height); letter-spacing: var(--text-heading-2--letter-spacing); font-weight: var(--text-heading-2--font-weight); }
+  .lede { margin: 0 0 28px; max-width: 64ch; font-size: var(--text-body-md); line-height: var(--text-body-md--line-height); color: var(--color-slate); }
+  .specimen { margin-bottom: 18px; }
+  .vlabel { margin-bottom: 8px; font-family: var(--font-mono); font-size: var(--text-caption); color: var(--color-steel); }
+  .panel-dark { background: var(--color-forest); border-radius: var(--radius-lg); padding: 24px; }
+  .panel-dark .vlabel { color: var(--color-on-dark-muted); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-full); border: 0; cursor: pointer; font-family: var(--font-en); font-size: var(--text-button-md); line-height: var(--text-button-md--line-height); font-weight: 700; min-height: 44px; padding: 11px 22px; transition: background-color 0.15s ease; }
+  .btn:focus-visible { outline: 2px solid var(--color-green-deep); outline-offset: 2px; }
+  .btn--primary { background: var(--color-green); color: var(--color-on-primary); box-shadow: 0 12px 30px -8px rgba(79,70,229,0.5); }
+  .btn--primary:hover { background: var(--color-green-deep); }
+  .btn--secondary { background: var(--color-canvas); color: var(--color-ink); border: 1px solid var(--color-hairline-strong); }
+  .btn--secondary:hover { background: var(--color-surface); }
+  .btn--secondary-on-dark { background: transparent; color: var(--color-on-dark); border: 1px solid var(--color-hairline-dark); }
+  .btn--secondary-on-dark:hover { background: rgba(255,255,255,0.1); }
+  .btn--link { background: transparent; border: 0; min-height: 0; height: auto; border-radius: 0; padding: 0; font-family: var(--font-sans); font-size: var(--text-body-md-medium); font-weight: var(--text-body-md-medium--font-weight); color: var(--color-green-dark); }
+  .btn--link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <p class="eyebrow">Components · Button</p>
+  <h1>Button</h1>
+  <p class="lede">
+    The four <code>buttonVariants</code> from <code>web/src/components/ui/button.tsx</code>,
+    retoned to the placeholder indigo accent. Base is a pill:
+    <code>font-en · text-button-md · 700</code>, 44px min-height, 11/22 padding.
+    Hover for the state transition; focus shows the global accent-deep ring.
+  </p>
+
+  <div class="specimen"><div class="vlabel">variant="primary" — bg-green · text-on-primary · hover:bg-green-deep</div><button class="btn btn--primary">Create project</button></div>
+  <div class="specimen"><div class="vlabel">variant="secondary" — border-hairline-strong · text-ink · hover:bg-surface</div><button class="btn btn--secondary">Cancel</button></div>
+  <div class="specimen"><div class="vlabel">variant="link" — no pill · text-body-md-medium · text-green-dark · hover:underline</div><button class="btn btn--link">View details →</button></div>
+  <div class="specimen panel-dark"><div class="vlabel">variant="secondaryOnDark" — border-hairline-dark · text-on-dark · hover:bg-white/10</div><button class="btn btn--secondary-on-dark">Sign out</button></div>
+</body>
+</html>

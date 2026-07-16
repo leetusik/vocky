@@ -1,0 +1,70 @@
+<!-- @dsCard group="Foundations" name="Type scale" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>vocky · Type scale</title>
+<link rel="stylesheet" href="../tokens.css" />
+<style>
+  body {
+    margin: 0;
+    padding: 40px;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+  .eyebrow {
+    font-size: var(--text-micro);
+    letter-spacing: var(--text-micro--letter-spacing);
+    font-weight: var(--text-micro--font-weight);
+    text-transform: uppercase;
+    color: var(--color-green-dark);
+  }
+  h1 {
+    margin: 6px 0 4px;
+    font-size: var(--text-heading-2);
+    line-height: var(--text-heading-2--line-height);
+    letter-spacing: var(--text-heading-2--letter-spacing);
+    font-weight: var(--text-heading-2--font-weight);
+  }
+  .lede {
+    margin: 0 0 28px;
+    max-width: 64ch;
+    font-size: var(--text-body-md);
+    line-height: var(--text-body-md--line-height);
+    color: var(--color-slate);
+  }
+  .row { border-top: 1px solid var(--color-hairline-soft); padding: 14px 0; }
+  .tok {
+    display: block;
+    margin-bottom: 6px;
+    font-family: var(--font-mono);
+    font-size: var(--text-caption);
+    color: var(--color-steel);
+  }
+  .sample { color: var(--color-ink); }
+</style>
+</head>
+<body>
+  <p class="eyebrow">Foundations · Type</p>
+  <h1>Type scale</h1>
+  <p class="lede">
+    Every <code>--text-*</code> token with its bundled line-height / letter-spacing
+    / weight. Font is the placeholder Noto Sans KR (Korean-capable) — the Korean
+    line proves glyph coverage. Sizes are identical to hi2vi_web (names unchanged).
+  </p>
+
+  <div class="row"><span class="tok">text-hero-display · 68 / 1.08 / 680</span><div class="sample" style="font-size:var(--text-hero-display);line-height:var(--text-hero-display--line-height);letter-spacing:var(--text-hero-display--letter-spacing);font-weight:var(--text-hero-display--font-weight)">Hero 히어로</div></div>
+  <div class="row"><span class="tok">text-heading-1 · 48 / 1.18 / 680</span><div class="sample" style="font-size:var(--text-heading-1);line-height:var(--text-heading-1--line-height);letter-spacing:var(--text-heading-1--letter-spacing);font-weight:var(--text-heading-1--font-weight)">Heading 제목</div></div>
+  <div class="row"><span class="tok">text-heading-2 · 36 / 1.25 / 680</span><div class="sample" style="font-size:var(--text-heading-2);line-height:var(--text-heading-2--line-height);letter-spacing:var(--text-heading-2--letter-spacing);font-weight:var(--text-heading-2--font-weight)">Heading 제목</div></div>
+  <div class="row"><span class="tok">text-heading-3 · 28 / 1.32 / 680</span><div class="sample" style="font-size:var(--text-heading-3);line-height:var(--text-heading-3--line-height);letter-spacing:var(--text-heading-3--letter-spacing);font-weight:var(--text-heading-3--font-weight)">Heading 제목</div></div>
+  <div class="row"><span class="tok">text-heading-4 · 22 / 1.38 / 680</span><div class="sample" style="font-size:var(--text-heading-4);line-height:var(--text-heading-4--line-height);font-weight:var(--text-heading-4--font-weight)">Heading 제목</div></div>
+  <div class="row"><span class="tok">text-body-lg · 19 / 1.65 / 400</span><div class="sample" style="font-size:var(--text-body-lg);line-height:var(--text-body-lg--line-height)">Body large — 본문 텍스트 예시입니다.</div></div>
+  <div class="row"><span class="tok">text-body-md · 16 / 1.65 / 400</span><div class="sample" style="font-size:var(--text-body-md);line-height:var(--text-body-md--line-height)">Body medium — 본문 텍스트 예시입니다.</div></div>
+  <div class="row"><span class="tok">text-body-sm · 14 / 1.6 / 400</span><div class="sample" style="font-size:var(--text-body-sm);line-height:var(--text-body-sm--line-height)">Body small — 본문 텍스트 예시입니다.</div></div>
+  <div class="row"><span class="tok">text-caption · 13 / 1.45 / 450</span><div class="sample" style="font-size:var(--text-caption);line-height:var(--text-caption--line-height)">Caption — 캡션 텍스트</div></div>
+  <div class="row"><span class="tok">text-micro · 11 / 1.4 / 700 (uppercase)</span><div class="sample" style="font-size:var(--text-micro);letter-spacing:var(--text-micro--letter-spacing);font-weight:var(--text-micro--font-weight);text-transform:uppercase">Micro eyebrow</div></div>
+  <div class="row"><span class="tok">text-code-md · 13 / 1.55 (mono)</span><div class="sample" style="font-family:var(--font-mono);font-size:var(--text-code-md);line-height:var(--text-code-md--line-height)">const key = "vk_…"; // JetBrains Mono</div></div>
+</body>
+</html>

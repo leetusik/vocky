@@ -1,0 +1,43 @@
+<!-- @dsCard group="Components" name="Section" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>vocky · Section</title>
+<link rel="stylesheet" href="../tokens.css" />
+<style>
+  body { margin: 0; background: var(--color-canvas); color: var(--color-ink); font-family: var(--font-sans); }
+  .intro { padding: 40px 40px 0; }
+  .eyebrow { font-size: var(--text-micro); letter-spacing: var(--text-micro--letter-spacing); font-weight: var(--text-micro--font-weight); text-transform: uppercase; color: var(--color-green-dark); }
+  h1 { margin: 6px 0 4px; font-size: var(--text-heading-2); font-weight: var(--text-heading-2--font-weight); }
+  .lede { margin: 0 0 8px; max-width: 64ch; font-size: var(--text-body-md); line-height: var(--text-body-md--line-height); color: var(--color-slate); }
+  .band { padding: 56px 40px; }
+  .band .inner { max-width: var(--container-page); margin: 0 auto; }
+  .band .tone { font-family: var(--font-mono); font-size: var(--text-caption); }
+  .t-default { background: var(--color-canvas); color: var(--color-ink); }
+  .t-surface { background: var(--color-surface); color: var(--color-ink); }
+  .t-band { background: var(--color-surface-band); color: var(--color-ink); }
+  .t-security { background: var(--color-surface-security); color: var(--color-ink); }
+  .t-ink { background: var(--color-ink); color: var(--color-on-dark); }
+  .t-forest { background: var(--color-forest); color: var(--color-on-dark); }
+</style>
+</head>
+<body>
+  <div class="intro">
+    <p class="eyebrow">Components · Section</p>
+    <h1>Section (tonal bands)</h1>
+    <p class="lede">
+      <code>web/src/components/ui/section.tsx</code> — a full-bleed tonal band with a
+      centered <code>max-w-page</code> container. Each <code>tone</code> maps to a
+      surface token; below are the placeholder-palette tones.
+    </p>
+  </div>
+  <div class="band t-default"><div class="inner"><span class="tone">tone="default" — bg-canvas</span></div></div>
+  <div class="band t-surface"><div class="inner"><span class="tone">tone="surface" — bg-surface</span></div></div>
+  <div class="band t-band"><div class="inner"><span class="tone">tone="band" — bg-surface-band</span></div></div>
+  <div class="band t-security"><div class="inner"><span class="tone">tone="security" — bg-surface-security</span></div></div>
+  <div class="band t-ink"><div class="inner"><span class="tone">tone="ink" — bg-ink</span></div></div>
+  <div class="band t-forest"><div class="inner"><span class="tone">tone="forest" — bg-forest</span></div></div>
+</body>
+</html>

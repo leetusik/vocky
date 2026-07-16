@@ -1,0 +1,38 @@
+<!-- @dsCard group="Components" name="Grid" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>vocky · Grid</title>
+<link rel="stylesheet" href="../tokens.css" />
+<style>
+  body { margin: 0; padding: 40px; background: var(--color-canvas); color: var(--color-ink); font-family: var(--font-sans); }
+  .eyebrow { font-size: var(--text-micro); letter-spacing: var(--text-micro--letter-spacing); font-weight: var(--text-micro--font-weight); text-transform: uppercase; color: var(--color-green-dark); }
+  h1 { margin: 6px 0 4px; font-size: var(--text-heading-2); font-weight: var(--text-heading-2--font-weight); }
+  .lede { margin: 0 0 28px; max-width: 64ch; font-size: var(--text-body-md); line-height: var(--text-body-md--line-height); color: var(--color-slate); }
+  h2 { margin: 24px 0 10px; font-size: var(--text-heading-4); font-weight: var(--text-heading-4--font-weight); }
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .cell { border: 1px dashed var(--color-hairline-strong); border-radius: var(--radius-md); background: var(--color-surface); padding: 18px; text-align: center; font-family: var(--font-mono); font-size: var(--text-caption); color: var(--color-steel); }
+  @media (max-width: 640px) { .g2, .g3, .g4 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+  <p class="eyebrow">Components · Grid</p>
+  <h1>Grid</h1>
+  <p class="lede">
+    <code>web/src/components/ui/grid.tsx</code> — always 1-up on mobile, scaling to
+    2 / 3 / 4 columns via static class strings (Tailwind-scanner-safe). Resize to
+    see the mobile collapse.
+  </p>
+  <h2>cols=3</h2>
+  <div class="grid g3"><div class="cell">1</div><div class="cell">2</div><div class="cell">3</div></div>
+  <h2>cols=4</h2>
+  <div class="grid g4"><div class="cell">1</div><div class="cell">2</div><div class="cell">3</div><div class="cell">4</div></div>
+  <h2>cols=2</h2>
+  <div class="grid g2"><div class="cell">1</div><div class="cell">2</div></div>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# Build output & deps
+pnpm-lock.yaml
+.next/
+out/
+build/
+node_modules/
+
+# Design canvas artifacts — standalone HTML specimens, not in Prettier's domain
+design/

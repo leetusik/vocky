@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P4`
-- Current slice: `P4.S1`
-- Next slice: `P4.S2`
+- Current slice: `P4.S2`
+- Next slice: `P4.S3`
 - Waiting on operator: `none`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-16T19:56:40+09:00`
+- Rebuilt at: `2026-07-16T20:26:52+09:00`
 
 ## Active Phases
 
@@ -20,7 +20,7 @@
 | [x] `P2` | `done` | `pass` | Accounts, Tenancy & Projects Core | `none` | `works/phases/active/P2` |
 | [x] `P3` | `done` | `pass` | Feedback API v2, Search & Usage Monitoring | `none` | `works/phases/active/P3` |
 | [x] `P7` | `done` | `pass` | Agent-Capture Revival (MCP write-only) | `none` | `works/phases/active/P7` |
-| [ ] `P4` | `planned` | `pending` | Web App: Tenant Dashboard & Project Pages | `P4.S1` | `works/phases/active/P4` |
+| [ ] `P4` | `planned` | `pending` | Web App: Tenant Dashboard & Project Pages | `P4.S2` | `works/phases/active/P4` |
 | [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
 | [ ] `P6` | `planned` | `pending` | Landing Page, Webpage & Production Deploy | `P6.DECOMP` | `works/phases/active/P6` |
 
@@ -71,7 +71,7 @@
 | Slice | Status | Name | Kind | Path |
 |---|---|---|---|---|
 | [x] `P4.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P4/slices/P4.DECOMP` |
-| [ ] `P4.S1` | `todo` | App scaffold + design-system foundation | `implementation` | `works/phases/active/P4/slices/P4.S1` |
+| [x] `P4.S1` | `done` | App scaffold + design-system foundation | `implementation` | `works/phases/active/P4/slices/P4.S1` |
 | [ ] `P4.S2` | `todo` | Auth + BFF proxy + authenticated app shell | `implementation` | `works/phases/active/P4/slices/P4.S2` |
 | [ ] `P4.S3` | `todo` | Tenant dashboard: projects + create + tenant usage | `implementation` | `works/phases/active/P4/slices/P4.S3` |
 | [ ] `P4.S4` | `todo` | Project detail: info + credentials + project usage | `implementation` | `works/phases/active/P4/slices/P4.S4` |
