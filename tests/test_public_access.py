@@ -16,6 +16,7 @@ from vocky.auth import (
     is_admin_api_path,
     is_api_path,
     is_authorized_bearer,
+    is_mcp_path,
 )
 from vocky.config import parse_csv_setting
 
@@ -36,6 +37,11 @@ def test_path_auth_helpers_match_only_their_path_families_and_bearer_headers() -
     assert is_api_path("/api") is True
     assert is_api_path("/api/feedback") is True
     assert is_api_path("/admin/api/feedback") is False
+    assert is_mcp_path("/mcp") is True
+    assert is_mcp_path("/mcp/") is True
+    assert is_mcp_path("/mcp/messages") is True
+    assert is_mcp_path("/mcprofile") is False
+    assert is_mcp_path("/api/feedback") is False
 
     assert is_authorized_bearer("Bearer secret", "secret") is True
     assert is_authorized_bearer("bearer secret", "secret") is True
@@ -97,6 +103,8 @@ async def test_project_credential_auth_middleware_enforces_mandatory_ingest_auth
         routes=[
             Route("/healthz", endpoint, methods=["GET"]),
             Route("/api/feedback", endpoint, methods=["POST"]),
+            # The whole /mcp transport is guarded the same way /api/* is.
+            Route("/mcp", endpoint, methods=["POST"]),
         ]
     )
     app.add_middleware(ProjectCredentialAuthMiddleware)
@@ -112,6 +120,14 @@ async def test_project_credential_auth_middleware_enforces_mandatory_ingest_auth
             "/api/feedback",
             headers={"Authorization": f"Bearer {configured_project_credential.key}"},
         )
+        mcp_missing_response = await client.post("/mcp")
+        mcp_bad_response = await client.post(
+            "/mcp", headers={"Authorization": "Bearer vk_not-a-real-key"}
+        )
+        mcp_allowed_response = await client.post(
+            "/mcp",
+            headers={"Authorization": f"Bearer {configured_project_credential.key}"},
+        )
 
     # Non-/api paths are never guarded by the ingest middleware.
     assert health_response.status_code == 200
@@ -123,6 +139,11 @@ async def test_project_credential_auth_middleware_enforces_mandatory_ingest_auth
     # A seeded, active project key authenticates.
     assert allowed_response.status_code == 200
     assert allowed_response.text == "ok"
+    # /mcp is guarded identically: missing/unknown keys 401, a seeded key passes.
+    assert mcp_missing_response.status_code == 401
+    assert mcp_bad_response.status_code == 401
+    assert mcp_allowed_response.status_code == 200
+    assert mcp_allowed_response.text == "ok"
 
 
 def test_core_rest_and_admin_routes_are_registered_without_a_catch_all_mount() -> None:

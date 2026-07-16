@@ -72,6 +72,36 @@ A non-REST caller needs exactly: build a `CreateFeedbackEvent` → set `project_
   `mcp_auth_token` / `api_auth_token` stay **retired** — per-project `vk_` auth (S2) replaces them.
 - Full suite green: **169 passed**; `validate` passes.
 
+### P7.S2 — write path shipped (auth binding resolved, both design questions closed)
+
+- **Credential-binding path = the plan's primary (scope-read), NOT the TokenVerifier fallback.**
+  App-level `ProjectCredentialAuthMiddleware` runs before the `/mcp` Mount dispatches, so its
+  `scope[PROJECT_CREDENTIAL_SCOPE_KEY]` stash propagates into the mounted FastMCP sub-app; the
+  tool reads it via `get_request_credential(ctx.request_context.request)`. Empirically proven:
+  the transport test asserts the enqueued job's `project_id == cred.project_id` and it **passes**.
+  Confirmed `request=request_data` is populated at `mcp/server/lowlevel/server.py:760-771` in the
+  installed `mcp==1.28.1`. No FastMCP-native auth provider was needed.
+- **Design Q1 (auth binding) resolved:** broaden the existing middleware — added `is_mcp_path`
+  and changed the predicate to `is_api_path(p) or is_mcp_path(p)`. The **whole** `/mcp` endpoint
+  (initialize included) requires a valid per-project `vk_` key; missing/unknown/revoked → generic
+  401; same scope stash + best-effort `last_used_at` as `/api/*`. The static `VOCKY_MCP_AUTH_TOKEN`
+  stays retired.
+- **Design Q2 (input model) resolved:** thin `McpCaptureFeedbackInput(BaseCaptureFeedbackInput)`
+  (empty subclass, no `attachment_ids`) + `normalize_mcp_payload` wrapper. No engine change —
+  `_normalize_capture_payload` reads `attachment_ids` via `getattr`. The retired
+  `CaptureFeedbackInput` alias was NOT revived (unneeded).
+- **`install_protocol_aware_call_handler` is required, not polish:** the tool returns a raw
+  `mcp.types.CallToolResult` (structured receipt / validation errors), and this handler is what
+  passes it through as `ServerResult` (and keeps unknown-tool a protocol error). Re-added verbatim
+  from the retired template.
+- **`ctx: Context` is injected + schema-excluded by FastMCP** (verified: tool input schema has
+  neither `ctx` nor `attachment_ids`). Registered as the sole tool: `list_tools()` == `["capture_feedback"]`.
+- **Tests:** evolved the single `test_mcp_transport.py` into the authed capture happy-path (still
+  the sole once-per-process `session_manager.run()` caller — no second HTTP test added on the
+  shared `mcp`). `/mcp` 401-guard + `is_mcp_path` cases went into `test_public_access.py` (no
+  lifespan). `uv run pytest tests/test_mcp_transport.py tests/test_public_access.py` → 6 passed;
+  full suite **169 passed**; `validate` passes.
+
 ### Transport wiring & gotchas (mostly S1)
 
 - `create_app()` — `src/vocky/app.py:46-70`: flat `routes=[…]`, **no `Mount` today** (confirmed); `lifespan` at `app.py:35-43` disposes Redis + engine on shutdown. Retired precedent (`9550179^:src/vocky/app.py`): `Mount("/mcp", app=mcp.streamable_http_app())` in routes + nest `async with mcp.session_manager.run():` around the existing `try/yield/finally`. Single nesting — no multi-lifespan orchestration; `session_manager.run()` **must** wrap the app lifetime or streamable-HTTP 500s at request time.
@@ -101,6 +131,7 @@ _Seeded by `P7.DECOMP`; S1/S2 append one-liners as they change durable truth. Th
 - **operations** — re-added `mcp[cli]` dep; any new MCP env vars (allowed hosts/origins).
 - Ancillary (non-versioned prose, not doc-set versions): `docs/local-public-access.md` and `docs/changple5-apply.md` describe the old static-token `/mcp` model and will need updating.
 - **[P7.S1]** architecture — `/mcp` FastMCP Streamable-HTTP mount restored (`Mount("/mcp")` + inner `streamable_http_path="/"`) with `session_manager.run()` nested in the host lifespan; still tool-less + unauthenticated. operations — re-added `mcp[cli]` dep (`mcp==1.28.1`) and MCP DNS-rebinding allowlist env (`VOCKY_MCP_ALLOWED_HOSTS` / `VOCKY_MCP_ALLOWED_ORIGINS`, localhost always allowed). security — transport-security decision confirmed: DNS-rebinding protection **on** by default, localhost allowlist, extendable via env (auth still deferred to S2).
+- **[P7.S2]** api — new write-only `capture_feedback` MCP tool contract (flat params, `source` nested, no `attachment_ids`; returns a capture receipt); `/mcp` authenticates with a per-project `vk_` Bearer key (the whole endpoint, initialize included); flip the "MCP retired" API status line. security — `/mcp` now requires a valid non-revoked per-project `vk_` credential via the broadened `ProjectCredentialAuthMiddleware` (same 401 + `last_used_at` stamp as `/api/*`); the static `VOCKY_MCP_AUTH_TOKEN` stays retired. architecture — the MCP write path feeds the shared capture queue/store (same `enqueue_feedback` → worker → `feedback_events` pipeline as REST), stamping `project_id` from the authenticating credential read off the ASGI scope via `ctx.request_context.request`; no separate storage path, no schema change. product + experience — agent-decided, write-only feedback capture is live again: an agent linked to a project's `/mcp` endpoint saves feedback at its own judgement. decisions — auth-binding = broaden the existing middleware + read the stashed credential off the request scope (not FastMCP-native `TokenVerifier`); input-model = thin `McpCaptureFeedbackInput` subclass; write-only scope kept (three read tools stay retired). backend — new `src/vocky/tools/capture_feedback.py` + re-added `install_protocol_aware_call_handler`/`make_error_result` in `mcp_server.py`. (`data` unchanged — reuses `feedback_events.project_id`.)
 
 ## Open Questions
 

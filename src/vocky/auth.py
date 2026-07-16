@@ -33,6 +33,12 @@ def is_api_path(path: str) -> bool:
     return path == "/api" or path.startswith("/api/")
 
 
+def is_mcp_path(path: str) -> bool:
+    """Return whether an HTTP path belongs to the public MCP transport."""
+
+    return path == "/mcp" or path.startswith("/mcp/")
+
+
 def is_authorized_bearer(authorization: str | None, expected_token: str) -> bool:
     """Validate a bearer Authorization header against the configured token."""
 
@@ -93,23 +99,27 @@ class AdminBearerAuthMiddleware:
 
 
 class ProjectCredentialAuthMiddleware:
-    """Require a valid, non-revoked per-project credential for public REST traffic.
+    """Require a valid, non-revoked per-project credential for public ingest traffic.
 
-    Ingest auth on ``/api/*`` is strictly mandatory: every request must present a
-    bearer token that resolves to an active project credential. Missing,
-    malformed, unknown, and revoked keys all answer a generic 401. On success the
-    resolved ``ProjectCredentialRecord`` is stashed under
-    ``PROJECT_CREDENTIAL_SCOPE_KEY`` so handlers (via ``get_request_credential``)
-    can scope capture and reads to the credential's project, and the credential's
-    ``last_used_at`` is stamped best-effort. A stamping failure never turns a
-    valid ingest request into a 500.
+    Ingest auth on ``/api/*`` **and** ``/mcp`` (the whole MCP transport, including
+    ``initialize``) is strictly mandatory: every request must present a bearer
+    token that resolves to an active project credential. Missing, malformed,
+    unknown, and revoked keys all answer a generic 401. On success the resolved
+    ``ProjectCredentialRecord`` is stashed under ``PROJECT_CREDENTIAL_SCOPE_KEY``
+    so handlers (REST via ``get_request_credential``, MCP tools via the same
+    helper off ``ctx.request_context.request``) can scope capture to the
+    credential's project, and the credential's ``last_used_at`` is stamped
+    best-effort. A stamping failure never turns a valid ingest request into a 500.
     """
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "http" and is_api_path(str(scope.get("path", ""))):
+        if scope["type"] == "http" and (
+            is_api_path(str(scope.get("path", "")))
+            or is_mcp_path(str(scope.get("path", "")))
+        ):
             authorization = (
                 dict(scope.get("headers", []))
                 .get(b"authorization", b"")
@@ -151,9 +161,10 @@ class ProjectCredentialAuthMiddleware:
 def get_request_credential(request: Request) -> ProjectCredentialRecord:
     """Return the per-project credential the ingest middleware resolved.
 
-    Only valid for ``/api/*`` requests that passed
-    ``ProjectCredentialAuthMiddleware``; the record carries ``.id`` and
-    ``.project_id`` for project-scoping capture and reads.
+    Only valid for ``/api/*`` and ``/mcp`` requests that passed
+    ``ProjectCredentialAuthMiddleware`` (both now carry the resolved credential on
+    the ASGI scope); the record carries ``.id`` and ``.project_id`` for
+    project-scoping capture and reads.
     """
 
     return request.scope[PROJECT_CREDENTIAL_SCOPE_KEY]

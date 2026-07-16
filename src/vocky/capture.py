@@ -55,6 +55,14 @@ class BaseCaptureFeedbackInput(BaseModel):
     attributes: dict[str, Any] = Field(default_factory=dict)
 
 
+class McpCaptureFeedbackInput(BaseCaptureFeedbackInput):
+    """Raw feedback capture input received through MCP.
+
+    Agents have no upload flow, so MCP capture stays attachment-free; the
+    ``attachment_ids`` field is declared only on the REST subclass.
+    """
+
+
 class RestCaptureFeedbackInput(BaseCaptureFeedbackInput):
     """Raw feedback capture input received through public REST.
 
@@ -285,6 +293,12 @@ def _normalize_capture_payload(raw: BaseCaptureFeedbackInput) -> NormalizedCaptu
         payload=payload,
         normalized_event_at=normalized_event_at,
     )
+
+
+def normalize_mcp_payload(raw: McpCaptureFeedbackInput) -> NormalizedCaptureFeedback:
+    """Normalize and validate a raw MCP capture payload."""
+
+    return _normalize_capture_payload(raw)
 
 
 def normalize_rest_payload(raw: RestCaptureFeedbackInput) -> NormalizedCaptureFeedback:
