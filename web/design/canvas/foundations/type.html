@@ -35,6 +35,11 @@
     line-height: var(--text-body-md--line-height);
     color: var(--color-slate);
   }
+  h2 {
+    margin: 34px 0 14px;
+    font-size: var(--text-heading-4);
+    font-weight: var(--text-heading-4--font-weight);
+  }
   .row { border-top: 1px solid var(--color-hairline-soft); padding: 14px 0; }
   .tok {
     display: block;
@@ -44,27 +49,133 @@
     color: var(--color-steel);
   }
   .sample { color: var(--color-ink); }
+  .fam {
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-md);
+    padding: 18px 20px;
+    margin-bottom: 14px;
+  }
+  .fam-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .fam-tok { font-family: var(--font-mono); font-size: var(--text-body-sm); font-weight: 600; color: var(--color-charcoal); }
+  .fam-face { font-family: var(--font-mono); font-size: var(--text-caption); color: var(--color-steel); }
+  .fam-why { margin: 0 0 12px; font-size: var(--text-body-sm); line-height: var(--text-body-sm--line-height); color: var(--color-slate); }
+  .fam-spec { font-size: var(--text-heading-3); line-height: var(--text-heading-3--line-height); letter-spacing: var(--text-heading-3--letter-spacing); color: var(--color-ink); }
+  .fam-spec-sm { margin-top: 6px; font-size: var(--text-body-md); line-height: var(--text-body-md--line-height); color: var(--color-slate); }
+  .flag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: var(--radius-full);
+    background: var(--color-surface-caution);
+    border: 1px solid var(--color-hairline-caution);
+    color: var(--color-caution-deep);
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    font-weight: var(--text-micro--font-weight);
+    text-transform: uppercase;
+  }
+  .note {
+    margin: 0 0 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--color-hairline);
+    border-left: 3px solid var(--color-green-deep);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-green);
+    max-width: 84ch;
+    font-size: var(--text-body-sm);
+    line-height: var(--text-body-sm--line-height);
+    color: var(--color-charcoal);
+  }
 </style>
 </head>
 <body>
   <p class="eyebrow">Foundations · Type</p>
   <h1>Type scale</h1>
   <p class="lede">
-    Every <code>--text-*</code> token with its bundled line-height / letter-spacing
-    / weight. Font is the placeholder Noto Sans KR (Korean-capable) — the Korean
-    line proves glyph coverage. Sizes are identical to hi2vi_web (names unchanged).
+    All three font families and every one of the 14 <code>--text-*</code> steps from
+    <code>web/design/canvas/tokens.css</code>, each with its bundled line-height /
+    letter-spacing / weight. The Korean lines prove glyph coverage. Sizes are identical
+    to hi2vi_web (names unchanged); values are finalized at the P8 design gate.
   </p>
 
-  <div class="row"><span class="tok">text-hero-display · 68 / 1.08 / 680</span><div class="sample" style="font-size:var(--text-hero-display);line-height:var(--text-hero-display--line-height);letter-spacing:var(--text-hero-display--letter-spacing);font-weight:var(--text-hero-display--font-weight)">Hero 히어로</div></div>
-  <div class="row"><span class="tok">text-heading-1 · 48 / 1.18 / 680</span><div class="sample" style="font-size:var(--text-heading-1);line-height:var(--text-heading-1--line-height);letter-spacing:var(--text-heading-1--letter-spacing);font-weight:var(--text-heading-1--font-weight)">Heading 제목</div></div>
-  <div class="row"><span class="tok">text-heading-2 · 36 / 1.25 / 680</span><div class="sample" style="font-size:var(--text-heading-2);line-height:var(--text-heading-2--line-height);letter-spacing:var(--text-heading-2--letter-spacing);font-weight:var(--text-heading-2--font-weight)">Heading 제목</div></div>
-  <div class="row"><span class="tok">text-heading-3 · 28 / 1.32 / 680</span><div class="sample" style="font-size:var(--text-heading-3);line-height:var(--text-heading-3--line-height);letter-spacing:var(--text-heading-3--letter-spacing);font-weight:var(--text-heading-3--font-weight)">Heading 제목</div></div>
+  <h2>Font families</h2>
+
+  <div class="fam">
+    <div class="fam-head">
+      <span class="fam-tok">--font-sans</span>
+      <span class="fam-face">Noto Sans KR → -apple-system, BlinkMacSystemFont, system-ui, sans-serif</span>
+    </div>
+    <p class="fam-why">
+      The body face, and the default for the whole app. Chosen because feedback content is
+      Korean — this face has to carry user-submitted Hangul, not just chrome.
+      Self-hosted in the app via <code>next/font/google</code> (<code>web/src/lib/fonts.ts</code>);
+      the canvas pulls it from Google Fonts.
+    </p>
+    <div class="fam-spec">Vocky 보이스 피드백 — 사용자 의견을 수집합니다</div>
+    <div class="fam-spec-sm">The quick brown fox jumps over the lazy dog · 0123456789</div>
+  </div>
+
+  <div class="fam">
+    <div class="fam-head">
+      <span class="fam-tok">--font-mono</span>
+      <span class="fam-face">JetBrains Mono → "SF Mono", Menlo, Consolas, monospace</span>
+    </div>
+    <p class="fam-why">
+      Code, API keys, endpoint paths, and every <code>.vlabel</code> caption on this canvas.
+      Self-hosted in the app via <code>next/font/google</code> alongside Noto Sans KR.
+    </p>
+    <div class="fam-spec" style="font-family:var(--font-mono)">const key = "vk_live_…"</div>
+    <div class="fam-spec-sm" style="font-family:var(--font-mono)">POST /v1/feedback · 0123456789 · Il1O0</div>
+  </div>
+
+  <div class="fam">
+    <div class="fam-head">
+      <span class="fam-tok">--font-en</span>
+      <span class="fam-face">-apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif</span>
+      <span class="flag">no vendored face</span>
+    </div>
+    <p class="fam-why">
+      <b>A bare system stack — there is no vocky face behind this token.</b> It resolves to
+      whatever the OS supplies, so it renders differently on every machine and its specimen
+      below is not a designed artifact. It is retained only because
+      <code>web/src/components/ui/button.tsx</code> sets <code>font-en</code> on the Button
+      base — so today every button in the app is typeset in the visitor's system font while
+      everything around it is Noto Sans KR. hi2vi backs the same token with Inter.
+      <b>Open question for this gate</b> — the token is currently invisible on the canvas and
+      undecided in the app.
+    </p>
+    <div class="fam-spec" style="font-family:var(--font-en)">Create project</div>
+    <div class="fam-spec-sm" style="font-family:var(--font-en)">The quick brown fox jumps over the lazy dog · 0123456789</div>
+  </div>
+
+  <h2>Type scale — 14 steps</h2>
+
+  <div class="row"><span class="tok">text-hero-display · 68 / 1.08 / -1.6 / 680</span><div class="sample" style="font-size:var(--text-hero-display);line-height:var(--text-hero-display--line-height);letter-spacing:var(--text-hero-display--letter-spacing);font-weight:var(--text-hero-display--font-weight)">Hero 히어로</div></div>
+  <div class="row"><span class="tok">text-display-lg · 56 / 1.12 / -1.2 / 680</span><div class="sample" style="font-size:var(--text-display-lg);line-height:var(--text-display-lg--line-height);letter-spacing:var(--text-display-lg--letter-spacing);font-weight:var(--text-display-lg--font-weight)">Display 디스플레이</div></div>
+  <div class="row"><span class="tok">text-heading-1 · 48 / 1.18 / -0.9 / 680</span><div class="sample" style="font-size:var(--text-heading-1);line-height:var(--text-heading-1--line-height);letter-spacing:var(--text-heading-1--letter-spacing);font-weight:var(--text-heading-1--font-weight)">Heading 제목</div></div>
+  <div class="row"><span class="tok">text-heading-2 · 36 / 1.25 / -0.5 / 680</span><div class="sample" style="font-size:var(--text-heading-2);line-height:var(--text-heading-2--line-height);letter-spacing:var(--text-heading-2--letter-spacing);font-weight:var(--text-heading-2--font-weight)">Heading 제목</div></div>
+  <div class="row"><span class="tok">text-heading-3 · 28 / 1.32 / -0.3 / 680</span><div class="sample" style="font-size:var(--text-heading-3);line-height:var(--text-heading-3--line-height);letter-spacing:var(--text-heading-3--letter-spacing);font-weight:var(--text-heading-3--font-weight)">Heading 제목</div></div>
   <div class="row"><span class="tok">text-heading-4 · 22 / 1.38 / 680</span><div class="sample" style="font-size:var(--text-heading-4);line-height:var(--text-heading-4--line-height);font-weight:var(--text-heading-4--font-weight)">Heading 제목</div></div>
-  <div class="row"><span class="tok">text-body-lg · 19 / 1.65 / 400</span><div class="sample" style="font-size:var(--text-body-lg);line-height:var(--text-body-lg--line-height)">Body large — 본문 텍스트 예시입니다.</div></div>
-  <div class="row"><span class="tok">text-body-md · 16 / 1.65 / 400</span><div class="sample" style="font-size:var(--text-body-md);line-height:var(--text-body-md--line-height)">Body medium — 본문 텍스트 예시입니다.</div></div>
-  <div class="row"><span class="tok">text-body-sm · 14 / 1.6 / 400</span><div class="sample" style="font-size:var(--text-body-sm);line-height:var(--text-body-sm--line-height)">Body small — 본문 텍스트 예시입니다.</div></div>
-  <div class="row"><span class="tok">text-caption · 13 / 1.45 / 450</span><div class="sample" style="font-size:var(--text-caption);line-height:var(--text-caption--line-height)">Caption — 캡션 텍스트</div></div>
-  <div class="row"><span class="tok">text-micro · 11 / 1.4 / 700 (uppercase)</span><div class="sample" style="font-size:var(--text-micro);letter-spacing:var(--text-micro--letter-spacing);font-weight:var(--text-micro--font-weight);text-transform:uppercase">Micro eyebrow</div></div>
-  <div class="row"><span class="tok">text-code-md · 13 / 1.55 (mono)</span><div class="sample" style="font-family:var(--font-mono);font-size:var(--text-code-md);line-height:var(--text-code-md--line-height)">const key = "vk_…"; // JetBrains Mono</div></div>
+  <div class="row"><span class="tok">text-body-lg · 19 / 1.65 / 400</span><div class="sample" style="font-size:var(--text-body-lg);line-height:var(--text-body-lg--line-height);font-weight:var(--text-body-lg--font-weight)">Body large — 본문 텍스트 예시입니다.</div></div>
+  <div class="row"><span class="tok">text-body-md · 16 / 1.65 / 400</span><div class="sample" style="font-size:var(--text-body-md);line-height:var(--text-body-md--line-height);font-weight:var(--text-body-md--font-weight)">Body medium — 본문 텍스트 예시입니다.</div></div>
+  <div class="row"><span class="tok">text-body-md-medium · 16 / 1.6 / 550</span><div class="sample" style="font-size:var(--text-body-md-medium);line-height:var(--text-body-md-medium--line-height);font-weight:var(--text-body-md-medium--font-weight)">Body medium (550) — 본문 강조 텍스트입니다.</div></div>
+  <div class="row"><span class="tok">text-body-sm · 14 / 1.6 / 400</span><div class="sample" style="font-size:var(--text-body-sm);line-height:var(--text-body-sm--line-height);font-weight:var(--text-body-sm--font-weight)">Body small — 본문 텍스트 예시입니다.</div></div>
+  <div class="row"><span class="tok">text-caption · 13 / 1.45 / 450</span><div class="sample" style="font-size:var(--text-caption);line-height:var(--text-caption--line-height);font-weight:var(--text-caption--font-weight)">Caption — 캡션 텍스트</div></div>
+  <div class="row"><span class="tok">text-micro · 11 / 1.4 / 1px / 700 (uppercase)</span><div class="sample" style="font-size:var(--text-micro);line-height:var(--text-micro--line-height);letter-spacing:var(--text-micro--letter-spacing);font-weight:var(--text-micro--font-weight);text-transform:uppercase">Micro eyebrow</div></div>
+  <div class="row"><span class="tok">text-button-md · 14 / 1.3 / 700 (font-en)</span><div class="sample" style="font-family:var(--font-en);font-size:var(--text-button-md);line-height:var(--text-button-md--line-height);font-weight:var(--text-button-md--font-weight)">Create project</div></div>
+  <div class="row"><span class="tok">text-code-md · 13 / 1.55 / 400 (mono)</span><div class="sample" style="font-family:var(--font-mono);font-size:var(--text-code-md);line-height:var(--text-code-md--line-height);font-weight:var(--text-code-md--font-weight)">const key = "vk_…"; // JetBrains Mono</div></div>
+
+  <h2>Korean line-breaking</h2>
+  <p class="note">
+    <code>globals.css</code> sets <code>h1–h6 { word-break: keep-all }</code>. Korean has no
+    inter-word break opportunity by default, so without this a heading breaks mid-word
+    (mid-어절). It is load-bearing for every Korean heading in the app and must survive any
+    type change made at this gate.
+  </p>
 </body>
 </html>

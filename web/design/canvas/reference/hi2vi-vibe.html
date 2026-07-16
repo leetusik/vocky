@@ -1,0 +1,332 @@
+<!-- @dsCard group="Reference" name="hi2vi vibe (reference)" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>vocky · hi2vi vibe (reference)</title>
+<link rel="stylesheet" href="../tokens.css" />
+<style>
+  body {
+    margin: 0;
+    padding: 40px;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+  .eyebrow {
+    font-size: var(--text-micro);
+    letter-spacing: var(--text-micro--letter-spacing);
+    font-weight: var(--text-micro--font-weight);
+    text-transform: uppercase;
+    color: var(--color-steel);
+  }
+  h1 {
+    margin: 6px 0 4px;
+    font-size: var(--text-heading-2);
+    line-height: var(--text-heading-2--line-height);
+    letter-spacing: var(--text-heading-2--letter-spacing);
+    font-weight: var(--text-heading-2--font-weight);
+  }
+  .lede {
+    margin: 0 0 24px;
+    max-width: 74ch;
+    font-size: var(--text-body-md);
+    line-height: var(--text-body-md--line-height);
+    color: var(--color-slate);
+  }
+  h2 {
+    margin: 34px 0 12px;
+    font-size: var(--text-heading-4);
+    line-height: var(--text-heading-4--line-height);
+    font-weight: var(--text-heading-4--font-weight);
+  }
+  .banner {
+    margin: 0 0 28px;
+    padding: 18px 20px;
+    border: 2px solid var(--color-forest-mid);
+    border-radius: var(--radius-lg);
+    background: var(--color-forest);
+    color: var(--color-on-dark);
+    max-width: 86ch;
+  }
+  .banner .btitle {
+    margin-bottom: 8px;
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    letter-spacing: var(--text-micro--letter-spacing);
+    font-weight: var(--text-micro--font-weight);
+    text-transform: uppercase;
+    color: var(--color-security-mint);
+  }
+  .banner p {
+    margin: 0 0 8px;
+    font-size: var(--text-body-sm);
+    line-height: var(--text-body-sm--line-height);
+    color: var(--color-on-dark-muted);
+  }
+  .banner p:last-child { margin-bottom: 0; }
+  .banner b { color: var(--color-on-dark); font-weight: 600; }
+  .finding {
+    margin: 0 0 20px;
+    padding: 16px 18px;
+    border: 1px solid var(--color-hairline);
+    border-left: 3px solid var(--color-green-deep);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-green);
+    max-width: 86ch;
+    font-size: var(--text-body-sm);
+    line-height: var(--text-body-sm--line-height);
+    color: var(--color-charcoal);
+  }
+  .finding b { font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; max-width: 900px; }
+  th {
+    padding: 8px 10px;
+    border-bottom: 2px solid var(--color-hairline-strong);
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: var(--text-caption);
+    font-weight: 600;
+    color: var(--color-charcoal);
+  }
+  td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--color-hairline-soft);
+    font-size: var(--text-caption);
+    color: var(--color-steel);
+    vertical-align: middle;
+  }
+  tr.grp td {
+    padding-top: 18px;
+    border-bottom: 1px solid var(--color-hairline);
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    letter-spacing: var(--text-micro--letter-spacing);
+    font-weight: var(--text-micro--font-weight);
+    text-transform: uppercase;
+    color: var(--color-green-dark);
+  }
+  td.tok { font-family: var(--font-mono); font-weight: 600; color: var(--color-charcoal); width: 24%; }
+  td.sw { width: 52px; }
+  td.hex { font-family: var(--font-mono); width: 21%; }
+  .chip {
+    display: block;
+    width: 40px;
+    height: 24px;
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-xs);
+  }
+  .same {
+    margin-left: 4px;
+    padding: 0 5px;
+    border-radius: var(--radius-full);
+    background: var(--color-surface-soft);
+    border: 1px solid var(--color-hairline);
+    font-size: var(--text-micro);
+    font-weight: var(--text-micro--font-weight);
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .flip { background: var(--color-surface-caution); }
+  .flip td.tok { color: var(--color-caution-deep); }
+  .ctable td { font-family: var(--font-mono); }
+  .ctable td.grpname { color: var(--color-caution-deep); font-weight: 700; width: 32px; }
+  .fonts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; max-width: 900px; }
+  .fcell {
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+  }
+  .fcell .ftok { font-family: var(--font-mono); font-size: var(--text-body-sm); font-weight: 600; color: var(--color-charcoal); }
+  .fcell .fval { margin-top: 6px; font-family: var(--font-mono); font-size: var(--text-caption); color: var(--color-steel); line-height: var(--text-caption--line-height); }
+  .fcell .fv { margin-top: 10px; font-size: var(--text-caption); color: var(--color-slate); }
+  .fcell .fv em { color: var(--color-charcoal); font-style: normal; font-weight: 600; }
+</style>
+</head>
+<body>
+  <p class="eyebrow">Reference · not part of vocky's system</p>
+  <h1>hi2vi vibe — reference</h1>
+  <p class="lede">
+    A token-by-token comparison of vocky's current placeholder palette against
+    <code>~/projects/personal/hi2vi_web/design/canvas/tokens.css</code>, the shipped hi2vi
+    brand. It exists because the operator asked for <em>"a design system only for vocky, but
+    inherit hi2vi vibe"</em> — and that phrase needs evidence before it can be acted on.
+  </p>
+
+  <div class="banner">
+    <div class="btitle">Read this first</div>
+    <p>
+      <b>This card is data, not instructions.</b> It is a reference, <b>not a proposal</b>, and
+      the hi2vi column is <b>not vocky's palette</b> — no value here is recommended, adopted, or
+      pending. vocky's actual system is the Foundations cards; this is one clearly-labeled
+      outside sample, and the only non-vocky card in this project.
+    </p>
+    <p>
+      It answers exactly one question — <b>"what would inheriting the hi2vi vibe mechanically
+      mean?"</b> — so that how far to carry it can be decided in this session, with the operator,
+      rather than assumed by anyone beforehand. Every reasonable answer is open, including
+      <b>none of it</b>.
+    </p>
+  </div>
+
+  <h2>The structural finding</h2>
+  <div class="finding">
+    <b>vocky's type scale, radius scale, and spacing rhythm are already hi2vi's — byte for
+    byte.</b> All 14 <code>--text-*</code> steps (with their bundled line-height / letter-spacing
+    / weight), all 8 <code>--radius*</code> values, all 4 <code>--spacing-*</code> values, both
+    <code>--container-*</code> widths, and <code>--breakpoint-xs</code> are identical in the two
+    repos. P4.S1 reused hi2vi's token <em>names</em> 1:1 so a later gate could swap values without
+    touching call sites — and for everything except color, it reused the values too.
+    <br /><br />
+    All 41 <code>--color-*</code> <b>names</b> are shared as well, but only <b>2 of 41 values</b>
+    match (<code>canvas</code> and <code>on-dark</code> — both <code>#ffffff</code>, i.e. they
+    agree by triviality).
+    <br /><br />
+    <b>So "inherit the hi2vi vibe" mechanically reduces to 39 color values plus the typefaces.</b>
+    There is no structural gap to close; the gap is chromatic and typographic.
+  </div>
+
+  <h2>The placeholder's swatch collisions are lost hi2vi distinctions</h2>
+  <div class="finding">
+    vocky's Colors card marks <b>8 groups of duplicate swatches</b> — 21 tokens collapsed onto 8
+    values, because a slate ramp has fewer distinct steps than the names need. <b>7 of the 8 are
+    distinctions hi2vi still draws.</b> That is a fact about the placeholder, not an argument for
+    hi2vi's values: any palette with enough range would separate them, and this table shows only
+    how one existing palette happens to.
+  </div>
+  <table class="ctable">
+    <thead>
+      <tr><th></th><th>vocky collapses</th><th>into</th><th>hi2vi keeps them as</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="grpname">A</td><td>ink · canvas-dark</td><td>#0f172a</td><td>#061512 · #061512 — <em>also collide; not a lost distinction</em></td></tr>
+      <tr><td class="grpname">B</td><td>forest · charcoal</td><td>#1e293b</td><td>#0b2a22 · #18231f</td></tr>
+      <tr><td class="grpname">C</td><td>forest-mid · hairline-dark · slate</td><td>#334155</td><td>#123b31 · #24463b · #41524a</td></tr>
+      <tr><td class="grpname">D</td><td>trust-sage · hairline-strong · on-dark-muted</td><td>#cbd5e1</td><td>#c8e6d2 · #b8c8bf · #afc5ba</td></tr>
+      <tr><td class="grpname">E</td><td>archive-olive · muted</td><td>#94a3b8</td><td>#a8c85a · #93a39b</td></tr>
+      <tr><td class="grpname">F</td><td>archive-cream · surface-soft · surface-band · hairline-soft</td><td>#f1f5f9</td><td>#f3f0d8 · #f1f6f2 · #eef6f1 · #ebf1ed</td></tr>
+      <tr><td class="grpname">G</td><td>canvas · on-dark · <b>on-primary</b></td><td>#ffffff</td><td>#ffffff · #ffffff · <b>#061512</b></td></tr>
+      <tr><td class="grpname">H</td><td>surface-green · surface-security</td><td>#eef2ff</td><td>#effbf4 · #f0faf5</td></tr>
+    </tbody>
+  </table>
+
+  <h2>The <code>on-primary</code> flip — group G</h2>
+  <div class="finding">
+    <b>The sharpest row, and the one with a live consequence.</b> hi2vi's CTA is bright green
+    (<code>#2ff28f</code>), so its <code>--color-on-primary</code> is <b>dark</b>
+    (<code>#061512</code>) — dark text on a luminous button. vocky's placeholder CTA is indigo
+    (<code>#6366f1</code>), which needs <b>white</b> text, so <code>on-primary</code> became
+    <code>#ffffff</code> and collapsed into the <code>canvas</code>/<code>on-dark</code> group.
+    P4.S1 recorded this as <em>"one semantic flip was required"</em> — the single place where a
+    name kept from hi2vi could not keep its polarity.
+    <br /><br />
+    It is worth noting because it is <b>not free-floating</b>: <code>on-primary</code>'s polarity
+    is a function of whatever accent gets chosen here. A bright accent flips it back to dark; a
+    saturated mid-tone one keeps it white. It follows from the accent decision rather than being
+    decided on its own.
+  </div>
+
+  <h2>Typefaces — the other half of the gap</h2>
+  <div class="finding">
+    The only non-color tokens that differ. hi2vi vendors real faces into its canvas
+    (<code>@font-face</code> from <code>./fonts/</code>); vocky's canvas pulls from Google Fonts
+    and the app self-hosts via <code>next/font/google</code> (<code>web/src/lib/fonts.ts</code>).
+    <b>The two systems agree on mono and diverge on the other two</b> — and vocky's
+    <code>--font-en</code> is not a choice so much as an absence.
+  </div>
+  <div class="fonts">
+    <div class="fcell">
+      <div class="ftok">--font-sans</div>
+      <div class="fval">vocky &nbsp;→&nbsp; Noto Sans KR<br />hi2vi &nbsp;→&nbsp; Pretendard</div>
+      <div class="fv">
+        <em>Both are Korean-capable.</em> vocky picked Noto Sans KR because feedback content is
+        Korean; hi2vi uses Pretendard, also a Hangul face. This is the one row where the two are
+        solving the same problem with different faces.
+      </div>
+    </div>
+    <div class="fcell">
+      <div class="ftok">--font-en</div>
+      <div class="fval">vocky &nbsp;→&nbsp; <b>bare system stack</b><br />hi2vi &nbsp;→&nbsp; Inter</div>
+      <div class="fv">
+        <em>vocky has no face here at all</em> — the token resolves to whatever the OS gives.
+        It survives only because <code>button.tsx</code> sets <code>font-en</code>, so every
+        vocky button renders in the visitor's system font. hi2vi backs the same token with Inter.
+      </div>
+    </div>
+    <div class="fcell">
+      <div class="ftok">--font-mono</div>
+      <div class="fval">vocky &nbsp;→&nbsp; JetBrains Mono<br />hi2vi &nbsp;→&nbsp; JetBrains Mono</div>
+      <div class="fv">
+        <em>Already the same face.</em> Only the internal root variable name differs
+        (<code>--font-jetbrains-mono</code> vs <code>--font-jetbrains</code>); the stack and
+        fallbacks are identical.
+      </div>
+    </div>
+  </div>
+
+  <h2>All 41 color tokens, side by side</h2>
+  <div class="finding">
+    Shared names, in <code>tokens.css</code> declaration order. <b>vocky chips render live from
+    <code>var(--color-*)</code></b> — they change if the palette changes. <b>hi2vi chips are
+    literal hex</b>, since those values exist in no vocky token and are only quoted here.
+  </div>
+  <table>
+    <thead>
+      <tr><th>token</th><th colspan="2">vocky — now (placeholder)</th><th colspan="2">hi2vi — shipped brand</th></tr>
+    </thead>
+    <tbody>
+    <tr class="grp"><td colspan="5">Dark surfaces</td></tr>
+    <tr><td class="tok">ink</td><td class="sw"><span class="chip" style="background:var(--color-ink)"></span></td><td class="hex">#0f172a</td><td class="sw"><span class="chip" style="background:#061512"></span></td><td class="hex">#061512 </td></tr>
+    <tr><td class="tok">canvas-dark</td><td class="sw"><span class="chip" style="background:var(--color-canvas-dark)"></span></td><td class="hex">#0f172a</td><td class="sw"><span class="chip" style="background:#061512"></span></td><td class="hex">#061512 </td></tr>
+    <tr><td class="tok">forest</td><td class="sw"><span class="chip" style="background:var(--color-forest)"></span></td><td class="hex">#1e293b</td><td class="sw"><span class="chip" style="background:#0b2a22"></span></td><td class="hex">#0b2a22 </td></tr>
+    <tr><td class="tok">forest-mid</td><td class="sw"><span class="chip" style="background:var(--color-forest-mid)"></span></td><td class="hex">#334155</td><td class="sw"><span class="chip" style="background:#123b31"></span></td><td class="hex">#123b31 </td></tr>
+    <tr><td class="tok">forest-soft</td><td class="sw"><span class="chip" style="background:var(--color-forest-soft)"></span></td><td class="hex">#475569</td><td class="sw"><span class="chip" style="background:#1b4a3d"></span></td><td class="hex">#1b4a3d </td></tr>
+    <tr class="grp"><td colspan="5">Accent — indigo now / signal green in hi2vi</td></tr>
+    <tr><td class="tok">green</td><td class="sw"><span class="chip" style="background:var(--color-green)"></span></td><td class="hex">#6366f1</td><td class="sw"><span class="chip" style="background:#2ff28f"></span></td><td class="hex">#2ff28f </td></tr>
+    <tr><td class="tok">green-deep</td><td class="sw"><span class="chip" style="background:var(--color-green-deep)"></span></td><td class="hex">#4f46e5</td><td class="sw"><span class="chip" style="background:#00b66a"></span></td><td class="hex">#00b66a </td></tr>
+    <tr><td class="tok">green-dark</td><td class="sw"><span class="chip" style="background:var(--color-green-dark)"></span></td><td class="hex">#4338ca</td><td class="sw"><span class="chip" style="background:#007a4d"></span></td><td class="hex">#007a4d </td></tr>
+    <tr><td class="tok">green-soft</td><td class="sw"><span class="chip" style="background:var(--color-green-soft)"></span></td><td class="hex">#e0e7ff</td><td class="sw"><span class="chip" style="background:#ddfbea"></span></td><td class="hex">#ddfbea </td></tr>
+    <tr class="grp"><td colspan="5">Security accents</td></tr>
+    <tr><td class="tok">security-mint</td><td class="sw"><span class="chip" style="background:var(--color-security-mint)"></span></td><td class="hex">#c7d2fe</td><td class="sw"><span class="chip" style="background:#9af7c7"></span></td><td class="hex">#9af7c7 </td></tr>
+    <tr><td class="tok">security-teal</td><td class="sw"><span class="chip" style="background:var(--color-security-teal)"></span></td><td class="hex">#818cf8</td><td class="sw"><span class="chip" style="background:#1fcb91"></span></td><td class="hex">#1fcb91 </td></tr>
+    <tr><td class="tok">trust-sage</td><td class="sw"><span class="chip" style="background:var(--color-trust-sage)"></span></td><td class="hex">#cbd5e1</td><td class="sw"><span class="chip" style="background:#c8e6d2"></span></td><td class="hex">#c8e6d2 </td></tr>
+    <tr class="grp"><td colspan="5">Warm history accents</td></tr>
+    <tr><td class="tok">victory-lime</td><td class="sw"><span class="chip" style="background:var(--color-victory-lime)"></span></td><td class="hex">#a5b4fc</td><td class="sw"><span class="chip" style="background:#b7e65b"></span></td><td class="hex">#b7e65b </td></tr>
+    <tr><td class="tok">archive-olive</td><td class="sw"><span class="chip" style="background:var(--color-archive-olive)"></span></td><td class="hex">#94a3b8</td><td class="sw"><span class="chip" style="background:#a8c85a"></span></td><td class="hex">#a8c85a </td></tr>
+    <tr><td class="tok">archive-cream</td><td class="sw"><span class="chip" style="background:var(--color-archive-cream)"></span></td><td class="hex">#f1f5f9</td><td class="sw"><span class="chip" style="background:#f3f0d8"></span></td><td class="hex">#f3f0d8 </td></tr>
+    <tr class="grp"><td colspan="5">Signal states</td></tr>
+    <tr><td class="tok">danger</td><td class="sw"><span class="chip" style="background:var(--color-danger)"></span></td><td class="hex">#dc2626</td><td class="sw"><span class="chip" style="background:#d4503c"></span></td><td class="hex">#d4503c </td></tr>
+    <tr><td class="tok">danger-deep</td><td class="sw"><span class="chip" style="background:var(--color-danger-deep)"></span></td><td class="hex">#b91c1c</td><td class="sw"><span class="chip" style="background:#a83c29"></span></td><td class="hex">#a83c29 </td></tr>
+    <tr><td class="tok">surface-danger</td><td class="sw"><span class="chip" style="background:var(--color-surface-danger)"></span></td><td class="hex">#fef2f2</td><td class="sw"><span class="chip" style="background:#fdeeea"></span></td><td class="hex">#fdeeea </td></tr>
+    <tr><td class="tok">hairline-danger</td><td class="sw"><span class="chip" style="background:var(--color-hairline-danger)"></span></td><td class="hex">#fecaca</td><td class="sw"><span class="chip" style="background:#f1d3cc"></span></td><td class="hex">#f1d3cc </td></tr>
+    <tr><td class="tok">caution</td><td class="sw"><span class="chip" style="background:var(--color-caution)"></span></td><td class="hex">#d97706</td><td class="sw"><span class="chip" style="background:#bd7b1c"></span></td><td class="hex">#bd7b1c </td></tr>
+    <tr><td class="tok">caution-deep</td><td class="sw"><span class="chip" style="background:var(--color-caution-deep)"></span></td><td class="hex">#b45309</td><td class="sw"><span class="chip" style="background:#8a5810"></span></td><td class="hex">#8a5810 </td></tr>
+    <tr><td class="tok">surface-caution</td><td class="sw"><span class="chip" style="background:var(--color-surface-caution)"></span></td><td class="hex">#fffbeb</td><td class="sw"><span class="chip" style="background:#fbf2df"></span></td><td class="hex">#fbf2df </td></tr>
+    <tr><td class="tok">hairline-caution</td><td class="sw"><span class="chip" style="background:var(--color-hairline-caution)"></span></td><td class="hex">#fde68a</td><td class="sw"><span class="chip" style="background:#ebddbf"></span></td><td class="hex">#ebddbf </td></tr>
+    <tr class="grp"><td colspan="5">Light surfaces</td></tr>
+    <tr><td class="tok">canvas</td><td class="sw"><span class="chip" style="background:var(--color-canvas)"></span></td><td class="hex">#ffffff</td><td class="sw"><span class="chip" style="background:#ffffff"></span></td><td class="hex">#ffffff <span class="same">identical</span></td></tr>
+    <tr><td class="tok">surface</td><td class="sw"><span class="chip" style="background:var(--color-surface)"></span></td><td class="hex">#f8fafc</td><td class="sw"><span class="chip" style="background:#f7faf7"></span></td><td class="hex">#f7faf7 </td></tr>
+    <tr><td class="tok">surface-soft</td><td class="sw"><span class="chip" style="background:var(--color-surface-soft)"></span></td><td class="hex">#f1f5f9</td><td class="sw"><span class="chip" style="background:#f1f6f2"></span></td><td class="hex">#f1f6f2 </td></tr>
+    <tr><td class="tok">surface-green</td><td class="sw"><span class="chip" style="background:var(--color-surface-green)"></span></td><td class="hex">#eef2ff</td><td class="sw"><span class="chip" style="background:#effbf4"></span></td><td class="hex">#effbf4 </td></tr>
+    <tr><td class="tok">surface-archive</td><td class="sw"><span class="chip" style="background:var(--color-surface-archive)"></span></td><td class="hex">#f9fafb</td><td class="sw"><span class="chip" style="background:#fbfaf0"></span></td><td class="hex">#fbfaf0 </td></tr>
+    <tr><td class="tok">surface-security</td><td class="sw"><span class="chip" style="background:var(--color-surface-security)"></span></td><td class="hex">#eef2ff</td><td class="sw"><span class="chip" style="background:#f0faf5"></span></td><td class="hex">#f0faf5 </td></tr>
+    <tr><td class="tok">surface-band</td><td class="sw"><span class="chip" style="background:var(--color-surface-band)"></span></td><td class="hex">#f1f5f9</td><td class="sw"><span class="chip" style="background:#eef6f1"></span></td><td class="hex">#eef6f1 </td></tr>
+    <tr class="grp"><td colspan="5">Hairlines / borders</td></tr>
+    <tr><td class="tok">hairline</td><td class="sw"><span class="chip" style="background:var(--color-hairline)"></span></td><td class="hex">#e2e8f0</td><td class="sw"><span class="chip" style="background:#dce6df"></span></td><td class="hex">#dce6df </td></tr>
+    <tr><td class="tok">hairline-soft</td><td class="sw"><span class="chip" style="background:var(--color-hairline-soft)"></span></td><td class="hex">#f1f5f9</td><td class="sw"><span class="chip" style="background:#ebf1ed"></span></td><td class="hex">#ebf1ed </td></tr>
+    <tr><td class="tok">hairline-strong</td><td class="sw"><span class="chip" style="background:var(--color-hairline-strong)"></span></td><td class="hex">#cbd5e1</td><td class="sw"><span class="chip" style="background:#b8c8bf"></span></td><td class="hex">#b8c8bf </td></tr>
+    <tr><td class="tok">hairline-dark</td><td class="sw"><span class="chip" style="background:var(--color-hairline-dark)"></span></td><td class="hex">#334155</td><td class="sw"><span class="chip" style="background:#24463b"></span></td><td class="hex">#24463b </td></tr>
+    <tr class="grp"><td colspan="5">Text</td></tr>
+    <tr><td class="tok">charcoal</td><td class="sw"><span class="chip" style="background:var(--color-charcoal)"></span></td><td class="hex">#1e293b</td><td class="sw"><span class="chip" style="background:#18231f"></span></td><td class="hex">#18231f </td></tr>
+    <tr><td class="tok">slate</td><td class="sw"><span class="chip" style="background:var(--color-slate)"></span></td><td class="hex">#334155</td><td class="sw"><span class="chip" style="background:#41524a"></span></td><td class="hex">#41524a </td></tr>
+    <tr><td class="tok">steel</td><td class="sw"><span class="chip" style="background:var(--color-steel)"></span></td><td class="hex">#64748b</td><td class="sw"><span class="chip" style="background:#687a72"></span></td><td class="hex">#687a72 </td></tr>
+    <tr><td class="tok">muted</td><td class="sw"><span class="chip" style="background:var(--color-muted)"></span></td><td class="hex">#94a3b8</td><td class="sw"><span class="chip" style="background:#93a39b"></span></td><td class="hex">#93a39b </td></tr>
+    <tr class="grp"><td colspan="5">On-* text</td></tr>
+    <tr><td class="tok">on-dark</td><td class="sw"><span class="chip" style="background:var(--color-on-dark)"></span></td><td class="hex">#ffffff</td><td class="sw"><span class="chip" style="background:#ffffff"></span></td><td class="hex">#ffffff <span class="same">identical</span></td></tr>
+    <tr><td class="tok">on-dark-muted</td><td class="sw"><span class="chip" style="background:var(--color-on-dark-muted)"></span></td><td class="hex">#cbd5e1</td><td class="sw"><span class="chip" style="background:#afc5ba"></span></td><td class="hex">#afc5ba </td></tr>
+    <tr class="flip"><td class="tok">on-primary</td><td class="sw"><span class="chip" style="background:var(--color-on-primary)"></span></td><td class="hex">#ffffff</td><td class="sw"><span class="chip" style="background:#061512"></span></td><td class="hex">#061512 <span class="same" style="background:var(--color-surface-caution);border-color:var(--color-hairline-caution);color:var(--color-caution-deep)">flip</span></td></tr>
+    </tbody>
+  </table>
+</body>
+</html>

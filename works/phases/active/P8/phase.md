@@ -168,6 +168,71 @@ despite the `implementation` label.
 - **From `P4.REVIEW`:** on `/projects/[id]` **no rail item is marked current** (projects aren't a rail item) —
   flagged there as "worth a deliberate call when the rail grows."
 
+### Added by `P8.S1` (foundations cards + hi2vi reference card)
+
+**The vocky↔hi2vi comparison is now measured, not estimated — do not re-derive it.** Re-extracted
+mechanically from both `tokens.css` files at S1; **every `P8.DECOMP`/plan finding verified exactly**:
+
+- `--color-*`: **41/41 names shared, 2/41 values identical** (`canvas`, `on-dark` — both `#ffffff`,
+  i.e. agreeing by triviality). All **8 collision groups** reproduce precisely.
+- `--text-*` (48 incl. bundled), `--radius*` (8), `--spacing-*` (4), `--container-*` (2),
+  `--breakpoint-xs` (1): **names 100% shared, zero differing values — byte-identical.**
+- **So "inherit hi2vi vibe" mechanically reduces to 39 color values + the typefaces.** There is no
+  structural gap; the gap is chromatic and typographic. `--font-mono` is *already the same face*
+  (JetBrains Mono) — only the internal root var name differs. So the real type gap is 2 tokens:
+  `--font-sans` (Noto Sans KR vs Pretendard — both Korean-capable) and `--font-en`.
+
+**Two shipped-code claims verified at S1** (both now asserted on cards; safe to rely on):
+
+- **`font-en` has exactly one call site** — `web/src/components/ui/button.tsx:18`, the
+  `buttonVariants` base. Every button in the app therefore renders in the *visitor's system font*
+  while its surroundings are Noto Sans KR.
+- **`--breakpoint-xs` has zero consumers** — declared `globals.css:176`, no `xs:` variant anywhere
+  in `web/src/`, against **11** hardcoded `min-[900px]:`. vocky's one declared breakpoint is unused;
+  its one real breakpoint is untokenized.
+
+**Canvas structure**
+
+- **`reference/` is a NEW top-level canvas dir** (`web/design/canvas/reference/hi2vi-vibe.html`),
+  sibling to `foundations/`. **`P8.S6`'s manifest rebuild must enumerate it.** Its group is
+  `Reference` — the only group outside `Foundations`/`Components`/`Sections`, and the **only
+  non-vocky card in the project**. `../tokens.css` resolves (same depth as `foundations/`).
+- **Card inventory after S1: 11 cards** — 3 foundations, 6 components, 1 section (the fictional
+  `dashboard-placeholder`, which **S4 deletes**), 1 reference.
+- **All 11 cards' `@dsCard` markers are well-formed** as of S1 (verified programmatically).
+- **Hex labels are literal text and drift on a value swap** — CSS cannot read a custom property into
+  `content`; accepted by plan. The post-gate read-back must update labels alongside values in
+  **three** places: `colors.html`, `hi2vi-vibe.html`'s vocky column, and the collision tables in both.
+- The card convention (`.eyebrow` → `<h1>` → `.lede` → specimens + `.vlabel`) held fine at 4× the
+  reference card length (332 lines vs the 38–109 measured at decomposition). **Cards may now run
+  100–330 lines** — the 38–109 range is stale.
+
+**Corrections to the record**
+
+- **`P8.S1`'s plan miscounted `colors.html` coverage in prose** — it said "22 of 41 shown / the 19
+  absent", but the pre-edit card showed **20**, so **21** were absent. The plan's *enumerated list of
+  21 names* was exactly correct (verified: list == absent set); only the two prose numbers slipped.
+  Now moot — all 41 ship — but noted so no later slice re-derives it.
+- **`tokens.css`'s own color grouping is 9 groups, not 7.** The plan's 7-way role split leaves the
+  tint tokens (`security-*`, `trust-sage`, `victory-lime`, `archive-*`) homeless; `colors.html` now
+  mirrors the source's own grouping (adding *Secondary accent tints* + *Muted decorative accents*).
+  **S2–S5 should mirror `tokens.css`'s grouping** rather than invent one.
+
+**Gate questions — surfaced on-card, unanswered (for `P8.S7`'s briefing)**
+
+S1 planted three question markers directly in the Foundations/Reference cards, so the session meets
+them in context rather than only in the briefing. **All are stated as facts with no recommendation:**
+
+- **`--font-en` has no vendored face** — labeled *"Open question for this gate"* on `type.html`,
+  with a live specimen showing it resolving to the system font. Previously invisible on the canvas.
+- **`--breakpoint-xs` has no consumer** — labeled *"Open question for this gate"* on
+  `spacing-radius.html`, beside the 11 `min-[900px]:` call sites. **This is a new phase-level open
+  question** not in the list below: *should `xs` be adopted, dropped, or should the real 900px
+  breakpoint be tokenized?* `P8.S7` should carry it.
+- **The `on-primary` flip** — presented on the reference card as *following from* the accent choice
+  (a bright accent flips it dark; a saturated mid-tone keeps it white) rather than as an independent
+  question, since P4.S1's "one semantic flip was required" already established the dependency.
+
 **Traps the implementation will hit**
 
 - **Token drift defeats a pure value swap.** Hardcoded literals a palette change leaves stale:
@@ -230,6 +295,11 @@ _Running list for `P8.REVIEW` to consolidate into doc versions. Append one line 
   calls the design gate "P6" (`frontend.md`, `decisions.md` D-P4-3, `experience.md`, `architecture.md`,
   `product.md`). P8 supersedes D-P4-3 and absorbs the landing design + build, leaving P6 deploy-only. `P8.REVIEW`
   must consolidate this.
+- `P8.S1` — **`frontend.md`** (§`design/canvas/`, lines 57 + 74) is now stale on canvas structure: it lists the card
+  dirs as `foundations/`, `components/`, `sections/` and the inventory as **10 cards**. S1 adds a fourth dir,
+  **`reference/`** (group `Reference`; the only non-vocky card), taking it to 11. **The count keeps moving through
+  S2–S5** (S2 +3, S4 −1 +3, S5 +4), so `P8.REVIEW` should consolidate the *final* structure + count once, not
+  track it per slice. Same two lines also carry the "the heavy session is P6" staleness already noted above.
 
 ## Open Questions
 
