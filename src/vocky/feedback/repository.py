@@ -39,6 +39,35 @@ from vocky.persistence.models import (
 logger = logging.getLogger(__name__)
 
 
+def _feedback_search_target() -> Any:
+    """Build the immutable free-text search target expression.
+
+    Concatenates the user-visible text columns with single-space separators and
+    ``coalesce`` to guard NULLs, rendering as
+    ``coalesce(message,'') || ' ' || coalesce(comment,'') || ' ' ||
+    coalesce(target_text,'') || ' ' || coalesce(trigger_message,'')``.
+
+    This is the **single source of truth** for the ``search`` predicate. The
+    ``pg_trgm`` GIN index (migration ``20260716_1600``,
+    ``ix_feedback_events_search_trgm``) indexes this exact expression so the
+    planner can accelerate the ILIKE substring match. Only immutable operators
+    (``||``/``coalesce``) are used — ``concat``/``concat_ws`` are merely STABLE
+    and cannot back an expression index. The substring (``icontains``) predicate
+    is language-agnostic: it matches Korean 조사-attached forms (``결제`` ⊂
+    ``결제를``) and English uniformly, with no text-search configuration.
+    """
+
+    return (
+        func.coalesce(FeedbackEventModel.message, "")
+        .concat(" ")
+        .concat(func.coalesce(FeedbackEventModel.comment, ""))
+        .concat(" ")
+        .concat(func.coalesce(FeedbackEventModel.target_text, ""))
+        .concat(" ")
+        .concat(func.coalesce(FeedbackEventModel.trigger_message, ""))
+    )
+
+
 class FeedbackRepository:
     """Repository for feedback event persistence and reads."""
 
@@ -533,6 +562,14 @@ class FeedbackRepository:
         if filters.project_id is not None:
             statement = statement.where(
                 FeedbackEventModel.project_id == filters.project_id
+            )
+        if filters.project_ids is not None:
+            statement = statement.where(
+                FeedbackEventModel.project_id.in_(filters.project_ids)
+            )
+        if filters.search is not None:
+            statement = statement.where(
+                _feedback_search_target().icontains(filters.search, autoescape=True)
             )
         if filters.start_ingested_at is not None:
             statement = statement.where(

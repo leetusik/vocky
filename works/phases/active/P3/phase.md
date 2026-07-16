@@ -79,6 +79,61 @@ Four middle slices. **P3.S1 is the foundation; P3.S2, P3.S3, and P3.S4 all depen
   pattern for S3/S4 cross-project tests. `uv run pytest tests/test_project_feedback_api.py
   tests/test_admin_api.py` = 21 passed; full suite 160 passed.
 
+### P3.S3 outcomes — `/app/*` cross-project read + multilingual search landed (S4 mirrors these)
+
+- **Search mechanism (final, D-P3-4): `pg_trgm` trigram GIN over an immutable
+  concatenated expression + case-insensitive substring (`ILIKE`) predicate.**
+  Confirmed `pg_trgm` is available (v1.6) and `CREATE EXTENSION` succeeds on the
+  target Postgres — so **not blocked**. Predicate = SQLAlchemy
+  `icontains(q, autoescape=True)` over
+  `coalesce(message,'') || ' ' || coalesce(comment,'') || ' ' || coalesce(target_text,'') || ' ' || coalesce(trigger_message,'')`
+  (renders `<expr> ILIKE '%'||q||'%' ESCAPE '/'`). **No `to_tsvector('english',…)`.**
+  The expression is built once in
+  `vocky.feedback.repository._feedback_search_target()` and the migration's raw
+  DDL mirrors it byte-for-byte; `||`/`coalesce` are immutable (STABLE
+  `concat`/`concat_ws` would be invalid for an expression index). `EXPLAIN`
+  (seqscan off) confirms the planner uses `Bitmap Index Scan on
+  ix_feedback_events_search_trgm`. Search is a **filter, newest-first** — it
+  composes with the existing keyset paging; `list_feedback` is unchanged.
+- **New migration `20260716_1600`** (`add_feedback_search_index`,
+  `down_revision = "20260716_1500"`, now head). `upgrade()`:
+  `CREATE EXTENSION IF NOT EXISTS pg_trgm` + create GIN index
+  `ix_feedback_events_search_trgm` via raw `op.execute`. `downgrade()` drops the
+  index only (leaves the extension). **Any later P3 migration must now chain
+  `down_revision = "20260716_1600"`.** Index is not modeled in `__table_args__`
+  (migration is source of truth). `tests/test_persistence.py` head pin + index
+  list updated accordingly.
+- **Read-model hook additions (S4 reuses):** `FeedbackQueryFilters` gained
+  `project_ids: tuple[UUID,...] | None` (→ `project_id.in_(...)`) and
+  `search: str | None` (→ the `icontains` predicate). Purely additive in
+  `_apply_query_filters`; S2's single-project `project_id` filter is untouched.
+  **Short-circuit convention:** an empty project set is handled in the handler
+  (return an empty page) — do not pass an empty tuple through to a query.
+- **New surface `src/vocky/app_feedback_api.py`, routes under `/app/feedback`**
+  (read + search only; management stays on S2's `/api/project/feedback`), wired
+  into `create_app()` after `*app_api_routes` (outside both `/api/*`
+  middlewares, guarded per-handler by `require_user`; the app-wide `AuthError`
+  handler renders 401). Verbs: `GET /app/feedback` (cross-project list/search,
+  `?q` + optional `?project_id` narrow + standard filters + keyset paging),
+  `GET /app/feedback/{id}` (+comments+attachments),
+  `GET /app/feedback/{id}/attachments/{aid}` (download).
+- **Tenant-project scoping + 404-on-cross-tenant (S4 mirrors):** every handler
+  resolves the caller's project set via
+  `get_accounts_service().list_projects_for_tenant(ctx.tenant.id)`; feedback
+  outside that set (incl. legacy NULL-project rows) → **404 (never 403)** via
+  `_load_scoped_feedback`. `?project_id` narrowing validates membership
+  (malformed → 400, not-owned/unknown → 404). **Serialization:** reuse the
+  shared `serialize_record` **augmented with `project_id`** (`_serialize_app_record`)
+  — the `/app/*` caller has many projects, so records must name their project
+  (contrast S2, which omits it). This is the additive extension the S2 note
+  anticipated; the shared serializer was **not** changed.
+- **Tests:** `tests/test_app_feedback_api.py` (terse) proves cross-project
+  aggregation + paging, the **Korean** search case (`?q=결제` matches both bare
+  and 조사-attached `결제를`, across two projects), English substring, project_id
+  narrowing, second-tenant isolation (404), and 401 without a token. Full suite
+  163 passed (was 160). Reuse the "2 projects via `POST /app/projects` + raw-SQL
+  `project_id` seed + second signed-up tenant" pattern for S4 `/app/*` tests.
+
 ## Doc impact
 
 Running list the phase REVIEW consolidates into new durable-doc versions (one version per doc, covering the whole phase):
@@ -96,6 +151,7 @@ _Landed changes (for the review to consolidate):_
 - **P3.S1 → `data.md`:** `feedback_events` gains nullable `project_id` FK → `projects.id` (CASCADE) + `ix_feedback_events_project_id`; migration `20260716_1500` (chained on `20260715_1200`). Capture stamps `project_id` from the authenticating credential; legacy rows stay NULL (pre-MVP, no backfill).
 - **P3.S1 → `security.md` / `architecture.md`:** ingest middleware now threads the resolved per-project credential onto the ASGI scope (`vocky.project_credential`) and best-effort stamps credential + auth-token `last_used_at`; the `GET /api/feedback` end-user self-read is now additionally project-scoped by the credential's project (defense in depth, D-P3-6).
 - **P3.S2 → `api.md` / `product.md` / `experience.md` (also `architecture.md` / `security.md`):** new project-credential-authed `/api/project/feedback` review+manage endpoints — list (filters + keyset paging) / get-one (+comments+attachments) / PATCH review fields / DELETE / operator comments add+list / attachment download — scoped to the credential's project, returning 404 (never 403) on any cross-project id. External service admin panels can now read+manage their own project's feedback directly by API (`vk_` key), not just capture. No schema change; `serialize_record` is now shared in `tools/query_feedback_common.py`.
+- **P3.S3 → `api.md`:** new session-authed (`require_user`) `/app/feedback` **read + search** endpoints — `GET /app/feedback` (cross-project list/search across all the caller's tenant's projects: `?q` free-text + optional `?project_id` narrow + standard filters + keyset paging), `GET /app/feedback/{id}` (+comments+attachments), `GET /app/feedback/{id}/attachments/{aid}` (download). Records carry `project_id`. Cross-tenant / not-owned ids → 404 (never 403); read-only (management stays on `/api/project/feedback`). **`architecture.md` / `data.md`:** new multilingual free-text search subsystem — case-insensitive `ILIKE` substring predicate over concatenated text columns (Korean 조사-safe + English; **no `to_tsvector('english')`**, D-P3-4) accelerated by a `pg_trgm` trigram GIN index `ix_feedback_events_search_trgm` on the immutable concatenated expression; migration `20260716_1600` (chained on `20260716_1500`, `CREATE EXTENSION pg_trgm` + index; reversible, downgrade leaves the extension). `FeedbackQueryFilters` gained `project_ids` + `search`. **`product.md`:** cross-project feedback search for signed-in users, read-only boundary (owner reads/searches across their projects; management is the project-credential surface).
 
 ## Constraints
 

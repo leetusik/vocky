@@ -121,6 +121,8 @@ class FeedbackQueryFilters:
     """Supported filters for feedback read queries."""
 
     project_id: UUID | None = None
+    project_ids: tuple[UUID, ...] | None = None
+    search: str | None = None
     start_ingested_at: datetime | None = None
     end_ingested_at: datetime | None = None
     source_product: str | None = None

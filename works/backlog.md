@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P3`
-- Current slice: `P3.S3`
-- Next slice: `P3.S4`
+- Current slice: `P3.S4`
+- Next slice: `P3.REVIEW`
 - Waiting on operator: `none`
 - Open deferred jobs: `3`
-- Rebuilt at: `2026-07-16T15:31:38+09:00`
+- Rebuilt at: `2026-07-16T16:04:43+09:00`
 
 ## Active Phases
 
@@ -18,7 +18,7 @@
 |---|---|---|---|---|---|
 | [x] `P1` | `done` | `pass` | Relicense & Agent-Capture Retirement | `none` | `works/phases/active/P1` |
 | [x] `P2` | `done` | `pass` | Accounts, Tenancy & Projects Core | `none` | `works/phases/active/P2` |
-| [ ] `P3` | `planned` | `pending` | Feedback API v2, Search & Usage Monitoring | `P3.S3` | `works/phases/active/P3` |
+| [ ] `P3` | `planned` | `pending` | Feedback API v2, Search & Usage Monitoring | `P3.S4` | `works/phases/active/P3` |
 | [ ] `P7` | `planned` | `pending` | Agent-Capture Revival (MCP write-only) | `P7.DECOMP` | `works/phases/active/P7` |
 | [ ] `P4` | `planned` | `pending` | Web App: Tenant Dashboard & Project Pages | `P4.DECOMP` | `works/phases/active/P4` |
 | [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
@@ -53,7 +53,7 @@
 | [x] `P3.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P3/slices/P3.DECOMP` |
 | [x] `P3.S1` | `done` | Project-scope foundation: project_id on feedback + capture threading + last_used stamps | `implementation` | `works/phases/active/P3/slices/P3.S1` |
 | [x] `P3.S2` | `done` | /api project-scoped feedback review + manage (project-credential authed) | `implementation` | `works/phases/active/P3/slices/P3.S2` |
-| [ ] `P3.S3` | `todo` | /app cross-project feedback read + multilingual Postgres search | `implementation` | `works/phases/active/P3/slices/P3.S3` |
+| [x] `P3.S3` | `done` | /app cross-project feedback read + multilingual Postgres search | `implementation` | `works/phases/active/P3/slices/P3.S3` |
 | [ ] `P3.S4` | `todo` | Usage monitoring: per-tenant/project derived metrics + surfaced last-used | `implementation` | `works/phases/active/P3/slices/P3.S4` |
 | [ ] `P3.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P3/slices/P3.REVIEW` |
 

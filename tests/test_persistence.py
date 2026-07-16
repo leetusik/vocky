@@ -42,7 +42,7 @@ async def test_migration_applies_and_expected_indexes_exist(configured_database:
             )
         ).scalars().all()
 
-    assert migration_version == "20260716_1500"
+    assert migration_version == "20260716_1600"
     assert index_rows == [
         "ix_feedback_events_channel",
         "ix_feedback_events_conversation_id",
@@ -50,6 +50,7 @@ async def test_migration_applies_and_expected_indexes_exist(configured_database:
         "ix_feedback_events_feedback_value",
         "ix_feedback_events_ingested_at",
         "ix_feedback_events_project_id",
+        "ix_feedback_events_search_trgm",
         "ix_feedback_events_session_id",
         "ix_feedback_events_source_product",
         "ix_feedback_events_tags_gin",
