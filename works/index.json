@@ -61,6 +61,30 @@
       "done_slice_count": 7
     },
     {
+      "id": "P8",
+      "name": "Design Gate: Brand, App UI & Landing",
+      "objective": "Seed vocky's design canvas from live code, run the Claude Design gate for the brand, the app UI and the landing, and capture the signed-off design as an implementable spec. Implementation is P9.",
+      "status": "planned",
+      "order": 4.5,
+      "path": "works/phases/active/P8",
+      "review_status": "pending",
+      "current_slice": "P8.DECOMP",
+      "slice_count": 2,
+      "done_slice_count": 0
+    },
+    {
+      "id": "P9",
+      "name": "Apply the Design: App UI, Landing & Feature Changes",
+      "objective": "Implement P8's signed-off design across the app and the landing page, from the gate's build-prompt.md — foundation first, net-new capabilities isolated, backend reopened where the design requires it, closing with a design-fidelity fix and a consistency/DoD sweep.",
+      "status": "planned",
+      "order": 4.6,
+      "path": "works/phases/active/P9",
+      "review_status": "pending",
+      "current_slice": "P9.DECOMP",
+      "slice_count": 2,
+      "done_slice_count": 0
+    },
+    {
       "id": "P5",
       "name": "CLI & Agent-First Onboarding",
       "objective": "Ship a vocky CLI so a user can sign up, log in, and configure credentials from Claude Code or Codex, with agent-readable help/guide docs so vocky is fully usable without visiting the website.",
@@ -88,5 +112,5 @@
   "deferred_open_count": 4,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 0,
-  "last_rebuilt_at": "2026-07-17T10:02:29+09:00"
+  "last_rebuilt_at": "2026-07-17T10:07:04+09:00"
 }
