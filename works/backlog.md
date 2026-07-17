@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P8`
-- Current slice: `P8.DECOMP`
-- Next slice: `P8.REVIEW`
+- Current slice: `P8.S1`
+- Next slice: `P8.S2`
 - Waiting on operator: `none`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-17T15:10:44+09:00`
+- Rebuilt at: `2026-07-17T15:36:40+09:00`
 
 ## Active Phases
 
@@ -21,7 +21,7 @@
 | [x] `P3` | `done` | `pass` | Feedback API v2, Search & Usage Monitoring | `none` | `works/phases/active/P3` |
 | [x] `P7` | `done` | `pass` | Agent-Capture Revival (MCP write-only) | `none` | `works/phases/active/P7` |
 | [x] `P4` | `done` | `pass` | Web App: Tenant Dashboard & Project Pages | `none` | `works/phases/active/P4` |
-| [ ] `P8` | `planned` | `pending` | Design Gate: Brand, App UI & Landing | `P8.DECOMP` | `works/phases/active/P8` |
+| [ ] `P8` | `planned` | `pending` | Design Gate: Brand, App UI & Landing | `P8.S1` | `works/phases/active/P8` |
 | [ ] `P9` | `planned` | `pending` | Apply the Design: App UI, Landing & Feature Changes | `P9.DECOMP` | `works/phases/active/P9` |
 | [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
 | [ ] `P6` | `planned` | `pending` | Landing Page, Webpage & Production Deploy | `P6.DECOMP` | `works/phases/active/P6` |
@@ -84,7 +84,9 @@
 
 | Slice | Status | Name | Kind | Path |
 |---|---|---|---|---|
-| [ ] `P8.DECOMP` | `todo` | decompose phase | `decomposition` | `works/phases/active/P8/slices/P8.DECOMP` |
+| [x] `P8.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P8/slices/P8.DECOMP` |
+| [ ] `P8.S1` | `todo` | Retire the web/design/canvas mirror | `implementation` | `works/phases/active/P8/slices/P8.S1` |
+| [ ] `P8.S2` | `todo` | Design gate round 1: brand, app UI & landing | `co-work` | `works/phases/active/P8/slices/P8.S2` |
 | [ ] `P8.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P8/slices/P8.REVIEW` |
 
 ## Phase P9: Apply the Design: App UI, Landing & Feature Changes

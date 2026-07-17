@@ -32,7 +32,56 @@ API.
 
 ## Decomposition
 
-_Slice breakdown and rationale — filled by the `P8.DECOMP` slice._
+Cut by `P8.DECOMP` (2026-07-17). **Round 1 only — two middle slices.** Bare folders; each slice's
+`plan.md` is written by the orchestrator at that slice's own turn.
+
+| Slice | Name | Kind / Risk / Order | Depends on |
+|---|---|---|---|
+| `P8.S1` | Retire the `web/design/canvas/` mirror | `implementation` / `low` / 1 | — |
+| `P8.S2` | Design gate round 1: brand, app UI & landing | `co-work` / `high` / 2 | `P8.S1` |
+
+**`P8.S1` — constraint 8's cleanup.** Deletes the 13-file mirror (`tokens.css`, `_ds_manifest.json`,
+9 component/foundation/section cards, `README.md`), which has no job under v13 and can only drift.
+Verified inert: nothing in `web/src/`, `next.config.*`, `tsconfig.json`, or `postcss.config.*` imports
+or globs it; git history keeps it. Rated **`low`** — a pure deletion plus one exactly-specified comment
+edit, genuine `slice-executor-low` (sonnet) territory. Under flex mode `mid` and `high` are both
+opus@xhigh, so `low` is this phase's **only real cost lever**. Its one dangling code reference is
+`web/src/app/page.tsx:11` (*"The `design/canvas/` mirror remains the design-gate artifact."*); the same
+comment block's line 6 (*"P6 replaces this with the public landing page"*) is now false — **P9** builds
+the landing. Doc references to the canvas (`frontend.md`, `decisions.md`) are **not** S1's job: they are
+pre-recorded in *Doc impact* for `P8.REVIEW` (constraint 10).
+
+**`P8.S2` — the gate itself.** `co-work` / `high`, and **never dispatched** (v13's deliberate exception:
+executors have no `DesignSync` tool, so the read-back is orchestrator-inline). Two commits bracket the
+`pending` window; it ends at the landed design + SIGNOFF and **writes no implementation code** — that is
+P9. Its shape, for the record (its `plan.md` gets written at its turn, not now):
+
+```
+write docs/reference/design/rounds/01-brand-app-landing/handoff.md
+  → commit "feat(design): P8.S2 handoff — ..."
+  → operator pushes + runs Connect GitHub   [the agent cannot push: settings.json denies Bash(git push:*)]
+  → set-slice-status P8.S2 pending → STOP; the operator designs in Claude Design
+  → operator clears pending → read back [DesignSync, orchestrator-inline] → concreteness check
+  → land the design AS-IS into output/ + the spec into phase.md → write SIGNOFF.md
+  → commit "feat(design): P8.S2 read-back — ..."
+```
+
+**Why S1 must land before S2 — load-bearing, not cosmetic.** S2 pushes the branch so Claude Design can
+read current code via Connect GitHub. A stale placeholder-palette mirror sitting in the repo at push
+time is exactly the drift hazard v13 names: it would read to the session as authoritative, competing
+with the real `globals.css` tokens it contradicts. Delete first, then publish.
+
+**Why seven slices collapse to two.** The reverted v12 decomposition (`d20badf`) cut **seven** middle
+slices: seed → brief → gate → synthesis, where the seed alone split three ways (baseline render, DS
+cards, six surface mirrors). **v13 retires that entire seeding arm** — Claude Design reads the real repo
+itself, so Claude Code authors no cards, no canvas, no token mirror. Its one output is `handoff.md`.
+Those seven collapse to **one** design slice; the only other round-1 work is constraint 8's cleanup.
+
+**This is round 1 only — deliberately.** v13: *"you do not know what the operator will design."* The
+read-back is **expected** to re-shape the phase. Round 2 — and any design-fidelity fix slice, which is
+part of the normal shape, not a failure — gets cut at a **fractional order** (2.5, …) after the gate
+closes, between `P8.S2`@2 and `P8.REVIEW`@9999. Creating more now would be guessing at a design that
+does not exist yet.
 
 The v13 loop this phase implements:
 
