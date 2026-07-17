@@ -8,9 +8,9 @@
 - Current phase: `P8`
 - Current slice: `P8.S2`
 - Next slice: `P8.REVIEW`
-- Waiting on operator: `none`
+- Waiting on operator: `P8.S2`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-17T15:58:43+09:00`
+- Rebuilt at: `2026-07-17T16:01:19+09:00`
 
 ## Active Phases
 
@@ -86,7 +86,7 @@
 |---|---|---|---|---|
 | [x] `P8.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P8/slices/P8.DECOMP` |
 | [x] `P8.S1` | `done` | Retire the web/design/canvas mirror | `implementation` | `works/phases/active/P8/slices/P8.S1` |
-| [ ] `P8.S2` | `in_progress` | Design gate round 1: brand, app UI & landing | `co-work` | `works/phases/active/P8/slices/P8.S2` |
+| [~] `P8.S2` | `pending` | Design gate round 1: brand, app UI & landing | `co-work` | `works/phases/active/P8/slices/P8.S2` |
 | [ ] `P8.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P8/slices/P8.REVIEW` |
 
 ## Phase P9: Apply the Design: App UI, Landing & Feature Changes

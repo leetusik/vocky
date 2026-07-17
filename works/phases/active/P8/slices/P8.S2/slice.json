@@ -3,7 +3,7 @@
   "phase_id": "P8",
   "name": "Design gate round 1: brand, app UI & landing",
   "kind": "co-work",
-  "status": "in_progress",
+  "status": "pending",
   "order": 2,
   "depends_on": [
     "P8.S1"
