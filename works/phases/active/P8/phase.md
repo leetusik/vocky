@@ -121,6 +121,46 @@ docs/reference/design/
 
 _Durable findings and cross-slice notes; `DECOMP` seeds this, and each slice appends when it finishes._
 
+### `P8.S2` — the workspace moved to v14 mid-slice: the session must return a card set
+
+**Constraint 2 below is now partly stale — read this first.** It says the mechanism is v13's and that
+"we author no cards, no canvas, no token mirror". The **mirror ban on Claude Code is unchanged and
+unweakened** — we still author no canvas, no cards, and no `tokens.css` of our own. What changed is the
+**required-output manifest**: under **v14** the design session must return **a card set** alongside
+`result.md` and `build-prompt.md`. **Markdown alone is not a round.** Requiring a card is not drawing
+one — we say what must be reviewable; Claude Design decides what it looks like and authors `tokens.css`,
+because the palette *is* the design.
+
+**Why v14 exists — and it is this phase's own failure.** v13 retired the line-1 `@dsCard` contract *as
+part of* retiring the mirror, reasoning that Connect GitHub makes mirroring unnecessary. That holds for
+**input**. But the manifest was never only input: it is also **the render index for the Design System
+pane**, and Connect GitHub does not populate that pane. So the card medium died with the mirror.
+
+**What round 01 actually returned.** The design succeeded; the visibility failed. `output/result.md` and
+`output/build-prompt.md` are complete and authoritative — but the round came back as **two monolithic
+HTMLs** (`Vocky Round 01 - Design System.html`, `Vocky Round 01 - Landing.html`) with **no line-1
+markers**, so **no `_ds_manifest.json` was ever compiled** and the operator's pane was empty. A complete
+`build-prompt.md` they could not see, review, or fix. Root cause is ours: `handoff.md` §10 told Claude
+Design "no cards" and §8 required only the two markdown files. The session delivered exactly what was
+asked.
+
+**The fix is v14's prescribed migration, not a redesign** — *"a round already handed off under v13 comes
+back with no cards — it is not lost, just invisible. Re-hand-off for the card set against the existing
+`result.md`/`build-prompt.md`."* That is `handoff-02-cards.md`: a **visibility pass** that decides nothing
+new, keeps the two markdown files unedited and authoritative, and supersedes the monoliths so there is no
+second source of truth.
+
+**Two rules that bind the read-back when it eventually runs:**
+
+- **`list_files` first.** No `_ds_manifest.json`, an empty `cards[]`, or a monolith → **`needs_operator`**
+  with the card contract restated. It is explicitly **not** fixable by editing the artifacts, writing the
+  cards ourselves, or hand-compiling the manifest — **`register_assets` and the write path stay closed.**
+- **The cards stay in the design project — never copy them down.** The pane is their home and the operator
+  keeps working in it; a local copy is a mirror again. **This is why `build-prompt.md` must be complete:**
+  P9's implement slices are dispatched to executors with **no DesignSync**, so what we land is the whole
+  source of truth they get. If the cards seem needed on disk to make a slice buildable, the real problem
+  is that `build-prompt.md` is short — say so at read-back.
+
 ### `P8.S1` — two dangling references to `web/design/canvas/`, not one
 
 The Decomposition section above recorded only one dangling code reference —
