@@ -285,6 +285,46 @@ _Durable findings and cross-slice notes; `DECOMP` seeds this, and each slice app
   prerendered static, all 12 routes build); `prettier --write` on the 7 new files + `content/index.ts`
   (all already formatted). All grep-asserts pass (see `result.md`).
 
+### Appended by `P9.S6` — the public landing reclaimed `/`
+
+- **`/` is now the signed-out landing, not a redirect (and the signed-in bounce is
+  intact).** `page.tsx` is a server component: `getSession()` → `redirect("/dashboard")`
+  for a live session, else it renders `LandingNav · main · LandingFooter`. It's OUTSIDE
+  the `(app)` group, so it renders its own chrome (no app shell). Positively verified via
+  the dev server: signed-out `GET /` → 200 (full landing), forged-valid-cookie `GET /`
+  → **307 → /dashboard**, tampered cookie → 200 (signed-out, no crash).
+- **New files (all S6-owned):** `content/landing.ts` (the `LANDING` copy-as-data const)
+  + `components/landing/*` (9 sections + barrel). Rewrites: `page.tsx`,
+  `content/section-ids.ts`. **Plus one additive barrel line** in `content/index.ts`
+  (`export { LANDING } from "./landing"`) — the same pattern S5 used for `STATES`;
+  everything imports `LANDING` from `@/content`.
+- **`SECTION_IDS` was WIDENED, not relaxed.** Added `features`/`how`/`pricing` (the
+  landing anchors, referenced by the nav via `#${SECTION_IDS.*}` so they never drift);
+  kept `overview`/`primitives` because `nav.ts` still references them. The typed union
+  held — no relax to `string`.
+- **`nav.ts` + `overview`/`primitives` are now UNAMBIGUOUSLY dead — S7's to retire.** The
+  landing uses NONE of `NAV_LINKS` / `SKIP_TO_CONTENT` (own nav from `LANDING.nav`; skip
+  target is `#main-content` set directly on `page.tsx`'s `<main>`). The only remaining
+  reference to those two ids is `nav.ts` itself (nothing renders it). S7 can delete
+  `nav.ts`, drop its `content/index.ts` exports, and remove the two ids from
+  `SECTION_IDS` in one move.
+- **Grounded hero JSON = the real capture shape** (`lib/vocky/types.ts`):
+  `{source_product, message: "결제 단계에서 카드가 자꾸 거절돼요.", feedback_value: 2,
+  target_type: "message", tags: ["결제","checkout"]}`. `feedback_value: 2` = dislike
+  (mirrors the captured card's `disliked` Badge); the Korean message + tags recur in the
+  captured card and the showcase table. `break-keep` on every Korean body example.
+- **Doc links resolve to the real repo — no fake `/docs`.** Confirmed on disk: remote
+  `github.com/leetusik/vocky`, branch `main`, root MIT `LICENSE` + `README.md`. "Read the
+  docs"/"Documentation"/nav "Docs" → `…/vocky#readme`; "GitHub" → `…/vocky`; "MIT
+  license" → `…/vocky/blob/main/LICENSE`. All externals `target="_blank"
+  rel="noopener noreferrer"`.
+- **Reveal used sparingly** — only on the below-the-fold bands (how / showcase / features
+  / pricing / closing) via `<Section reveal>`; hero + trust strip stay static (above/at
+  the fold). No other motion added. **Verification for S6:** `pnpm typecheck` + `pnpm
+  lint` clean; `pnpm build` **GREEN** (`/` is `ƒ` dynamic — reads the cookie);
+  `prettier --write` on the new/changed files only (24/24 rendered-HTML grep-asserts
+  pass; see `result.md`).
+
 ## Constraints
 
 Durable for every slice in this phase. Carry the RESPECT-THE-DESIGN block into **every** slice's `plan.md`
@@ -366,6 +406,15 @@ _Running list for `P9.REVIEW` to consolidate into doc versions. Append one line 
   `not-found.tsx` (the 404-never-403 subcopy), and a minimal `global-error.tsx` with its own `<html><body>`;
   §6 copy authored verbatim in a new `content/states.ts`. `docs/current/frontend.md` (v0003) records that
   these states **do not exist**. For `P9.REVIEW` to consolidate.
+- **`P9.S6`:** the public landing now serves `/` for signed-out visitors (the signed-in bounce to
+  `/dashboard` is preserved) — `/` is no longer a pure redirect. New `content/landing.ts` (grounded
+  copy-as-data: hero + real `POST /api/feedback` JSON, trust strip, how, showcase, 6 features, Free-now/
+  paid-later pricing, closing CTA, footer) + new `components/landing/*` (LandingNav/Hero/TrustStrip/
+  HowItWorks/Showcase/Features/Pricing/ClosingCTA/LandingFooter) composed from the adopted primitives;
+  `SECTION_IDS` widened with the landing anchors; doc links point at the real GitHub repo (never a fake
+  `/docs`). `docs/current/frontend.md` (v0003) describes `/` as a redirect and the landing as a P6 concern,
+  and `experience.md` lacks the landing as a real signed-out surface — now built. For `P9.REVIEW` to
+  consolidate.
 
 ## Open Questions
 

@@ -32,3 +32,6 @@ export { FEEDBACK } from "./feedback";
 
 // Net-new framework states (P9.S5) — loading / error / not-found / global-error.
 export { STATES } from "./states";
+
+// Public landing (P9.S6) — the signed-out `/` marketing surface's copy-as-data.
+export { LANDING } from "./landing";

@@ -1,21 +1,47 @@
 import { redirect } from "next/navigation";
 
+import {
+  ClosingCTA,
+  Features,
+  Hero,
+  HowItWorks,
+  LandingFooter,
+  LandingNav,
+  Pricing,
+  Showcase,
+  TrustStrip,
+} from "@/components/landing";
 import { getSession } from "@/lib/session";
 
-// P4.S2 — root redirect. `/` is a pure router for now: a signed-in visitor goes to
-// the dashboard, everyone else to login. (P9 replaces this with the public landing
-// page, at which point this bounce moves behind the landing's CTA.)
+// P9.S6 — the public landing (build-prompt §7). `/` was a pure redirect; it is now
+// the signed-out marketing surface that reclaims the route. It sits OUTSIDE the
+// `(app)` route group, so it renders its own nav + footer, not the app shell.
 //
-// This replaces S1's design-system preview, which was that slice's smoke test and
-// has served its purpose — the primitives are now exercised by the real auth and
-// shell surfaces.
+// The signed-in bounce is PRESERVED (the operator's "signed-in → dashboard"
+// ruling): a live session at `/` still redirects to the dashboard, and only
+// signed-out visitors see the landing. The check is the CHEAP one
+// (`getSession` — cookie crypto + expiry only, no vocky round-trip); reading the
+// cookie makes `/` dynamic, so it is never prerendered.
 //
-// The check is the CHEAP one (`getSession` — cookie crypto + expiry only, no vocky
-// call): a crypto-valid-but-revoked cookie lands on /dashboard, whose guard 401s
-// and returns the visitor to /login, which then renders the form rather than
-// bouncing back (see `redirectIfAuthenticated`). Reading the cookie makes `/`
-// dynamic, so it is never prerendered.
-export default async function RootPage(): Promise<never> {
+// Server component throughout; the only client island is the `<Reveal>` inside
+// the `<Section reveal>` bands (progressive-enhancement, reduced-motion-safe).
+export default async function LandingPage() {
   const token = await getSession();
-  redirect(token ? "/dashboard" : "/login");
+  if (token) redirect("/dashboard");
+
+  return (
+    <>
+      <LandingNav />
+      <main id="main-content">
+        <Hero />
+        <TrustStrip />
+        <HowItWorks />
+        <Showcase />
+        <Features />
+        <Pricing />
+        <ClosingCTA />
+      </main>
+      <LandingFooter />
+    </>
+  );
 }
