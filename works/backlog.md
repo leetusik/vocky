@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P9`
-- Current slice: `P9.DECOMP`
-- Next slice: `P9.REVIEW`
+- Current slice: `P9.S1`
+- Next slice: `P9.S2`
 - Waiting on operator: `none`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-18T01:45:59+09:00`
+- Rebuilt at: `2026-07-18T02:17:23+09:00`
 
 ## Active Phases
 
@@ -22,7 +22,7 @@
 | [x] `P7` | `done` | `pass` | Agent-Capture Revival (MCP write-only) | `none` | `works/phases/active/P7` |
 | [x] `P4` | `done` | `pass` | Web App: Tenant Dashboard & Project Pages | `none` | `works/phases/active/P4` |
 | [x] `P8` | `done` | `pass` | Design Gate: Brand, App UI & Landing | `none` | `works/phases/active/P8` |
-| [ ] `P9` | `planned` | `pending` | Apply the Design: App UI, Landing & Feature Changes | `P9.DECOMP` | `works/phases/active/P9` |
+| [ ] `P9` | `planned` | `pending` | Apply the Design: App UI, Landing & Feature Changes | `P9.S1` | `works/phases/active/P9` |
 | [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
 | [ ] `P6` | `planned` | `pending` | Landing Page, Webpage & Production Deploy | `P6.DECOMP` | `works/phases/active/P6` |
 
@@ -93,7 +93,14 @@
 
 | Slice | Status | Name | Kind | Path |
 |---|---|---|---|---|
-| [ ] `P9.DECOMP` | `todo` | decompose phase | `decomposition` | `works/phases/active/P9/slices/P9.DECOMP` |
+| [x] `P9.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P9/slices/P9.DECOMP` |
+| [ ] `P9.S1` | `todo` | Foundations: @theme swap + Pretendard loader | `implementation` | `works/phases/active/P9/slices/P9.S1` |
+| [ ] `P9.S2` | `todo` | Primitives: button/card/badge/field + new Select/Chip + barrel | `implementation` | `works/phases/active/P9/slices/P9.S2` |
+| [ ] `P9.S3` | `todo` | App components + brand mark | `implementation` | `works/phases/active/P9/slices/P9.S3` |
+| [ ] `P9.S4` | `todo` | App surfaces (all six) | `implementation` | `works/phases/active/P9/slices/P9.S4` |
+| [ ] `P9.S5` | `todo` | Net-new states: loading/error/not-found/global-error | `implementation` | `works/phases/active/P9/slices/P9.S5` |
+| [ ] `P9.S6` | `todo` | Landing: reclaim /, landing.ts, components/landing/* | `implementation` | `works/phases/active/P9/slices/P9.S6` |
+| [ ] `P9.S7` | `todo` | Consistency & DoD sweep + design-fidelity fixes | `implementation` | `works/phases/active/P9/slices/P9.S7` |
 | [ ] `P9.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P9/slices/P9.REVIEW` |
 
 ## Phase P5: CLI & Agent-First Onboarding

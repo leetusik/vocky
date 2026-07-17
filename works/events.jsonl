@@ -170,3 +170,12 @@
 {"ts": "2026-07-18T01:41:02+09:00", "type": "doc_version_created", "doc": "decisions", "version": "v0006_p8_add_d-p8-1_round_01_design_gate_closed_superseding_d-p4-3_the_landing_design_build_moves_to_p8_p9", "source": "P8.REVIEW"}
 {"ts": "2026-07-18T01:45:59+09:00", "type": "slice_status_changed", "slice": "P8.REVIEW", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-07-18T01:45:59+09:00", "type": "phase_reviewed", "phase": "P8", "verdict": "pass", "reviewer": "slice-executor-high"}
+{"ts": "2026-07-18T02:10:40+09:00", "type": "slice_status_changed", "slice": "P9.DECOMP", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-07-18T02:13:18+09:00", "type": "slice_created", "phase": "P9", "slice": "P9.S1"}
+{"ts": "2026-07-18T02:13:18+09:00", "type": "slice_created", "phase": "P9", "slice": "P9.S2"}
+{"ts": "2026-07-18T02:13:18+09:00", "type": "slice_created", "phase": "P9", "slice": "P9.S3"}
+{"ts": "2026-07-18T02:13:18+09:00", "type": "slice_created", "phase": "P9", "slice": "P9.S4"}
+{"ts": "2026-07-18T02:13:18+09:00", "type": "slice_created", "phase": "P9", "slice": "P9.S5"}
+{"ts": "2026-07-18T02:13:18+09:00", "type": "slice_created", "phase": "P9", "slice": "P9.S6"}
+{"ts": "2026-07-18T02:13:18+09:00", "type": "slice_created", "phase": "P9", "slice": "P9.S7"}
+{"ts": "2026-07-18T02:17:23+09:00", "type": "slice_status_changed", "slice": "P9.DECOMP", "old_status": "in_progress", "new_status": "done"}
