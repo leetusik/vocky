@@ -1,24 +1,30 @@
-import { JetBrains_Mono, Noto_Sans_KR } from "next/font/google";
+import localFont from "next/font/local";
+import { JetBrains_Mono } from "next/font/google";
 
 /**
- * Fonts via `next/font/google` (P4.S1 placeholder set). Build-time self-hosted
- * (no third-party request at runtime, CSP-safe), no vendored woff2 binaries, no
- * subset toolchain. Each exposes a CSS variable consumed by the `@theme` font
- * families in `globals.css`:
- *   --font-noto-sans-kr → font-sans  (Korean-capable; the app renders Korean feedback)
- *   --font-jetbrains-mono → font-mono
+ * Brand faces for the vocky design system (applied by P9 from the round 01
+ * design-gate signoff — see `build-prompt.md §3`).
  *
- * These are placeholders, cleanly swappable to the vocky brand faces (e.g.
- * Pretendard) at the P6 design gate — the `@theme` token NAMES (`--font-sans` /
- * `--font-mono`) stay put, so only the wiring here changes. The `latin` subset
- * is preloaded; Korean glyphs are self-hosted by next/font and served on demand.
+ *   --font-pretendard   → font-sans  (Pretendard, Korean-capable; the app
+ *                                      renders Korean feedback)
+ *   --font-jetbrains-mono → font-mono (JetBrains Mono, data/code)
+ *
+ * Both are build-time self-hosted (no third-party request at runtime, CSP-safe).
+ *
+ * Pretendard is not on Google Fonts, so it is vendored as a single variable
+ * woff2 (`./fonts/PretendardVariable.woff2`, one file covering weights 400–800)
+ * loaded via `next/font/local` — self-contained, no runtime dependency, and in
+ * line with the app's existing self-host philosophy. The CSS variable name is
+ * `--font-pretendard`; the `@theme --font-sans` chain in `globals.css` leads
+ * with it and keeps a Korean-capable fallback (Noto Sans KR).
  */
 
-export const notoSansKr = Noto_Sans_KR({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+export const pretendard = localFont({
+  src: "./fonts/PretendardVariable.woff2",
   display: "swap",
-  variable: "--font-noto-sans-kr",
+  weight: "400 800",
+  variable: "--font-pretendard",
+  fallback: ["Pretendard", "Noto Sans KR", "system-ui", "sans-serif"],
 });
 
 export const jetbrainsMono = JetBrains_Mono({

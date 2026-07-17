@@ -2,14 +2,18 @@
 @import "tw-animate-css";
 
 /*
- * vocky design system — Tailwind v4 CSS-first tokens (P4.S1).
+ * vocky design system — Tailwind v4 CSS-first tokens.
  *
- * PLACEHOLDER PALETTE. The token NAMES are ported 1:1 from hi2vi_web (so the
- * CVA primitives, `cn()`'s type-scale list, and every page class stay stable),
- * but the VALUES are a neutral placeholder set — a slate/zinc surface ramp, one
- * indigo accent, and standard red/amber signal states — NOT a finished brand.
- * The real vocky palette is finalized at the P6 design gate; because the names
- * are unchanged, P6 swaps values here only. Do not rename tokens.
+ * The applied vocky brand (round 01 design gate, signed off at P8; applied by
+ * P9). One confident deep-emerald green — it always means "signal" — on a
+ * faintly green-cool neutral ramp; light-only; compact and data-dense (this is a
+ * review tool); Pretendard for text, JetBrains Mono for data/code; no gradients.
+ *
+ * The token NAMES are ported 1:1 from hi2vi_web (so the CVA primitives, `cn()`'s
+ * type-scale list, and every page class stay stable); P9 swapped the VALUES to
+ * vocky's own palette and the compact type/radius/spacing scale. Because Tailwind
+ * utilities compile to `var(--color-*)`, this value swap re-themes every surface
+ * at once, call sites untouched. Do not rename tokens.
  *
  * No `.dark` block on purpose — the system uses explicit surface tokens, not a
  * prefers-color-scheme / class toggle (no dark-mode toggle).
@@ -17,163 +21,167 @@
 
 @theme {
   /* ── Colors (drive bg-/text-/border- color utilities) ────────────────────── */
-  /* Dark neutral surfaces (was hi2vi's dark-green ramp) */
-  --color-ink: #0f172a; /* primary text + almost-black base (slate-900) */
-  --color-forest: #1e293b; /* slate-800 */
-  --color-forest-mid: #334155; /* slate-700 */
-  --color-forest-soft: #475569; /* slate-600 */
+  /* Dark surfaces — sections, footer, code/endpoint panels, dark borders */
+  --color-ink: #0e1a16; /* primary text, darkest base */
+  --color-forest: #14231e; /* dark section / footer bg */
+  --color-forest-mid: #24322c; /* code/endpoint panel bg */
+  --color-forest-soft: #3a4a43; /* dark borders */
 
-  /* Accent (was hi2vi's signal greens) — one indigo accent */
-  --color-green: #6366f1; /* primary CTA / signature signal (indigo-500) */
-  --color-green-deep: #4f46e5; /* pressed CTA, links on light, focus ring (indigo-600) */
-  --color-green-dark: #4338ca; /* links on light / deep accent text (indigo-700) */
-  --color-green-soft: #e0e7ff; /* soft accent surface (indigo-100) */
+  /* Brand green — the one signature accent (deep-emerald, always = signal) */
+  --color-green: #0c7a52; /* primary CTA + signature (white text AA 5.36:1) */
+  --color-green-deep: #095e40; /* hover/pressed, focus ring */
+  --color-green-dark: #064a33; /* links + accent text on light */
+  --color-green-soft: #e4f5ed; /* active nav bg, soft chips */
 
-  /* Secondary accent tints (was hi2vi's security accents) */
-  --color-security-mint: #c7d2fe; /* indigo-200 */
-  --color-security-teal: #818cf8; /* indigo-400 */
-  --color-trust-sage: #cbd5e1; /* slate-300 */
+  /* Secondary green accents / on-dark tints */
+  --color-security-mint: #bee9d5; /* mint tint (chip borders, key panel) */
+  --color-security-teal: #2fa477; /* brighter data accent (endpoint label) */
+  --color-trust-sage: #7fb8a0; /* sage / on-dark small accents */
 
-  /* Muted decorative accents (was hi2vi's warm history accents) */
-  --color-victory-lime: #a5b4fc; /* indigo-300 */
-  --color-archive-olive: #94a3b8; /* slate-400 */
-  --color-archive-cream: #f1f5f9; /* slate-100 light surface */
+  /* Soft positive + muted neutral tints */
+  --color-victory-lime: #9ad4a8; /* soft positive tint (rare) */
+  --color-archive-olive: #8a968f; /* muted neutral (= muted, intentional) */
+  --color-archive-cream: #f1f4f0; /* light neutral surface */
 
-  /* Signal states — the two standard warm signals in an otherwise cool system.
-   * danger = fatal/destructive; caution = non-fatal warning. Kept muted so they
-   * read as signals, not alarms. danger aliases --destructive (below). */
-  --color-danger: #dc2626; /* pill fill / icon / retry accent (red-600) */
-  --color-danger-deep: #b91c1c; /* danger text on a light surface (red-700) */
-  --color-surface-danger: #fef2f2; /* light red surface (red-50) */
-  --color-hairline-danger: #fecaca; /* red-200 */
-  --color-caution: #d97706; /* warning accent (amber-600) */
-  --color-caution-deep: #b45309; /* caution text on a light surface (amber-700) */
-  --color-surface-caution: #fffbeb; /* light amber surface (amber-50) */
-  --color-hairline-caution: #fde68a; /* amber-200 */
+  /* Signal states — the two warm signals in an otherwise green-cool system.
+   * danger = fatal/destructive; caution = non-fatal warning. Kept legible so
+   * they read as signals, not alarms. danger aliases --destructive (below). */
+  --color-danger: #c93b2b; /* dislike + destructive (white text AA 5.05:1) */
+  --color-danger-deep: #a32a1d; /* danger text on light */
+  --color-surface-danger: #fceeeb; /* light danger surface */
+  --color-hairline-danger: #f3d2cb; /* danger border */
+  --color-caution: #c6820e; /* warning accent */
+  --color-caution-deep: #8f5c06; /* caution text on light */
+  --color-surface-caution: #fbf3e3; /* light caution surface */
+  --color-hairline-caution: #eedcb2; /* caution border */
 
   /* Surfaces */
-  --color-canvas: #ffffff;
-  --color-canvas-dark: #0f172a;
-  --color-surface: #f8fafc; /* slate-50 */
-  --color-surface-soft: #f1f5f9; /* slate-100 */
-  --color-surface-green: #eef2ff; /* accent-tinted surface (indigo-50) */
-  --color-surface-archive: #f9fafb; /* neutral-50 */
-  --color-surface-security: #eef2ff; /* indigo-50 */
-  --color-surface-band: #f1f5f9; /* tinted band (slate-100) */
+  --color-canvas: #ffffff; /* base surface */
+  --color-canvas-dark: #0e1a16; /* (= ink, intentional) */
+  --color-surface: #f5f8f6; /* app background */
+  --color-surface-soft: #eef3f0; /* soft band */
+  --color-surface-green: #eaf6f0; /* accent-tinted panel */
+  --color-surface-archive: #f4f7f5; /* neutral tint */
+  --color-surface-security: #ecf6f0; /* green-tinted panel */
+  --color-surface-band: #edf2ef; /* tinted band (now ≠ surface-soft) */
 
   /* Hairlines / borders */
-  --color-hairline: #e2e8f0; /* default border (slate-200) */
-  --color-hairline-soft: #f1f5f9; /* slate-100 */
-  --color-hairline-strong: #cbd5e1; /* input border (slate-300) */
-  --color-hairline-dark: #334155; /* slate-700 */
+  --color-hairline: #e2e9e5; /* default border */
+  --color-hairline-soft: #eef2f0; /* soft divider */
+  --color-hairline-strong: #cbd6d0; /* input border */
+  --color-hairline-dark: #2c3b34; /* borders on dark */
 
   /* Text */
-  --color-charcoal: #1e293b; /* slate-800 */
-  --color-slate: #334155; /* slate-700 */
-  --color-steel: #64748b; /* slate-500 */
-  --color-muted: #94a3b8; /* slate-400 */
-  --color-on-dark: #ffffff;
-  --color-on-dark-muted: #cbd5e1; /* slate-300 */
-  --color-on-primary: #ffffff; /* text on the indigo CTA (accent is dark → white text) */
+  --color-charcoal: #1c2a24; /* headings, strong text */
+  --color-slate: #35453e; /* body strong */
+  --color-steel: #556259; /* secondary text (AA on white 6.4:1) */
+  --color-muted: #8a968f; /* decorative/disabled only */
+  --color-on-dark: #ffffff; /* text on dark */
+  --color-on-dark-muted: #b7c7be; /* muted text on dark */
+  --color-on-primary: #ffffff; /* stays white — see §2.2 (AA 5.36:1 on green) */
 
   /* ── Font families (→ font-sans / font-en / font-mono) ───────────────────── */
-  /* font-sans: Noto Sans KR (Korean-capable) via next/font (src/lib/fonts.ts).
-   * font-en: a plain system stack placeholder — no vendored English face in S1
-   *   (the token NAME is kept because the Button primitive uses `font-en`; P6
-   *   may point it at a brand English face). font-mono: JetBrains Mono. */
+  /* font-sans: Pretendard (Korean-capable) via next/font/local (src/lib/fonts.ts);
+   *   the fallback chain keeps a Korean-capable face (Noto Sans KR).
+   * font-en: points at Pretendard too (no longer a bare system stack), so the
+   *   Button primitive (uses `font-en`) renders in the brand face, not the
+   *   visitor's font. font-mono: JetBrains Mono. */
   --font-sans:
-    var(--font-noto-sans-kr), -apple-system, BlinkMacSystemFont, system-ui,
-    sans-serif;
+    var(--font-pretendard), "Pretendard", "Noto Sans KR", -apple-system,
+    BlinkMacSystemFont, system-ui, sans-serif;
   --font-en:
-    -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif;
+    var(--font-pretendard), "Pretendard", "Noto Sans KR", system-ui, sans-serif;
   --font-mono:
     var(--font-jetbrains-mono), "SF Mono", Menlo, Consolas, monospace;
 
   /* ── Type scale (→ text-<name>, with bundled lh/tracking/weight) ─────────── */
-  --text-hero-display: 68px;
-  --text-hero-display--line-height: 1.08;
-  --text-hero-display--letter-spacing: -1.6px;
-  --text-hero-display--font-weight: 680;
+  /* Compact scale, Pretendard weights (400/500/600/700/800 only). */
+  --text-hero-display: 60px;
+  --text-hero-display--line-height: 1.05;
+  --text-hero-display--letter-spacing: -1.5px;
+  --text-hero-display--font-weight: 800;
 
-  --text-display-lg: 56px;
-  --text-display-lg--line-height: 1.12;
-  --text-display-lg--letter-spacing: -1.2px;
-  --text-display-lg--font-weight: 680;
+  --text-display-lg: 46px;
+  --text-display-lg--line-height: 1.1;
+  --text-display-lg--letter-spacing: -1.1px;
+  --text-display-lg--font-weight: 800;
 
-  --text-heading-1: 48px;
-  --text-heading-1--line-height: 1.18;
-  --text-heading-1--letter-spacing: -0.9px;
-  --text-heading-1--font-weight: 680;
+  --text-heading-1: 38px;
+  --text-heading-1--line-height: 1.15;
+  --text-heading-1--letter-spacing: -0.8px;
+  --text-heading-1--font-weight: 700;
 
-  --text-heading-2: 36px;
-  --text-heading-2--line-height: 1.25;
+  --text-heading-2: 30px;
+  --text-heading-2--line-height: 1.2;
   --text-heading-2--letter-spacing: -0.5px;
-  --text-heading-2--font-weight: 680;
+  --text-heading-2--font-weight: 700;
 
-  --text-heading-3: 28px;
-  --text-heading-3--line-height: 1.32;
-  --text-heading-3--letter-spacing: -0.3px;
-  --text-heading-3--font-weight: 680;
+  --text-heading-3: 24px;
+  --text-heading-3--line-height: 1.25;
+  --text-heading-3--letter-spacing: -0.4px;
+  --text-heading-3--font-weight: 700;
 
-  --text-heading-4: 22px;
-  --text-heading-4--line-height: 1.38;
-  --text-heading-4--font-weight: 680;
+  --text-heading-4: 18px;
+  --text-heading-4--line-height: 1.35;
+  --text-heading-4--letter-spacing: -0.2px;
+  --text-heading-4--font-weight: 700;
 
-  --text-body-lg: 19px;
-  --text-body-lg--line-height: 1.65;
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 1.6;
   --text-body-lg--font-weight: 400;
 
-  --text-body-md: 16px;
-  --text-body-md--line-height: 1.65;
+  --text-body-md: 15px;
+  --text-body-md--line-height: 1.6;
   --text-body-md--font-weight: 400;
 
-  --text-body-md-medium: 16px;
-  --text-body-md-medium--line-height: 1.6;
-  --text-body-md-medium--font-weight: 550;
+  --text-body-md-medium: 15px;
+  --text-body-md-medium--line-height: 1.55;
+  --text-body-md-medium--font-weight: 600;
 
-  --text-body-sm: 14px;
-  --text-body-sm--line-height: 1.6;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 1.55;
   --text-body-sm--font-weight: 400;
 
-  --text-caption: 13px;
+  --text-caption: 12px;
   --text-caption--line-height: 1.45;
-  --text-caption--font-weight: 450;
+  --text-caption--font-weight: 500;
 
   --text-micro: 11px;
   --text-micro--line-height: 1.4;
-  --text-micro--letter-spacing: 1px;
+  --text-micro--letter-spacing: 0.8px;
   --text-micro--font-weight: 700;
 
   --text-button-md: 14px;
-  --text-button-md--line-height: 1.3;
-  --text-button-md--font-weight: 700;
+  --text-button-md--line-height: 1.2;
+  --text-button-md--font-weight: 600;
 
   --text-code-md: 13px;
   --text-code-md--line-height: 1.55;
   --text-code-md--font-weight: 400;
 
   /* ── Radius (→ rounded-<name>) ───────────────────────────────────────────── */
-  --radius: 14px; /* base / rounded-DEFAULT */
+  --radius: 10px; /* base / rounded-DEFAULT */
   --radius-xs: 4px;
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
-  --radius-xxl: 28px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-xxl: 20px;
   --radius-full: 9999px;
 
   /* ── Named spacing (→ p-/m-/gap-section etc.) ────────────────────────────── */
   --spacing-section-sm: 48px;
   --spacing-section: 72px;
   --spacing-section-lg: 104px;
-  --spacing-hero: 128px;
+  --spacing-hero: 120px;
 
   /* ── Container widths (→ max-w-page / max-w-wide) ────────────────────────── */
   --container-page: 1180px;
   --container-wide: 1320px;
 
-  /* ── Breakpoints (sm/md/lg/xl keep Tailwind defaults; add xs = 480px) ────── */
-  --breakpoint-xs: 30rem;
+  /* ── Breakpoints (sm/md/lg/xl keep Tailwind defaults; app = 900px, the app
+   *    layout shift consumed via the `app:` variant) ───────────────────────── */
+  --breakpoint-app: 56.25rem;
 }
 
 /*
@@ -211,7 +219,7 @@
   --input: var(--color-hairline-strong);
   --ring: var(--color-green-deep);
 
-  --radius: 14px;
+  --radius: 10px;
 }
 
 @theme inline {

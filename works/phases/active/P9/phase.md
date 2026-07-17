@@ -130,6 +130,30 @@ _Durable findings and cross-slice notes; `DECOMP` seeds this, and each slice app
   value stores as one literal dep and fails `validate`). Used correctly here: S7 → `--depends-on P9.S4
   --depends-on P9.S5 --depends-on P9.S6`.
 
+### Appended by `P9.S1` — foundations landed
+
+- **The `@theme` swap is DONE and green.** `globals.css` now holds the vocky deep-emerald palette (41 hex
+  values swapped, names kept), the compact type scale (14 steps, Pretendard weights 400–800), the compact
+  radius (base 10) / `--spacing-hero: 120px`, and `--breakpoint-app: 56.25rem` (with `--breakpoint-xs`
+  gone). Every downstream slice re-themes off this — no further token edits needed in `globals.css` for the
+  re-theme (S2's §2.5 literal fixes are in `button.tsx`/`card.tsx`, not here).
+- **Pretendard font var is `--font-pretendard`** (renamed from `--font-noto-sans-kr`). Loaded via
+  **`next/font/local`** from a vendored variable woff2 at **`web/src/lib/fonts/PretendardVariable.woff2`**
+  (~2 MB, official `orioncactus/pretendard` release, `weight: "400 800"`). Export in `fonts.ts` is now
+  `pretendard` (was `notoSansKr`); `layout.tsx` wires `pretendard.variable`. `--font-sans` and `--font-en`
+  both lead with Pretendard; **Noto Sans KR stays as the Korean-capable fallback** (locked floor). The
+  rename surface was exactly `globals.css` + `fonts.ts` + `layout.tsx` — `pnpm build` is green, so no stale
+  `notoSansKr` / `--font-noto-sans-kr` reference exists.
+- **`--font-en` now resolves to Pretendard** (no longer a bare system stack), so `button.tsx:18`'s
+  `font-en` will pick up the brand face when S2 rewrites the button — no extra wiring for S2 to add.
+- **`--breakpoint-app` is defined but not yet consumed** — the 11 `min-[900px]:` literals are untouched
+  (S3: app-shell/rail-nav; S4: feedback pages; S7 backstops zero `min-[900px]:` + zero `--breakpoint-xs`).
+- **shadcn aliases verified (§2.5 last bullet), no edit:** `--primary`/`--primary-foreground`/`--ring`/
+  `--destructive` all map by name → re-theme automatically.
+- **Verification for S1:** `pnpm typecheck`, `pnpm lint`, `pnpm build` all clean; the build success is the
+  strongest signal the Pretendard loader resolved the real asset, not a fallback. Repo has 20 pre-existing
+  unrelated `format:check` failures — S1 ran `prettier --write` on only its three touched files.
+
 ## Constraints
 
 Durable for every slice in this phase. Carry the RESPECT-THE-DESIGN block into **every** slice's `plan.md`
@@ -179,6 +203,10 @@ _Running list for `P9.REVIEW` to consolidate into doc versions. Append one line 
   not superseded. `P9.REVIEW` consolidates these into new versions once — no implementation slice versions
   docs (constraint 5). Backend docs (`api.md`, `architecture.md`, `product.md`, `operations.md`) need **no**
   change (constraint 3 / `build-prompt.md §9`).
+- **`P9.S1`:** foundations applied to `globals.css` + `fonts.ts` + `layout.tsx` — the vocky deep-emerald
+  palette (names kept), the compact type/radius/spacing scale, `--breakpoint-app` (and `--breakpoint-xs`
+  removed), and a `next/font/local` Pretendard loader (vendored variable woff2). `docs/current/frontend.md`
+  (v0003) still describes these as a *live placeholder* — for `P9.REVIEW` to consolidate.
 
 ## Open Questions
 

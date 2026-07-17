@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { SITE } from "@/content";
-import { jetbrainsMono, notoSansKr } from "@/lib/fonts";
+import { jetbrainsMono, pretendard } from "@/lib/fonts";
 import "./globals.css";
 
 // Base metadata. `metadataBase` resolves canonical/OG URLs from SITE.url
@@ -18,11 +18,11 @@ export const metadata: Metadata = {
 };
 
 // Root layout. Chrome language is English (`lang="en"`); Korean *content*
-// (feedback) still renders via the Korean-capable Noto Sans KR font. The two
-// self-hosted next/font variables are applied to <html> so font-sans / font-mono
-// resolve everywhere; body defaults to font-sans on the canvas surface. The
-// authenticated app shell + nav land in P4.S2 (they wrap the `(app)` route
-// group, not this root layout).
+// (feedback) still renders via the Korean-capable Pretendard font (Noto Sans KR
+// fallback). The two self-hosted next/font variables are applied to <html> so
+// font-sans / font-mono resolve everywhere; body defaults to font-sans on the
+// canvas surface. The authenticated app shell + nav land in P4.S2 (they wrap the
+// `(app)` route group, not this root layout).
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,7 +31,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${notoSansKr.variable} ${jetbrainsMono.variable}`}
+      className={`${pretendard.variable} ${jetbrainsMono.variable}`}
     >
       <body className="flex min-h-dvh flex-col bg-canvas font-sans text-ink antialiased">
         {children}

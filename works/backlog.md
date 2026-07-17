@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P9`
-- Current slice: `P9.S1`
-- Next slice: `P9.S2`
+- Current slice: `P9.S2`
+- Next slice: `P9.S3`
 - Waiting on operator: `none`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-18T02:17:23+09:00`
+- Rebuilt at: `2026-07-18T02:55:56+09:00`
 
 ## Active Phases
 
@@ -22,7 +22,7 @@
 | [x] `P7` | `done` | `pass` | Agent-Capture Revival (MCP write-only) | `none` | `works/phases/active/P7` |
 | [x] `P4` | `done` | `pass` | Web App: Tenant Dashboard & Project Pages | `none` | `works/phases/active/P4` |
 | [x] `P8` | `done` | `pass` | Design Gate: Brand, App UI & Landing | `none` | `works/phases/active/P8` |
-| [ ] `P9` | `planned` | `pending` | Apply the Design: App UI, Landing & Feature Changes | `P9.S1` | `works/phases/active/P9` |
+| [ ] `P9` | `planned` | `pending` | Apply the Design: App UI, Landing & Feature Changes | `P9.S2` | `works/phases/active/P9` |
 | [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
 | [ ] `P6` | `planned` | `pending` | Landing Page, Webpage & Production Deploy | `P6.DECOMP` | `works/phases/active/P6` |
 
@@ -94,7 +94,7 @@
 | Slice | Status | Name | Kind | Path |
 |---|---|---|---|---|
 | [x] `P9.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P9/slices/P9.DECOMP` |
-| [ ] `P9.S1` | `todo` | Foundations: @theme swap + Pretendard loader | `implementation` | `works/phases/active/P9/slices/P9.S1` |
+| [x] `P9.S1` | `done` | Foundations: @theme swap + Pretendard loader | `implementation` | `works/phases/active/P9/slices/P9.S1` |
 | [ ] `P9.S2` | `todo` | Primitives: button/card/badge/field + new Select/Chip + barrel | `implementation` | `works/phases/active/P9/slices/P9.S2` |
 | [ ] `P9.S3` | `todo` | App components + brand mark | `implementation` | `works/phases/active/P9/slices/P9.S3` |
 | [ ] `P9.S4` | `todo` | App surfaces (all six) | `implementation` | `works/phases/active/P9/slices/P9.S4` |
