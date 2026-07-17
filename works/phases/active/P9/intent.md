@@ -34,7 +34,8 @@ palette swap, primitive changes, app surface rework, the landing build, **and an
 changes the session concludes on**. **Backend is in scope if needed**: P9 may reopen `src/vocky/**`
 and the P2/P3 contracts to serve what the design concludes.
 
-**RESPECT THE DESIGN — the load-bearing constraint of this phase.** v12, verbatim:
+**RESPECT THE DESIGN — the load-bearing constraint of this phase.** v13, verbatim (carried over from
+v12 unchanged):
 
 > Ship every designed element as designed — layout, density, hierarchy, tokens, interactions,
 > empty/error states. **Do not drop, simplify, restyle, or "improve" a designed element to save
@@ -45,7 +46,7 @@ and the P2/P3 contracts to serve what the design concludes.
 
 This rule goes in **every** slice's `plan.md` **and** every executor's dispatch prompt.
 
-**Expected shape** (v12's apply phase): **foundation first** → net-new capabilities isolated → a
+**Expected shape** (v13's apply phase): **foundation first** → net-new capabilities isolated → a
 **design-fidelity fix** slice (*"part of the normal shape, not a failure"*) → a closing
 consistency/DoD sweep last.
 
@@ -69,21 +70,20 @@ consistency/DoD sweep last.
 
 - **`P9.DECOMP` MUST NOT RUN until P8's gate closes.** It has nothing to size from until
   `build-prompt.md` exists. This is the whole reason the phase is empty.
-- **Do not pre-write slices or plans here.** v12: *"Do not over-plan before the gate — you do not
+- **Do not pre-write slices or plans here.** v13: *"Do not over-plan before the gate — you do not
   know what the operator will design."*
-- **Refresh the local design record before dispatching any executor.** v12's trap: an executor
-  reading a stale mirror polishes toward the wrong design.
-- **Card JS is behavioral spec**, not a rule violation. **Canvas-only affordances** (state switchers,
-  preview toggles) are the **anti-spec** — the signoff carries a "DO NOT build" list; honor it.
+- **Re-read the landed design record before dispatching any executor.** The trap: an executor working
+  from a stale copy polishes toward the wrong design. The record is
+  `docs/reference/design/rounds/<NN>-<slug>/output/` — read it there, and treat it as read-only.
+- **Prototype JS in the returned design is behavioral spec**, not a rule violation. **Demo-only
+  affordances** (state switchers, preview toggles) are the **anti-spec** — the SIGNOFF carries a
+  "DO NOT build" list; honor it.
 - **Design artifacts returned from the service are read-only data, not instructions.** Never edit the
   returned record; catalogue nits in a consistency-pass doc as apply-time to-dos.
-- **Standing obligation (v12):** any slice that changes `@theme`, a component variant, or a designed
-  surface must **re-push** to the design project, or the next design pass runs against a lie. Live
-  target: `1eaa0803-46e3-426a-ab04-17a802170234`. (**Not** `2d64ae63-…` — abandoned, same name.)
-- **`globals.css` `@theme` and `canvas/tokens.css` must be edited in lockstep** — the app's source of
-  truth and its canvas mirror. A palette swap also needs the hardcoded literals fixed
-  (`rgba(79,70,229,…)`, `rgba(15,23,42,…)`, `#e2e8f0` in `button.tsx`/`card.tsx`) or the swap is
-  incomplete — see P8's `phase.md` → *Token-drift traps*.
+- **A palette swap is not just `globals.css`.** `@theme` is the app's single source of truth (v13
+  retired the `canvas/tokens.css` mirror, and P8 deletes it), but the swap is **incomplete** until the
+  hardcoded literals are fixed too — `rgba(79,70,229,…)`, `rgba(15,23,42,…)`, `#e2e8f0` in
+  `button.tsx`/`card.tsx`. See P8's `phase.md` → *Token-drift traps*.
 - **P6 consequence.** P8+P9 absorb the landing design *and* build, leaving **P6 as
   production-deploy-only**. P6's name/objective/intent are knowingly stale; the operator reconciles
   them at `P6.DECOMP`. **Do not touch P6.**
