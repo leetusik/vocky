@@ -1,17 +1,18 @@
 import Link from "next/link";
 
+import { Mark, Wordmark } from "@/components/brand";
 import { Card } from "@/components/ui";
-import { SITE } from "@/content";
 import type { AuthPageCopy } from "@/content";
 
 /**
- * Shared presentation for the login + signup pages (P4.S2): brand, the card with
+ * Shared presentation for the login + signup pages (P4.S2; restyled to the vocky
+ * system in P9.S4): the brand lockup (mark + wordmark), the `feature` card with
  * lead/sub + the form island, and the cross-link to the other auth page. Server
  * component — only the `children` form is a client island.
  *
- * Light surface on the placeholder palette (unlike hi2vi's dark "secure gate",
- * whose forest/mint tokens have no vocky equivalent). The real design lands at the
- * P6 gate; this is token-only so that swap is values, not markup.
+ * A brand moment on a light surface: the larger 52px Mark + the Wordmark sit
+ * centered above the card. The identical-401-error mapping stays in the form/BFF
+ * (a locked floor) — untouched here.
  */
 export function AuthCard({
   copy,
@@ -21,8 +22,11 @@ export function AuthCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto w-full max-w-[420px]">
-      <p className="mb-6 text-center text-heading-4 text-ink">{SITE.name}</p>
+    <div className="mx-auto w-full max-w-[400px]">
+      <div className="mb-6 flex items-center justify-center gap-3">
+        <Mark size={52} />
+        <Wordmark className="text-[28px]" />
+      </div>
 
       <Card variant="feature">
         <h1 className="text-heading-3 text-ink">{copy.lead}</h1>

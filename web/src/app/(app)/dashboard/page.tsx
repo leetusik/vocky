@@ -34,7 +34,7 @@ const columns: DataTableColumn<VockyProject>[] = [
     cell: (project) => (
       <Link
         href={`/projects/${project.id}`}
-        className="font-medium text-ink hover:underline"
+        className="font-medium text-ink hover:text-green-dark hover:underline"
       >
         {project.name}
       </Link>
@@ -87,7 +87,7 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-page">
       <h1 className="text-heading-3 text-ink">{DASHBOARD.lead}</h1>
 
-      <div className="mt-6 space-y-8">
+      <div className="mt-6 space-y-6">
         <StatTiles
           heading={DASHBOARD.usage.heading}
           totals={usage.totals}

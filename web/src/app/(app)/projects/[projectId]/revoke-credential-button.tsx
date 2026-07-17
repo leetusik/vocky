@@ -4,10 +4,7 @@ import { useActionState, useId, useState } from "react";
 
 import { Button } from "@/components/ui";
 import { PROJECT } from "@/content";
-import {
-  revokeCredentialAction,
-  type RevokeCredentialState,
-} from "./actions";
+import { revokeCredentialAction, type RevokeCredentialState } from "./actions";
 
 /** Initial state lives here, not in the `"use server"` file — see `actions.ts`. */
 const INITIAL_STATE: RevokeCredentialState = { error: null };
@@ -30,9 +27,11 @@ export interface RevokeCredentialButtonProps {
  * two-step confirm — rendered inline rather than as a `window.confirm`, which is
  * unstyleable and blocks the whole tab.
  *
- * `Button variant="secondary"`: the palette has no `destructive` button variant,
- * and P4 does not add one — the token NAMES mirror hi2vi_web so the P6 design gate
- * can swap values only, and a net-new name would have no source at that swap.
+ * `Button variant="destructiveOutline" size="sm"`: revoke is destructive, so the
+ * vocky system (round 01, §4.4) gives it the danger-outlined treatment — a bordered
+ * variant that reads as dangerous without shouting, kept small to sit in a table
+ * row. (P4's note that the palette had no destructive variant is now obsolete:
+ * vocky ships both `destructive` and `destructiveOutline`.)
  */
 export function RevokeCredentialButton({
   projectId,
@@ -58,7 +57,7 @@ export function RevokeCredentialButton({
           <span className="text-caption text-steel">{copy.confirmPrompt}</span>
           <Button
             type="submit"
-            variant="secondary"
+            variant="destructiveOutline"
             size="sm"
             disabled={pending}
             aria-describedby={state.error ? errorId : undefined}
@@ -77,7 +76,7 @@ export function RevokeCredentialButton({
       ) : (
         <Button
           type="button"
-          variant="secondary"
+          variant="destructiveOutline"
           size="sm"
           onClick={() => setConfirming(true)}
           aria-label={`${copy.ariaLabelPrefix} ${credentialLabel}`}

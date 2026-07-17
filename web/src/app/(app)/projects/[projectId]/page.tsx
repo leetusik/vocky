@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Badge, Card, DataTable, type DataTableColumn } from "@/components/ui";
@@ -181,9 +182,15 @@ export default async function ProjectPage({
 
   return (
     <div className="mx-auto max-w-page">
-      <h1 className="text-heading-3 text-ink">{project.name}</h1>
+      <nav className="text-body-sm text-steel">
+        <Link href="/dashboard" className="text-green-dark hover:underline">
+          Dashboard
+        </Link>{" "}
+        / {project.name}
+      </nav>
+      <h1 className="mt-1 text-heading-3 text-ink">{project.name}</h1>
 
-      <div className="mt-6 space-y-8">
+      <div className="mt-6 space-y-6">
         {/* Exactly ONE usage block on this page: StatTiles/TrendChart hardcode
             their `usage-totals` / `usage-trend` DOM ids, so a second block would
             collide. Both are reused AS-IS from S3 — the shapes are identical. */}

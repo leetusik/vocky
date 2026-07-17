@@ -217,6 +217,46 @@ _Durable findings and cross-slice notes; `DECOMP` seeds this, and each slice app
   `prettier --write` on the 8 touched files only (the 20 pre-existing unrelated `format:check`
   failures left as-is). All grep-asserts pass (see `result.md`).
 
+### Appended by `P9.S4` — all six app surfaces landed
+
+- **The `min-[900px]:` → `app:` migration is COMPLETE.** S3 did 4 (app-shell/rail-nav);
+  S4 did the last 5 (feedback list ×4, feedback detail ×1). **Zero `min-[900px]:`
+  remain anywhere in `web/src/`** (grep-verified) — S7's DoD backstop should find
+  nothing to migrate.
+- **`Select` / `Chip` are now ADOPTED (S2 built them, S4 wired them).** Feedback
+  filters use `<Select>` (the two raw `inputVariants()`-template `<select>` are gone;
+  no such template remains in `src/`). Feedback-detail tags use `<Chip>`. For `Select`,
+  the Label→control margin goes on **`wrapperClassName`** (the outer positioning
+  `<span>`), not `className` (which targets the inner `<select>`, already carrying
+  `selectVariants()`).
+- **Filter-list active-filter Chips were SKIPPED (spec-optional, deliberate).** The
+  feedback list is a no-client-island GET form; a *removable* `Chip` needs a client
+  `onRemove` parent, which would break that no-JS invariant. Skipping is
+  spec-compliant (build-prompt marks these "optional"). If ever wanted, do them
+  **link-based** (server-friendly), not with the client `removable` Chip — an S7/
+  operator fidelity add. Recorded in S4 `result.md`.
+- **Revoke is `destructiveOutline` now; the stale P4 doc comment was corrected.** Both
+  revoke buttons → `variant="destructiveOutline" size="sm"` (cancel stays `link`); the
+  two-step confirm + best-effort logic is verbatim. The old comment claiming "the
+  palette has no destructive button variant… P6 gate swaps values only" is obsolete
+  and was rewritten.
+- **Locked floors preserved on these surfaces:** `PROJECT.keyPanel.warning` verbatim +
+  the green-tinted (`border-security-mint bg-surface-green`) show-once panel + revoked
+  keys stay listed; feedback list `<form method="GET">` + blank-is-absent + forward-only
+  pagination + the two distinct empty states; feedback-detail download-only attachments
+  (proxy `href` + `download`) + read-only comments + UTC Timestamps. The identical-401
+  mapping lives in the forms/BFF and was not touched.
+- **Brand lockup on auth:** the auth card now shows a centered `<Mark size={52}/>` +
+  `<Wordmark className="text-[28px]"/>` above the `feature` card (`max-w-[400px]`); the
+  text `SITE.name` brand is gone. Project detail gained a breadcrumb `<nav>` (inline
+  literal "Dashboard" per design contract §5, reusing already-loaded `project.name`).
+- **`create-project-form.tsx` needed no change** — its `primary` button already
+  resolves to the S2 primitive (verified only).
+- **Verification for S4:** `pnpm typecheck` + `pnpm lint` clean; `pnpm build` **GREEN**
+  (all 12 routes, 7 static pages); `prettier --write` on the 8 touched files only (the
+  20 pre-existing unrelated `format:check` failures left as-is). All 7 grep-asserts pass
+  (see `result.md`).
+
 ## Constraints
 
 Durable for every slice in this phase. Carry the RESPECT-THE-DESIGN block into **every** slice's `plan.md`
@@ -284,6 +324,14 @@ _Running list for `P9.REVIEW` to consolidate into doc versions. Append one line 
   brand asset landed (`components/brand/{mark,wordmark}` — the waveform tile + wordmark, reused by S4/S5/S6).
   `docs/current/frontend.md` (v0003) still describes the old text brand, bar-chart TrendChart, and pre-vocky
   app chrome. For `P9.REVIEW` to consolidate.
+- **`P9.S4`:** all six app surfaces + the three island forms now render the vocky system at compact density
+  (`space-y-6`) — auth-card brand lockup (mark+wordmark), dashboard/project-detail link hover + breadcrumb,
+  `Select` feedback filters, `Chip` feedback-detail tags, `destructiveOutline` revoke buttons, and the
+  green-tinted (`border-security-mint bg-surface-green`) show-once key panel; the `min-[900px]:` → `app:`
+  breakpoint migration is now **complete** (zero literals remain in `web/src/`). The optional feedback-list
+  active-filter Chips were deliberately skipped (no-client-island GET form). `docs/current/frontend.md`
+  (v0003) still describes these surfaces as placeholder-palette; all locked floors intact. For `P9.REVIEW`
+  to consolidate.
 
 ## Open Questions
 

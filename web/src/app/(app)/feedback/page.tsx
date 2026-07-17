@@ -9,8 +9,8 @@ import {
   DataTable,
   type DataTableColumn,
   Input,
-  inputVariants,
   Label,
+  Select,
 } from "@/components/ui";
 import { FEEDBACK } from "@/content";
 import { requireIdentity } from "@/lib/auth-guards";
@@ -78,7 +78,11 @@ type ParamKey = (typeof PARAM_KEYS)[number];
 type ActiveParams = Partial<Record<ParamKey, string>>;
 
 /** The three params the filter form renders as real inputs. */
-const FORM_FIELD_KEYS: readonly string[] = ["q", "project_id", "feedback_value"];
+const FORM_FIELD_KEYS: readonly string[] = [
+  "q",
+  "project_id",
+  "feedback_value",
+];
 
 /**
  * Take the first value of a possibly-repeated param.
@@ -271,8 +275,8 @@ function FilterBar({
           <input key={key} type="hidden" name={key} value={value} />
         ))}
 
-        <div className="flex flex-col gap-4 min-[900px]:flex-row min-[900px]:items-end">
-          <div className="min-[900px]:flex-1">
+        <div className="flex flex-col gap-4 app:flex-row app:items-end">
+          <div className="app:flex-1">
             <Label htmlFor="q">{FEEDBACK.filters.searchLabel}</Label>
             <Input
               id="q"
@@ -284,13 +288,13 @@ function FilterBar({
             />
           </div>
 
-          <div className="min-[900px]:w-56">
+          <div className="app:w-56">
             <Label htmlFor="project_id">{FEEDBACK.filters.projectLabel}</Label>
-            <select
+            <Select
               id="project_id"
               name="project_id"
               defaultValue={active.project_id ?? ""}
-              className={`${inputVariants()} mt-1.5`}
+              wrapperClassName="mt-1.5"
             >
               {/* Blank = every project the tenant owns. It submits as
                   `project_id=` and is dropped by `readActiveParams` — sending it
@@ -301,22 +305,24 @@ function FilterBar({
                   {project.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
-          <div className="min-[900px]:w-40">
-            <Label htmlFor="feedback_value">{FEEDBACK.filters.valueLabel}</Label>
-            <select
+          <div className="app:w-40">
+            <Label htmlFor="feedback_value">
+              {FEEDBACK.filters.valueLabel}
+            </Label>
+            <Select
               id="feedback_value"
               name="feedback_value"
               defaultValue={active.feedback_value ?? ""}
-              className={`${inputVariants()} mt-1.5`}
+              wrapperClassName="mt-1.5"
             >
               {/* vocky accepts ONLY 1 or 2 — there is no filter for "unrated". */}
               <option value="">{FEEDBACK.filters.valueAny}</option>
               <option value="1">{FEEDBACK.filters.valueLiked}</option>
               <option value="2">{FEEDBACK.filters.valueDisliked}</option>
-            </select>
+            </Select>
           </div>
 
           <div className="flex items-center gap-2">
@@ -368,7 +374,7 @@ export default async function FeedbackPage({
     <div className="mx-auto max-w-page">
       <h1 className="text-heading-3 text-ink">{FEEDBACK.lead}</h1>
 
-      <div className="mt-6 space-y-8">
+      <div className="mt-6 space-y-6">
         <FilterBar active={active} projects={projects} />
 
         <section aria-labelledby="feedback-list">

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { buttonVariants, Card } from "@/components/ui";
+import { buttonVariants, Card, Chip } from "@/components/ui";
 import { FEEDBACK } from "@/content";
 import { requireIdentity } from "@/lib/auth-guards";
 import { getFeedbackDetail, listProjects } from "@/lib/vocky/app";
@@ -71,7 +71,7 @@ function Field({ label, children }: { label: string; children?: ReactNode }) {
   return (
     <div>
       <dt className="text-caption text-steel">{label}</dt>
-      <dd className="mt-0.5 break-words text-body-sm text-ink">
+      <dd className="mt-0.5 text-body-sm break-words text-ink">
         {children ?? <Empty />}
       </dd>
     </div>
@@ -97,7 +97,9 @@ function formatBytes(bytes: number): string {
 
 /** True when a free-form blob has anything worth showing. */
 function hasContent(value: Record<string, unknown> | unknown[]): boolean {
-  return Array.isArray(value) ? value.length > 0 : Object.keys(value).length > 0;
+  return Array.isArray(value)
+    ? value.length > 0
+    : Object.keys(value).length > 0;
 }
 
 /**
@@ -162,7 +164,7 @@ export default async function FeedbackDetailPage({
         ← {FEEDBACK.detail.backLabel}
       </Link>
 
-      <div className="mt-4 space-y-8">
+      <div className="mt-4 space-y-6">
         <section aria-labelledby="feedback-message">
           <div className="flex items-center justify-between gap-4">
             <h1 id="feedback-message" className="text-heading-3 text-ink">
@@ -174,7 +176,7 @@ export default async function FeedbackDetailPage({
           <Card variant="base" className="mt-3">
             {/* The end user's own words — untrusted text, whitespace preserved
                 so multi-line feedback reads as it was written. */}
-            <p className="whitespace-pre-wrap break-words text-body-md text-ink">
+            <p className="text-body-md break-words whitespace-pre-wrap text-ink">
               {record.message}
             </p>
           </Card>
@@ -188,7 +190,7 @@ export default async function FeedbackDetailPage({
                 {FEEDBACK.detail.commentNone}
               </p>
             ) : (
-              <p className="whitespace-pre-wrap break-words text-body-sm text-ink">
+              <p className="text-body-sm break-words whitespace-pre-wrap text-ink">
                 {record.comment}
               </p>
             )}
@@ -204,7 +206,7 @@ export default async function FeedbackDetailPage({
           </p>
 
           <Card variant="base" className="mt-3">
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 min-[900px]:grid-cols-3">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 app:grid-cols-3">
               <Field label={FEEDBACK.detail.fields.project}>
                 {projectName}
               </Field>
@@ -232,7 +234,9 @@ export default async function FeedbackDetailPage({
                 {record.target_role}
               </Field>
               <Field label={FEEDBACK.detail.fields.conversationId}>
-                {record.conversation_id && <Mono>{record.conversation_id}</Mono>}
+                {record.conversation_id && (
+                  <Mono>{record.conversation_id}</Mono>
+                )}
               </Field>
               <Field label={FEEDBACK.detail.fields.sessionId}>
                 {record.session_id && <Mono>{record.session_id}</Mono>}
@@ -256,7 +260,8 @@ export default async function FeedbackDetailPage({
 
             {/* The two long-form context fields, given their own full-width
                 block rather than a grid cell they would overflow. */}
-            {(record.trigger_message !== null || record.target_text !== null) && (
+            {(record.trigger_message !== null ||
+              record.target_text !== null) && (
               <dl className="mt-6 space-y-4 border-t border-hairline-soft pt-6">
                 {record.trigger_message !== null && (
                   <Field label={FEEDBACK.detail.fields.triggerMessage}>
@@ -288,11 +293,8 @@ export default async function FeedbackDetailPage({
               {record.tags.map((tag) => (
                 // Keyed by the tag itself: vocky stores tags as a list and does
                 // not de-duplicate, so the index guards a repeated tag.
-                <li
-                  key={tag}
-                  className="rounded-full border border-hairline bg-surface px-2.5 py-1 font-mono text-caption text-slate"
-                >
-                  {tag}
+                <li key={tag}>
+                  <Chip>{tag}</Chip>
                 </li>
               ))}
             </ul>
@@ -318,7 +320,7 @@ export default async function FeedbackDetailPage({
                       </span>
                       <Timestamp iso={comment.created_at} />
                     </div>
-                    <p className="mt-2 whitespace-pre-wrap break-words text-body-sm text-slate">
+                    <p className="mt-2 text-body-sm break-words whitespace-pre-wrap text-slate">
                       {comment.body}
                     </p>
                   </Card>

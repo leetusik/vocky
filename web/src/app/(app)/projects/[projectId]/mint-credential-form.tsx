@@ -58,7 +58,9 @@ export function MintCredentialForm({ projectId }: MintCredentialFormProps) {
 
   const invalid = state.error !== null;
   const showKey =
-    state.key !== undefined && state.ok !== undefined && state.ok !== dismissedAt;
+    state.key !== undefined &&
+    state.ok !== undefined &&
+    state.ok !== dismissedAt;
 
   return (
     <div className="space-y-4">
@@ -131,7 +133,7 @@ function ShowOnceKey({
   return (
     <div
       role="alert"
-      className="rounded-lg border border-hairline-strong bg-surface p-4"
+      className="rounded-lg border border-security-mint bg-surface-green p-4"
     >
       <h4 className="text-body-md font-semibold text-ink">{copy.heading}</h4>
       <p className="mt-1 text-body-sm text-steel">{copy.warning}</p>
