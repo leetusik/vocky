@@ -31,7 +31,7 @@ undeletable (DesignSync has no `delete_project`). **Target by id, never by name.
 
 ## Decomposition
 
-_Slice breakdown and rationale — filled by the `P8.DECOMP` slice (2026-07-17)._
+_Slice breakdown and rationale — filled by the `P8.DECOMP` slice._
 
 > Two v12 rules bind the shape and must survive into that breakdown:
 >
@@ -41,69 +41,6 @@ _Slice breakdown and rationale — filled by the `P8.DECOMP` slice (2026-07-17).
 >   window between them). Never rate a design gate `low`.
 > - **Do not over-plan before the gate** — *"you do not know what the operator will design."* Create
 >   round 1 only. If the session needs a round 2, cut it at a fractional order afterward.
->
-> **Both survived: `P8.S6` is `co-work`/`high` and is round 1's only gate; nothing beyond `S7` exists.**
-
-`intent.md`'s four stages — **seed → brief → gate → synthesis** — with **seed** split three ways on
-measured size (~11 cards at 100–330 lines each, plus a machine-produced render). `P8.REVIEW` sits at
-order 9999, so 1–7 slot in cleanly.
-
-| Slice | Name | Kind | Risk | Order | Depends on |
-|---|---|---|---|---|---|
-| `P8.S1` | Frozen baseline render of the 6 shipped surfaces | `implementation` | `medium` | 1 | — |
-| `P8.S2` | DS cards: foundations completion, DataTable card, `Reference — hi2vi vibe`; drop the fictional placeholder | `implementation` | `high` | 2 | — |
-| `P8.S3` | Surface mirror cards A: app shell, login/signup, dashboard | `implementation` | `high` | 3 | `P8.S1` |
-| `P8.S4` | Surface mirror cards B: project detail, feedback list, feedback detail | `implementation` | `high` | 4 | `P8.S1` |
-| `P8.S5` | Gate brief card + `_ds_manifest.json` regen + P6→P8 source fixes | `implementation` | `high` | 5 | `P8.S2`, `P8.S3`, `P8.S4` |
-| `P8.S6` | **The design gate: push → STOP → read-back** | **`co-work`** | **`high`** | 6 | `P8.S5` |
-| `P8.S7` | Synthesis: capture the spec into `phase.md` + write the SIGNOFF | `implementation` | `high` | 7 | `P8.S6` |
-
-### Why this split
-
-- **`S1` first, and it is not optional.** v12 requires *"a frozen baseline render of today's look…
-  that survives token changes — the before/after reference at sign-off."* The harvested finding proves
-  why it must precede the gate: utilities compile to `var(--color-*)` references, **so the instant the
-  gate swaps `--color-green`, every live artifact re-themes and "before" is destroyed.** Its output is
-  also the real paint `S3`/`S4` mirror against — hence the `depends_on`.
-- **`S2` is design-system vocabulary; `S3`/`S4` are product surfaces.** Different work, different
-  reference material. `S2` needs no baseline, so it can run before or beside `S1`.
-- **`S3`/`S4` split 3/3 by measured weight.** Feedback detail alone is ~2–3× the dashboard (5 sections,
-  a 14-cell `<dl>`, tag pills, comment cards, attachment rows, collapsible JSON), and project detail is
-  a 6-column table plus the show-once key panel. One slice of six cards is ~1200 lines of hand-authored
-  HTML; two of three is reviewable.
-- **`S5` last before the gate** because the manifest **does not rebuild on upload** — it can only be
-  regenerated once every card exists. It also carries the brief (the "say what to design" job) and the
-  P6→P8 source fixes, both of which want the final card set in hand.
-- **`S6` is the gate and is never dispatched** — push, STOP (`pending`), read-back, orchestrator-inline.
-- **`S7` closes the phase** at the synthesis + SIGNOFF; the apply is P9.
-
-### Risk rationale — why nothing is `low`
-
-`executors.toml` is all-defaults → **flex mode**: `low` = sonnet@xhigh, `mid`/`high` = opus@xhigh. So
-`medium` vs `high` **costs nothing extra**, and `low` is the only real cost lever — but nothing here is
-mechanical enough for it.
-
-- **`high` on every card-authoring slice** (`S2`–`S5`, `S7`) deliberately: the constraint these slices
-  can most easily break — **zero brand decisions** — is exactly the kind a literal plan-follower crosses
-  without noticing (it "helpfully" picks a color, drafts a headline, answers a question the brief was
-  supposed to pose back). That judgment is the whole job.
-- **`S1` is `medium`:** a build/curl/inline chain with real environment surprise (auth, fonts, the stack)
-  but **no design judgment** in it.
-- **`S6` is `high` and `co-work`:** v12 — *"never rate a design gate `low`."*
-- **Nothing is `low`.** Deliberate, not an oversight.
-
-### What is deliberately NOT sliced
-
-- **No landing mirror cards.** The landing does not exist in code (`web/src/app/page.tsx` is a pure
-  redirect), so authoring hero/features/pricing/footer cards would be **invention, not mirroring** — the
-  exact trap constraint 6 and the fictional `dashboard-placeholder.html` both name. The landing reaches
-  the session **through the brief, as questions** (*"a card can be a question"*). Claude Design designs
-  it; we ask for it. This is not a coverage gap against `intent.md`'s "landing sections" line — it is how
-  a first-time surface enters a gate.
-- **No loading / error / 404 cards.** Cards for these would be net-new design, not mirroring. They are
-  already an Open Question for the brief.
-- **No round 2, no apply slices.** Round 1 only — *"expect the gate to re-shape the phase."* If the
-  session needs another round, cut it at a fractional order **after** the read-back. P9 owns the apply.
 
 ## Findings & Notes
 
@@ -275,38 +212,6 @@ exactly once — generated, not hand-transcribed.
   `register_assets` is legacy; skip it. The current manifest lists **10** cards and its `note` field
   still says the gate is "P6"; `web/design/canvas/README.md` says P6 in 5 places. Both are source and
   a slice may fix them.
-
-### Established at `P8.DECOMP` (2026-07-17) — new facts, not harvested
-
-- **The frozen baseline lands at `web/design/baseline/`** — beside the canvas mirror vocky already uses,
-  inside `web/` so the `localDir: web/` mapping and Connect GitHub both reach it. v12's canonical
-  `docs/reference/design/baseline/` **does not fit vocky**: there is no `docs/reference/` tree, and
-  `docs/` is the versioned durable-truth machinery (generated `current/` + `versions/`) — a frozen render
-  is neither. The skill explicitly permits the living `design/canvas/**` mirror as the alternative record;
-  this is that record's baseline half. **Repo-only — NOT pushed as canvas cards**: the canvas is for live,
-  re-themable cards, the baseline is the frozen "before". Pushing it would hand Claude Design a second,
-  stale copy of every surface.
-- **`data-table` has no card but is the most-used primitive** — 4 of the 6 shipped surfaces render it,
-  and `intent.md` names it in the component list. → `S2` adds it. (Today's canvas: 3 foundations +
-  6 components + the fictional placeholder = 10 cards, none mirroring a real surface.)
-- **Baseline fidelity trap for `S1` — fonts.** The app self-hosts fonts via `next/font/google`
-  (`src/lib/fonts.ts`), so a curl'd page references `/_next/static/media/*.woff2` — URLs that **die with
-  the server**. Inlining only the stylesheet leaves the "frozen" render in system fonts, silently. `S1`
-  must resolve this: inline the faces (base64) **or** record the gap explicitly. **A type change is one
-  of the gate's two real questions** (`--font-sans`, `--font-en`), so font fidelity in the "before" is
-  load-bearing, not cosmetic.
-- **The 6 surfaces are behind auth.** `S1`'s curl chain must POST login, keep the session cookie, and
-  reuse it across every capture — an unauthenticated curl captures redirects, not surfaces. Real data
-  already exists to render: `make smoke` / `src/vocky/smoke.py` does signup → project → mint key → post
-  feedback → poll read, and `make bootstrap` (compose-up + migrate + wait-ready) brings the stack up.
-  `web` has `build` + `start` (`next start -H 127.0.0.1 -p 3030`). **No new deps, no Playwright.**
-- **`S6` carries the one authorized `git push`** — an explicit `S6` obligation, **not a standing
-  permission** (v12's words). It publishes ~340 files / +38k lines to the **public**
-  `github.com/leetusik/vocky` — `main` is **38 commits ahead** of `origin/main` — including all of
-  `works/`: every phase notebook and every verbatim operator message. No secrets travel (verified at
-  phase creation). `intent.md`: *"Worth one deliberate look before the gate slice runs."*
-- **The `--depends-on` append trap is real and was avoided here** — verified at `scripts/workflow.py:1066`
-  (`action="append"`). `P8.S5`'s three deps stored as a 3-element array and `validate` passed clean.
 
 ## Constraints
 
