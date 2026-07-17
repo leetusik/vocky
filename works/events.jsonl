@@ -146,3 +146,12 @@
 {"ts": "2026-07-17T00:49:37+09:00", "type": "slice_status_changed", "slice": "P8.S1", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-07-17T10:03:12+09:00", "type": "phase_created", "phase": "P8"}
 {"ts": "2026-07-17T10:03:12+09:00", "type": "phase_created", "phase": "P9"}
+{"ts": "2026-07-17T10:24:27+09:00", "type": "slice_status_changed", "slice": "P8.DECOMP", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-07-17T10:25:11+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S1"}
+{"ts": "2026-07-17T10:25:11+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S2"}
+{"ts": "2026-07-17T10:25:11+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S3"}
+{"ts": "2026-07-17T10:25:11+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S4"}
+{"ts": "2026-07-17T10:25:18+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S5"}
+{"ts": "2026-07-17T10:25:18+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S6"}
+{"ts": "2026-07-17T10:25:18+09:00", "type": "slice_created", "phase": "P8", "slice": "P8.S7"}
+{"ts": "2026-07-17T10:28:17+09:00", "type": "slice_status_changed", "slice": "P8.DECOMP", "old_status": "in_progress", "new_status": "done"}
