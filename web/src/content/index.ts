@@ -29,3 +29,6 @@ export {
 
 // Feedback (P4.S5) — the cross-project list/search + one record's detail.
 export { FEEDBACK } from "./feedback";
+
+// Net-new framework states (P9.S5) — loading / error / not-found / global-error.
+export { STATES } from "./states";

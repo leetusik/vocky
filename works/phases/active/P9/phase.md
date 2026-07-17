@@ -257,6 +257,34 @@ _Durable findings and cross-slice notes; `DECOMP` seeds this, and each slice app
   20 pre-existing unrelated `format:check` failures left as-is). All 7 grep-asserts pass
   (see `result.md`).
 
+### Appended by `P9.S5` — net-new states landed
+
+- **All four §6 states now exist and are green (purely additive).** New files:
+  `(app)/loading.tsx`, `(app)/error.tsx`, `not-found.tsx` (root), `(app)/not-found.tsx`,
+  `global-error.tsx`, plus the optional `(app)/feedback/loading.tsx`. Copy is a new
+  `content/states.ts` (`STATES`, exported via `@/content`), §6 strings **verbatim** — no existing
+  file changed except that one-line barrel export.
+- **`error.tsx` / `global-error.tsx` reuse the S3 Mark, no fork.** `error.tsx` passes
+  `tileClassName="fill-danger"` (a live utility — `--color-danger` is in `globals.css`);
+  `global-error.tsx` uses the default green mark. Both are `"use client"` boundaries taking
+  `{ error, reset }`; `global-error.tsx` renders its own `<html><body>` and uses `font-sans` (degrades
+  to the Korean-capable system fallback outside the `next/font` scope).
+- **Security floor held:** `error.tsx` never destructures/renders `error` — `error.message` appears only
+  in comments. **404-never-403 floor:** the subcopy lives once in `STATES.notFound.body` and both
+  not-found files read it, so they cannot drift. **Reduced-motion:** skeletons use
+  `animate-pulse motion-reduce:animate-none` (the global reduced-motion layer already freezes it;
+  the utility makes it explicit); the visual skeleton is `aria-hidden` with an `sr-only role="status"`
+  sibling.
+- **Deliberate scope calls for S7 (see `result.md`):** optional per-route loading for
+  `dashboard/`/`projects/[id]/` was NOT built — the generic `(app)/loading.tsx` already mirrors their
+  exact stat-tile+chart shape; only `feedback/loading.tsx` was added (its shape differs). There is **no**
+  root `app/error.tsx` — a throw in auth/landing bubbles to `global-error.tsx`, matching §6 (which
+  designs only `(app)/error.tsx` + `global-error.tsx`). Flag either for S7/operator only if they want
+  styled boundaries on the public/auth surfaces or per-route symmetry (net-new, not in this round).
+- **Verification for S5:** `pnpm typecheck` + `pnpm lint` clean; `pnpm build` **GREEN** (`/_not-found`
+  prerendered static, all 12 routes build); `prettier --write` on the 7 new files + `content/index.ts`
+  (all already formatted). All grep-asserts pass (see `result.md`).
+
 ## Constraints
 
 Durable for every slice in this phase. Carry the RESPECT-THE-DESIGN block into **every** slice's `plan.md`
@@ -332,6 +360,12 @@ _Running list for `P9.REVIEW` to consolidate into doc versions. Append one line 
   active-filter Chips were deliberately skipped (no-client-island GET form). `docs/current/frontend.md`
   (v0003) still describes these surfaces as placeholder-palette; all locked floors intact. For `P9.REVIEW`
   to consolidate.
+- **`P9.S5`:** the four net-new framework states now exist as real vocky surfaces (they were framework
+  defaults / a blank blocked render before) — an `(app)/loading.tsx` stat-tile+chart skeleton (+ a
+  feedback-specific `feedback/loading.tsx`), a danger-mark `(app)/error.tsx` boundary, root + in-app
+  `not-found.tsx` (the 404-never-403 subcopy), and a minimal `global-error.tsx` with its own `<html><body>`;
+  §6 copy authored verbatim in a new `content/states.ts`. `docs/current/frontend.md` (v0003) records that
+  these states **do not exist**. For `P9.REVIEW` to consolidate.
 
 ## Open Questions
 
