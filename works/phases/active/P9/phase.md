@@ -449,6 +449,24 @@ _Running list for `P9.REVIEW` to consolidate into doc versions. Append one line 
   `P9.REVIEW` consolidates the accumulated notes into `frontend.md` / `experience.md` / `decisions.md`
   versions (`D-P8-1` is now *applied*, not superseded). Backend docs need no change (§9).
 
+### Appended by `P9.REVIEW` — phase review passed, docs consolidated
+
+- **Verdict: `pass`.** Consolidated validation re-run green as the phase gate: `pnpm typecheck` / `lint` /
+  `build` (12 routes) / `test` **56/56**, `validate` clean. All negative-space invariants hold (0
+  `min-[900px]:`, 0 `--breakpoint-xs`, only the sanctioned `selectVariants` cva reuse, 0 old variant names,
+  `content/nav.ts` gone). **Phase diff `e3550c0..1e271bd` is web + works only — no `src/vocky/**` / `.py` /
+  contract change** (§9 confirmed by `git diff --name-only`). All 12 DoD §10 items hold; every locked floor
+  intact; RESPECT-THE-DESIGN held (the one filter-chip omission is spec-sanctioned, not a drift). The 13
+  pre-existing P4-era `format:check` failures are known debt (P9 introduced none) — a defer-job candidate,
+  not a blocker.
+- **Docs consolidated (pass only):** `frontend` **v0004** (placeholder → applied vocky brand: value swap,
+  Pretendard, new component vocabulary, `--breakpoint-app`, the four states, the `/` landing, retired
+  leftovers) and `experience` **v0007** (public `/` landing as a real signed-out surface, signed-in bounce
+  preserved). **`decisions` left at v0006** — D-P8-1 is *applied*, not superseded; P9 made no new decision,
+  so a pure status-flip isn't versioned (executor judgment per plan). No backend/data/security/api/arch/
+  product/operations doc changed (§9; security floors already documented at `security` v0005). `rebuild-docs`
+  ran; post-rebuild `validate` clean.
+
 ## Open Questions
 
 _None block P9._ The two apply-time choices left open by `result.md §9` are **named with their cost and are

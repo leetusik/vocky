@@ -1,10 +1,10 @@
 ---
 doc_id: experience
-version: v0006
-created_at: 2026-07-16T23:30:30+09:00
-source: P4.REVIEW
-summary: P4: the vocky web app — sign up in the browser, tenant dashboard, project drill-down with show-once key mint/revoke, and cross-project Korean-safe feedback search/read
-previous: v0005_p7_agents_capture_feedback_via_the_write-only_capture_feedback_mcp_tool_at_a_project_s_mcp_endpoint_authed_by_the_project_s_vk__key
+version: v0007
+created_at: 2026-07-18T04:49:08+09:00
+source: P9.REVIEW
+summary: P9: the public landing now serves / to signed-out visitors (signed-in bounce to /dashboard preserved) as a real product surface
+previous: v0006_p4_the_vocky_web_app_sign_up_in_the_browser_tenant_dashboard_project_drill-down_with_show-once_key_mint_revoke_and_cross-project_korean-safe_feedback_search_read
 ---
 
 # Action Feedback Integration
@@ -261,6 +261,10 @@ curl "https://vocky.example.com/api/project/usage" -H "Authorization: Bearer vk_
 Everything above is the API. As of **P4** there is also a **web app** — Vocky's authenticated browser surface, and the replacement for the packaged self-hosted operator Admin Web UI. It does the account/project/credential work and the cross-project feedback reading **without curl**. (It runs locally today; the public deployment at `vocky.hi2vi.com` is P6.)
 
 It is a signed-in **tenant owner's** surface, not an end-user one: you see your own tenant, your own projects, and your own feedback. Anything belonging to someone else answers "not found" — never "forbidden" — so you cannot even probe what exists.
+
+### The landing page (`/`)
+
+As of **P9**, the app's root `/` is a **public marketing landing** for signed-out visitors, not a bare redirect. It explains what Vocky is — a server-to-server feedback layer where your backend sends explicit user reactions (likes, dislikes, comments) over a single `POST /api/feedback` call, and Vocky turns them into structured, Korean- and English-searchable signal — and how to start: create a project, mint a `vk_` key (shown once), send feedback from your backend, then search and review it. Its calls to action are **Start free** (`/signup`) and **Read the docs** (the real `github.com/leetusik/vocky` repo). If you are already signed in, visiting `/` **bounces you straight to `/dashboard`** — the landing is the signed-out front door only, and no session token is ever exposed to it.
 
 ### Sign up, sign in, sign out
 

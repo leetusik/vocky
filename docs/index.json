@@ -55,7 +55,7 @@
       ]
     },
     "experience": {
-      "latest": "v0006_p4_the_vocky_web_app_sign_up_in_the_browser_tenant_dashboard_project_drill-down_with_show-once_key_mint_revoke_and_cross-project_korean-safe_feedback_search_read",
+      "latest": "v0007_p9_the_public_landing_now_serves_to_signed-out_visitors_signed-in_bounce_to_dashboard_preserved_as_a_real_product_surface",
       "current_path": "docs/current/experience.md",
       "versions": [
         {
@@ -105,6 +105,14 @@
           "source": "P4.REVIEW",
           "summary": "P4: the vocky web app — sign up in the browser, tenant dashboard, project drill-down with show-once key mint/revoke, and cross-project Korean-safe feedback search/read",
           "previous": "v0005_p7_agents_capture_feedback_via_the_write-only_capture_feedback_mcp_tool_at_a_project_s_mcp_endpoint_authed_by_the_project_s_vk__key"
+        },
+        {
+          "id": "v0007_p9_the_public_landing_now_serves_to_signed-out_visitors_signed-in_bounce_to_dashboard_preserved_as_a_real_product_surface",
+          "path": "docs/versions/experience/v0007_p9_the_public_landing_now_serves_to_signed-out_visitors_signed-in_bounce_to_dashboard_preserved_as_a_real_product_surface.md",
+          "created_at": "2026-07-18T04:49:08+09:00",
+          "source": "P9.REVIEW",
+          "summary": "P9: the public landing now serves / to signed-out visitors (signed-in bounce to /dashboard preserved) as a real product surface",
+          "previous": "v0006_p4_the_vocky_web_app_sign_up_in_the_browser_tenant_dashboard_project_drill-down_with_show-once_key_mint_revoke_and_cross-project_korean-safe_feedback_search_read"
         }
       ]
     },
@@ -163,7 +171,7 @@
       ]
     },
     "frontend": {
-      "latest": "v0003_p8_drop_the_deleted_web_design_canvas_section_design_gate_closed_at_p8_applied_by_p9_not_deferred_to_p6_placeholder_state_stays_live",
+      "latest": "v0004_p9_apply_the_round-01_vocky_design_across_the_app_and_landing_deep-emerald_value_swap_pretendard_new_component_vocabulary_net-new_states_public_landing_placeholder_retired",
       "current_path": "docs/current/frontend.md",
       "versions": [
         {
@@ -189,6 +197,14 @@
           "source": "P8.REVIEW",
           "summary": "P8: drop the deleted web/design/canvas section; design gate closed at P8, applied by P9 (not deferred to P6); placeholder state stays live",
           "previous": "v0002_p4_the_vocky_web_app_next.js_16_app_in_web_ported_tailwind-v4_design_system_server-side_bff_sealed-cookie_session_and_the_dashboard_project_feedback_page_inventory"
+        },
+        {
+          "id": "v0004_p9_apply_the_round-01_vocky_design_across_the_app_and_landing_deep-emerald_value_swap_pretendard_new_component_vocabulary_net-new_states_public_landing_placeholder_retired",
+          "path": "docs/versions/frontend/v0004_p9_apply_the_round-01_vocky_design_across_the_app_and_landing_deep-emerald_value_swap_pretendard_new_component_vocabulary_net-new_states_public_landing_placeholder_retired.md",
+          "created_at": "2026-07-18T04:46:05+09:00",
+          "source": "P9.REVIEW",
+          "summary": "P9: apply the round-01 vocky design across the app and landing — deep-emerald value swap, Pretendard, new component vocabulary, net-new states, public / landing; placeholder retired",
+          "previous": "v0003_p8_drop_the_deleted_web_design_canvas_section_design_gate_closed_at_p8_applied_by_p9_not_deferred_to_p6_placeholder_state_stays_live"
         }
       ]
     },
@@ -443,5 +459,5 @@
       ]
     }
   },
-  "last_rebuilt_at": "2026-07-18T01:41:55+09:00"
+  "last_rebuilt_at": "2026-07-18T04:49:45+09:00"
 }

@@ -2,16 +2,16 @@
   "id": "P9",
   "name": "Apply the Design: App UI, Landing & Feature Changes",
   "objective": "Implement P8's signed-off design across the app and the landing page, from the gate's build-prompt.md — foundation first, net-new capabilities isolated, backend reopened where the design requires it, closing with a design-fidelity fix and a consistency/DoD sweep.",
-  "status": "planned",
+  "status": "done",
   "order": 4.6,
   "created_at": "2026-07-17T10:03:12+09:00",
   "started_at": null,
-  "completed_at": null,
+  "completed_at": "2026-07-18T04:51:48+09:00",
   "review": {
-    "status": "pending",
-    "reviewed_at": null,
-    "reviewer": null,
-    "note": null
+    "status": "pass",
+    "reviewed_at": "2026-07-18T04:51:48+09:00",
+    "reviewer": "slice-executor-high",
+    "note": "Apply of round-01 design complete and faithful. typecheck/lint/build/test 56/56 green; all 12 build-prompt §10 DoD items hold; every locked floor intact; web+works-only diff (no backend/contract change, §9). Docs consolidated: frontend v0004, experience v0007; decisions unchanged (D-P8-1 applied, not superseded). Deliberate feedback-list optional-filter-chip omission is spec-sanctioned. 13 pre-existing P4-era format:check failures are known debt (P9 introduced none)."
   },
   "paths": {
     "phase_md": "phase.md",
