@@ -1,6 +1,7 @@
 import { Card, Grid } from "@/components/ui";
 import type { StatTileCopy } from "@/content";
 import type { VockyMetricCounts, VockyUsageWindow } from "@/lib/vocky/types";
+import { cn } from "@/lib/utils";
 
 /**
  * StatTiles — the four capture-volume totals (total / liked / disliked /
@@ -25,6 +26,18 @@ export interface StatTilesProps {
   /** Fallback label when a bound is unparseable. */
   windowUnknown: string;
 }
+
+/**
+ * Leading rating dot per tile (build-prompt §4.13): the total tile carries none;
+ * the three rating tiles get a small colored dot echoing the rating palette
+ * (liked = green, disliked = danger, unrated = muted). `null` = no dot.
+ */
+const TILE_DOT: Record<StatTileCopy["key"], string | null> = {
+  total: null,
+  liked: "bg-green",
+  disliked: "bg-danger",
+  unrated: "bg-muted",
+};
 
 /** `"2026-06-16T…" → "Jun 16"`, or `null` when the bound will not parse. */
 function shortDate(iso: string): string | null {
@@ -66,8 +79,19 @@ export function StatTiles({
 
       <Grid cols={4} className="mt-4">
         {tiles.map((tile) => (
-          <Card key={tile.key} variant="base">
-            <p className="text-caption font-medium text-steel">{tile.label}</p>
+          <Card key={tile.key} variant="base" className="p-4">
+            <p className="flex items-center gap-1.5 text-caption font-medium text-steel">
+              {TILE_DOT[tile.key] ? (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "inline-block size-1.5 rounded-full",
+                    TILE_DOT[tile.key],
+                  )}
+                />
+              ) : null}
+              {tile.label}
+            </p>
             <p className="mt-1 font-mono text-heading-3 text-ink tabular-nums">
               {totals[tile.key].toLocaleString("en-US")}
             </p>

@@ -1,9 +1,10 @@
 import type { VockyDailyMetricCount } from "@/lib/vocky/types";
 
 /**
- * TrendChart — the daily capture-volume series as a token-styled inline-SVG bar
- * chart. No charting dependency on purpose: the design gate is deferred to P6
- * (D-P4-3), so this stays ~small, dependency-free, and swappable.
+ * TrendChart — the daily capture-volume series as a token-styled, dependency-free
+ * inline-SVG **area chart** (restyled from the P4 bar chart in P9.S3 per
+ * build-prompt §4.14). No charting library on purpose: a filled area + line drawn
+ * from a handful of path strings stays small, dependency-free, and swappable.
  *
  * Presentational and props-only. Generic over `VockyDailyMetricCount[]`, which is
  * the SAME series shape for the tenant aggregate (`GET /app/usage`, P4.S3) and
@@ -13,19 +14,20 @@ import type { VockyDailyMetricCount } from "@/lib/vocky/types";
  * Two shapes it must survive (both real, both hit in the live E2E):
  *   - `days: []` — a tenant with ZERO projects gets NO series at all, because
  *     vocky short-circuits to `_zeroed_metrics()` rather than zero-filling. This
- *     renders the empty state; it must never divide by a zero bucket count.
+ *     renders the empty note box; it never touches the SVG scale.
  *   - every bucket `0` — a tenant WITH projects but no captures gets a fully
- *     zero-filled series. `maxTotal` is floored at 1 so the scale never divides
- *     by zero, and every bar renders as a flat baseline stub.
+ *     zero-filled series. `max` is floored at 1 so the scale never divides by
+ *     zero, and every point lands on the baseline — the area collapses to a flat
+ *     line along the bottom.
  *
- * Rendering: `preserveAspectRatio="none"` lets the bars stretch fluidly to any
- * width while staying crisp rectangles (the standard axis-aligned-bar trick).
- * Nothing inside the SVG is stroked or text — distortion-free by construction;
- * the axis labels are HTML underneath.
+ * Rendering: `preserveAspectRatio="none"` lets the area stretch fluidly to any
+ * width; the line keeps `vector-effect="non-scaling-stroke"` so its weight stays
+ * crisp under that stretch. The green fill fades top→bottom via a `<linearGradient>`
+ * and a hairline baseline anchors the series; the two axis labels are HTML below.
  *
  * A11y: the SVG is `role="img"` with an `aria-label`, and the full series is also
  * summarized in an `sr-only` sentence — a screen reader gets the peak and the
- * total rather than 31 unlabeled rects. Each bar carries a `<title>` for a native
+ * total rather than an unlabeled path. Each point carries a `<title>` for a native
  * hover tooltip.
  */
 export interface TrendChartProps {
@@ -39,12 +41,12 @@ export interface TrendChartProps {
   ariaLabel: string;
 }
 
-/** Bar slot width in viewBox units (bar + gutter). */
-const SLOT = 10;
-/** Bar width within its slot; the remainder is the gutter. */
-const BAR = 7;
-/** viewBox height. */
-const H = 100;
+/** viewBox height (width is a fixed 100 so `x` reads as a percentage). */
+const H = 42;
+/** Inner padding (viewBox units) top and bottom, so peaks/baselines never clip. */
+const PAD = 2;
+/** Gradient id — one chart per page in practice; the fill is identical anyway. */
+const GRADIENT_ID = "trend-area-gradient";
 
 /** `"2026-06-16"` → `"Jun 16"`. Parsed as UTC — the value is date-only, so
  * letting the runtime apply a local offset would shift the label by a day in any
@@ -68,13 +70,28 @@ export function TrendChart({
 }: TrendChartProps) {
   const hasSeries = days.length > 0;
 
+  const n = days.length;
   // Floored at 1: an all-zero (fully zero-filled) series must not divide by zero.
-  const maxTotal = Math.max(1, ...days.map((d) => d.total));
+  const max = Math.max(1, ...days.map((d) => d.total));
   const grandTotal = days.reduce((sum, d) => sum + d.total, 0);
   const peak = days.reduce<VockyDailyMetricCount | null>(
     (best, d) => (best === null || d.total > best.total ? d : best),
     null,
   );
+
+  // A single day pins to the horizontal center; otherwise points fan across the
+  // full 0–100 width. `y` inverts total→height inside the padded band.
+  const points = days.map((d, i) => ({
+    x: n > 1 ? (i / (n - 1)) * 100 : 50,
+    y: H - (d.total / max) * (H - 2 * PAD) - PAD,
+    day: d.day,
+    total: d.total,
+  }));
+
+  const line = points
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+    .join(" ");
+  const area = `${line} L 100 ${H - PAD} L 0 ${H - PAD} Z`;
 
   const summary =
     peak === null
@@ -100,28 +117,56 @@ export function TrendChart({
           <svg
             role="img"
             aria-label={ariaLabel}
-            viewBox={`0 0 ${days.length * SLOT} ${H}`}
+            viewBox={`0 0 100 ${H}`}
             preserveAspectRatio="none"
             className="h-40 w-full"
           >
-            {days.map((d, i) => {
-              const height = (d.total / maxTotal) * H;
-              // A zero day still renders a 1-unit stub, so the series reads as a
-              // continuous timeline instead of a gap.
-              const drawn = Math.max(height, 1);
-              return (
-                <rect
-                  key={d.day}
-                  x={i * SLOT + (SLOT - BAR) / 2}
-                  y={H - drawn}
-                  width={BAR}
-                  height={drawn}
-                  className={d.total === 0 ? "fill-hairline" : "fill-green"}
-                >
-                  <title>{`${dayLabel(d.day)}: ${d.total.toLocaleString("en-US")}`}</title>
-                </rect>
-              );
-            })}
+            <defs>
+              <linearGradient id={GRADIENT_ID} x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="0"
+                  stopColor="var(--color-green)"
+                  stopOpacity={0.22}
+                />
+                <stop
+                  offset="1"
+                  stopColor="var(--color-green)"
+                  stopOpacity={0}
+                />
+              </linearGradient>
+            </defs>
+
+            <line
+              x1="0"
+              y1={H - PAD}
+              x2="100"
+              y2={H - PAD}
+              stroke="var(--color-hairline)"
+              strokeWidth={0.6}
+            />
+
+            <path d={area} fill={`url(#${GRADIENT_ID})`} />
+            <path
+              d={line}
+              fill="none"
+              stroke="var(--color-green)"
+              strokeWidth={1.4}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+            />
+
+            {points.map((p) => (
+              <circle
+                key={p.day}
+                cx={p.x}
+                cy={p.y}
+                r={0.9}
+                fill="var(--color-green)"
+              >
+                <title>{`${dayLabel(p.day)}: ${p.total.toLocaleString("en-US")}`}</title>
+              </circle>
+            ))}
           </svg>
 
           <div

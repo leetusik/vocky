@@ -14,7 +14,8 @@ import { cn } from "@/lib/utils";
  * non-interactive text with a "Soon" tag rather than links that would 404. No
  * item sets it today — S5 shipped /feedback, the last one — but the affordance
  * stays for future surfaces.
- * Below 900px the rail collapses to a horizontal strip above the main column.
+ * Below the `app` breakpoint (900px) the rail collapses to a horizontal strip
+ * above the main column.
  */
 export function RailNav() {
   const pathname = usePathname();
@@ -22,9 +23,9 @@ export function RailNav() {
   return (
     <nav
       aria-label={APP_SHELL.navLabel}
-      className="border-b border-hairline bg-surface px-3 py-4 min-[900px]:border-r min-[900px]:border-b-0"
+      className="border-b border-hairline bg-surface px-3 py-4 app:border-r app:border-b-0"
     >
-      <ul className="flex gap-1 min-[900px]:flex-col">
+      <ul className="flex gap-1 app:flex-col">
         {APP_NAV.map((item) => (
           <li key={item.href}>
             {item.soon ? (
@@ -48,7 +49,7 @@ export function RailNav() {
                 className={cn(
                   "block rounded-md px-3 py-2 text-body-sm transition-colors",
                   pathname === item.href || pathname.startsWith(`${item.href}/`)
-                    ? "bg-surface-green font-medium text-green-dark"
+                    ? "bg-green-soft font-medium text-green-dark shadow-[inset_2px_0_0_var(--color-green)]"
                     : "text-slate hover:bg-surface-soft hover:text-ink",
                 )}
               >

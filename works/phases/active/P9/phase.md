@@ -184,6 +184,39 @@ _Durable findings and cross-slice notes; `DECOMP` seeds this, and each slice app
 - **`section.tsx`/`grid.tsx`/`reveal.tsx` untouched** (boundary); `SectionId` widening stays S6; `Card
   dark`/`pricing`/`pricingFeatured` and the retoned `EndpointCard` are defined and await the landing (S6).
 
+### Appended by `P9.S3` — app components + brand mark landed
+
+- **The brand asset now exists and is green.** `components/brand/{mark,wordmark}.tsx` + barrel
+  `index.ts` — import from **`@/components/brand`**. `<Mark size?={32} tileClassName?="fill-green"
+  …svgProps>` (32=chrome / 52=hero-empty; decorative `aria-hidden` by default) and `<Wordmark
+  tone?="light|dark" className? …spanProps>` ("vocky", w800, `-1px`; light=`text-ink`, dark=white).
+  The Mark is inline SVG — three rising pill bars, white on a green `rx=9` tile; **static** (no motion).
+  Bar proportions were a build-time judgment call (heights 8/13/18 in a 32-unit box per §7.1); the
+  operator eyeballs at commit/S7.
+- **S5's danger mark is a one-prop restyle, not a fork.** The Mark's tile fill is the `tileClassName`
+  prop — S5's `error`/`global-error` pass `tileClassName="fill-danger"`; the geometry is already
+  parameterized, so S5 must **not** copy/fork `mark.tsx`. The variant itself was deliberately not
+  pre-built here (per plan: don't speculatively build it).
+- **app-shell dropped the `SITE` import** — the Wordmark hardcodes "vocky", so the shell no longer
+  reads `SITE.name`. If any later slice needs the site name in chrome, use the Wordmark, not `SITE`.
+- **StatTiles / TrendChart / AppShell public APIs are UNCHANGED** — non-breaking, so S4's dashboard +
+  project-detail consumers keep compiling with no signature change. TrendChart is now a dependency-free
+  **area chart** (§4.14 algorithm verbatim): `viewBox 0 0 100 42`, green gradient fill + line +
+  hairline baseline, per-point `<circle>`+`<title>` hover kept from the old per-bar titles. Its
+  gradient id is a module constant (`"trend-area-gradient"`); one chart per page in practice and the
+  fill is identical across instances, so a shared id is harmless — S4 need not thread a unique id.
+- **StatTiles rating dots** are an exhaustive `TILE_DOT` map (`total`→none, `liked`→`bg-green`,
+  `disliked`→`bg-danger`, `unrated`→`bg-muted`); tile is `Card variant="base" className="p-4"` (p-4
+  overrides base p-5 via tailwind-merge — the documented override pattern for any compact card).
+- **LogoutButton is now `<Button variant="ghost" size="sm">`** (`@/components/ui`) with the pending +
+  best-effort logout logic verbatim; stays `"use client"`. No bespoke chip markup remains in the shell.
+- **Breakpoint migration: 4 of 11 done (app-shell ×2, rail-nav ×2).** Rail active item is
+  `bg-green-soft font-medium text-green-dark shadow-[inset_2px_0_0_var(--color-green)]`. The remaining
+  7 `min-[900px]:` literals are S4's (feedback list + detail); **S7 backstops zero remaining.**
+- **Verification for S3:** `pnpm typecheck` + `pnpm lint` clean; `pnpm build` **GREEN**;
+  `prettier --write` on the 8 touched files only (the 20 pre-existing unrelated `format:check`
+  failures left as-is). All grep-asserts pass (see `result.md`).
+
 ## Constraints
 
 Durable for every slice in this phase. Carry the RESPECT-THE-DESIGN block into **every** slice's `plan.md`
@@ -244,6 +277,13 @@ _Running list for `P9.REVIEW` to consolidate into doc versions. Append one line 
   compact, EndpointCard retoned — plus **new** `Select` + `Chip` primitives and the barrel export.
   `docs/current/frontend.md` (v0003) still describes the placeholder component set (pill buttons, overloaded
   `archive` badge, no Select/Chip). For `P9.REVIEW` to consolidate.
+- **`P9.S3`:** app chrome + usage components restyled to vocky — app-shell/rail-nav/logout-button folded
+  onto the new system (mark+wordmark brand, `app:` breakpoint, ghost-Button logout, inset rail accent);
+  StatTiles gained per-key rating dots at compact `p-4`; TrendChart is now a **dependency-free area chart**
+  (green gradient + line + hairline baseline, §4.14 algorithm) replacing the P4 bar chart; and a **new**
+  brand asset landed (`components/brand/{mark,wordmark}` — the waveform tile + wordmark, reused by S4/S5/S6).
+  `docs/current/frontend.md` (v0003) still describes the old text brand, bar-chart TrendChart, and pre-vocky
+  app chrome. For `P9.REVIEW` to consolidate.
 
 ## Open Questions
 
