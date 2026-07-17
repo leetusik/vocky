@@ -22,8 +22,14 @@ handoff.md → push → PENDING: the operator designs in Claude Design
 ```
 
 **Claude Design reads the real repo itself** — the operator runs **Connect GitHub** (the default; a
-local-dir connection also works). So you author **no cards, no canvas, no token mirror**: a mirror
-only drifts, and the repo is already the truth. **Your one output is `handoff.md`.**
+local-dir connection also works). So you mirror **nothing** — no canvas, no `tokens.css`, no cards of
+your own: a mirror only drifts, and the repo is already the truth. **Your one output is `handoff.md`.**
+
+**But the operator has to see the design to design it.** The Design System pane is that surface, and it
+renders **cards** — so the card set is a **required output of the session**, authored by Claude Design
+(*The card set*, below). **Requiring a card is not drawing one:** you say what must be reviewable;
+Claude Design decides what it looks like. **A round that comes back as prose is a round the operator
+could not co-work.**
 
 Two commits per design slice: `feat(design): <slice> handoff — …` then `feat(design): <slice>
 read-back — …`, with the `pending` window between them.
@@ -53,13 +59,36 @@ One `handoff.md` per design slice, carrying:
   this pass only — the exception, not the rule").
 - **Where to look** — real paths, real data shapes. **Ground in real content — never lorem.** Nothing
   real to point at → **ask for it; do not invent it.**
-- **A strict required-output manifest.** Always includes **`result.md`** (what was designed, every
-  departure logged) and **`build-prompt.md`** (the implementation contract — **a round is incomplete
-  without it**; the apply slices size their work from it).
+- **A strict required-output manifest** — three things, always: **the card set** (below), **`result.md`**
+  (what was designed, every departure logged), and **`build-prompt.md`** (the implementation contract —
+  **a round is incomplete without it**; the apply slices size their work from it). **Markdown alone is
+  not a round.**
 - **Open questions, posed back.** **A handoff can be a question** — that is how a surface that does
   not exist in code yet enters a session. Never answer one.
 - **Operator attachments** to upload, and the definition of done.
 - Any operator-named reference goes in **clearly labeled REFERENCE — data, not a proposal.**
+
+### The card set — how the design becomes visible
+
+The Design System pane builds its index from a **first-line marker in each preview HTML**, which the app
+compiles into `_ds_manifest.json` on its self-check. **No marker → no card → an empty pane**, however
+good the design is. So spell the contract out in the handoff:
+
+- **One card per reviewable unit** — per component, per surface, per foundation. **Never one monolithic
+  "design system" page:** the operator fixes one card at a time, and a monolith cannot be reviewed or
+  superseded piecemeal.
+- **Line 1 of every card file, exactly:**
+  ```html
+  <!-- @dsCard group="Components" name="Button" subtitle="Primary / secondary / ghost · 3 sizes" viewport="960x600" -->
+  ```
+  `group` plus the file path are what the pane needs; `name`, `subtitle`, and `viewport` are what make a
+  card legible. The `subtitle` is where a card says what it is for.
+- **Name the `group`s** you want as the pane's headings — `Foundations`, `Components`, the app's own
+  surfaces, `Landing`, `States`. Grouping is organization, not a design decision: asking for shape is how
+  you keep a round reviewable without deciding anything in it.
+- **Ask for a `tokens.css`** the cards link, carrying the round's real values, so the pane compiles the
+  foundations from it. **Not your mirror — the palette *is* the design, so Claude Design authors it.**
+- **The definition of done is "the cards appear in the pane,"** not "the files exist."
 
 **Push the branch** so Claude Design reads current code — **that is the one `git push` the design
 slice authorizes; it is not standing permission.** A local-dir connection needs no push: prefer it
@@ -82,9 +111,22 @@ docs/reference/design/
 A repo may keep this under its own `design/` tree instead. Either way: **the returned record is
 read-only.** Never edit it; catalogue nits as apply-time to-dos.
 
+**The cards stay in the design project — do not copy them down.** The pane is their home and the
+operator keeps working in it; a local copy is a mirror again, and it would go stale the moment the next
+round moves. **That is why `build-prompt.md` must be complete:** the implement slice is dispatched to an
+executor with **no DesignSync**, so what you land is the whole source of truth it gets. If you find
+yourself wanting the cards on disk to make a slice buildable, the round's `build-prompt.md` is the thing
+that is short — say so at read-back.
+
 ## Read back, then land it
 
-1. **Read back with the `DesignSync` tool** — **read-back only**; it never writes `src/`.
+1. **Read back with the `DesignSync` tool** — **read-back only**; it never writes `src/`. **`list_files`
+   first.** No `_ds_manifest.json`, an empty `cards[]`, or one monolithic HTML means the round never
+   became visible — the operator cannot have co-worked what the pane never showed. That is
+   **`needs_operator`** with the card contract restated. It is **not** something you fix by editing the
+   artifacts, writing the cards yourself, or hand-compiling the manifest — `register_assets` and the
+   write path are not your escape hatch. The app compiles the index; if it didn't, the operator re-runs
+   the session.
 2. **Concreteness check.** The bar: *there are no design decisions left to invent.* Too vague to build
    without guessing → return **`needs_operator`**. **Never fill a design gap yourself.**
 3. **Land the design AS-IS** — the returned artifacts into the record, the spec into `phase.md` for
@@ -117,7 +159,8 @@ feature. Put this rule in the implement slice's `plan.md` **and** the executor's
 
 ## Never
 
-- Author mockups, palettes, type scales, or cards — or "proposals", "round 1", or options to pick from.
+- Author mockups, palettes, type scales, or cards **yourself** — or "proposals", "round 1", or options to
+  pick from. (You **require** the card set in the handoff; requiring one is not drawing one.)
 - Answer a design question. **Pose it back** in the handoff.
 - Load `artifact-design` or `frontend-design` for product design co-work — they will make you design.
 - Run `/design-sync` — the bundle compiler is a different thing, and is not this workflow.
