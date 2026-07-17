@@ -1,6 +1,6 @@
 interface:
   display_name: "design-cowork"
-  short_description: "How to run product visual design in this workspace — Claude Design + the operator do the design; you seed, hand off, wait, read back, and implement. Use when a phase or slice touches a design system, a redesign, mockups, a design canvas/gate, brand/palette/typography, or the look of user-facing pages. NOT for non-visual \"design\" (schema, API, architecture)."
+  short_description: "How to run product visual design in this workspace — Claude Design + the operator do the design; you write the handoff, wait, read it back, land it, and implement. Use when a phase or slice touches a design system, a redesign, mockups, a design gate, brand/palette/typography, or the look of user-facing pages. NOT for non-visual \"design\" (schema, API, architecture)."
   default_prompt: "Use the design-cowork skill."
 policy:
   allow_implicit_invocation: true
