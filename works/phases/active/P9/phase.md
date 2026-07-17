@@ -325,6 +325,33 @@ _Durable findings and cross-slice notes; `DECOMP` seeds this, and each slice app
   `prettier --write` on the new/changed files only (24/24 rendered-HTML grep-asserts
   pass; see `result.md`).
 
+### Appended by `P9.S7` — the closing DoD/consistency sweep
+
+- **DoD §10 fully met, zero drift fixes needed.** Walked all 12 §10 items across the built app — every
+  one holds as designed (token values, Pretendard chain, `rounded-md` buttons + all seven variants,
+  Select/Chip adoption, split Badge, area TrendChart + both empty shapes, breadcrumb, `/` bounce, the
+  four states, breakpoint migration, every locked floor, no `src/vocky/**` change). S1–S6 built to spec,
+  so **no reactive `--kind fix` slice was cut.** The negative-space invariants all hold: 0 `min-[900px]:`,
+  0 `--breakpoint-xs`, 0 raw `inputVariants()`-template `<select>` (only the sanctioned `selectVariants`
+  cva reuse), 0 old variant names.
+- **Dead nav/section-id leftovers RETIRED.** Deleted `content/nav.ts`; trimmed `SECTION_IDS` to only the
+  live landing anchors `features`/`how`/`pricing` (dropped `overview`/`primitives`); removed the
+  `NAV_LINKS`/`SKIP_TO_CONTENT` exports from `content/index.ts`; and removed the now-unused `NavLink`/
+  `Cta` interfaces + `sectionId` field from `content/types.ts` (`types.ts` now holds only `SiteMeta`).
+  Re-grepped clean after each deletion. The `SectionId` **type** stays — `ui/section.tsx` +
+  `content/landing.ts` still consume it.
+- **Full verification green:** `pnpm typecheck` / `lint` / `build` (12 routes) / **`test` 56/56** all
+  pass; `validate` passes. **Broad live-backend smoke passed** — every surface (`/` signed-out + bounce
+  + tampered, `/login`, `/dashboard`, a real `/projects/[id]`, `/feedback` + `feedback_value=1|2` +
+  `q=` filters, a real `/feedback/[id]` with Korean message + Chip tags + UTC, auth-guard redirects,
+  unknown-URL 404). Data was seeded through the existing public API only (`POST /api/feedback`, Bearer
+  `vk_` key, nested `source` — the `src/vocky/smoke.py` shape); no backend code touched.
+- **Format debt reconciled: 13 pre-existing failures, not 20; P9 introduced NONE.** `format:check` fails
+  only on P4-era backend/lib/test files (README, `*/actions.ts`, `lib/*`, `lib/vocky/*`, `tests/*`) — all
+  P9-touched files are prettier-clean. The 20→13 drop is incidental cleanup where earlier P9 slices ran
+  `prettier --write` on files they legitimately owned that were in the original failing set. **Defer-job
+  candidate** for the orchestrator: reformat the 13 P4-era files (out of P9's charter).
+
 ## Constraints
 
 Durable for every slice in this phase. Carry the RESPECT-THE-DESIGN block into **every** slice's `plan.md`
@@ -415,6 +442,12 @@ _Running list for `P9.REVIEW` to consolidate into doc versions. Append one line 
   `/docs`). `docs/current/frontend.md` (v0003) describes `/` as a redirect and the landing as a P6 concern,
   and `experience.md` lacks the landing as a real signed-out surface — now built. For `P9.REVIEW` to
   consolidate.
+- **`P9.S7`:** the round-01 apply is complete and consistent — DoD §10 fully met with zero drift fixes,
+  and the dead S1-preview leftovers retired (`content/nav.ts` deleted; `SECTION_IDS` trimmed to the
+  landing anchors `features`/`how`/`pricing`; the `NAV_LINKS`/`SKIP_TO_CONTENT`/`NavLink`/`Cta`/`sectionId`
+  exports removed). No new durable-truth area beyond the S1–S6 notes above — this closes the apply.
+  `P9.REVIEW` consolidates the accumulated notes into `frontend.md` / `experience.md` / `decisions.md`
+  versions (`D-P8-1` is now *applied*, not superseded). Backend docs need no change (§9).
 
 ## Open Questions
 

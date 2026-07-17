@@ -4,9 +4,8 @@ export { SECTION_IDS } from "./section-ids";
 export type { SectionId } from "./section-ids";
 
 export { SITE } from "./site";
-export { NAV_LINKS, SKIP_TO_CONTENT } from "./nav";
 
-export type { Cta, NavLink, SiteMeta } from "./types";
+export type { SiteMeta } from "./types";
 
 // Auth surface (P4.S2) — public login/signup copy + the status-keyed errors.
 export { AUTH_ERRORS, LOGIN_PAGE, SIGNUP_PAGE } from "./auth";

@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P9`
-- Current slice: `P9.S7`
-- Next slice: `P9.REVIEW`
+- Current slice: `P9.REVIEW`
+- Next slice: `none`
 - Waiting on operator: `none`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-18T04:20:20+09:00`
+- Rebuilt at: `2026-07-18T04:40:52+09:00`
 
 ## Active Phases
 
@@ -22,7 +22,7 @@
 | [x] `P7` | `done` | `pass` | Agent-Capture Revival (MCP write-only) | `none` | `works/phases/active/P7` |
 | [x] `P4` | `done` | `pass` | Web App: Tenant Dashboard & Project Pages | `none` | `works/phases/active/P4` |
 | [x] `P8` | `done` | `pass` | Design Gate: Brand, App UI & Landing | `none` | `works/phases/active/P8` |
-| [ ] `P9` | `planned` | `pending` | Apply the Design: App UI, Landing & Feature Changes | `P9.S7` | `works/phases/active/P9` |
+| [ ] `P9` | `planned` | `pending` | Apply the Design: App UI, Landing & Feature Changes | `P9.REVIEW` | `works/phases/active/P9` |
 | [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
 | [ ] `P6` | `planned` | `pending` | Landing Page, Webpage & Production Deploy | `P6.DECOMP` | `works/phases/active/P6` |
 
@@ -100,7 +100,7 @@
 | [x] `P9.S4` | `done` | App surfaces (all six) | `implementation` | `works/phases/active/P9/slices/P9.S4` |
 | [x] `P9.S5` | `done` | Net-new states: loading/error/not-found/global-error | `implementation` | `works/phases/active/P9/slices/P9.S5` |
 | [x] `P9.S6` | `done` | Landing: reclaim /, landing.ts, components/landing/* | `implementation` | `works/phases/active/P9/slices/P9.S6` |
-| [ ] `P9.S7` | `todo` | Consistency & DoD sweep + design-fidelity fixes | `implementation` | `works/phases/active/P9/slices/P9.S7` |
+| [x] `P9.S7` | `done` | Consistency & DoD sweep + design-fidelity fixes | `implementation` | `works/phases/active/P9/slices/P9.S7` |
 | [ ] `P9.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P9/slices/P9.REVIEW` |
 
 ## Phase P5: CLI & Agent-First Onboarding
