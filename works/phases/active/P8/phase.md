@@ -121,6 +121,28 @@ docs/reference/design/
 
 _Durable findings and cross-slice notes; `DECOMP` seeds this, and each slice appends when it finishes._
 
+### `P8.REVIEW` — PASS. Phase closed at signoff; docs consolidated; P9 is next.
+
+Reviewed all three done slices together. **Verdict PASS** (recorded by the orchestrator via
+`review-phase`). The phase met its objective and `intent.md`: handoff → operator session →
+orchestrator-inline read-back → signed-off buildable spec at `docs/reference/design/`, implementation
+left to P9. The load-bearing constraint (zero brand decisions by Claude Code) holds — every
+palette/type/copy call is the operator's, recorded in `output/result.md` §0/§6; `handoff.md` decides
+nothing and labels the hi2vi material "DATA, NOT A PROPOSAL." All eleven constraints honored.
+
+- **Validation:** `validate` clean (before + after doc versioning). `P8.S1` `pnpm typecheck`/`pnpm lint`
+  pass; `web/design` gone; `grep design/canvas` empty. `format:check` fails only on the 20 pre-existing
+  P4 files — confirmed via `git show --stat a501dfc` that the P8.S1 commit touched none of them and
+  neither `page.tsx` nor `.prettierignore` is in the warning list. **Known debt, not a review blocker.**
+- **`build-prompt.md` is a complete contract** (exact token values, component APIs, per-file manifest
+  §8, DoD §10, backend-none §9). The 30-card set stays in the design project, not copied down — correct.
+- **Docs consolidated (PASS-only):** `frontend` v0003, `decisions` v0006 (D-P8-1 supersedes D-P4-3).
+  `experience.md` needed no new version (its "P6" refs are deploy + Admin-UI removal). See *Doc impact*.
+- **For P9:** decompose and size from `build-prompt.md` (executors have no DesignSync). Carry the
+  RESPECT-THE-DESIGN block into every P9 slice plan. The apply-time nits catalogued in the `P8.S2` note
+  below (the returned files' stale "monolith HTML = source of truth" line; §9 to-dos) are P9's, not
+  record edits — the `output/` record is read-only.
+
 ### `P8.S2` — GATE CLOSED: round 01 landed. The spec P9 builds from.
 
 The design gate is closed. The design record is durable at **`docs/reference/design/`**, outside `works/`
@@ -410,6 +432,20 @@ _Running list for `P8.REVIEW` to consolidate into doc versions. Append one line 
   the new component vocabulary, the `/` landing, and the loading/error/404 states). The design specifies
   **no backend/data change**. `P8.REVIEW` consolidates these; no doc is versioned by an implementation or
   co-work slice (constraint 10).
+- **CONSOLIDATED at `P8.REVIEW` (verdict PASS):**
+  - **`frontend` → v0003** — dropped the `design/canvas/` file-tree line + rewrote the canvas bullet to
+    a "the mirror is gone (P8); record at `docs/reference/design/`" note; corrected the design-gate
+    forward-refs "deferred to P6" → "closed at P8, applied by P9" (Design System section, TrendChart,
+    the "P6-swappable" note, the dark-mode/token-name constraint, and the Status paragraph's palette +
+    landing). **Kept the placeholder described as still-live** (P9 *will* swap; not written as shipped).
+    Left the legitimate P6 refs (admin-UI removal, deploy).
+  - **`decisions` → v0006** — added **`D-P8-1`** (round 01 resolutions + supersedes D-P4-3, moving the
+    landing design+build into P8+P9); added a "Superseded by D-P8-1" marker atop D-P4-3 **without
+    rewriting its body** (old truth preserved; `v0005_*.md` untouched).
+  - **`experience.md` — no new version.** Its two "P6" mentions are the production deploy + Admin-UI
+    removal, not the design gate. Left as-is (constraint 7).
+  - **Not touched (legitimately still P6, constraint 7):** the Admin-Web-UI physical removal
+    (`architecture.md`, `product.md`, `api.md`) and the production deploy (`operations.md`).
 
 ## Open Questions
 

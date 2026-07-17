@@ -163,7 +163,7 @@
       ]
     },
     "frontend": {
-      "latest": "v0002_p4_the_vocky_web_app_next.js_16_app_in_web_ported_tailwind-v4_design_system_server-side_bff_sealed-cookie_session_and_the_dashboard_project_feedback_page_inventory",
+      "latest": "v0003_p8_drop_the_deleted_web_design_canvas_section_design_gate_closed_at_p8_applied_by_p9_not_deferred_to_p6_placeholder_state_stays_live",
       "current_path": "docs/current/frontend.md",
       "versions": [
         {
@@ -181,6 +181,14 @@
           "source": "P4.REVIEW",
           "summary": "P4: the vocky web app — Next.js 16 app in web/, ported Tailwind-v4 design system, server-side BFF + sealed-cookie session, and the dashboard/project/feedback page inventory",
           "previous": "v0001_bootstrap"
+        },
+        {
+          "id": "v0003_p8_drop_the_deleted_web_design_canvas_section_design_gate_closed_at_p8_applied_by_p9_not_deferred_to_p6_placeholder_state_stays_live",
+          "path": "docs/versions/frontend/v0003_p8_drop_the_deleted_web_design_canvas_section_design_gate_closed_at_p8_applied_by_p9_not_deferred_to_p6_placeholder_state_stays_live.md",
+          "created_at": "2026-07-18T01:39:25+09:00",
+          "source": "P8.REVIEW",
+          "summary": "P8: drop the deleted web/design/canvas section; design gate closed at P8, applied by P9 (not deferred to P6); placeholder state stays live",
+          "previous": "v0002_p4_the_vocky_web_app_next.js_16_app_in_web_ported_tailwind-v4_design_system_server-side_bff_sealed-cookie_session_and_the_dashboard_project_feedback_page_inventory"
         }
       ]
     },
@@ -381,7 +389,7 @@
       ]
     },
     "decisions": {
-      "latest": "v0005_p4_web-app_decisions_app_in_a_repo_subdir_web_server-side_bff_sealed_httponly_cookie_no_cors_no_web-side_db_port_the_design_system_and_defer_the_heavy_design_gate_to_p6",
+      "latest": "v0006_p8_add_d-p8-1_round_01_design_gate_closed_superseding_d-p4-3_the_landing_design_build_moves_to_p8_p9",
       "current_path": "docs/current/decisions.md",
       "versions": [
         {
@@ -423,9 +431,17 @@
           "source": "P4.REVIEW",
           "summary": "P4 web-app decisions: app in a repo subdir web/, server-side BFF + sealed httpOnly cookie (no CORS, no web-side DB), port the design system and defer the heavy design gate to P6",
           "previous": "v0004_p7_mcp-revival_decisions_write-only_scope_broadened-middleware_auth_binding_thin_mcpcapturefeedbackinput_transport_security_on"
+        },
+        {
+          "id": "v0006_p8_add_d-p8-1_round_01_design_gate_closed_superseding_d-p4-3_the_landing_design_build_moves_to_p8_p9",
+          "path": "docs/versions/decisions/v0006_p8_add_d-p8-1_round_01_design_gate_closed_superseding_d-p4-3_the_landing_design_build_moves_to_p8_p9.md",
+          "created_at": "2026-07-18T01:41:02+09:00",
+          "source": "P8.REVIEW",
+          "summary": "P8: add D-P8-1 (round 01 design gate closed) superseding D-P4-3; the landing design+build moves to P8+P9",
+          "previous": "v0005_p4_web-app_decisions_app_in_a_repo_subdir_web_server-side_bff_sealed_httponly_cookie_no_cors_no_web-side_db_port_the_design_system_and_defer_the_heavy_design_gate_to_p6"
         }
       ]
     }
   },
-  "last_rebuilt_at": "2026-07-17T22:24:40+09:00"
+  "last_rebuilt_at": "2026-07-18T01:41:55+09:00"
 }

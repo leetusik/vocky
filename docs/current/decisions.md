@@ -1,17 +1,17 @@
 ---
 doc_id: decisions
-version: v0005
-created_at: 2026-07-16T23:28:21+09:00
-source: P4.REVIEW
-summary: P4 web-app decisions: app in a repo subdir web/, server-side BFF + sealed httpOnly cookie (no CORS, no web-side DB), port the design system and defer the heavy design gate to P6
-previous: v0004_p7_mcp-revival_decisions_write-only_scope_broadened-middleware_auth_binding_thin_mcpcapturefeedbackinput_transport_security_on
+version: v0006
+created_at: 2026-07-18T01:41:02+09:00
+source: P8.REVIEW
+summary: P8: add D-P8-1 (round 01 design gate closed) superseding D-P4-3; the landing design+build moves to P8+P9
+previous: v0005_p4_web-app_decisions_app_in_a_repo_subdir_web_server-side_bff_sealed_httponly_cookie_no_cors_no_web-side_db_port_the_design_system_and_defer_the_heavy_design_gate_to_p6
 ---
 
 # Decisions
 
 ## Status
 
-Records the durable design decisions made in phases P2 (accounts, tenancy, projects core), P3 (feedback API v2, cross-project search, usage monitoring), P7 (agent-capture revival — the write-only MCP surface), and P4 (the authenticated web app). Each was operator-approved during decomposition and should not be re-litigated without a new decision superseding it.
+Records the durable design decisions made in phases P2 (accounts, tenancy, projects core), P3 (feedback API v2, cross-project search, usage monitoring), P7 (agent-capture revival — the write-only MCP surface), P4 (the authenticated web app), and P8 (the design gate — brand, app UI & landing). Each was operator-approved during decomposition and should not be re-litigated without a new decision superseding it. **D-P8-1 supersedes D-P4-3** (the design gate D-P4-3 deferred is now held and closed).
 
 ## D-P2-1 — Account auth: email + password + opaque DB-backed bearer tokens
 
@@ -129,6 +129,21 @@ Records the durable design decisions made in phases P2 (accounts, tenancy, proje
 
 ## D-P4-3 — Port the design system and build functional pages; defer the heavy design gate to P6
 
+> **Superseded by D-P8-1.** The heavy design gate this decision deferred was moved out of P6 and **held and closed at P8** (the design; **P9** applies it). P6 is now production-deploy-only. The record below is unchanged as the P4-era decision; read D-P8-1 for the current position.
+
 - **Decision:** P4 **ports** hi2vi_web's Tailwind-v4 CSS-first `@theme` token system, `cn()`, and CVA primitives (adding a net-new `data-table`), and builds **functional** dashboard/project/feedback pages. It scaffolds `web/design/canvas/` plus the DesignSync/`SIGNOFF` convention but **defers the intensive operator design session to P6**, alongside the landing page. The brand palette is an explicit **neutral placeholder** (slate + one indigo accent) that keeps hi2vi's token *names*.
 - **Why:** The dashboard's value is that it works — the design gate is a separate, operator-intensive activity that belongs with the landing page, where the brand is actually decided. Porting a proven token system now (rather than inventing one) keeps P4 focused on the auth/data surfaces, and doing it under hi2vi's token *names* means the later gate swaps **values only**, never call sites.
 - **Consequences:** The app is visually provisional but structurally complete. Token names are load-bearing and must stay stable until P6; **no dark-mode toggle** exists (surfaces are explicit tokens, no `.dark` block). The `TrendChart` is a dependency-free inline SVG rather than a chart library — deliberately a P6 question. New components should not add palette tokens or CVA variants without a design reason.
+
+## D-P8-1 — The design gate D-P4-3 deferred is held and closed at P8; the landing design + build move to P8+P9 (supersedes D-P4-3)
+
+- **Supersedes:** **D-P4-3**. The intensive operator design session D-P4-3 deferred to P6 was moved into this stream: **P8 runs the design gate** (Claude Design + operator; handoff → session → read-back → signed-off spec) and **P9 applies it**. P6 becomes production-deploy-only (its own folder is untouched per P8's constraint 7; the operator reconciles it at `P6.DECOMP`). **Not applied in code yet — that is P9.**
+- **Decision (round 01 — the operator's rulings, concluded in the Claude Design session):** the durable record lives at `docs/reference/design/` (round 01 `output/{result.md, build-prompt.md}` + `SIGNOFF.md`); `build-prompt.md` is the implementation contract P9 sizes from. The resolutions:
+  - **Brand:** vocky's own **deep-emerald** green on a green-cool neutral ramp — palette direction "B" (inherit hi2vi's *structure*, not its literal dark-forest+neon). Applied as a **names-kept value swap** (`--color-green #6366f1` placeholder → `#0C7A52`), which the one-swap-re-themes property (utilities compile to `var(--color-*)`) turns into a full re-theme without call-site churn. Token **renames deferred** (cost named; not this round).
+  - **Type:** `--font-sans` → **Pretendard** (Korean-capable), `--font-mono` → **JetBrains Mono** (unchanged), `--font-en` retired to Pretendard; compact/data-dense scale. The one named non-trivial build cost is **Pretendard vendoring** (not on Google Fonts → `next/font/local`).
+  - **Mode:** **light-only** (no `.dark` block); `on-primary` stays **white** (the deep-emerald passes AA with white text). `--breakpoint-xs` (zero consumers) dropped for a real `--breakpoint-app` (900px).
+  - **New component vocabulary:** add `Select`, `Chip`/`Tag`, `Button` `destructive`/`destructiveOutline`; fold `LogoutButton` into `Button ghost`; split the overloaded `Badge archive` into rating (`liked`/`disliked`/`unrated`) + status (`active`/`revoked`); redesign `TrendChart` to a dependency-free area chart.
+  - **Net-new surfaces:** the **public landing reclaiming `/`** (largest new build) and designed `loading`/`error`/`not-found`/`global-error` states.
+  - **Backend/data contracts:** **no change required** (`build-prompt.md §9`) — everything maps to existing serializers; no `src/vocky/**` or P2/P3 contract reopening. Two web-tier-only behaviors: `/` gains a public landing behind the existing signed-in→dashboard bounce, and a project-detail breadcrumb from already-fetched data.
+- **Why:** A big design change gets a design phase then an apply phase (P8 then P9); the phase's true size stays unknown until signoff, which is exactly why the apply is a separate phase whose `DECOMP` runs only after this gate closed. All brand decisions were concluded by the operator in the Claude Design session (zero brand decisions by Claude Code — the load-bearing constraint); Claude Code authored only the handoff.
+- **Consequences:** P9 decomposes and sizes every apply slice from `build-prompt.md` (its executors have no DesignSync, so `build-prompt.md` is the complete on-disk source of truth; the 30-card set + `tokens.css` stay in the design project, not copied down). Until P9 lands, `frontend.md` still describes the live **placeholder** palette. D-P4-3's "until P6" / "a P6 question" clauses now read as **P8/P9** per this supersession.

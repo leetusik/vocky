@@ -165,3 +165,8 @@
 {"ts": "2026-07-17T16:01:19+09:00", "type": "slice_status_changed", "slice": "P8.S2", "old_status": "in_progress", "new_status": "pending"}
 {"ts": "2026-07-18T01:23:16+09:00", "type": "slice_status_changed", "slice": "P8.S2", "old_status": "pending", "new_status": "in_progress"}
 {"ts": "2026-07-18T01:30:33+09:00", "type": "slice_status_changed", "slice": "P8.S2", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-07-18T01:34:43+09:00", "type": "slice_status_changed", "slice": "P8.REVIEW", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-07-18T01:39:25+09:00", "type": "doc_version_created", "doc": "frontend", "version": "v0003_p8_drop_the_deleted_web_design_canvas_section_design_gate_closed_at_p8_applied_by_p9_not_deferred_to_p6_placeholder_state_stays_live", "source": "P8.REVIEW"}
+{"ts": "2026-07-18T01:41:02+09:00", "type": "doc_version_created", "doc": "decisions", "version": "v0006_p8_add_d-p8-1_round_01_design_gate_closed_superseding_d-p4-3_the_landing_design_build_moves_to_p8_p9", "source": "P8.REVIEW"}
+{"ts": "2026-07-18T01:45:59+09:00", "type": "slice_status_changed", "slice": "P8.REVIEW", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-07-18T01:45:59+09:00", "type": "phase_reviewed", "phase": "P8", "verdict": "pass", "reviewer": "slice-executor-high"}

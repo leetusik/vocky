@@ -64,13 +64,13 @@
       "id": "P8",
       "name": "Design Gate: Brand, App UI & Landing",
       "objective": "Run the Claude Design gate for vocky's brand, the app UI and the landing: write the handoff, hold the operator's design session, read the design back, and land the signed-off design as an implementable spec. Implementation is P9.",
-      "status": "planned",
+      "status": "done",
       "order": 4.5,
       "path": "works/phases/active/P8",
-      "review_status": "pending",
-      "current_slice": "P8.REVIEW",
+      "review_status": "pass",
+      "current_slice": null,
       "slice_count": 4,
-      "done_slice_count": 3
+      "done_slice_count": 4
     },
     {
       "id": "P9",
@@ -112,5 +112,5 @@
   "deferred_open_count": 4,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 0,
-  "last_rebuilt_at": "2026-07-18T01:30:33+09:00"
+  "last_rebuilt_at": "2026-07-18T01:45:59+09:00"
 }

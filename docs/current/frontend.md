@@ -1,10 +1,10 @@
 ---
 doc_id: frontend
-version: v0002
-created_at: 2026-07-16T23:25:16+09:00
-source: P4.REVIEW
-summary: "P4: the vocky web app — Next.js 16 app in web/, ported Tailwind-v4 design system, server-side BFF + sealed-cookie session, and the dashboard/project/feedback page inventory"
-previous: v0001_bootstrap
+version: v0003
+created_at: 2026-07-18T01:39:25+09:00
+source: P8.REVIEW
+summary: P8: drop the deleted web/design/canvas section; design gate closed at P8, applied by P9 (not deferred to P6); placeholder state stays live
+previous: v0002_p4_the_vocky_web_app_next.js_16_app_in_web_ported_tailwind-v4_design_system_server-side_bff_sealed-cookie_session_and_the_dashboard_project_feedback_page_inventory
 ---
 
 # Frontend
@@ -13,7 +13,7 @@ previous: v0001_bootstrap
 
 Vocky has one frontend: the **authenticated web app** in `web/` (P4). It is a Next.js 16 / React 19 / TypeScript app that talks to vocky's `/auth/*` + `/app/*` surfaces through a **server-side BFF proxy**, and it is the browser surface that replaces the packaged same-origin operator Admin Web UI (`src/vocky/admin_ui.py` + `admin_assets/*`). The replacement is **built** as of P4; the physical removal of the old admin UI is deferred to **P6**, so no browser surface disappears in the interim.
 
-P4 delivered signup/login/logout, the app shell, the tenant dashboard, project detail (with credential mint/revoke), and cross-project feedback list/search/detail. What is **not** here yet: the vocky brand palette (P4 ships a neutral placeholder — see "Design System"), the landing page, and the production deploy — all **P6**.
+P4 delivered signup/login/logout, the app shell, the tenant dashboard, project detail (with credential mint/revoke), and cross-project feedback list/search/detail. What is **not** here yet: the vocky brand palette (P4 ships a neutral placeholder — see "Design System") and the landing page — both **designed at P8 and applied by P9** (the design gate that D-P4-3 had deferred; signed-off spec in `docs/reference/design/`), not P6 — plus the production deploy, which stays **P6**.
 
 The app is a **session-token client only**. It calls `/auth/*` and `/app/*`; it never touches the `vk_`-keyed `/api/*` surface, which is the external-service credential path. There is no web-side database.
 
@@ -54,24 +54,23 @@ web/
     bff.ts                the audited BFF credential pipeline
     env.ts, rate-limit.ts, client-ip.ts, fonts.ts, utils.ts (cn)
     vocky/                client.ts, auth.ts, app.ts, types.ts — the server-side API client
-  design/canvas/          design-gate mirror (tokens.css, _ds_manifest.json, cards)
   tests/                  vitest (56 tests, 5 files)
 ```
 
 **Route-group semantics:** `(auth)` is deliberately **unguarded** (otherwise `/login` could not be reached); `(app)` is guarded once in its `layout.tsx`. Non-route files (forms, field helpers) are colocated in the route folder — only `page`/`route`/`layout` files become routes.
 
-## Design System (ported, P6-swappable) — D-P4-3
+## Design System (ported placeholder; brand designed at P8, applied by P9) — D-P4-3, superseded by D-P8-1
 
-P4 **ports** hi2vi_web's design system and builds functional pages; the intensive operator design session is deferred to **P6** (with the landing page).
+P4 **ports** hi2vi_web's design system and builds functional pages at a placeholder palette. The intensive operator design session that D-P4-3 deferred was **held and closed at P8** (round 01 — `docs/reference/design/rounds/01-brand-app-landing/`); its signed-off spec (the vocky deep-emerald brand via a names-kept value swap, Pretendard, the new component vocabulary, the `/` landing, and the loading/error/404 states) is **applied by P9**, not P6. **This section still describes the live placeholder state** — P9 has not landed yet.
 
 - **Tokens** — `src/app/globals.css` keeps hi2vi's 4-part skeleton: `@theme` tokens → `:root` shadcn aliases → `@theme inline` bridge → `@layer base`. **There is no dark-mode toggle and no `.dark` block** — surfaces are explicit tokens. Kept from the template: the `[data-reveal]`/`.is-visible` scroll-reveal rules, the focus ring, the reduced-motion block, and `h1–h6 { word-break: keep-all }` (Korean line-breaking).
-- **Palette is a neutral PLACEHOLDER**, not vocky's brand: a slate surface ramp + one indigo accent (`green #6366f1`) + red/amber signals. It deliberately **keeps hi2vi's token *names*** (`green*`, `ink`, `forest*`, `charcoal`, `slate`, `steel`, `muted`, `danger`, `caution`) so the P6 design gate swaps **values only**, never call sites. One semantic flip was required: `on-primary` went `#061512` → `#ffffff` (hi2vi's bright-green CTA took dark text; the indigo accent needs white).
+- **Palette is a neutral PLACEHOLDER**, not vocky's brand: a slate surface ramp + one indigo accent (`green #6366f1`) + red/amber signals. It deliberately **keeps hi2vi's token *names*** (`green*`, `ink`, `forest*`, `charcoal`, `slate`, `steel`, `muted`, `danger`, `caution`) so the design gate swaps **values only**, never call sites. That gate closed at P8: P9 will swap `green #6366f1` → the vocky deep-emerald `#0C7A52` and retune the ramp/type/radius (full old→new delta in `docs/reference/design/rounds/01-brand-app-landing/output/build-prompt.md`). One semantic flip was required: `on-primary` went `#061512` → `#ffffff` (hi2vi's bright-green CTA took dark text; the indigo accent needs white) — and the closed gate **keeps it white** (the deep-emerald passes AA with white text).
 - **`cn()`** (`src/lib/utils.ts`) — `clsx` + `extendTailwindMerge`, with the `font-size` group registering the custom `text-*` scale so `text-body-sm`-style tokens merge correctly.
 - **Fonts** (`src/lib/fonts.ts`) — `next/font/google`, build-time self-hosted: **Noto Sans KR** (`--font-sans`, chosen because feedback content is Korean) + **JetBrains Mono** (`--font-mono`). The `--font-en` token name is retained but points at a system stack; hi2vi's 8 self-hosted faces and Korean-clip micro-subsets were not copied.
 - **Primitives** (`src/components/ui/`, CVA + a barrel `index.ts`) — `button`, `card`, `section`, `field` (Label/Input/Textarea/Checkbox/FieldError), `badge`, `grid`, plus ported `endpoint-card` and `reveal`.
 - **`data-table.tsx` is net-new** (hi2vi has no table; projects/credentials/feedback all need one). Headless and generically typed `DataTable<T>`: `columns` (header + `cell` renderer, optional `align`/`actions`), `rows` + `rowKey`, an `overflow-x-auto` wrapper, `text-caption` headers, hover rows, and an `empty` slot. Purely presentational — data arrives as props, never fetched.
 - **Copy-as-data** (`src/content/`) — user-visible strings live in typed modules (`site`, `nav`, `app`, `auth`, `dashboard`, `project`, `feedback`) re-exported through `index.ts`, not inline in components.
-- **`design/canvas/`** — the design-gate mirror: `tokens.css` (a 1:1 `:root` mirror of the `@theme` values), `_ds_manifest.json` (namespace + 125 mirrored tokens + fonts + 10 cards), and `foundations/`, `components/`, `sections/` HTML cards each carrying the `<!-- @dsCard … -->` first-line marker. The DesignSync/`SIGNOFF` convention is scaffolded; the heavy session is P6.
+- **The `web/design/canvas/` mirror is gone** (P8). It was a design-gate token/card mirror with no job under the current design workflow, which reads the real repo directly; it was deleted in P8 (git history keeps it). The durable design record now lives outside `web/`, at `docs/reference/design/`.
 
 ## The BFF and the Session Model — D-P4-2
 
@@ -149,7 +148,7 @@ Every route is `ƒ (Dynamic)` — nothing per-user is prerendered or cached; `ne
 
 **`RailNav`** is a client island only because the active item derives from `usePathname()`. An item is active when `pathname === item.href || pathname.startsWith(item.href + "/")` — the prefix rule is what keeps *Feedback* highlighted on `/feedback/[id]`. It also retains a **`soon`** affordance (renders a muted, non-interactive "Soon" tag instead of a link that would 404). **No item sets `soon` today** — `/feedback` was the last, and S5 shipped it — but the mechanism is kept deliberately for P6's new surfaces. Note `/projects/[id]` is not a rail item, so no rail entry is marked current there.
 
-**Usage components** (`src/components/usage/`) are presentational, props-only server components generic over `VockyMetricCounts` / `VockyDailyMetricCount[]`, and are **reused as-is** by both the dashboard (`/app/usage`) and project detail (`/app/projects/{id}/usage`). Because `StatTiles`/`TrendChart` hardcode their `usage-totals` / `usage-trend` DOM ids, a page may render **exactly one** of each. `TrendChart` is ~60 lines of dependency-free inline SVG (`preserveAspectRatio="none"`, `role="img"` + `aria-label` + an `sr-only` peak/total summary, a `<title>` per bar, an explicit `[]` empty state, `maxTotal` floored at 1 so an all-zero series cannot divide by zero) — a real chart library is a P6 design-gate question.
+**Usage components** (`src/components/usage/`) are presentational, props-only server components generic over `VockyMetricCounts` / `VockyDailyMetricCount[]`, and are **reused as-is** by both the dashboard (`/app/usage`) and project detail (`/app/projects/{id}/usage`). Because `StatTiles`/`TrendChart` hardcode their `usage-totals` / `usage-trend` DOM ids, a page may render **exactly one** of each. `TrendChart` is ~60 lines of dependency-free inline SVG (`preserveAspectRatio="none"`, `role="img"` + `aria-label` + an `sr-only` peak/total summary, a `<title>` per bar, an explicit `[]` empty state, `maxTotal` floored at 1 so an all-zero series cannot divide by zero). The design-gate question "adopt a real chart library?" was **resolved at P8: redesign to a dependency-free area chart** (no library added), applied by P9.
 
 ### The dashboard
 
@@ -180,7 +179,7 @@ The flagship read surface, and **read + search only** — feedback management li
 - **Pagination is forward-only** (keyset yields no prev-cursor; each page is its own URL, so browser Back *is* Prev). **The cursor does not encode filters** — every page link resends them all. **`next_cursor` is an omitted key, never `null`** → test `!== undefined`; a `!== null` test pages forever.
 - The UI exposes `q` + `project_id` + `feedback_value` while the client carries **all 16** query fields; URL-only ones survive as hidden inputs / link params.
 - **Timestamps are pinned to UTC** ("Times are shown in UTC, newest first"). These render *server-side*, so an unpinned zone silently prints the deploy box's clock as if it were local.
-- `feedback-fields.tsx` colocates `formatUtc` / `Timestamp` / `RatingBadge`, shared by list and detail. Deliberately **not** a `@/components/ui` primitive: both encode vocky's shapes (`1|2|null`, UTC ISO), while the `ui/` kit stays domain-free and P6-swappable.
+- `feedback-fields.tsx` colocates `formatUtc` / `Timestamp` / `RatingBadge`, shared by list and detail. Deliberately **not** a `@/components/ui` primitive: both encode vocky's shapes (`1|2|null`, UTC ISO), while the `ui/` kit stays domain-free and swappable at the design gate (closed at P8, applied by P9).
 
 ### The attachment proxy (`/api/app/feedback/[id]/attachments/[id]`)
 
@@ -202,6 +201,6 @@ The browser has no bearer, so the route relays server-side via `getRaw` and **fo
 - The `vk_` plaintext key is shown **exactly once**, never re-rendered, never logged.
 - **404-never-403** on foreign/cross-tenant ids, mirroring the backend.
 - Cross-project feedback is **read + search only**; `?q` must stay Korean-safe (substring, never tokenized).
-- **No dark-mode toggle**; keep the placeholder palette's token *names* stable so the P6 gate swaps values only.
+- **No dark-mode toggle** (the closed P8 gate confirmed light-only); keep the placeholder palette's token *names* stable so P9 swaps values only — the closed gate specifies a names-kept value swap to the vocky deep-emerald.
 - Copy belongs in `src/content/`, not inline in components.
 - Deploy is **P6**: local-dev-runnable + `output: "standalone"` only.
