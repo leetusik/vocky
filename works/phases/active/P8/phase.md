@@ -121,6 +121,32 @@ docs/reference/design/
 
 _Durable findings and cross-slice notes; `DECOMP` seeds this, and each slice appends when it finishes._
 
+### `P8.S1` — two dangling references to `web/design/canvas/`, not one
+
+The Decomposition section above recorded only one dangling code reference —
+`web/src/app/page.tsx:11`. There was a second: **`web/.prettierignore:8-9`**, a comment
++ rule block (`# Design canvas artifacts — standalone HTML specimens, not in Prettier's
+domain` / `design/`) whose only purpose was ignoring this tree. Both earlier sweeps
+missed it for the same two reasons: it reads `design/`, not `design/canvas` (the string
+every earlier grep searched for), and `.prettierignore` has no source extension, so a
+`--include="*.ts,*.tsx,*.css,*.json"`-style grep never touches it. **Transferable lesson
+for future dead-tree retirements:** also grep dotfiles/ignore files by bare directory
+name, not just the fuller path used in code comments — an ignore rule degrades silently
+(no build break, no lint error) when its target vanishes, so nothing forces it to
+surface on its own.
+
+Both references are now removed: `page.tsx`'s header comment dropped the canvas
+sentence and corrected `P6` → `P9` (P8+P9 absorb the landing; P6 goes deploy-only per
+`intent.md`), and `.prettierignore` dropped the dead `design/` block, ending the file at
+`node_modules/`. `web/design/` (13 tracked files) is `git rm -r`'d and staged, not yet
+committed — the orchestrator commits.
+
+`pnpm format:check` fails in this tree independent of this slice — 20 pre-existing files
+(`web/README.md`, `web/src/lib/env.ts`, several `web/tests/*.test.ts`, etc.) are already
+unformatted; confirmed via `git diff`/`git status` that none of those files were touched
+by this slice. Neither `page.tsx` nor `.prettierignore` appear in the warning list, which
+is what this slice's edits are responsible for. Out of scope here; left as-is.
+
 ### Harvested — measured facts about the codebase (do NOT re-derive)
 
 Re-extracted mechanically from both `tokens.css` files with an assert that all 41 tokens are covered
