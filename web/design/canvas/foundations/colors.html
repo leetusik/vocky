@@ -29,7 +29,7 @@
     font-weight: var(--text-heading-2--font-weight);
   }
   .lede {
-    margin: 0 0 24px;
+    margin: 0 0 28px;
     max-width: 64ch;
     font-size: var(--text-body-md);
     line-height: var(--text-body-md--line-height);
@@ -40,29 +40,6 @@
     font-size: var(--text-heading-4);
     font-weight: var(--text-heading-4--font-weight);
   }
-  h2 .count {
-    margin-left: 8px;
-    font-family: var(--font-mono);
-    font-size: var(--text-caption);
-    font-weight: 400;
-    color: var(--color-muted);
-  }
-  .note {
-    margin: 0 0 28px;
-    padding: 16px 18px;
-    border: 1px solid var(--color-hairline);
-    border-left: 3px solid var(--color-caution);
-    border-radius: var(--radius-md);
-    background: var(--color-surface-caution);
-    max-width: 84ch;
-    font-size: var(--text-body-sm);
-    line-height: var(--text-body-sm--line-height);
-    color: var(--color-charcoal);
-  }
-  .note b { font-weight: 600; }
-  .note ul { margin: 10px 0 0; padding-left: 20px; }
-  .note li { margin-bottom: 4px; font-family: var(--font-mono); font-size: var(--text-caption); }
-  .note .dupe { color: var(--color-caution-deep); font-weight: 700; }
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -73,19 +50,7 @@
     border-radius: var(--radius-md);
     overflow: hidden;
   }
-  .chip { height: 68px; position: relative; }
-  .dupe-tag {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    padding: 1px 6px;
-    border-radius: var(--radius-full);
-    background: var(--color-caution);
-    color: var(--color-on-dark);
-    font-family: var(--font-mono);
-    font-size: var(--text-micro);
-    font-weight: var(--text-micro--font-weight);
-  }
+  .chip { height: 68px; }
   .meta {
     padding: 8px 10px;
     font-family: var(--font-mono);
@@ -99,32 +64,13 @@
   <p class="eyebrow">Foundations · Colors</p>
   <h1>Colors — placeholder palette</h1>
   <p class="lede">
-    All 41 <code>--color-*</code> tokens from <code>web/design/canvas/tokens.css</code>
-    (a 1:1 mirror of <code>web/src/app/globals.css</code> <code>@theme</code>). A neutral
-    placeholder set: a slate surface ramp, one indigo accent (token group named
-    <code>green*</code> — hi2vi-compatible names), and standard red/amber signal states.
-    Values are finalized at the P8 design gate; the token names never change.
+    Neutral placeholder set: a slate surface ramp, one indigo accent (token
+    group named <code>green*</code> — hi2vi-compatible names), and standard
+    red/amber signal states. Values are finalized at the P6 design gate; the
+    token names never change.
   </p>
 
-  <div class="note">
-    <b>8 of these swatches are duplicates on purpose — not a rendering bug.</b>
-    The placeholder palette was built from a slate ramp, so 21 tokens collapse onto 8
-    shared values. Chips that repeat a value carry a <span class="dupe">A–H</span> marker.
-    Each group below is a distinction the token <em>names</em> still draw, and that a real
-    palette may want back:
-    <ul>
-      <li><span class="dupe">A</span> #0f172a — ink · canvas-dark</li>
-      <li><span class="dupe">B</span> #1e293b — forest · charcoal</li>
-      <li><span class="dupe">C</span> #334155 — forest-mid · hairline-dark · slate</li>
-      <li><span class="dupe">D</span> #cbd5e1 — trust-sage · hairline-strong · on-dark-muted</li>
-      <li><span class="dupe">E</span> #94a3b8 — archive-olive · muted</li>
-      <li><span class="dupe">F</span> #f1f5f9 — archive-cream · surface-soft · surface-band · hairline-soft</li>
-      <li><span class="dupe">G</span> #ffffff — canvas · on-dark · on-primary</li>
-      <li><span class="dupe">H</span> #eef2ff — surface-green · surface-security</li>
-    </ul>
-  </div>
-
-  <h2>Accent (indigo)<span class="count">4</span></h2>
+  <h2>Accent (indigo)</h2>
   <div class="grid">
     <div class="swatch"><div class="chip" style="background:var(--color-green)"></div><div class="meta"><b>green</b>#6366f1</div></div>
     <div class="swatch"><div class="chip" style="background:var(--color-green-deep)"></div><div class="meta"><b>green-deep</b>#4f46e5</div></div>
@@ -132,73 +78,32 @@
     <div class="swatch"><div class="chip" style="background:var(--color-green-soft)"></div><div class="meta"><b>green-soft</b>#e0e7ff</div></div>
   </div>
 
-  <h2>Secondary accent tints<span class="count">3</span></h2>
+  <h2>Dark surfaces / text</h2>
   <div class="grid">
-    <div class="swatch"><div class="chip" style="background:var(--color-security-mint)"></div><div class="meta"><b>security-mint</b>#c7d2fe</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-security-teal)"></div><div class="meta"><b>security-teal</b>#818cf8</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-trust-sage)"><span class="dupe-tag">D</span></div><div class="meta"><b>trust-sage</b>#cbd5e1</div></div>
-  </div>
-
-  <h2>Muted decorative accents<span class="count">3</span></h2>
-  <div class="grid">
-    <div class="swatch"><div class="chip" style="background:var(--color-victory-lime)"></div><div class="meta"><b>victory-lime</b>#a5b4fc</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-archive-olive)"><span class="dupe-tag">E</span></div><div class="meta"><b>archive-olive</b>#94a3b8</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-archive-cream)"><span class="dupe-tag">F</span></div><div class="meta"><b>archive-cream</b>#f1f5f9</div></div>
-  </div>
-
-  <h2>Dark surfaces<span class="count">5</span></h2>
-  <div class="grid">
-    <div class="swatch"><div class="chip" style="background:var(--color-ink)"><span class="dupe-tag">A</span></div><div class="meta"><b>ink</b>#0f172a</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-canvas-dark)"><span class="dupe-tag">A</span></div><div class="meta"><b>canvas-dark</b>#0f172a</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-forest)"><span class="dupe-tag">B</span></div><div class="meta"><b>forest</b>#1e293b</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-forest-mid)"><span class="dupe-tag">C</span></div><div class="meta"><b>forest-mid</b>#334155</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-forest-soft)"></div><div class="meta"><b>forest-soft</b>#475569</div></div>
-  </div>
-
-  <h2>Text<span class="count">4</span></h2>
-  <div class="grid">
-    <div class="swatch"><div class="chip" style="background:var(--color-charcoal)"><span class="dupe-tag">B</span></div><div class="meta"><b>charcoal</b>#1e293b</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-slate)"><span class="dupe-tag">C</span></div><div class="meta"><b>slate</b>#334155</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--color-ink)"></div><div class="meta"><b>ink</b>#0f172a</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--color-forest)"></div><div class="meta"><b>forest</b>#1e293b</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--color-forest-mid)"></div><div class="meta"><b>forest-mid</b>#334155</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--color-slate)"></div><div class="meta"><b>slate</b>#334155</div></div>
     <div class="swatch"><div class="chip" style="background:var(--color-steel)"></div><div class="meta"><b>steel</b>#64748b</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-muted)"><span class="dupe-tag">E</span></div><div class="meta"><b>muted</b>#94a3b8</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--color-muted)"></div><div class="meta"><b>muted</b>#94a3b8</div></div>
   </div>
 
-  <h2>Light surfaces<span class="count">7</span></h2>
+  <h2>Light surfaces / hairlines</h2>
   <div class="grid">
-    <div class="swatch"><div class="chip" style="background:var(--color-canvas)"><span class="dupe-tag">G</span></div><div class="meta"><b>canvas</b>#ffffff</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--color-canvas)"></div><div class="meta"><b>canvas</b>#ffffff</div></div>
     <div class="swatch"><div class="chip" style="background:var(--color-surface)"></div><div class="meta"><b>surface</b>#f8fafc</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-surface-soft)"><span class="dupe-tag">F</span></div><div class="meta"><b>surface-soft</b>#f1f5f9</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-surface-green)"><span class="dupe-tag">H</span></div><div class="meta"><b>surface-green</b>#eef2ff</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-surface-archive)"></div><div class="meta"><b>surface-archive</b>#f9fafb</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-surface-security)"><span class="dupe-tag">H</span></div><div class="meta"><b>surface-security</b>#eef2ff</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-surface-band)"><span class="dupe-tag">F</span></div><div class="meta"><b>surface-band</b>#f1f5f9</div></div>
-  </div>
-
-  <h2>Hairlines / borders<span class="count">4</span></h2>
-  <div class="grid">
+    <div class="swatch"><div class="chip" style="background:var(--color-surface-soft)"></div><div class="meta"><b>surface-soft</b>#f1f5f9</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--color-surface-green)"></div><div class="meta"><b>surface-green</b>#eef2ff</div></div>
     <div class="swatch"><div class="chip" style="background:var(--color-hairline)"></div><div class="meta"><b>hairline</b>#e2e8f0</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-hairline-soft)"><span class="dupe-tag">F</span></div><div class="meta"><b>hairline-soft</b>#f1f5f9</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-hairline-strong)"><span class="dupe-tag">D</span></div><div class="meta"><b>hairline-strong</b>#cbd5e1</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-hairline-dark)"><span class="dupe-tag">C</span></div><div class="meta"><b>hairline-dark</b>#334155</div></div>
+    <div class="swatch"><div class="chip" style="background:var(--color-hairline-strong)"></div><div class="meta"><b>hairline-strong</b>#cbd5e1</div></div>
   </div>
 
-  <h2>Signal states<span class="count">8</span></h2>
+  <h2>Signal states</h2>
   <div class="grid">
     <div class="swatch"><div class="chip" style="background:var(--color-danger)"></div><div class="meta"><b>danger</b>#dc2626</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-danger-deep)"></div><div class="meta"><b>danger-deep</b>#b91c1c</div></div>
     <div class="swatch"><div class="chip" style="background:var(--color-surface-danger)"></div><div class="meta"><b>surface-danger</b>#fef2f2</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-hairline-danger)"></div><div class="meta"><b>hairline-danger</b>#fecaca</div></div>
     <div class="swatch"><div class="chip" style="background:var(--color-caution)"></div><div class="meta"><b>caution</b>#d97706</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-caution-deep)"></div><div class="meta"><b>caution-deep</b>#b45309</div></div>
     <div class="swatch"><div class="chip" style="background:var(--color-surface-caution)"></div><div class="meta"><b>surface-caution</b>#fffbeb</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-hairline-caution)"></div><div class="meta"><b>hairline-caution</b>#fde68a</div></div>
-  </div>
-
-  <h2>On-* text (text drawn on dark / accent surfaces)<span class="count">3</span></h2>
-  <div class="grid">
-    <div class="swatch"><div class="chip" style="background:var(--color-on-dark)"><span class="dupe-tag">G</span></div><div class="meta"><b>on-dark</b>#ffffff</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-on-dark-muted)"><span class="dupe-tag">D</span></div><div class="meta"><b>on-dark-muted</b>#cbd5e1</div></div>
-    <div class="swatch"><div class="chip" style="background:var(--color-on-primary)"><span class="dupe-tag">G</span></div><div class="meta"><b>on-primary</b>#ffffff</div></div>
   </div>
 </body>
 </html>

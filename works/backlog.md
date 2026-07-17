@@ -5,12 +5,12 @@
 
 ## Pointer
 
-- Current phase: `P8`
-- Current slice: `P8.S6`
-- Next slice: `P8.S7`
+- Current phase: `P5`
+- Current slice: `P5.DECOMP`
+- Next slice: `P5.REVIEW`
 - Waiting on operator: `none`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-17T09:02:32+09:00`
+- Rebuilt at: `2026-07-17T10:02:29+09:00`
 
 ## Active Phases
 
@@ -21,7 +21,6 @@
 | [x] `P3` | `done` | `pass` | Feedback API v2, Search & Usage Monitoring | `none` | `works/phases/active/P3` |
 | [x] `P7` | `done` | `pass` | Agent-Capture Revival (MCP write-only) | `none` | `works/phases/active/P7` |
 | [x] `P4` | `done` | `pass` | Web App: Tenant Dashboard & Project Pages | `none` | `works/phases/active/P4` |
-| [ ] `P8` | `planned` | `pending` | Design Gate: Brand, App UI & Landing | `P8.S6` | `works/phases/active/P8` |
 | [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
 | [ ] `P6` | `planned` | `pending` | Landing Page, Webpage & Production Deploy | `P6.DECOMP` | `works/phases/active/P6` |
 
@@ -78,17 +77,6 @@
 | [x] `P4.S4` | `done` | Project detail: info + credentials + project usage | `implementation` | `works/phases/active/P4/slices/P4.S4` |
 | [x] `P4.S5` | `done` | Cross-project feedback list + Korean-safe search + detail | `implementation` | `works/phases/active/P4/slices/P4.S5` |
 | [x] `P4.REVIEW` | `done` | phase review | `review` | `works/phases/active/P4/slices/P4.REVIEW` |
-
-## Phase P8: Design Gate: Brand, App UI & Landing
-
-| Slice | Status | Name | Kind | Path |
-|---|---|---|---|---|
-| [x] `P8.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P8/slices/P8.DECOMP` |
-| [x] `P8.S1` | `done` | foundations cards + hi2vi reference card | `implementation` | `works/phases/active/P8/slices/P8.S1` |
-| [ ] `P8.S6` | `todo` | create the claude.ai design-system project; push canvas + design brief | `implementation` | `works/phases/active/P8/slices/P8.S6` |
-| [ ] `P8.S7` | `todo` | design gate: hand off to the Claude Design session | `implementation` | `works/phases/active/P8/slices/P8.S7` |
-| [ ] `P8.S8` | `todo` | decompose the signed-off implementation | `decomposition` | `works/phases/active/P8/slices/P8.S8` |
-| [ ] `P8.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P8/slices/P8.REVIEW` |
 
 ## Phase P5: CLI & Agent-First Onboarding
 

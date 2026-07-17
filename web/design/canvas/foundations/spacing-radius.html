@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>vocky · Spacing &amp; Radius</title>
+<title>vocky · Spacing & Radius</title>
 <link rel="stylesheet" href="../tokens.css" />
 <style>
   body {
@@ -30,7 +30,7 @@
   }
   .lede {
     margin: 0 0 28px;
-    max-width: 64ch;
+    max-width: 60ch;
     font-size: var(--text-body-md);
     line-height: var(--text-body-md--line-height);
     color: var(--color-slate);
@@ -45,56 +45,29 @@
   .radius-box { height: 96px; background: var(--color-forest); border: 2px solid var(--color-green); }
   .radius-meta { margin-top: 8px; font-family: var(--font-mono); font-size: var(--text-caption); color: var(--color-steel); }
   .radius-meta b { color: var(--color-charcoal); font-weight: 600; }
-  .note {
-    margin: 0 0 14px;
-    padding: 14px 16px;
-    border: 1px solid var(--color-hairline);
-    border-left: 3px solid var(--color-caution);
-    border-radius: var(--radius-md);
-    background: var(--color-surface-caution);
-    max-width: 84ch;
-    font-size: var(--text-body-sm);
-    line-height: var(--text-body-sm--line-height);
-    color: var(--color-charcoal);
-  }
-  .note b { font-weight: 600; }
 </style>
 </head>
 <body>
   <p class="eyebrow">Foundations · Spacing &amp; Radius</p>
   <h1>Spacing &amp; Radius</h1>
   <p class="lede">
-    Named section spacing, container widths, the <code>xs</code> breakpoint, and the radius
-    scale — every non-color layout token in <code>web/design/canvas/tokens.css</code>
-    (a 1:1 mirror of <code>web/src/app/globals.css</code> <code>@theme</code>). Bars and boxes
-    derive their size from the token itself, so they re-render if a value changes at the gate.
-    (The base utility scale is Tailwind's 4px step.)
+    Named section spacing and the radius scale from globals.css <code>@theme</code>.
+    Bars are drawn to true pixel width; radius boxes use the real
+    <code>--radius-*</code> value. (The base utility scale is Tailwind's 4px step.)
   </p>
 
-  <h2>Named spacing (section rhythm) — 4</h2>
-  <div class="bar-row"><div class="bar-label"><b>section-sm</b> · 48px</div><div class="bar" style="width:var(--spacing-section-sm)"></div></div>
-  <div class="bar-row"><div class="bar-label"><b>section</b> · 72px</div><div class="bar" style="width:var(--spacing-section)"></div></div>
-  <div class="bar-row"><div class="bar-label"><b>section-lg</b> · 104px</div><div class="bar" style="width:var(--spacing-section-lg)"></div></div>
-  <div class="bar-row"><div class="bar-label"><b>hero</b> · 128px</div><div class="bar" style="width:var(--spacing-hero)"></div></div>
+  <h2>Named spacing (section rhythm)</h2>
+  <div class="bar-row"><div class="bar-label"><b>section-sm</b> · 48px</div><div class="bar" style="width:48px"></div></div>
+  <div class="bar-row"><div class="bar-label"><b>section</b> · 72px</div><div class="bar" style="width:72px"></div></div>
+  <div class="bar-row"><div class="bar-label"><b>section-lg</b> · 104px</div><div class="bar" style="width:104px"></div></div>
+  <div class="bar-row"><div class="bar-label"><b>hero</b> · 128px</div><div class="bar" style="width:128px"></div></div>
 
-  <h2>Container widths (25% scale) — 2</h2>
-  <div class="bar-row"><div class="bar-label"><b>page</b> · 1180px</div><div class="bar" style="width:calc(var(--container-page) / 4);background:var(--color-green-deep)"></div></div>
-  <div class="bar-row"><div class="bar-label"><b>wide</b> · 1320px</div><div class="bar" style="width:calc(var(--container-wide) / 4);background:var(--color-green-deep)"></div></div>
+  <h2>Container widths (25% scale)</h2>
+  <div class="bar-row"><div class="bar-label"><b>page</b> · 1180px</div><div class="bar" style="width:295px;background:var(--color-green-deep)"></div></div>
+  <div class="bar-row"><div class="bar-label"><b>wide</b> · 1320px</div><div class="bar" style="width:330px;background:var(--color-green-deep)"></div></div>
 
-  <h2>Breakpoints (25% scale) — 1</h2>
-  <p class="note">
-    <b><code>--breakpoint-xs</code> has no consumer in shipped code.</b> It is declared in
-    <code>globals.css</code> (inherited from hi2vi, where <code>xs:</code> utilities are used),
-    but no vocky component uses an <code>xs:</code> variant. Instead the app hardcodes an
-    arbitrary <code>min-[900px]:</code> at 11 call sites across the shell and list surfaces —
-    a width that is in no token at all. So vocky's one declared breakpoint is unused, and its
-    one real breakpoint is untokenized. <b>Open question for this gate.</b>
-  </p>
-  <div class="bar-row"><div class="bar-label"><b>xs</b> · 30rem (480px)</div><div class="bar" style="width:calc(var(--breakpoint-xs) / 4);background:var(--color-muted)"></div></div>
-
-  <h2>Radius scale — 8</h2>
+  <h2>Radius scale</h2>
   <div class="radius-grid">
-    <div class="radius-cell"><div class="radius-box" style="border-radius:var(--radius)"></div><div class="radius-meta"><b>radius</b> · 14px (base)</div></div>
     <div class="radius-cell"><div class="radius-box" style="border-radius:var(--radius-xs)"></div><div class="radius-meta"><b>xs</b> · 4px</div></div>
     <div class="radius-cell"><div class="radius-box" style="border-radius:var(--radius-sm)"></div><div class="radius-meta"><b>sm</b> · 6px</div></div>
     <div class="radius-cell"><div class="radius-box" style="border-radius:var(--radius-md)"></div><div class="radius-meta"><b>md</b> · 10px</div></div>
