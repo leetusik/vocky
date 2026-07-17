@@ -121,6 +121,52 @@ docs/reference/design/
 
 _Durable findings and cross-slice notes; `DECOMP` seeds this, and each slice appends when it finishes._
 
+### `P8.S2` — GATE CLOSED: round 01 landed. The spec P9 builds from.
+
+The design gate is closed. The design record is durable at **`docs/reference/design/`**, outside `works/`
+so it survives P8's archive:
+
+- **`docs/reference/design/rounds/01-brand-app-landing/output/build-prompt.md`** — **the implementation
+  contract. P9 decomposes and sizes every slice from this file.** Exact token values (all 41 colors, 14
+  type steps, radii, spacing, breakpoints), component APIs with class strings, per-surface changes, a
+  per-file change manifest (§8), and a DoD (§10). It opens with a **RESPECT THE DESIGN** block that must go
+  into every P9 slice plan and executor prompt.
+- **`output/result.md`** — decisions & rationale; answers every open question; logs 10 departures.
+- **`docs/reference/design/SIGNOFF.md`** — authorization, supersessions, token delta.
+- Both files landed **verbatim and read-only**. The 30-card set + `tokens.css` **stay in the design
+  project** (project `1eaa0803-…`) and are deliberately **not** copied down — `build-prompt.md` is the
+  complete on-disk source of truth, which matters because **P9's executors have no DesignSync**.
+
+**The design at a glance** (authoritative detail is in `build-prompt.md`, do not re-derive here):
+
+- **Brand:** "a quiet instrument for hearing your users." One deep-emerald green (`--color-green #0C7A52`,
+  a **real value swap** off the indigo placeholder — names unchanged, so the swap re-themes every surface),
+  on a green-cool neutral ramp. Light-only (no dark mode). Compact, data-dense. Pretendard + JetBrains Mono.
+- **Every open question resolved:** on-primary stays white (AA-checked); `--breakpoint-xs` dropped for a
+  real `--breakpoint-app` (900px); Select / Chip / destructive Button added; Badge `archive` split into
+  rating + status; TrendChart → dependency-free area chart; loading/error/404 designed; the pricing-vs-free
+  contradiction resolved as "Free now, paid later"; brand mark = three rising bars (a capture-volume
+  waveform).
+- **Net-new surfaces:** the public landing reclaiming `/` (the largest new build) and the four
+  loading/error/not-found/global-error states.
+- **Backend: no change required** (`build-prompt.md` §9) — everything maps to existing serializers. The one
+  named non-trivial build cost is **Pretendard vendoring** (not on Google Fonts → `next/font/local`).
+- **All nine locked floors honored**, including the five security ones (identical login error,
+  404-never-403, show-once key warning, download-only attachments, UTC labels).
+
+**Apply-time nits for P9 (catalogued, not blockers — the record is read-only so these were NOT edited into it):**
+
+- Both returned files still name the two monolith HTMLs as "visual source of truth". Those were superseded
+  by the card set and deleted from the project; **the card set is the visual source of truth now.**
+- `result.md` §9 lists P9 apply-time to-dos: pick the Pretendard vendoring mechanism; the optional
+  token-rename pass (costed, deferred); the waveform mark can seed the favicon/OG image (a P6 concern); the
+  "coming later" pricing card's disabled control needs no backend unless a waitlist is ever wanted.
+
+**Doc impact (for `P8.REVIEW` to consolidate — see the Doc impact section):** the design gate closed;
+`decisions.md` should record round 01's resolutions as a decision (superseding D-P4-3), and `frontend.md`
+/ `experience.md` now have a concrete target palette, type, component set, landing, and state design to
+reference. No doc is versioned by this slice (constraint 10).
+
 ### `P8.S2` — the workspace moved to v14 mid-slice: the session must return a card set
 
 **Constraint 2 below is now partly stale — read this first.** It says the mechanism is v13's and that
@@ -357,6 +403,13 @@ _Running list for `P8.REVIEW` to consolidate into doc versions. Append one line 
 - **Pre-recorded at the v13 revision:** `frontend.md` documents the `design/canvas/` structure and card
   count. Constraint 8 **deletes that tree**, so `P8.REVIEW` must re-version `frontend.md` to drop the
   canvas section — consolidating the *final* state once, not tracking it per slice.
+- **From `P8.S2` (gate close):** the design gate is closed and the durable record lives at
+  `docs/reference/design/` (round 01 `output/` + `SIGNOFF.md`). `decisions.md` should record round 01's
+  brand/UX resolutions as a decision that **supersedes D-P4-3**; `frontend.md` and `experience.md` now
+  have a concrete target (deep-emerald palette with names-kept value swap, Pretendard, compact density,
+  the new component vocabulary, the `/` landing, and the loading/error/404 states). The design specifies
+  **no backend/data change**. `P8.REVIEW` consolidates these; no doc is versioned by an implementation or
+  co-work slice (constraint 10).
 
 ## Open Questions
 
