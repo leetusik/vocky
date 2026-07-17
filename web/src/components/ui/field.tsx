@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
  * A11y wiring is the caller's job: pair `<Label htmlFor>` with the control `id`,
  * point `aria-describedby` at the `<FieldError id>`, and set `aria-invalid` on
  * error. `<FieldError>` is `aria-live` so validation messages are announced.
+ * Controls sit at the compact vocky density (~38px input, `size-[18px]` check).
  */
 
 export const labelVariants = cva(
@@ -32,10 +33,10 @@ export function Label({ className, ...props }: LabelProps) {
 }
 
 const controlBase =
-  "w-full rounded-md border border-hairline-strong bg-surface px-3.5 text-body-md text-ink placeholder:text-steel transition-colors focus-visible:outline-none hover:border-steel disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-destructive";
+  "w-full rounded-md border border-hairline-strong bg-surface px-3 text-body-md text-ink placeholder:text-steel transition-colors focus-visible:outline-none hover:border-steel disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-destructive";
 
-export const inputVariants = cva(cn(controlBase, "min-h-[46px] py-2.5"));
-export const textareaVariants = cva(cn(controlBase, "min-h-28 py-2.5"));
+export const inputVariants = cva(cn(controlBase, "min-h-[38px] py-2"));
+export const textareaVariants = cva(cn(controlBase, "min-h-24 py-2"));
 
 export interface InputProps
   extends
@@ -63,15 +64,15 @@ export interface CheckboxProps extends Omit<
 > {}
 
 /**
- * Native checkbox sized for touch (`size-5`), tinted to the accent via
- * `accent-green`. The label/consent copy is rendered by the caller alongside it.
+ * Native checkbox at the compact vocky size (`size-[18px]`), tinted to the accent
+ * via `accent-green`. The label/consent copy is rendered by the caller alongside it.
  */
 export function Checkbox({ className, ...props }: CheckboxProps) {
   return (
     <input
       type="checkbox"
       className={cn(
-        "mt-0.5 size-5 shrink-0 rounded-sm border border-hairline-strong accent-green focus-visible:outline-none aria-[invalid=true]:border-destructive",
+        "mt-0.5 size-[18px] shrink-0 rounded-sm border border-hairline-strong accent-green focus-visible:outline-none aria-[invalid=true]:border-destructive",
         className,
       )}
       {...props}

@@ -46,19 +46,16 @@ export function Timestamp({ iso }: { iso: string }) {
 /**
  * vocky's explicit-action rating: `1` = like, `2` = dislike, `null` = unrated.
  *
- * `null` is the COMMON case, not an error — plenty of captures carry only text —
- * so it renders as muted text rather than a badge: an absent signal is not a
- * signal. Both variants come from the existing placeholder palette (S5 adds no
- * badge token), so the P6 design gate swaps values only.
+ * `null` is the COMMON case, not an error — plenty of captures carry only text.
+ * The vocky design (round 01, §4.7) gives it an explicit `unrated` badge rather
+ * than muted text: the three states now read as one consistent rating column.
  */
 export function RatingBadge({ value }: { value: 1 | 2 | null }) {
   if (value === 1) {
-    return <Badge variant="softGreen">{FEEDBACK.list.valueLiked}</Badge>;
+    return <Badge variant="liked">{FEEDBACK.list.valueLiked}</Badge>;
   }
   if (value === 2) {
-    return <Badge variant="archive">{FEEDBACK.list.valueDisliked}</Badge>;
+    return <Badge variant="disliked">{FEEDBACK.list.valueDisliked}</Badge>;
   }
-  return (
-    <span className="text-body-sm text-steel">{FEEDBACK.list.valueUnrated}</span>
-  );
+  return <Badge variant="unrated">{FEEDBACK.list.valueUnrated}</Badge>;
 }

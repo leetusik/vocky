@@ -47,7 +47,10 @@ export interface DataTableProps<T> {
   className?: string;
 }
 
-const alignClass: Record<NonNullable<DataTableColumn<unknown>["align"]>, string> = {
+const alignClass: Record<
+  NonNullable<DataTableColumn<unknown>["align"]>,
+  string
+> = {
   left: "text-left",
   right: "text-right",
   center: "text-center",
@@ -73,13 +76,13 @@ export function DataTable<T>({
     >
       <table className="w-full border-collapse text-body-sm">
         <thead>
-          <tr className="border-b border-hairline bg-surface">
+          <tr>
             {columns.map((col) => (
               <th
                 key={col.key}
                 scope="col"
                 className={cn(
-                  "px-4 py-2.5 text-caption font-medium text-steel",
+                  "border-b border-hairline bg-surface px-4 py-2 text-micro font-bold tracking-[0.6px] text-steel uppercase",
                   resolveAlign(col),
                   col.className,
                 )}
@@ -109,7 +112,7 @@ export function DataTable<T>({
                   <td
                     key={col.key}
                     className={cn(
-                      "px-4 py-3 align-middle text-ink",
+                      "px-4 py-2 align-middle text-ink",
                       resolveAlign(col),
                       col.className,
                     )}

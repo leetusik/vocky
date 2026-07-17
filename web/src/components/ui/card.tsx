@@ -5,23 +5,24 @@ import { cn } from "@/lib/utils";
 
 /**
  * Surface card. Renders a `<div>`; children-only — the caller supplies the inner
- * heading/body structure. Shadow rgba + the one-off `archive` border are retoned
- * to the placeholder palette (slate/indigo).
+ * heading/body structure. Compact vocky density (`p-5` base); shadow rgba use the
+ * ink signature (`0E1A16` → `rgba(14,26,22,…)`) and `pricingFeatured` the emerald
+ * green border + glow (see globals.css §2.5). The placeholder-only `security` /
+ * `archive` variants are dropped — the credential "Revoked" case moved to the
+ * `revoked` Badge.
  */
 export const cardVariants = cva("", {
   variants: {
     variant: {
-      base: "rounded-lg border border-hairline bg-canvas p-6",
+      base: "rounded-lg border border-hairline bg-canvas p-5",
       feature:
-        "rounded-xl border border-hairline bg-canvas p-7 shadow-[0_12px_32px_-18px_rgba(15,23,42,0.16)]",
-      featureMuted: "rounded-xl border border-hairline-soft bg-surface p-6",
-      dark: "rounded-xl border border-hairline-dark bg-forest p-8 text-on-dark",
-      archive: "rounded-xl border border-[#e2e8f0] bg-surface-archive p-8",
-      security: "rounded-xl border border-hairline bg-surface-security p-8",
+        "rounded-xl border border-hairline bg-canvas p-6 shadow-[0_12px_32px_-18px_rgba(14,26,22,0.16)]",
+      featureMuted: "rounded-xl border border-hairline-soft bg-surface p-5",
+      dark: "rounded-xl border border-hairline-dark bg-forest p-7 text-on-dark",
       pricing:
-        "rounded-xl border border-hairline bg-canvas p-8 shadow-[0_14px_38px_-22px_rgba(15,23,42,0.18)]",
+        "rounded-xl border border-hairline bg-canvas p-7 shadow-[0_14px_38px_-22px_rgba(14,26,22,0.18)]",
       pricingFeatured:
-        "rounded-xl border border-[rgba(79,70,229,0.55)] bg-canvas p-8 shadow-[0_26px_60px_-22px_rgba(79,70,229,0.40)]",
+        "rounded-xl border-2 border-green bg-canvas p-7 shadow-[0_24px_56px_-28px_rgba(12,122,82,0.34)]",
     },
   },
   defaultVariants: {

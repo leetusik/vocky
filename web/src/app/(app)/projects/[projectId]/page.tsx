@@ -84,18 +84,20 @@ const credentialColumns: DataTableColumn<VockyCredential>[] = [
     header: PROJECT.credentials.columns.status,
     // vocky has NO `status` field: Active ⇔ `revoked_at === null`. Revoked keys
     // stay listed (revoke is a stamp, not a delete), so the badge is derived.
-    // Both variants come from the existing placeholder palette — P4 adds no new
-    // badge token, so the P6 design gate swaps values only.
+    // The vocky design (round 01, §4.7) maps these to the semantic `active` /
+    // `revoked` status variants.
     cell: (credential) =>
       credential.revoked_at === null ? (
-        <Badge variant="softGreen">{PROJECT.credentials.statusActive}</Badge>
+        <Badge variant="active">{PROJECT.credentials.statusActive}</Badge>
       ) : (
-        <Badge variant="archive">{PROJECT.credentials.statusRevoked}</Badge>
+        <Badge variant="revoked">{PROJECT.credentials.statusRevoked}</Badge>
       ),
   },
   {
     key: "actions",
-    header: <span className="sr-only">{PROJECT.credentials.columns.actions}</span>,
+    header: (
+      <span className="sr-only">{PROJECT.credentials.columns.actions}</span>
+    ),
     actions: true,
     // An already-revoked key has nothing to revoke; the badge tells that story.
     // `project_id` comes off the row, which is what lets this stay a module-level
@@ -157,7 +159,10 @@ async function loadProject(
       getProjectUsage(token, projectId),
     ]);
   } catch (error) {
-    if (error instanceof ApiError && (error.status === 404 || error.status === 400)) {
+    if (
+      error instanceof ApiError &&
+      (error.status === 404 || error.status === 400)
+    ) {
       notFound();
     }
     throw error;

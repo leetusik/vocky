@@ -1,6 +1,6 @@
-// Barrel for the token-driven UI primitives (P4.S1). Pages import components +
-// their CVA fns from "@/components/ui". Palette values are placeholders; token
-// NAMES match hi2vi_web so P6 swaps values only.
+// Barrel for the token-driven UI primitives. Pages import components + their CVA
+// fns from "@/components/ui". These now carry the vocky design system (round 01):
+// deep-emerald tokens, compact density, split Badge, and the new Select / Chip.
 export { Button, buttonVariants } from "./button";
 export type { ButtonProps } from "./button";
 
@@ -45,3 +45,12 @@ export type {
   LabelProps,
   TextareaProps,
 } from "./field";
+
+// Styled native <select> — the a11y-preserving replacement for raw
+// `<select className={inputVariants()}>` filter controls.
+export { Select, selectVariants } from "./select";
+export type { SelectProps } from "./select";
+
+// Small mono tag/pill — feedback tags + removable active-filter pills.
+export { Chip, chipVariants } from "./chip";
+export type { ChipProps } from "./chip";

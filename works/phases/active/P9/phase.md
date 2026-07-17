@@ -154,6 +154,36 @@ _Durable findings and cross-slice notes; `DECOMP` seeds this, and each slice app
   strongest signal the Pretendard loader resolved the real asset, not a fallback. Repo has 20 pre-existing
   unrelated `format:check` failures — S1 ran `prettier --write` on only its three touched files.
 
+### Appended by `P9.S2` — primitives landed
+
+- **The CVA primitives now carry the vocky system and are green.** All of `ui/` was rewritten to
+  `build-prompt.md §4.4–4.12` (+ the §2.5 literal fixes): Button (`rounded-md`/`font-semibold`/`gap-2` base,
+  green shadows, `secondaryOnDark`→`dark`, +`ghost`/`destructive`/`destructiveOutline`, retuned sizes), Card
+  (dropped `security`/`archive`, ink/green shadow literals), Badge (split into `liked|disliked|unrated|
+  active|revoked|accent`, `defaultVariants {unrated}`), Field (compact `px-3`, `min-h-[38px]`/`min-h-24`,
+  `size-[18px]` checkbox), DataTable (compact `px-4 py-2` + `text-micro` uppercase header), EndpointCard
+  (`border-forest-soft` + `text-security-teal` label). New `select.tsx` + `chip.tsx` added and barrel-wired.
+  `typecheck`/`lint`/`build` all clean.
+- **Badge dot is a prop, not a caller-built span.** `<Badge dot variant=…>` renders a variant-colored
+  `size-1.5` leading dot (the base `gap-1.5` spaces it). StatTiles (§4.13, S3) builds its *own* per-key dots
+  inside a Card and need not use this, but the affordance exists.
+- **`Select`/`Chip` exist + are exported but NOT yet adopted — adoption is S4.** `selectVariants` reuses
+  `inputVariants()` so filter selects match form fields; `Select`'s `className` targets the inner
+  `<select>` (`wrapperClassName` the positioning span). `Chip` is a plain (non-`"use client"`) primitive
+  like `Button`: a removable chip needs a *client* parent to supply `onRemove`. S4 swaps the two raw
+  `<select className={inputVariants()}>` in the feedback FilterBar for `<Select>`, and the bespoke tag
+  spans in feedback detail for `<Chip>`.
+- **Badge migration is complete at both consumers — no re-touch needed.** `feedback-fields.tsx` is
+  **fully** P9-migrated (`RatingBadge`: `1`→`liked`, `2`→`disliked`, `null`→`unrated` *badge* per §4.7 — the
+  old muted-`<span>` null branch is gone; `FEEDBACK.list.valueUnrated` already existed, no copy invented).
+  `projects/[projectId]/page.tsx` had **only** its two credential-status badge lines changed
+  (`softGreen`→`active`, `archive`→`revoked`); its breadcrumb / revoke button / key panel / `min-[900px]:`
+  compaction remain S4's. The green `build` is the proof the rename hit every call site.
+- **Zero-consumer removals confirmed by build:** dropping Card `security`/`archive` and Button
+  `secondaryOnDark` broke nothing (grep + build both clean) — they were placeholder-only as DECOMP noted.
+- **`section.tsx`/`grid.tsx`/`reveal.tsx` untouched** (boundary); `SectionId` widening stays S6; `Card
+  dark`/`pricing`/`pricingFeatured` and the retoned `EndpointCard` are defined and await the landing (S6).
+
 ## Constraints
 
 Durable for every slice in this phase. Carry the RESPECT-THE-DESIGN block into **every** slice's `plan.md`
@@ -207,6 +237,13 @@ _Running list for `P9.REVIEW` to consolidate into doc versions. Append one line 
   palette (names kept), the compact type/radius/spacing scale, `--breakpoint-app` (and `--breakpoint-xs`
   removed), and a `next/font/local` Pretendard loader (vendored variable woff2). `docs/current/frontend.md`
   (v0003) still describes these as a *live placeholder* — for `P9.REVIEW` to consolidate.
+- **`P9.S2`:** the `ui/` primitives were rewritten to the vocky system — Button (`rounded-md`,
+  +`ghost`/`destructive`/`destructiveOutline`, `secondaryOnDark`→`dark`, green shadows), Card (dropped
+  `security`/`archive`), Badge split into rating (`liked`/`disliked`/`unrated`) + status
+  (`active`/`revoked`) + `accent` with an optional variant-colored leading dot, Field compact, DataTable
+  compact, EndpointCard retoned — plus **new** `Select` + `Chip` primitives and the barrel export.
+  `docs/current/frontend.md` (v0003) still describes the placeholder component set (pill buttons, overloaded
+  `archive` badge, no Select/Chip). For `P9.REVIEW` to consolidate.
 
 ## Open Questions
 

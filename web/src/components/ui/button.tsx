@@ -11,26 +11,31 @@ import { cn } from "@/lib/utils";
  * The base pairs `focus-visible:outline-none` with the global accent-deep
  * `:focus-visible` ring from globals.css: the ring still shows; we only suppress
  * the browser default so the accent outline is the single visible focus state.
- * The `link` variant strips the pill shape / min-height. (Shadow rgba values are
- * retoned to the placeholder indigo accent — see globals.css.)
+ * The `link` variant strips the pill shape / min-height. Buttons are `rounded-md`
+ * (compact vocky radius) and `font-en` renders in Pretendard; `primary`'s shadow
+ * uses the deep-emerald signature rgba (`0C7A52`, see globals.css §2.5).
  */
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center rounded-full font-en text-button-md font-bold transition focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 rounded-md font-en text-button-md font-semibold transition focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         primary:
-          "bg-green text-on-primary shadow-[0_12px_30px_-8px_rgba(79,70,229,0.5)] hover:-translate-y-0.5 hover:bg-green-deep hover:shadow-[0_18px_38px_-10px_rgba(79,70,229,0.62)]",
+          "bg-green text-on-primary shadow-[0_10px_24px_-12px_rgba(12,122,82,0.5)] hover:-translate-y-0.5 hover:bg-green-deep hover:shadow-[0_14px_30px_-12px_rgba(12,122,82,0.62)]",
         secondary:
-          "border border-hairline-strong bg-canvas font-semibold text-ink hover:bg-surface",
-        secondaryOnDark:
-          "border border-hairline-dark bg-transparent text-on-dark hover:bg-white/10",
+          "border border-hairline-strong bg-canvas text-ink hover:bg-surface",
+        ghost:
+          "bg-transparent text-steel hover:bg-surface-soft hover:text-charcoal",
+        destructive: "bg-danger text-on-dark hover:bg-danger-deep",
+        destructiveOutline:
+          "border border-hairline-danger bg-canvas text-danger-deep hover:bg-surface-danger",
+        dark: "border border-hairline-dark bg-transparent text-on-dark hover:bg-white/10",
         link: "h-auto min-h-0 rounded-none bg-transparent p-0 text-body-md-medium text-green-dark hover:underline",
       },
       size: {
-        default: "min-h-11 px-[22px] py-[11px]",
-        lg: "min-h-[52px] px-7",
-        sm: "min-h-10 px-[18px]",
+        default: "min-h-10 px-[18px] py-2",
+        sm: "min-h-9 px-3.5",
+        lg: "min-h-12 px-7 text-[15px]",
       },
     },
     defaultVariants: {
