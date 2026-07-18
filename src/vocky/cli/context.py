@@ -48,6 +48,20 @@ class CliContext:
             effective_token = config_store.get_token()
         return ApiClient(self.base_url, token=effective_token)
 
+    def authed_client(self) -> ApiClient:
+        """Build a session-authenticated client, requiring a stored token.
+
+        The shared "must be signed in" seam for every ``/app/*`` command: when no
+        session token is stored it fails up front with the friendly "run ``vocky
+        login``" hint (a token-less request would otherwise 401 into a raw
+        :class:`ApiError`). Otherwise it returns :meth:`make_client`, which injects
+        the stored token.
+        """
+
+        if config_store.get_token() is None:
+            fail("Not signed in — run `vocky login`.")
+        return self.make_client()
+
 
 def resolve_base_url(base_url_flag: str | None) -> str:
     """Resolve the API base URL by precedence.

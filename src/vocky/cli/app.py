@@ -86,8 +86,10 @@ def main() -> None:
 # and imports only from ``context`` / ``config_store`` / ``client`` — never from
 # this module — so this bottom-of-file wiring cannot form an import cycle.
 from vocky.cli import auth  # noqa: E402  (import after ``app`` exists)
+from vocky.cli import projects  # noqa: E402  (import after ``app`` exists)
 
 auth.register(app)
+projects.register(app)
 
 
 if __name__ == "__main__":
