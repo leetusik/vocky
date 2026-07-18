@@ -20,7 +20,8 @@ from typing import Any
 
 import typer
 
-from vocky.cli.context import CliContext, cli_errors
+from vocky.cli.client import ApiError
+from vocky.cli.context import CliContext, cli_errors, fail
 
 feedback_app = typer.Typer(
     no_args_is_help=True,
@@ -107,8 +108,12 @@ def _render_records(records: list[dict[str, Any]]) -> None:
         marker = _value_marker(record.get("feedback_value"))
         project_id = record.get("project_id")
         project_short = _short(str(project_id)) if project_id else "—"
+        # The feedback id is the handle `vocky feedback show <id>` consumes and
+        # the server does no prefix matching — print it in full so the row is
+        # copy-pasteable. The project id stays short (context only; full project
+        # ids come from `vocky projects list`).
         typer.echo(
-            f"{_short(str(record['id']))}  {marker:<7}  {project_short}  "
+            f"{record['id']}  {marker:<7}  {project_short}  "
             f"{_date(record.get('ingested_at'))}  {_truncate(record.get('message'))}"
         )
 
@@ -181,8 +186,18 @@ def _feedback_show(
 
     with cli_errors():
         context: CliContext = ctx.obj
-        with context.authed_client() as client:
-            result = client.get(f"/app/feedback/{feedback_id}")
+        try:
+            with context.authed_client() as client:
+                result = client.get(f"/app/feedback/{feedback_id}")
+        except ApiError as exc:
+            # The server rejects a non-UUID id with a raw 400 — translate it to a
+            # hint that points the user at the command that surfaces full ids.
+            if exc.status_code == 400:
+                fail(
+                    f"'{feedback_id}' is not a valid feedback id — "
+                    "copy the full id from `vocky feedback list`."
+                )
+            raise
 
         record = result["record"]
         typer.echo(f"id:          {record['id']}")

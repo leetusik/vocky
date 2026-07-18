@@ -3,14 +3,14 @@
   "phase_id": "P5",
   "name": "Surface full copy-pasteable ids in list output so feedback show / --project work CLI-only",
   "kind": "fix",
-  "status": "todo",
+  "status": "done",
   "order": 5.5,
   "depends_on": [
     "P5.S4"
   ],
   "created_at": "2026-07-18T10:55:43+09:00",
-  "started_at": null,
-  "completed_at": null,
+  "started_at": "2026-07-18T10:57:57+09:00",
+  "completed_at": "2026-07-18T11:03:35+09:00",
   "risk": "medium",
   "source": {
     "type": "manual",

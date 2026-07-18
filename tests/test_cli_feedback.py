@@ -72,7 +72,9 @@ def test_list_renders_row_and_cursor_hint(config_env, monkeypatch):
     result = runner.invoke(app, ["feedback", "list"])
 
     assert result.exit_code == 0, result.output
-    assert _short(FEEDBACK_ID) in result.stdout
+    # The feedback id must be the full UUID (the handle `feedback show` needs),
+    # not an 8-char prefix.
+    assert FEEDBACK_ID in result.stdout
     assert "dislike" in result.stdout
     assert "checkout keeps failing" in result.stdout
     assert "--cursor opaque-cursor" in result.stdout
@@ -153,5 +155,60 @@ def test_show_renders_message_comment_and_attachment(config_env, monkeypatch):
     assert "screenshot.png" in result.stdout
 
 
-def _short(identifier: str) -> str:
-    return identifier[:8]
+def test_list_id_round_trips_into_show(config_env, monkeypatch):
+    """The id `feedback list` prints is the full UUID `feedback show` consumes."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/app/feedback":
+            return httpx.Response(
+                200,
+                json={
+                    "records": [
+                        {
+                            "id": FEEDBACK_ID,
+                            "message": "checkout keeps failing",
+                            "feedback_value": 2,
+                            "project_id": PROJECT_ID,
+                            "ingested_at": "2026-07-18T09:00:00Z",
+                        }
+                    ]
+                },
+            )
+        assert request.url.path == f"/app/feedback/{FEEDBACK_ID}"
+        return httpx.Response(
+            200,
+            json={
+                "record": {
+                    "id": FEEDBACK_ID,
+                    "project_id": PROJECT_ID,
+                    "message": "checkout keeps failing",
+                    "feedback_value": 2,
+                    "ingested_at": "2026-07-18T09:00:00Z",
+                }
+            },
+        )
+
+    _stub_api(monkeypatch, handler)
+    listed = runner.invoke(app, ["feedback", "list"])
+    assert listed.exit_code == 0, listed.output
+
+    printed_id = listed.stdout.split()[0]
+    assert printed_id == FEEDBACK_ID  # full id, copy-pasteable
+
+    shown = runner.invoke(app, ["feedback", "show", printed_id])
+    assert shown.exit_code == 0, shown.output
+    assert "checkout keeps failing" in shown.stdout
+
+
+def test_show_maps_invalid_id_to_friendly_hint(config_env, monkeypatch):
+    """A raw UUID-400 from the server becomes a hint pointing at `feedback list`."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"detail": "feedback_id must be a valid UUID"})
+
+    _stub_api(monkeypatch, handler)
+    result = runner.invoke(app, ["feedback", "show", "not-a-uuid"])
+
+    assert result.exit_code == 1
+    assert "not a valid feedback id" in result.stderr
+    assert "vocky feedback list" in result.stderr

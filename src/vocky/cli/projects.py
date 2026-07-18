@@ -40,12 +40,6 @@ _PROJECT_OPTION = typer.Option(
 )
 
 
-def _short(identifier: str) -> str:
-    """Return a short, glanceable prefix of a UUID for list output."""
-
-    return identifier[:8]
-
-
 def _date(timestamp: str | None) -> str:
     """Reduce an ISO-8601 timestamp to its date for compact list output."""
 
@@ -73,8 +67,11 @@ def _projects_list(ctx: typer.Context) -> None:
             return
 
         for project in projects:
+            # The project id is the handle for `projects show` and every
+            # `--project` consumer (keys, usage) — print it in full so the row is
+            # copy-pasteable.
             typer.echo(
-                f"{_short(str(project['id']))}  {project['name']}  "
+                f"{project['id']}  {project['name']}  "
                 f"(created {_date(project.get('created_at'))})"
             )
 
@@ -252,7 +249,8 @@ def _usage(
             if projects:
                 typer.echo("Projects:")
                 for entry in projects:
-                    typer.echo(f"  {_short(str(entry['id']))}  {entry['name']}")
+                    # Full id — it's the `--project` handle for this same command.
+                    typer.echo(f"  {entry['id']}  {entry['name']}")
 
 
 def register(app: typer.Typer) -> None:

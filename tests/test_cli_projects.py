@@ -72,6 +72,33 @@ def test_projects_create_reports_id_and_name(config_env, monkeypatch):
     assert "11111111-1111-1111-1111-111111111111" in result.stdout
 
 
+def test_projects_list_prints_full_id(config_env, monkeypatch):
+    """`projects list` prints the full id so `show` / `--project` are reachable."""
+
+    project_id = "11111111-1111-1111-1111-111111111111"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/app/projects"
+        return httpx.Response(
+            200,
+            json={
+                "projects": [
+                    {
+                        "id": project_id,
+                        "name": "foo",
+                        "created_at": "2026-07-18T00:00:00+00:00",
+                    }
+                ]
+            },
+        )
+
+    _stub_api(monkeypatch, handler)
+    result = runner.invoke(app, ["projects", "list"])
+
+    assert result.exit_code == 0, result.output
+    assert result.stdout.split()[0] == project_id  # full id, copy-pasteable
+
+
 def test_projects_list_empty_shows_hint(config_env, monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/app/projects"
