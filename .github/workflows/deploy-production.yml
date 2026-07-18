@@ -1,0 +1,95 @@
+name: Production Deploy
+
+# Manual, main-only deploy of vocky to the shared Oracle host. vocky runs as a Docker co-tenant
+# behind the standalone `edge` compose project; the aarch64 images are built ON THE BOX by
+# deploy/deploy.sh. Ported from hi2vi_web's deploy-production.yml, isolated by a distinct
+# concurrency group (vocky-deploy), checkout path (/home/opc/vocky), and Compose project (vocky,
+# derived from the clone dir basename — deploy.sh's dc() pins no `-p`). Never touches the sibling
+# co-tenant sites (hi2vi, knowledge, changple).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - name: Guard main branch
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "Production deploys must be run from main; got ${GITHUB_REF}." >&2
+            exit 1
+          fi
+          echo "sha=${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
+
+  deploy:
+    name: Deploy Oracle Production
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment:
+      name: production
+      url: https://vocky.hi2vi.com
+    concurrency:
+      group: vocky-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Checkout target commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.target_sha }}
+
+      - name: Validate deploy helpers
+        shell: bash
+        run: |
+          bash -n deploy/deploy.sh \
+            deploy/github-actions-production-deploy.sh \
+            deploy/oracle-production-deploy-remote.sh
+
+      - name: Deploy through Oracle deploy.sh
+        shell: bash
+        env:
+          TARGET_SHA: ${{ needs.preflight.outputs.target_sha }}
+          ORACLE_SSH_PRIVATE_KEY: ${{ secrets.ORACLE_SSH_PRIVATE_KEY }}
+          ORACLE_SSH_KNOWN_HOSTS: ${{ secrets.ORACLE_SSH_KNOWN_HOSTS }}
+          ORACLE_SSH_PASSPHRASE: ${{ secrets.ORACLE_SSH_PASSPHRASE }}
+          ARTIFACT_DIR: production-deploy-artifacts
+        run: deploy/github-actions-production-deploy.sh
+
+      - name: External smoke (public URLs, no secrets)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Two-endpoint smoke through the edge: /healthz proves the api (vocky-api:8000) and /
+          # proves the web (vocky-web:3000). Each is retried ~5x6s and must return 200; the step
+          # fails if EITHER endpoint never returns 200.
+          smoke() {
+            local url="$1" code i
+            for i in 1 2 3 4 5; do
+              code="$(curl -fsS -o /dev/null -w '%{http_code}' "${url}" || true)"
+              if [ "${code}" = "200" ]; then echo "smoke OK (200): ${url}"; return 0; fi
+              echo "attempt ${i} for ${url}: got ${code:-none}; retrying in 6s"; sleep 6
+            done
+            echo "external smoke failed: ${url} did not return 200" >&2
+            return 1
+          }
+          smoke https://vocky.hi2vi.com/healthz
+          smoke https://vocky.hi2vi.com/
+
+      - name: Upload deploy artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-deploy-${{ github.run_id }}
+          path: production-deploy-artifacts
+          if-no-files-found: warn
+          retention-days: 14

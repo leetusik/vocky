@@ -208,6 +208,52 @@ _Deploy pattern — downstream slices depend on these._
   on the container_name-pinned api service (knowledge proved it there); if not, set
   `MIGRATE_VIA_DOCKER_RUN=1`.
 
+- **S8 done — CI production-deploy chain authored (`.github/` was net-new). Relevant to S10 (first
+  bring-up + operator secrets) and REVIEW (operations doc):**
+  - Three files ported from hi2vi_web's proven chain, changing only the documented vocky deltas:
+    - `.github/workflows/deploy-production.yml` — manual `workflow_dispatch`, main-guarded
+      (`preflight` outputs `target_sha=GITHUB_SHA`), `deploy` job with `environment: {production,
+      url: https://vocky.hi2vi.com}`, `concurrency: {group: vocky-deploy, cancel-in-progress:
+      false}`, `timeout-minutes: 90`. `bash -n`s the two helpers **plus the existing S7
+      `deploy/deploy.sh`**, runs `deploy/github-actions-production-deploy.sh` with the `ORACLE_SSH_*`
+      + `TARGET_SHA` + `ARTIFACT_DIR` env, then a **two-endpoint external smoke** of
+      `https://vocky.hi2vi.com/healthz` (api) **and** `https://vocky.hi2vi.com/` (web), each 5×6s,
+      fail-if-either-≠200, then uploads artifacts `if: always()`.
+    - `deploy/github-actions-production-deploy.sh` (`+x`) — runner transport: SSH to
+      `opc@140.245.64.173`, scp+run the on-box gate against `/home/opc/vocky`, scp artifacts back.
+      SSH/key/passphrase handling + `TARGET_SHA` 40-hex assert kept verbatim; log prefix
+      `[vocky-deploy]`, temp names `/tmp/vocky-gha-*`.
+    - `deploy/oracle-production-deploy-remote.sh` (`+x`) — on-box gate: refuse dirty tracked tree,
+      `git fetch --prune origin main`, **ancestor-verify `TARGET_SHA` against fetched origin/main**
+      (`git merge-base --is-ancestor`), then hand off `deploy/deploy.sh "${TARGET_SHA}"` (S7's script,
+      untouched). `REPO_PATH=/home/opc/vocky`, `collect_status` = `docker compose -f compose.prod.yml
+      ps` (no `-p`, `.env` auto-read — mirrors deploy.sh's `dc()`).
+  - **S7's `deploy/deploy.sh` was NOT modified** — the chain reuses it as-is (verified: `git status`
+    clean for it). No delta forced any `deploy.sh` contract change.
+  - **The chain never ran here.** No `.github/` existed before; the workflow only fires on operator
+    `workflow_dispatch` and needs the three `ORACLE_SSH_*` GH secrets + a live box + `.env` + DNS.
+    Static proof only: `bash -n` all three scripts (PASS), `chmod +x` both new ones, YAML `safe_load`
+    (PASS, via `uv run --with pyyaml` — system python3 lacks yaml), `workflow.py validate` (PASS).
+    `shellcheck`/`actionlint` not installed — skipped (manual review). Behavioral proof = S10 / first
+    dispatch.
+
+- **CONSISTENCY NOTE for S10 (project-name / volume stability):** vocky's `deploy/deploy.sh` `dc()`
+  runs `docker compose -f compose.prod.yml` with **no `-p` pin**, so the Compose **project name derives
+  from the clone directory basename**. The S8 chain follows the same convention (the on-box gate's
+  `collect_status` also pins no `-p`). **S10 MUST clone the box to `/home/opc/vocky`** → project name
+  `vocky` → named volumes `vocky_postgres-data`, `vocky_redis-data`, `vocky_attachments-data` stay
+  stable across every redeploy. A clone at any other path would silently orphan the datastore volumes
+  on the next deploy. (Container names are pinned + image tags explicit, so *only the clone dir name*
+  matters for identity.)
+
+- **Hand-off to S10 (operator co-work — GH secrets + box clone):** add three repo secrets to
+  `leetusik/vocky` — `ORACLE_SSH_PRIVATE_KEY`, `ORACLE_SSH_KNOWN_HOSTS`, `ORACLE_SSH_PASSPHRASE`
+  (**same box as hi2vi/knowledge — reuse the existing key material**). Clone the box to
+  `/home/opc/vocky` (per the consistency note). **First deploy:** either run `deploy/deploy.sh`
+  manually on the box, OR dispatch this workflow once secrets + clone + `.env` + the `vocky` DNS
+  record all exist. The workflow is main-only and ancestor-verified, so a dispatch can only ship a
+  commit that is already on `origin/main`.
+
 ## Constraints
 
 - **nginx house rules** (violating any breaks every co-tenant site through the shared edge): never
@@ -285,6 +331,18 @@ _Running list — the REVIEW slice consolidates these into durable-doc versions.
   model, migrate-before-serve, worker-state gate, never-`down` rule, `MIGRATE_VIA_DOCKER_RUN`
   fallback) and the container-topology note in `docs/current/architecture.md` (worker reuses the api
   image).
+
+- **P6.S8** (CI production-deploy chain): new `.github/workflows/deploy-production.yml` +
+  `deploy/github-actions-production-deploy.sh` + `deploy/oracle-production-deploy-remote.sh` (both
+  `+x`) — a **manual** (`workflow_dispatch`), **main-only**, **ancestor-verified** GitHub Actions
+  deploy path ported from hi2vi_web. Flow: preflight guards `main` → runner SSHes to the box
+  (`opc@140.245.64.173`) and ships the on-box gate → the gate refuses a dirty tree, fetches
+  `origin/main`, verifies `TARGET_SHA` is an ancestor of fetched origin/main, then hands off to the
+  S7 `deploy/deploy.sh` (unchanged — owns checkout/build/migrate/health-gate/rollback) → **external
+  two-endpoint smoke** of `https://vocky.hi2vi.com/healthz` (api) + `/` (web) → artifact upload.
+  Requires three `ORACLE_SSH_*` GitHub repo secrets (added by the operator in S10). REVIEW folds this
+  into `docs/current/operations.md` (the CI deploy path: manual/main-only/ancestor-verified dispatch,
+  the three-file chain driving `deploy.sh`, the required GH secrets, and the external smoke).
 
 ## Open Questions
 
