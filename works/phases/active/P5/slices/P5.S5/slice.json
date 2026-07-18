@@ -3,14 +3,14 @@
   "phase_id": "P5",
   "name": "Agent-readable guide docs + README refresh (public Docs target)",
   "kind": "implementation",
-  "status": "todo",
+  "status": "done",
   "order": 5,
   "depends_on": [
     "P5.S2"
   ],
   "created_at": "2026-07-18T09:29:19+09:00",
-  "started_at": null,
-  "completed_at": null,
+  "started_at": "2026-07-18T10:26:59+09:00",
+  "completed_at": "2026-07-18T10:37:32+09:00",
   "risk": "medium",
   "source": {
     "type": "manual",
