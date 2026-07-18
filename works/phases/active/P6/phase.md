@@ -254,6 +254,32 @@ _Deploy pattern — downstream slices depend on these._
   record all exist. The workflow is main-only and ancestor-verified, so a dispatch can only ship a
   commit that is already on `origin/main`.
 
+- **S9 done — PyPI packaging complete (built + verified), publish is operator-gated. Relevant to S10
+  (operator publish) and REVIEW:**
+  - **Lean-CLI split works and stays test-green.** Core = `httpx` + `typer`; everything else is the
+    `server` optional extra. The CLI is import-isolated (`vocky/__init__.py` trivial; `vocky.cli.*` import
+    only typer/httpx/stdlib + the httpx-only `vocky.smoke`), so the wheel runs with core deps alone —
+    proven by `uvx --from dist/vocky-0.1.0-*.whl vocky --version` → `0.1.0` (15 pkgs, no server deps).
+  - **`[tool.uv] default-extras` is UNSUPPORTED in uv 0.8.14** (rejected as an unknown `[tool.uv]` field).
+    The plan's approach was replaced with the standard uv 0.8.x idiom: the dev dependency group
+    self-references the project's own extra — `"vocky[server]"` in `[dependency-groups] dev` (a default
+    group) — so a plain `uv sync` installs core + server + dev. Dependency groups never enter built dist
+    metadata, so the wheel/sdist stay lean (server only as a `; extra == "server"` gate). If uv is later
+    upgraded past the version that adds `default-extras`, either mechanism works; keep the self-ref.
+  - **sdist bloat footgun (fixed):** an unconstrained `uv build` yields a **~680 MB** sdist because
+    hatchling's default sdist selection ignores the nested `web/.gitignore` and pulls in
+    `web/node_modules` + `.next`. Fixed with `[tool.hatch.build.targets.sdist] include = ["/src/vocky",
+    "/README.md", "/LICENSE"]` (root-anchored — bare globs match nested node_modules READMEs/LICENSEs).
+    sdist is now 79 KB. **Do not remove this include-list.**
+  - **Backend `Dockerfile`** now passes `--extra server` on both `uv sync` layers (deterministic — does not
+    rely on default-extras reaching `--no-dev`). The server image's dep set is unchanged from before the
+    split (verified `uv sync --extra server` resolves cleanly).
+  - **In-sandbox test caveat:** `uv run pytest` = 79 passed / 108 `psycopg.OperationalError` (no Postgres,
+    Docker daemon unavailable). A stash→baseline run on pre-split HEAD gave the *identical* 79/108, proving
+    the split changed nothing behaviorally. Full DB validation is S10 / CI, as with the other deploy slices.
+  - **Publish is the operator's step:** `dist/` holds the wheel + sdist; PyPI name `vocky` is free (404);
+    run `uv publish` with a PyPI token. Orchestrator sets S9 `pending` for the operator.
+
 ## Constraints
 
 - **nginx house rules** (violating any breaks every co-tenant site through the shared edge): never
@@ -343,6 +369,19 @@ _Running list — the REVIEW slice consolidates these into durable-doc versions.
   Requires three `ORACLE_SSH_*` GitHub repo secrets (added by the operator in S10). REVIEW folds this
   into `docs/current/operations.md` (the CI deploy path: manual/main-only/ancestor-verified dispatch,
   the three-file chain driving `deploy.sh`, the required GH secrets, and the external smoke).
+
+- **P6.S9** (PyPI packaging): `pyproject.toml` split into a **lean CLI core** (`[project.dependencies]` =
+  `httpx` + `typer` only) plus a `[project.optional-dependencies] server` extra carrying the 11 heavy deps
+  (alembic, greenlet, mcp[cli], pydantic-settings, psycopg[binary], redis, sqlalchemy, starlette,
+  uvicorn[standard], python-multipart, argon2-cffi) — so `pip install vocky` / `uvx vocky` install only the
+  CLI and self-hosting uses `pip install "vocky[server]"`. PyPI metadata enriched (CLI `description`,
+  keywords, classifiers, `[project.urls]`, SPDX `license = "MIT"` + `license-files`). Backend `Dockerfile`
+  now `uv sync … --extra server` on both layers. `uv.lock` regenerated. Built + verified (wheel 95 KB,
+  sdist 79 KB, `uvx --from` wheel runs the lean CLI); **not yet published** (operator-gated, PyPI token).
+  REVIEW folds this into `docs/current/operations.md` (the CLI distribution/install model + lean-CLI-vs-
+  `[server]` split + the `--extra server` Docker build) and `docs/current/experience.md` / `product.md`
+  (the published `pip install vocky` / `uvx vocky` install path). Add "`vocky` published to PyPI" once the
+  operator runs `uv publish`.
 
 ## Open Questions
 

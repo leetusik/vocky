@@ -8,9 +8,9 @@
 - Current phase: `P6`
 - Current slice: `P6.S9`
 - Next slice: `P6.S10`
-- Waiting on operator: `none`
+- Waiting on operator: `P6.S9`
 - Open deferred jobs: `5`
-- Rebuilt at: `2026-07-18T17:51:58+09:00`
+- Rebuilt at: `2026-07-18T19:44:20+09:00`
 
 ## Active Phases
 
@@ -129,6 +129,6 @@
 | [x] `P6.S6` | `done` | Edge nginx vhost (vocky.conf) | `implementation` | `works/phases/active/P6/slices/P6.S6` |
 | [x] `P6.S7` | `done` | Deploy + rollback scripts | `implementation` | `works/phases/active/P6/slices/P6.S7` |
 | [x] `P6.S8` | `done` | CI production-deploy chain | `implementation` | `works/phases/active/P6/slices/P6.S8` |
-| [ ] `P6.S9` | `todo` | PyPI packaging + publish | `implementation` | `works/phases/active/P6/slices/P6.S9` |
+| [~] `P6.S9` | `pending` | PyPI packaging + publish | `implementation` | `works/phases/active/P6/slices/P6.S9` |
 | [ ] `P6.S10` | `todo` | Production bring-up | `co-work` | `works/phases/active/P6/slices/P6.S10` |
 | [ ] `P6.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P6/slices/P6.REVIEW` |

@@ -1027,10 +1027,15 @@ name = "vocky"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "httpx" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+server = [
     { name = "alembic" },
     { name = "argon2-cffi" },
     { name = "greenlet" },
-    { name = "httpx" },
     { name = "mcp", extra = ["cli"] },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic-settings" },
@@ -1038,7 +1043,6 @@ dependencies = [
     { name = "redis" },
     { name = "sqlalchemy" },
     { name = "starlette" },
-    { name = "typer" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -1048,24 +1052,26 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
+    { name = "vocky", extra = ["server"] },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "alembic", specifier = ">=1.18.4,<2.0.0" },
-    { name = "argon2-cffi", specifier = ">=25.1.0" },
-    { name = "greenlet", specifier = ">=3.2.4,<4.0.0" },
+    { name = "alembic", marker = "extra == 'server'", specifier = ">=1.18.4,<2.0.0" },
+    { name = "argon2-cffi", marker = "extra == 'server'", specifier = ">=25.1.0" },
+    { name = "greenlet", marker = "extra == 'server'", specifier = ">=3.2.4,<4.0.0" },
     { name = "httpx", specifier = ">=0.28.1,<1.0.0" },
-    { name = "mcp", extras = ["cli"], specifier = ">=1.27.0,<2.0.0" },
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.2.12,<4.0.0" },
-    { name = "pydantic-settings", specifier = ">=2.11.0,<3.0.0" },
-    { name = "python-multipart", specifier = ">=0.0.26" },
-    { name = "redis", specifier = ">=5.3.1,<6.0.0" },
-    { name = "sqlalchemy", specifier = ">=2.0.49,<3.0.0" },
-    { name = "starlette", specifier = ">=0.52.1,<1.0.0" },
+    { name = "mcp", extras = ["cli"], marker = "extra == 'server'", specifier = ">=1.27.0,<2.0.0" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'server'", specifier = ">=3.2.12,<4.0.0" },
+    { name = "pydantic-settings", marker = "extra == 'server'", specifier = ">=2.11.0,<3.0.0" },
+    { name = "python-multipart", marker = "extra == 'server'", specifier = ">=0.0.26" },
+    { name = "redis", marker = "extra == 'server'", specifier = ">=5.3.1,<6.0.0" },
+    { name = "sqlalchemy", marker = "extra == 'server'", specifier = ">=2.0.49,<3.0.0" },
+    { name = "starlette", marker = "extra == 'server'", specifier = ">=0.52.1,<1.0.0" },
     { name = "typer", specifier = ">=0.27.0" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.38.0,<1.0.0" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.38.0,<1.0.0" },
 ]
+provides-extras = ["server"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1073,6 +1079,7 @@ dev = [
     { name = "pytest", specifier = ">=8.4.2,<9.0.0" },
     { name = "pytest-asyncio", specifier = ">=1.2.0,<2.0.0" },
     { name = "pytest-cov", specifier = ">=7.0.0,<8.0.0" },
+    { name = "vocky", extras = ["server"] },
 ]
 
 [[package]]

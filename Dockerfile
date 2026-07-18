@@ -8,11 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY pyproject.toml uv.lock README.md /app/
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --no-install-project --extra server
 
 COPY alembic.ini /app/alembic.ini
 COPY alembic /app/alembic
 COPY src /app/src
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --extra server
 
 CMD ["uv", "run", "--no-sync", "vocky-server"]

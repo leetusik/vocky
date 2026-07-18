@@ -5,15 +5,31 @@ build-backend = "hatchling.build"
 [project]
 name = "vocky"
 version = "0.1.0"
-description = "Human-triggered feedback capture REST API."
+description = "Vocky — capture and read product & customer feedback (voice-of-customer) from your terminal or a coding agent."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Vocky" }]
+keywords = ["feedback", "voice-of-customer", "voc", "saas", "cli"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development",
+]
 dependencies = [
+  "httpx>=0.28.1,<1.0.0",
+  "typer>=0.27.0",
+]
+
+[project.optional-dependencies]
+server = [
   "alembic>=1.18.4,<2.0.0",
   "greenlet>=3.2.4,<4.0.0",
-  "httpx>=0.28.1,<1.0.0",
   "mcp[cli]>=1.27.0,<2.0.0",
   "pydantic-settings>=2.11.0,<3.0.0",
   "psycopg[binary]>=3.2.12,<4.0.0",
@@ -23,11 +39,21 @@ dependencies = [
   "uvicorn[standard]>=0.38.0,<1.0.0",
   "python-multipart>=0.0.26",
   "argon2-cffi>=25.1.0",
-  "typer>=0.27.0",
 ]
+
+[project.urls]
+Homepage = "https://vocky.hi2vi.com"
+Repository = "https://github.com/leetusik/vocky"
+Documentation = "https://github.com/leetusik/vocky/blob/main/docs/cli.md"
 
 [dependency-groups]
 dev = [
+  # Self-reference the project's own `server` extra so a plain `uv sync`
+  # (dev group is a default group) installs core + server + test tooling and
+  # keeps the test suite green. `uv` 0.8.x has no `[tool.uv] default-extras`,
+  # and dependency groups are never part of the built wheel metadata, so the
+  # published dist stays lean (server is only ever a `; extra == "server"` gate).
+  "vocky[server]",
   "fakeredis>=2.31.1,<3.0.0",
   "pytest>=8.4.2,<9.0.0",
   "pytest-asyncio>=1.2.0,<2.0.0",
@@ -42,6 +68,19 @@ vocky-worker = "vocky.worker:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/vocky"]
+
+[tool.hatch.build.targets.sdist]
+# Hatchling's default sdist selection does not honor nested `.gitignore`s
+# (e.g. `web/.gitignore`), so an unconstrained sdist sweeps in `web/node_modules`
+# and the `.next` cache (~680 MB). Restrict the sdist to the package sources +
+# metadata so it stays small and PyPI-publishable; the wheel is `src/vocky` only.
+# Paths are root-anchored (leading `/`) so the bare `README.md`/`LICENSE` globs
+# don't also match the thousands of nested node_modules READMEs/LICENSEs.
+include = [
+  "/src/vocky",
+  "/README.md",
+  "/LICENSE",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

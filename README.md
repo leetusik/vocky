@@ -58,6 +58,8 @@ uv tool install .
 uvx --from . vocky --help
 ```
 
+Once published to PyPI, `pip install vocky` / `uvx vocky` install the **lean CLI** (httpx + typer only); self-hosting the full server stack uses the `server` extra — `pip install "vocky[server]"`.
+
 ### The onboarding spine
 
 Sign up → create a project → mint a key → capture feedback → read it back. Each account command prompts for anything you omit; nothing is destructive.
