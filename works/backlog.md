@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P5`
-- Current slice: `P5.DECOMP`
-- Next slice: `P5.REVIEW`
+- Current slice: `P5.S1`
+- Next slice: `P5.S2`
 - Waiting on operator: `none`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-18T04:51:48+09:00`
+- Rebuilt at: `2026-07-18T09:31:34+09:00`
 
 ## Active Phases
 
@@ -23,7 +23,7 @@
 | [x] `P4` | `done` | `pass` | Web App: Tenant Dashboard & Project Pages | `none` | `works/phases/active/P4` |
 | [x] `P8` | `done` | `pass` | Design Gate: Brand, App UI & Landing | `none` | `works/phases/active/P8` |
 | [x] `P9` | `done` | `pass` | Apply the Design: App UI, Landing & Feature Changes | `none` | `works/phases/active/P9` |
-| [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.DECOMP` | `works/phases/active/P5` |
+| [ ] `P5` | `planned` | `pending` | CLI & Agent-First Onboarding | `P5.S1` | `works/phases/active/P5` |
 | [ ] `P6` | `planned` | `pending` | Landing Page, Webpage & Production Deploy | `P6.DECOMP` | `works/phases/active/P6` |
 
 ## Phase P1: Relicense & Agent-Capture Retirement
@@ -107,7 +107,12 @@
 
 | Slice | Status | Name | Kind | Path |
 |---|---|---|---|---|
-| [ ] `P5.DECOMP` | `todo` | decompose phase | `decomposition` | `works/phases/active/P5/slices/P5.DECOMP` |
+| [x] `P5.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P5/slices/P5.DECOMP` |
+| [ ] `P5.S1` | `todo` | CLI foundation: Typer app, vocky script + server->vocky-server rename, config/credential store, httpx API client | `implementation` | `works/phases/active/P5/slices/P5.S1` |
+| [ ] `P5.S2` | `todo` | Auth commands: signup/login/logout/whoami over /auth/* | `implementation` | `works/phases/active/P5/slices/P5.S2` |
+| [ ] `P5.S3` | `todo` | Projects, credentials & usage commands over /app/* (show-once key UX) | `implementation` | `works/phases/active/P5/slices/P5.S3` |
+| [ ] `P5.S4` | `todo` | Feedback read commands: feedback list/search/show over /app/feedback | `implementation` | `works/phases/active/P5/slices/P5.S4` |
+| [ ] `P5.S5` | `todo` | Agent-readable guide docs + README refresh (public Docs target) | `implementation` | `works/phases/active/P5/slices/P5.S5` |
 | [ ] `P5.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P5/slices/P5.REVIEW` |
 
 ## Phase P6: Landing Page, Webpage & Production Deploy

@@ -198,3 +198,10 @@
 {"ts": "2026-07-18T04:49:08+09:00", "type": "doc_version_created", "doc": "experience", "version": "v0007_p9_the_public_landing_now_serves_to_signed-out_visitors_signed-in_bounce_to_dashboard_preserved_as_a_real_product_surface", "source": "P9.REVIEW"}
 {"ts": "2026-07-18T04:51:48+09:00", "type": "slice_status_changed", "slice": "P9.REVIEW", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-07-18T04:51:48+09:00", "type": "phase_reviewed", "phase": "P9", "verdict": "pass", "reviewer": "slice-executor-high"}
+{"ts": "2026-07-18T09:28:39+09:00", "type": "slice_status_changed", "slice": "P5.DECOMP", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-07-18T09:29:19+09:00", "type": "slice_created", "phase": "P5", "slice": "P5.S1"}
+{"ts": "2026-07-18T09:29:19+09:00", "type": "slice_created", "phase": "P5", "slice": "P5.S2"}
+{"ts": "2026-07-18T09:29:19+09:00", "type": "slice_created", "phase": "P5", "slice": "P5.S3"}
+{"ts": "2026-07-18T09:29:19+09:00", "type": "slice_created", "phase": "P5", "slice": "P5.S4"}
+{"ts": "2026-07-18T09:29:19+09:00", "type": "slice_created", "phase": "P5", "slice": "P5.S5"}
+{"ts": "2026-07-18T09:31:34+09:00", "type": "slice_status_changed", "slice": "P5.DECOMP", "old_status": "in_progress", "new_status": "done"}
