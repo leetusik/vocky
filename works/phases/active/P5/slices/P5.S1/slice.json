@@ -3,14 +3,14 @@
   "phase_id": "P5",
   "name": "CLI foundation: Typer app, vocky script + server->vocky-server rename, config/credential store, httpx API client",
   "kind": "implementation",
-  "status": "todo",
+  "status": "done",
   "order": 1,
   "depends_on": [
     "P5.DECOMP"
   ],
   "created_at": "2026-07-18T09:29:19+09:00",
-  "started_at": null,
-  "completed_at": null,
+  "started_at": "2026-07-18T09:36:04+09:00",
+  "completed_at": "2026-07-18T09:42:36+09:00",
   "risk": "medium",
   "source": {
     "type": "manual",

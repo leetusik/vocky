@@ -63,6 +63,17 @@ The shared context every later slice reads. Seeded by DECOMP; each slice appends
 - **UX copy to mirror** (from `web/src/content/*`): show-once key panel — "This is the only time this key will ever be shown. It cannot be recovered — if you lose it, revoke it and create a new one." Signup: "A workspace is created for you automatically." Generic `401`: "Incorrect email or password."
 - **Docs gap**: stale README is the public Docs target; packaged `src/vocky/admin_assets/docs.json` is also stale but slated for **P6** removal — leave it. No agent-usage/`llms.txt` doc — S5 creates one.
 
+### S1 foundation (the spine S2–S4 build on)
+
+- **CLI package layout** — `src/vocky/cli/`:
+  - `app.py` — root `typer.Typer(no_args_is_help=True, add_completion=False)` exposed as `app`; `main()` is the console-script target (`vocky = "vocky.cli:main"` in `pyproject.toml`). Global `--version` (eager, prints `importlib.metadata.version("vocky")`) and `--base-url` live on the `@app.callback(invoke_without_command=True)`; the callback stashes a `CliContext` on `ctx.obj`. **Attach command groups here** with `app.add_typer(<sub_app>, name="...")` — S2 auth, S3 projects/keys/usage, S4 feedback. No commands exist yet.
+  - `config_store.py`, `client.py`, `__init__.py` (re-exports `app`, `main`).
+- **`ctx.obj` = `CliContext`** — holds the resolved `base_url`, a `store` attr (the `config_store` module), and `make_client(*, token=None, use_stored_token=True) -> ApiClient` (defaults to the stored session token; pass `use_stored_token=False` for signup/login which run unauthenticated). Sub-commands take `ctx: typer.Context` and use `ctx.obj`.
+- **Base-URL precedence** (in `app.resolve_base_url`): `--base-url` flag > `VOCKY_BASE_URL` env > stored `base_url` > `http://127.0.0.1:8000`; trailing slash stripped. Resolved once in the callback — commands read `ctx.obj.base_url`, they do **not** re-resolve.
+- **Config store API** (`vocky.cli.config_store`) — JSON at `config_dir()/config.json`. `config_dir()` precedence: `VOCKY_CONFIG_DIR` > `$XDG_CONFIG_HOME/vocky` > `~/.config/vocky`. Dir `0700`, file `0600` (via `os.open(...,0o600)` + `chmod`). API: `load()`, `save(dict)`, `get_token()/set_token(t)/clear_token()`, `get_base_url()/set_base_url(u)`. S2 stores the session token with `set_token` on login and `clear_token` on logout.
+- **Client error contract** (`vocky.cli.client`, reuse everywhere): `ApiClient(base_url, *, token=None, timeout=30, transport=None)` — context manager, injects `Authorization: Bearer <token>`, methods `get/post/delete(path, *, auth=True, token=None, json=None, params=None)` returning parsed JSON (or `None` for 204/empty). Errors: **any `401` → `CliError("Not signed in — run \`vocky login\`.")`**; other non-2xx → `ApiError(status_code, detail)` surfacing server `{"detail": ...}` (falls back to response text / `HTTP <code>`); transport failure → `CliError("Could not reach vocky at <base_url> ...")`. `ApiError` subclasses `CliError`. Commands wrap their body with **`with cli_errors():`** (from `app.py`) so a `CliError` prints its `.message` to stderr in red and exits 1 (via the `fail(message)` helper) — no per-command boilerplate.
+- **Packaging rename landed**: `vocky` = CLI, server moved to `vocky-server` (`pyproject.toml` scripts, `Dockerfile` CMD, `docker-compose.yml` app `command`, README "Running The App Directly"). Makefile untouched (starts server via Compose, not a direct `uv run vocky`). `typer>=0.27.0` is now a **direct** dep (`uv add typer`).
+
 ## Constraints
 
 - **Pure client, no backend change.** The Starlette backend already exposes the complete flow; the CLI is a client only (mirrors P4's web app). Do not modify server endpoints, auth, or models in this phase.
@@ -76,7 +87,7 @@ The shared context every later slice reads. Seeded by DECOMP; each slice appends
 
 _Running list of durable-truth changes for the REVIEW slice to consolidate into doc versions. Middle slices append here; do not version docs per slice._
 
--
+- **[S1] Console-script rename + new `vocky` CLI** (`operations.md` / `experience.md`): the server entry point is now `vocky-server` (`uv run vocky-server`) — every self-host/run reference moved off `vocky`; `vocky` is now the new user-facing CLI (`vocky.cli:main`), with a `~/.config/vocky/config.json` (dir `0700` / file `0600`) home for the session token + base URL and a `VOCKY_CONFIG_DIR` override. `typer` promoted to a direct dependency.
 
 ## Open Questions
 

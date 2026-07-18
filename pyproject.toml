@@ -23,6 +23,7 @@ dependencies = [
   "uvicorn[standard]>=0.38.0,<1.0.0",
   "python-multipart>=0.0.26",
   "argon2-cffi>=25.1.0",
+  "typer>=0.27.0",
 ]
 
 [dependency-groups]
@@ -34,7 +35,8 @@ dev = [
 ]
 
 [project.scripts]
-vocky = "vocky.main:main"
+vocky = "vocky.cli:main"
+vocky-server = "vocky.main:main"
 vocky-smoke = "vocky.smoke:main"
 vocky-worker = "vocky.worker:main"
 

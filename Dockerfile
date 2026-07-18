@@ -15,4 +15,4 @@ COPY alembic /app/alembic
 COPY src /app/src
 RUN uv sync --frozen --no-dev
 
-CMD ["uv", "run", "--no-sync", "vocky"]
+CMD ["uv", "run", "--no-sync", "vocky-server"]

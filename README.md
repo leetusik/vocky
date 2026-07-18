@@ -100,7 +100,7 @@ The smoke target checks `GET /healthz`, then posts a feedback event to `POST /ap
 
 The supported self-hosted flow is Compose-first. If PostgreSQL and Redis are already running outside Compose, point `DATABASE_URL` and `REDIS_URL` at them and start both processes:
 
-`uv run vocky`
+`uv run vocky-server`
 
 `uv run vocky-worker`
 
