@@ -100,6 +100,17 @@ _Deploy pattern — downstream slices depend on these._
     introduced (no third-party font fetch — self-host philosophy preserved).
   - `robots.txt` disallows `/dashboard`, `/projects/`, `/feedback`, `/api/` (the authenticated + BFF
     surface); only `/` is in the sitemap. If S3/later slices add public routes, extend `sitemap.ts`.
+- **S3 done — app owns the CSP + security headers; HSTS + additive CSP are the edge's job (S6 hand-off):**
+  - `web/next.config.ts` now ships a **production-gated** all-`'self'` CSP (verified present under
+    `pnpm start`, absent under `pnpm dev`); `Permissions-Policy` tightened to add `browsing-topics=()`.
+    No HSTS in Next, no nonce, no `middleware.ts` (deliberate — a nonce forces dynamic rendering / loses
+    static generation). The app CSP directive string is:
+    `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'`.
+  - **S6 (nginx `vocky.conf`) MUST add, on the `:443` server (mirroring the sibling house style):**
+    `add_header Strict-Transport-Security "max-age=300" always;` (**`max-age=300`, no `includeSubDomains`,
+    no `preload`**) and the **additive** `add_header Content-Security-Policy "upgrade-insecure-requests"
+    always;` — this composes with, does **not** replace, the app CSP. nginx otherwise passes the app's
+    headers through untouched (do not re-declare or strip the app's CSP / the four security headers).
 
 ## Constraints
 
@@ -128,6 +139,13 @@ _Running list — the REVIEW slice consolidates these into durable-doc versions.
   wired via the build-time public var `NEXT_PUBLIC_APP_URL` (blank→`http://127.0.0.1:3030` dev fallback,
   `https://vocky.hi2vi.com` via Docker `build.args` in S4/S5). REVIEW folds this into
   `docs/current/frontend.md` (+ an `operations.md` note on the `NEXT_PUBLIC_APP_URL` build arg).
+- **P6.S3** (CSP + production security headers): `web/next.config.ts` now ships a **production-only**
+  Content-Security-Policy (all `'self'`; `'unsafe-inline'` for `script-src`/`style-src` to cover Next's
+  nonce-less inline hydration + `next/font`/React inline styles; no nonce, no `middleware.ts`), and
+  `Permissions-Policy` was tightened to `camera=(), microphone=(), geolocation=(), browsing-topics=()`.
+  HSTS and the additive `upgrade-insecure-requests` CSP are deferred to the edge nginx vhost (S6), not
+  the app. REVIEW folds this into `docs/current/security.md` (the CSP directive string + prod-only /
+  no-nonce rationale + the edge/app split) and `docs/current/frontend.md` (the shipped security-header set).
 
 ## Open Questions
 
