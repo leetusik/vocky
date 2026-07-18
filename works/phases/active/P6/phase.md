@@ -112,6 +112,25 @@ _Deploy pattern — downstream slices depend on these._
     always;` — this composes with, does **not** replace, the app CSP. nginx otherwise passes the app's
     headers through untouched (do not re-declare or strip the app's CSP / the four security headers).
 
+- **S4 done — web + backend prod images ready; relevant to S5 (compose), S7 (deploy), S10 (bring-up):**
+  - **`web/Dockerfile`** mirrors `knowledge/web/Dockerfile`. Runtime stage sets `PORT=3000
+    HOSTNAME=0.0.0.0` and `EXPOSE 3000`, so the compose upstream is `vocky-web:3000` over the shared
+    net (matches the serving contract). It has a built-in fetch `HEALTHCHECK` on
+    `http://127.0.0.1:3000/`; S5 can rely on the image healthcheck or restate it. **S5 MUST pass
+    `NEXT_PUBLIC_APP_URL=https://vocky.hi2vi.com` via the web service `build.args`** — it is asserted
+    non-empty in the build stage, so a compose build that forgets it fails loud (by design). `web/public/`
+    now exists (`.gitkeep`) purely so the runtime `COPY /app/public ./public` resolves; nothing needs to
+    mount into it.
+  - **Backend root `Dockerfile` confirmed prod-fit, unchanged.** uv two-layer build, `CMD
+    ["uv","run","--no-sync","vocky-server"]`, runs as **root on purpose** (writes the shared attachments
+    volume). It carries **no** migration and **no** worker command — S7 runs `alembic upgrade head`
+    externally (`uv run --no-sync alembic upgrade head` in the container) and S5's `vocky-worker` reuses
+    this same image with an overridden command. Do not bake migration/worker into the image.
+  - **Docker daemon is unavailable in this sandbox** (client present, daemon unreachable). S4 verified
+    via the plan's fallback (static review + `pnpm build` emits `.next/standalone/server.js` + `.next/static`).
+    The actual `docker build` of both images, the `NEXT_PUBLIC_APP_URL`-missing assert firing, and the
+    `curl /` 200 probe are **verified at S10 / CI** — do not expect an in-sandbox Docker build to work.
+
 ## Constraints
 
 - **nginx house rules** (violating any breaks every co-tenant site through the shared edge): never
@@ -146,6 +165,12 @@ _Running list — the REVIEW slice consolidates these into durable-doc versions.
   HSTS and the additive `upgrade-insecure-requests` CSP are deferred to the edge nginx vhost (S6), not
   the app. REVIEW folds this into `docs/current/security.md` (the CSP directive string + prod-only /
   no-nonce rationale + the edge/app split) and `docs/current/frontend.md` (the shipped security-header set).
+- **P6.S4** (Web production Dockerfile): `web/Dockerfile` (multi-stage `node:22-slim`, pnpm frozen,
+  `output:'standalone'`, `ARG NEXT_PUBLIC_APP_URL` asserted non-empty, `USER node`, `EXPOSE 3000`,
+  `node server.js`) + `web/.dockerignore` + `web/public/.gitkeep` added; backend root `Dockerfile`
+  confirmed prod-fit and left unchanged. REVIEW folds this into `docs/current/operations.md` (the web
+  build/run image contract + the `NEXT_PUBLIC_APP_URL` build arg) and `docs/current/frontend.md` (the
+  standalone production image note).
 
 ## Open Questions
 

@@ -1,0 +1,16 @@
+# Lean the build context sent to the Docker daemon — only what `next build` needs.
+# `pnpm install --frozen-lockfile` rebuilds node_modules and `next build` regenerates
+# .next inside the image, so shipping the host copies just bloats the context.
+node_modules
+.next
+out
+
+# Tests + local/editor/VCS noise `next build` never reads.
+tests
+.git
+.gitignore
+.env
+.env*.local
+.DS_Store
+*.tsbuildinfo
+*-debug.log*
