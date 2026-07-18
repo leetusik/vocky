@@ -88,12 +88,12 @@
       "id": "P5",
       "name": "CLI & Agent-First Onboarding",
       "objective": "Ship a vocky CLI so a user can sign up, log in, and configure credentials from Claude Code or Codex, with agent-readable help/guide docs so vocky is fully usable without visiting the website.",
-      "status": "planned",
+      "status": "in_progress",
       "order": 5,
       "path": "works/phases/active/P5",
-      "review_status": "pending",
-      "current_slice": "P5.REVIEW",
-      "slice_count": 7,
+      "review_status": "changes_requested",
+      "current_slice": "P5.F1",
+      "slice_count": 8,
       "done_slice_count": 6
     },
     {
@@ -112,5 +112,5 @@
   "deferred_open_count": 4,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 0,
-  "last_rebuilt_at": "2026-07-18T10:37:32+09:00"
+  "last_rebuilt_at": "2026-07-18T10:55:43+09:00"
 }
