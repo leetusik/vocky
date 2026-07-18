@@ -5,8 +5,10 @@ import { jetbrainsMono, pretendard } from "@/lib/fonts";
 import "./globals.css";
 
 // Base metadata. `metadataBase` resolves canonical/OG URLs from SITE.url
-// (NEXT_PUBLIC_APP_URL → local-dev origin fallback). Icon / OG / robots /
-// sitemap file-convention routes are a P6 concern, not this scaffold slice.
+// (NEXT_PUBLIC_APP_URL → local-dev origin fallback). The icon / apple-icon /
+// opengraph-image / robots / sitemap / manifest file-convention routes now live
+// beside this file (P6.S2); Next auto-injects og:image + twitter:image from
+// opengraph-image.tsx, so only the textual OG/Twitter fields are set here.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
@@ -15,6 +17,19 @@ export const metadata: Metadata = {
   },
   description: SITE.description,
   applicationName: SITE.name,
+  openGraph: {
+    title: SITE.title,
+    description: SITE.description,
+    siteName: SITE.name,
+    url: SITE.url,
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE.title,
+    description: SITE.description,
+  },
 };
 
 // Root layout. Chrome language is English (`lang="en"`); Korean *content*

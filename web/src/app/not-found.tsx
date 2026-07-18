@@ -11,6 +11,10 @@ import { cn } from "@/lib/utils";
 // LOCKED FLOOR — 404-never-403: the subcopy never confirms whether a resource
 // exists ("…or isn't yours to see"), so a missing page and a forbidden one are
 // indistinguishable. The copy is verbatim from `@/content` STATES.notFound.
+//
+// This is the PUBLIC 404 (unmatched URLs outside `(app)`, where there is no
+// session), so its back-link points at the landing `/` via STATES.notFound.backHome
+// — not the dashboard. The in-app `(app)/not-found.tsx` keeps its "Back to dashboard".
 export default function NotFound() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
@@ -20,10 +24,10 @@ export default function NotFound() {
       <h1 className="mt-6 text-heading-4 text-ink">{STATES.notFound.title}</h1>
       <p className="mt-2 text-body-sm text-steel">{STATES.notFound.body}</p>
       <Link
-        href="/dashboard"
+        href="/"
         className={cn(buttonVariants({ variant: "secondary" }), "mt-6")}
       >
-        {STATES.notFound.back}
+        {STATES.notFound.backHome}
       </Link>
     </main>
   );

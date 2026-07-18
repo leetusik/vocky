@@ -24,13 +24,16 @@ export const STATES = {
   },
   /**
    * Not-found (`not-found.tsx` + `(app)/not-found.tsx`). The body is the locked
-   * 404-never-403 line — it never confirms a resource exists.
+   * 404-never-403 line — it never confirms a resource exists. Two back-links:
+   * `back` sends the in-app 404 to the dashboard; `backHome` sends the public
+   * (root) 404 to the landing `/`, since an unmatched public URL has no session.
    */
   notFound: {
     code: "404",
     title: "This page doesn't exist",
     body: "The page you asked for isn't here — or isn't yours to see.",
     back: "Back to dashboard",
+    backHome: "Back to home",
   },
   /**
    * Global-error (`global-error.tsx`) — the minimal full-page fallback shown when

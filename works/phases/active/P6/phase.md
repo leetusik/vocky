@@ -84,6 +84,22 @@ _Deploy pattern — downstream slices depend on these._
   correction to the plan's reference list:** `knowledge/deploy/` has **no** `rollback.sh` — the rollback
   reference for S7 lives in `hi2vi_web/deploy/rollback.sh` (knowledge folds rollback into `deploy.sh`).
   Corrected in the reference list above. No scope change.
+- **S2 done — metadata routes live; relevant to S3 (CSP), S4 (Dockerfile), S5 (compose):**
+  - The web toolchain is fully runnable in-sandbox (node v24.3.0, pnpm 10.28.2); `pnpm build` compiles
+    the `ImageResponse` routes and static-prerenders them — no deferral needed. `next/og` (Satori) was
+    already present; div-based Mark rebuilds render cleanly with the **default** ImageResponse font (the
+    variable Pretendard woff2 was deliberately NOT loaded — avoids the Satori-variable-font footgun).
+  - **`NEXT_PUBLIC_APP_URL` is now a live build-time input.** `SITE.url` reads it (blank →
+    `http://127.0.0.1:3030`). It drives `metadataBase`, canonical/OG, robots `host`+`sitemap`, and the
+    sitemap `loc`. **S4 must declare `ARG NEXT_PUBLIC_APP_URL` and export it before `next build`** (it is
+    inlined at build, not runtime — a missing/blank value bakes the localhost origin into the image), and
+    **S5 must pass it via the web service `build.args` = `https://vocky.hi2vi.com`.** This is the single
+    origin knob for the whole site's metadata.
+  - **S3 (CSP) note:** `opengraph-image`/`apple-icon` are same-origin server-rendered PNGs and the
+    favicon is a same-origin SVG, so `img-src 'self'` covers them; no external image/font origin was
+    introduced (no third-party font fetch — self-host philosophy preserved).
+  - `robots.txt` disallows `/dashboard`, `/projects/`, `/feedback`, `/api/` (the authenticated + BFF
+    surface); only `/` is in the sitemap. If S3/later slices add public routes, extend `sitemap.ts`.
 
 ## Constraints
 
@@ -105,6 +121,13 @@ _Running list — the REVIEW slice consolidates these into durable-doc versions.
   UI" + the P4-open-question "superseded but still mounted / removal deferred to P6" resolution notes),
   `docs/current/api.md`, `docs/current/operations.md` (its "Deferred to P6" Admin-UI removal line). The
   `/admin/api/*` REST surface and `VOCKY_ADMIN_AUTH_TOKEN` are unchanged.
+- **P6.S2** (Landing/site metadata & origin): web app now ships the Next 16 metadata file-convention
+  routes (`icon.svg`, `apple-icon`, `opengraph-image`, `robots.txt`, `sitemap.xml`, `manifest.webmanifest`
+  under `web/src/app/`) built from the existing round-01 brand; `SITE.description` rewritten to grounded
+  marketing copy; `layout.tsx` gained `openGraph`/`twitter` metadata; production origin/`metadataBase`
+  wired via the build-time public var `NEXT_PUBLIC_APP_URL` (blank→`http://127.0.0.1:3030` dev fallback,
+  `https://vocky.hi2vi.com` via Docker `build.args` in S4/S5). REVIEW folds this into
+  `docs/current/frontend.md` (+ an `operations.md` note on the `NEXT_PUBLIC_APP_URL` build arg).
 
 ## Open Questions
 
