@@ -5,7 +5,11 @@ A thin wrapper over ``httpx.Client`` (mirroring the sync-client pattern in
 outcome onto a small, typed error contract the auth/projects/feedback command
 groups (added in later slices) all reuse:
 
-* any ``401`` -> :class:`CliError` telling the user to run ``vocky login``;
+* a ``401`` on a request that **sent** a token -> :class:`CliError` telling the
+  user to run ``vocky login`` (the session is expired/invalid);
+* a ``401`` on an **unauthenticated** request (no token sent — e.g. login /
+  signup) -> :class:`ApiError` carrying the status and the server ``detail`` so
+  the command can surface it as "Incorrect email or password";
 * other non-2xx -> :class:`ApiError` carrying the status and the server's
   ``{"detail": ...}`` (falling back to response text / status);
 * a transport/connection failure -> :class:`CliError` naming the base URL.
@@ -114,7 +118,7 @@ class ApiClient:
                 f"Could not reach vocky at {self.base_url} ({exc})."
             ) from exc
 
-        return self._handle(response)
+        return self._handle(response, token_sent=bool(effective_token))
 
     def get(self, path: str, **kwargs: Any) -> Any:
         return self.request("GET", path, **kwargs)
@@ -126,7 +130,7 @@ class ApiClient:
         return self.request("DELETE", path, **kwargs)
 
     @staticmethod
-    def _handle(response: httpx.Response) -> Any:
+    def _handle(response: httpx.Response, *, token_sent: bool) -> Any:
         if response.is_success:
             if response.status_code == 204 or not response.content:
                 return None
@@ -135,7 +139,11 @@ class ApiClient:
             except ValueError:
                 return None
 
-        if response.status_code == 401:
+        # A 401 on an authenticated request means the session is expired/invalid
+        # — steer the user to re-login. A 401 on a request that sent no token
+        # (login/signup) is a credential rejection: surface the server detail so
+        # the command can render "Incorrect email or password".
+        if response.status_code == 401 and token_sent:
             raise CliError("Not signed in — run `vocky login`.")
 
         raise ApiError(response.status_code, ApiClient._extract_detail(response))

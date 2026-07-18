@@ -1,26 +1,41 @@
 """Root Typer app for the ``vocky`` CLI.
 
-Builds the CLI spine every command group reuses. Later slices attach their
-sub-apps here with ``app.add_typer(...)`` (auth: ``signup``/``login``/``logout``/
-``whoami``; ``projects``/``keys``/``usage``; ``feedback``) — this slice ships only
-the skeleton: global ``--version`` and ``--base-url`` handling, base-URL
-resolution, a small per-invocation context on ``ctx.obj``, and the shared
-error-to-stderr helper commands wrap their bodies with.
+Builds the CLI spine every command group reuses: global ``--version`` and
+``--base-url`` handling, base-URL resolution, and a small per-invocation context
+on ``ctx.obj``. The shared context helpers (:class:`CliContext`,
+:func:`resolve_base_url`, :func:`fail`, :class:`cli_errors`, ``DEFAULT_BASE_URL``)
+live in :mod:`vocky.cli.context` so command modules can reuse them without an
+``app`` ↔ command-module import cycle; they are re-exported here for callers (and
+tests) that reach for ``vocky.cli.app.DEFAULT_BASE_URL`` / ``resolve_base_url``.
+
+Command modules register their top-level commands at the bottom of this file via
+``<module>.register(app)`` — auth here, projects/keys/usage and feedback in later
+slices.
 """
 
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
 from importlib.metadata import version as package_version
-from typing import NoReturn
 
 import typer
 
-from vocky.cli import config_store
-from vocky.cli.client import ApiClient, CliError
+from vocky.cli.context import (
+    DEFAULT_BASE_URL,
+    CliContext,
+    cli_errors,
+    fail,
+    resolve_base_url,
+)
 
-DEFAULT_BASE_URL = "http://127.0.0.1:8000"
+__all__ = [
+    "app",
+    "main",
+    "DEFAULT_BASE_URL",
+    "CliContext",
+    "cli_errors",
+    "fail",
+    "resolve_base_url",
+]
 
 app = typer.Typer(
     name="vocky",
@@ -31,77 +46,6 @@ app = typer.Typer(
         "feedback from your terminal, without visiting the website."
     ),
 )
-
-
-@dataclass
-class CliContext:
-    """Per-invocation context stashed on ``ctx.obj`` for sub-commands.
-
-    Carries the resolved base URL and exposes the config store plus a configured
-    :class:`ApiClient` factory the later command groups reuse.
-    """
-
-    base_url: str
-    store = config_store  # the config-store module, for sub-commands
-
-    def make_client(
-        self, *, token: str | None = None, use_stored_token: bool = True
-    ) -> ApiClient:
-        """Build an :class:`ApiClient` for this invocation.
-
-        Uses the explicit ``token`` when given; otherwise the stored session
-        token unless ``use_stored_token`` is false (e.g. for signup/login, which
-        must run unauthenticated).
-        """
-
-        effective_token = token
-        if effective_token is None and use_stored_token:
-            effective_token = config_store.get_token()
-        return ApiClient(self.base_url, token=effective_token)
-
-
-def resolve_base_url(base_url_flag: str | None) -> str:
-    """Resolve the API base URL by precedence.
-
-    ``--base-url`` flag > ``VOCKY_BASE_URL`` env > stored config > the
-    ``http://127.0.0.1:8000`` default. A trailing slash is stripped.
-    """
-
-    if base_url_flag:
-        return base_url_flag.rstrip("/")
-
-    env_base_url = os.environ.get("VOCKY_BASE_URL", "").strip()
-    if env_base_url:
-        return env_base_url.rstrip("/")
-
-    stored_base_url = config_store.get_base_url()
-    if stored_base_url:
-        return stored_base_url.rstrip("/")
-
-    return DEFAULT_BASE_URL
-
-
-def fail(message: str) -> NoReturn:
-    """Print ``message`` to stderr and exit non-zero."""
-
-    typer.secho(message, err=True, fg=typer.colors.RED)
-    raise typer.Exit(1)
-
-
-class cli_errors:
-    """Context manager that turns a raised :class:`CliError` into a clean exit.
-
-    Sub-commands wrap their bodies with ``with cli_errors():`` so a client error
-    prints its message to stderr and exits non-zero instead of tracing back.
-    """
-
-    def __enter__(self) -> "cli_errors":
-        return self
-
-    def __exit__(self, exc_type, exc, _tb) -> bool:
-        if isinstance(exc, CliError):
-            fail(exc.message)
-        return False
 
 
 def _version_callback(value: bool) -> None:
@@ -136,6 +80,14 @@ def main() -> None:
     """Console-script entry point for the ``vocky`` command."""
 
     app()
+
+
+# Register command modules on the root app. Each module exposes ``register(app)``
+# and imports only from ``context`` / ``config_store`` / ``client`` — never from
+# this module — so this bottom-of-file wiring cannot form an import cycle.
+from vocky.cli import auth  # noqa: E402  (import after ``app`` exists)
+
+auth.register(app)
 
 
 if __name__ == "__main__":
