@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P6`
-- Current slice: `P6.S6`
-- Next slice: `P6.S7`
+- Current slice: `P6.S7`
+- Next slice: `P6.S8`
 - Waiting on operator: `none`
-- Open deferred jobs: `4`
-- Rebuilt at: `2026-07-18T16:29:17+09:00`
+- Open deferred jobs: `5`
+- Rebuilt at: `2026-07-18T16:41:15+09:00`
 
 ## Active Phases
 
@@ -24,7 +24,7 @@
 | [x] `P8` | `done` | `pass` | Design Gate: Brand, App UI & Landing | `none` | `works/phases/active/P8` |
 | [x] `P9` | `done` | `pass` | Apply the Design: App UI, Landing & Feature Changes | `none` | `works/phases/active/P9` |
 | [x] `P5` | `done` | `pass` | CLI & Agent-First Onboarding | `none` | `works/phases/active/P5` |
-| [ ] `P6` | `in_progress` | `pending` | Landing Page, Webpage & Production Deploy | `P6.S6` | `works/phases/active/P6` |
+| [ ] `P6` | `in_progress` | `pending` | Landing Page, Webpage & Production Deploy | `P6.S7` | `works/phases/active/P6` |
 
 ## Phase P1: Relicense & Agent-Capture Retirement
 
@@ -126,7 +126,7 @@
 | [x] `P6.S3` | `done` | CSP + HSTS security headers | `implementation` | `works/phases/active/P6/slices/P6.S3` |
 | [x] `P6.S4` | `done` | Web production Dockerfile | `implementation` | `works/phases/active/P6/slices/P6.S4` |
 | [x] `P6.S5` | `done` | Production compose + env template | `implementation` | `works/phases/active/P6/slices/P6.S5` |
-| [ ] `P6.S6` | `todo` | Edge nginx vhost (vocky.conf) | `implementation` | `works/phases/active/P6/slices/P6.S6` |
+| [x] `P6.S6` | `done` | Edge nginx vhost (vocky.conf) | `implementation` | `works/phases/active/P6/slices/P6.S6` |
 | [ ] `P6.S7` | `todo` | Deploy + rollback scripts | `implementation` | `works/phases/active/P6/slices/P6.S7` |
 | [ ] `P6.S8` | `todo` | CI production-deploy chain | `implementation` | `works/phases/active/P6/slices/P6.S8` |
 | [ ] `P6.S9` | `todo` | PyPI packaging + publish | `implementation` | `works/phases/active/P6/slices/P6.S9` |

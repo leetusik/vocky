@@ -215,7 +215,27 @@ _Running list — the REVIEW slice consolidates these into durable-doc versions.
   folds this into `docs/current/operations.md` (the production deploy topology / serving contract / box
   secrets model) and, if the doc set carries a deployment/architecture view, the container topology in
   `docs/current/architecture.md`.
+- **P6.S6** (Edge nginx vhost): new `deploy/vocky.conf` — the `vocky.hi2vi.com` edge vhost dropped into
+  `/home/opc/edge/conf.d/` (scp + `./validate.sh` + `./deploy.sh`, hard `nginx -t` gate, applied at S10).
+  Records the durable **edge routing map** (longest-prefix over two container-name upstreams
+  `vocky-api:8000` / `vocky-web:3000`: `/api/auth/` + `/api/app/` → web; `/api/`, `/auth/`, `/app/`,
+  `/mcp`, `= /healthz` → api; `/admin/` → **404, not exposed**; `/` → web), TLS termination on the hi2vi
+  wildcard cert, **HSTS `max-age=300`** + **additive `upgrade-insecure-requests` CSP** (composes with the
+  S3 app CSP), **Cloudflare real-IP restore** (verbatim CF v4+v6 ranges + `CF-Connecting-IP`), **Docker
+  DNS re-resolution** (`resolver 127.0.0.11` + variable `proxy_pass`), `client_max_body_size 12m`,
+  in-app `/mcp` (SSE-safe, no mcp container), and **shared-edge house-rule compliance** (no
+  `default_server` / IPv6 `listen` / rate-limit zone / duplicate global name). REVIEW folds this into
+  `docs/current/operations.md` (edge/serving topology + apply path) and `docs/current/security.md` (edge
+  TLS / HSTS / additive CSP / CF real-IP + the `/admin` internal-only decision).
 
 ## Open Questions
 
+- **`/auth/*` has no origin rate limit (P6.S6).** The public account-auth surface (`/auth/login`,
+  `/auth/signup` — an unauthenticated password grant + open signup) routes to `vocky-api` through the
+  edge, but vocky has **no** server-side per-IP limiter (unlike the sibling `knowledge`, which throttles
+  its `/auth/*` in-process), and the shared edge **forbids** a `limit_req_zone` (global zone name across
+  the whole `conf.d/` tree — a house-rule violation). So at launch `/auth/*` is unthrottled at the origin
+  and relies on Cloudflare in front. **Resolution:** the orchestrator opens a **deferred job** — add a
+  Cloudflare rate rule and/or an in-process `/auth` limiter — and REVIEW records the gap in
+  `operations.md` / `security.md`. Accepted for launch behind Cloudflare.
 -

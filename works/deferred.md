@@ -4,10 +4,10 @@
 
 ## Summary
 
-- Open: `4`
+- Open: `5`
 - Promoted: `0`
 - Dropped: `0`
-- Rebuilt at: `2026-07-18T16:29:17+09:00`
+- Rebuilt at: `2026-07-18T16:41:15+09:00`
 
 ## Open
 
@@ -17,6 +17,7 @@
 | `D2` | `deferred` | Scope end-user feedback read to a public-safe field subset | P1.REVIEW | user promotes, or revisit alongside P2 attachment exposure | `works/deferred/open/D2` |
 | `D3` | `deferred` | Garbage-collect never-linked attachment uploads | P2.DECOMP | user promotes, or the first cleanup / scale / PII-retention need | `works/deferred/open/D3` |
 | `D4` | `deferred` | Project-scope the end-user attachment download endpoint | P3.REVIEW | operator promotes, or the next time the /api/* attachment surface is touched | `works/deferred/open/D4` |
+| `D5` | `deferred` | Rate-limit the public /auth/* (open signup + password login) | P6.S6 | At/soon after go-live: add a Cloudflare rate-limiting rule for /auth/*, or an in-process per-IP limiter in src/vocky/auth_api.py. | `works/deferred/open/D5` |
 
 ## Promoted
 
