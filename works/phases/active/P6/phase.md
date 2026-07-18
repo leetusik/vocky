@@ -164,6 +164,50 @@ _Deploy pattern — downstream slices depend on these._
   `VOCKY_ADMIN_AUTH_TOKEN` (generate on the box, `openssl rand -base64 32`); template is
   `.env.prod.example`. `.env` is gitignored + `.dockerignore`d — never committed.
 
+- **S7 done — deploy/rollback scripts authored; `compose.prod.yml` now supports image-tag rollback.
+  Relevant to S8 (CI wrapper) and S10 (first bring-up):**
+  - **`compose.prod.yml` changed:** `api` gained `image: vocky-api:latest` (kept `build: .`), `web`
+    gained `image: vocky-web:latest` (kept its build), and **`worker` now `image: vocky-api:latest`
+    with NO `build:`** (reuses the api image + its `vocky-worker` command override). The
+    **stale-worker footgun is CLOSED**: one `docker compose build` freshens api + worker together;
+    the worker can no longer run stale code behind a fresh api. Verified via
+    `docker compose config` (rendered worker block has `image: vocky-api:latest`, no `build:`).
+  - **`deploy/deploy.sh`** (executable): `git fetch --prune` + `checkout REF` (default `origin/main`)
+    -> tag both `vocky-{api,web}:latest -> :previous` -> `up -d postgres redis` + gate healthy ->
+    `docker compose build` -> **migrate in a one-off container BEFORE serving** -> `up -d` -> gate
+    api/web healthy + worker running -> image-tag rollback (flip both `:previous -> :latest`,
+    `up -d --no-build`, re-gate) on any failure. **Ordering build -> migrate -> up -> gate is
+    load-bearing.** Carries `COMPOSE_BAKE=false`. **Never `down`/`down -v`** (datastores +
+    attachments volume persist).
+  - **Migrate idiom (correction to the S7 plan):** `docker compose run` takes the **service key
+    `api`**, NOT the container_name `vocky-api` (the plan's step-6 snippet wrote `vocky-api`, which
+    would fail "no such service"). Full primary command:
+    `docker compose -f compose.prod.yml run --rm -T --no-deps --name vocky-migrate-$$ api uv run
+    --no-sync alembic upgrade head`. The one-off container inherits the api service's `environment:`
+    block (interpolated `DATABASE_URL`, which config.py reads directly) + the shared net. A
+    `MIGRATE_VIA_DOCKER_RUN=1` env toggle switches to a plain `docker run --network
+    changple_shared_network` fallback (builds `DATABASE_URL` from `POSTGRES_PASSWORD` in `.env`) if a
+    Compose ever refuses `run` on the pinned service.
+  - **`deploy/rollback.sh`** (executable): manual counterpart — retag both `:previous -> :latest`,
+    `up -d --no-build`, re-gate (api/web healthy, worker running). **Does NOT re-migrate** (additive
+    migrations only; a schema-incompatible revert is a git-ref redeploy `deploy/deploy.sh <sha>`).
+    Never `down`.
+  - **The scripts did NOT run in-sandbox** (no docker daemon / box). Static proof only
+    (`bash -n` both, compose `config -q`, workflow `validate`); behavioral proof is S10 / CI.
+    `shellcheck` is not installed in the sandbox — skipped (manual review done instead).
+
+- **Hand-off to S8 (CI deploy chain):** the on-box remote gate script wraps `deploy/deploy.sh`
+  (model `hi2vi_web/deploy/oracle-production-deploy-remote.sh`): refuse a dirty tree, `git fetch`,
+  ancestor-verify `TARGET_SHA` against `origin/main`, export `REMOTE_ARTIFACT_DIR` (deploy.sh writes
+  compose ps + per-service logs there on failure for scp-back), then call `deploy/deploy.sh`.
+  `deploy.sh` reads `REF="${1:-origin/main}"`, `APP_DIR`/`COMPOSE_FILE`/`ENV_FILE`/`HEALTH_TRIES`/
+  `HEALTH_INTERVAL` are env-overridable knobs.
+- **Hand-off to S10 (first bring-up):** run `deploy/deploy.sh` from the box clone once `.env` exists.
+  First deploy hits the no-`:previous` branch for both images (expected — no rollback point), and the
+  one-off migrate creates the schema. Confirm the box's compose v2 accepts `docker compose run --name`
+  on the container_name-pinned api service (knowledge proved it there); if not, set
+  `MIGRATE_VIA_DOCKER_RUN=1`.
+
 ## Constraints
 
 - **nginx house rules** (violating any breaks every co-tenant site through the shared edge): never
@@ -227,6 +271,20 @@ _Running list — the REVIEW slice consolidates these into durable-doc versions.
   `default_server` / IPv6 `listen` / rate-limit zone / duplicate global name). REVIEW folds this into
   `docs/current/operations.md` (edge/serving topology + apply path) and `docs/current/security.md` (edge
   TLS / HSTS / additive CSP / CF real-IP + the `/admin` internal-only decision).
+
+- **P6.S7** (Deploy + rollback scripts): new `deploy/deploy.sh` + `deploy/rollback.sh` (executable) —
+  the production release + rollback runbook for `vocky.hi2vi.com`. `deploy.sh` = git-checkout-REF +
+  two-image (`vocky-api`/`vocky-web`) tag rollback, `COMPOSE_BAKE=false` build, **alembic migration in
+  a one-off `docker compose run` container BEFORE serving**, five-service gate (api/web on health,
+  worker on `running`, postgres/redis on health), auto image-tag rollback on failure, **never
+  `down`** (postgres-data/redis-data/attachments-data persist). `rollback.sh` = manual retag
+  `:previous -> :latest` + `up -d --no-build` + re-gate, no re-migration. `compose.prod.yml` gained
+  `image:` tags on api (`vocky-api:latest`) + web (`vocky-web:latest`) and the **worker now reuses
+  `image: vocky-api:latest` with no `build:`** (stale-worker footgun closed). REVIEW folds this into
+  `docs/current/operations.md` (the deploy/rollback runbook: lifecycle order, image-tag rollback
+  model, migrate-before-serve, worker-state gate, never-`down` rule, `MIGRATE_VIA_DOCKER_RUN`
+  fallback) and the container-topology note in `docs/current/architecture.md` (worker reuses the api
+  image).
 
 ## Open Questions
 

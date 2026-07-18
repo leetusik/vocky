@@ -78,6 +78,11 @@ services:
     # separate mcp container; the edge routes /mcp -> vocky-api:8000, S6). Reached by
     # the edge + web BFF BY CONTAINER NAME (vocky-api:8000) — NO public host port.
     build: .
+    # Pin the built image's tag. deploy.sh (S7) tags this `vocky-api:latest` ->
+    # `vocky-api:previous` before every rebuild and flips it back on a failed deploy
+    # (image-tag rollback, the hi2vi model). The `worker` service below REUSES this
+    # exact tag, so one `docker compose build` freshens both api + worker code.
+    image: vocky-api:latest
     container_name: vocky-api  # fixed name — the edge + web BFF proxy to it by name
     depends_on:
       postgres:
@@ -130,15 +135,18 @@ services:
     restart: unless-stopped
 
   worker:
-    # The capture-persistence queue consumer. REUSES the api image (build: .) with an
-    # overridden command — the image bakes no worker command. It shares the SAME
-    # attachments volume as the api so it can write the uploaded bytes.
+    # The capture-persistence queue consumer. REUSES the api image BY TAG
+    # (image: vocky-api:latest, NO build: of its own) with an overridden command — the
+    # image bakes no worker command. It shares the SAME attachments volume as the api
+    # so it can write the uploaded bytes.
     #
-    # ⚠ STALE-WORKER FOOTGUN: the worker has no HTTP endpoint, so it has NO healthcheck
-    # here. The deploy script (S7) MUST rebuild the worker on every deploy (it rides
-    # the same image as the api — an un-rebuilt worker runs stale code) and gate it on
-    # container state `running` (NOT `healthy`, which it can never report).
-    build: .
+    # ⚠ STALE-WORKER FOOTGUN — CLOSED: the worker runs `vocky-api:latest`, the EXACT
+    # image `docker compose build` just (re)built for the api, so it can never lag
+    # behind a fresh api build. (Previously it carried its own `build: .`, which let a
+    # partial rebuild leave the worker on stale code — that footgun is now gone.) The
+    # worker has no HTTP endpoint and therefore NO healthcheck; the deploy script (S7)
+    # gates it on container state `running` (NOT `healthy`, which it can never report).
+    image: vocky-api:latest
     container_name: vocky-worker  # fixed name on the shared net
     command: ["uv", "run", "--no-sync", "vocky-worker"]
     depends_on:
@@ -170,6 +178,9 @@ services:
         # env — changing it needs a rebuild. web/Dockerfile asserts it is non-empty, so
         # a build that forgets it fails loud. Safe to commit (public value).
         NEXT_PUBLIC_APP_URL: "https://vocky.hi2vi.com"
+    # Pin the built image's tag so deploy.sh (S7) can tag it `vocky-web:previous` and
+    # roll it back on a failed deploy (image-tag rollback, same model as vocky-api).
+    image: vocky-web:latest
     container_name: vocky-web  # fixed name — the edge proxies to it by name
     depends_on:
       api:
