@@ -1,8 +1,12 @@
 # P5.REVIEW — Phase review: CLI & Agent-First Onboarding
 
+## Re-review (after P5.F1)
+
+This is the **re-review**. The first review returned `changes_requested` for one issue — the documented `vocky feedback list → show` journey dead-ended because list rows printed 8-char truncated ids. **P5.F1** (now `done`, commit `2a570ee`) fixed it: `feedback list`/`search`, `projects list`, and the `usage` project listing now print **full copy-pasteable ids**, plus a friendly message for a malformed feedback id; F1 verified the round-trip live and reported 190 tests green. **Confirm that fix closed the gap** (`feedback list` full id → `feedback show <id>` renders; `feedback show <bad>` → friendly hint, exit 1; `projects list` full id accepted by `projects show`/`usage --project`), then proceed with the full validation + review + (on pass) doc consolidation below. Everything else already passed last round.
+
 ## Context
 
-Final slice of **P5**. All five implementation slices are `done` and committed (foundation → auth → projects/keys/usage → feedback read → guide docs). This slice validates the whole phase together, reviews it against the objective / `intent.md` / durable docs, and — **only on a passing review** — consolidates the accumulated "Doc impact" notes into new durable-doc versions. You (`slice-executor-high`) are the one slice permitted to run `doc-new-version`.
+Final slice of **P5**. All five implementation slices are `done` and committed (foundation → auth → projects/keys/usage → feedback read → guide docs) plus the P5.F1 fix. This slice validates the whole phase together, reviews it against the objective / `intent.md` / durable docs, and — **only on a passing review** — consolidates the accumulated "Doc impact" notes into new durable-doc versions. You (`slice-executor-high`) are the one slice permitted to run `doc-new-version`.
 
 Read `works/phases/active/P5/phase.md` in full first — especially the "Doc impact" list (the durable-truth deltas to consolidate) and the S1–S5 cross-slice notes. Also read `works/phases/active/P5/intent.md` and `phase.json` (the objective).
 

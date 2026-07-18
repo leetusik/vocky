@@ -1,5 +1,77 @@
 # P5.REVIEW result — Phase review: CLI & Agent-First Onboarding
 
+## Re-review after P5.F1 — Verdict: `pass`
+
+The first pass returned `changes_requested` for one issue (below). **P5.F1** (`done`,
+commit `2a570ee`) fixed it, and this re-review confirms the gap is closed and the
+phase validates green as a whole. **Docs consolidated** (this pass only). No commit,
+no status transition — the orchestrator records the verdict via `review-phase`.
+
+### Issue 1 — confirmed closed
+
+`vocky feedback list`/`search` now print the **full** feedback id (the `feedback show`
+handle) — `src/vocky/cli/feedback.py:_render_records` drops `_short()` on the record
+id and keeps only the project-id column short. `projects list` and the `usage` project
+listing print the **full** project id (the `--project`/`projects show` handle). And
+`feedback show <bad-id>` maps the server's UUID-`400` to a friendly hint
+(`'<id>' is not a valid feedback id — copy the full id from \`vocky feedback list\`.`),
+exit 1.
+
+Verified two ways:
+- **Unit tests (F1-added round-trip):** `test_list_id_round_trips_into_show` (the id
+  `feedback list` prints is fed into `feedback show`, which renders),
+  `test_show_maps_invalid_id_to_friendly_hint`, and `test_projects_list_prints_full_id`.
+- **Live** against `http://127.0.0.1:8000` (throwaway `VOCKY_CONFIG_DIR`, fresh account):
+  `projects list` → `bdb2723e-…` full id accepted by `projects show`/`usage --project`;
+  captured feedback via a minted `vk_` key → `feedback list` printed the full 36-char id
+  `12391f7b-b354-…` (project column short `bdb2723e`), and `feedback show <that full id>`
+  rendered the record — **the previously-dead step now works**. `feedback search "결제"`
+  (Korean) returned the same full id; `feedback show not-a-uuid` → friendly hint, exit 1.
+
+### Re-validation (whole phase)
+
+| Command | Result |
+|---------|--------|
+| `uv run pytest` | **190 passed** in ~8s (was 187 + 3 F1 cases) |
+| `uv run vocky --version` | `0.1.0` ✓ |
+| `uv run vocky --help` + `projects`/`keys`/`feedback --help` | render, match the documented surface ✓ |
+| Entry-point swap | `pyproject`: `vocky = vocky.cli:main`, `vocky-server = vocky.main:main`; `Dockerfile`/`docker-compose.yml` use `vocky-server`/`vocky-worker` ✓ |
+| Pure-client scope (`e350aae..HEAD`, excl. `works/`) | only `src/vocky/cli/*`, `tests/test_cli_*`, packaging (`pyproject.toml`/`uv.lock`/`Dockerfile`/`docker-compose.yml`), `README.md`, `docs/cli.md` — no server/model/endpoint change ✓ |
+| `src/vocky/admin_assets/docs.json` | untouched across the phase (incl. F1) ✓ |
+| README stale-model sanity | only the two explicit "is retired" `VOCKY_API_AUTH_TOKEN` notes; no live static-token usage ✓ |
+| `python3 scripts/workflow.py validate` | `Workflow validation passed.` ✓ |
+
+Objective met (full signup→login→credential-setup→use flow from the terminal, no
+website), genuinely agent-first (headless `--password-stdin`, `--base-url`,
+`VOCKY_CONFIG_DIR`, generic-401, errors→stderr/success→stdout, config file `0600`).
+
+### Durable-doc versions consolidated (this pass)
+
+| Doc | New version | Delta |
+|-----|-------------|-------|
+| `experience` | **v0008** | CLI onboarding journey (signup→project→key→capture→read as `vocky` commands), the "for coding agents" headless contract, show-once key; points to `docs/cli.md` as the full reference |
+| `product` | **v0007** | the `vocky` CLI is a first-class user surface alongside the web app; the whole spine is completable from the terminal without the website (Status + First MVP + Product Surface Roles) |
+| `operations` | **v0003** | the `vocky-server` server-entry rename; CLI install (`uv tool install .` / `uvx` / in-repo `uv run vocky`; PyPI publish is P6) and its `~/.config/vocky/config.json` (`0700`/`0600`, `VOCKY_CONFIG_DIR`) session store |
+| `architecture` | **v0007** | the CLI as a new pure-client surface over `/auth/*`+`/app/*` (Typer app in `src/vocky/cli/`, no backend change), mirroring the web-app client framing; console-script rename |
+| `security` | **v0006** | the CLI's on-disk 30-day session token at `~/.config/vocky/config.json` (`0600`) — the first filesystem-resident vocky session credential; holds the session token, mints `vk_` keys for `/api/*` |
+
+`api.md` unchanged (v0006) — the CLI is a pure client, no contract change. `rebuild-docs`
+regenerated `docs/current/*`; `docs` and `validate` confirm the new versions.
+
+### Commands run (re-review)
+
+`uv run pytest` (190 passed); `uv run vocky --version|--help` + group help; live spine at
+`http://127.0.0.1:8000` (signup `--password-stdin` → projects create/list/show → keys mint →
+`curl POST /api/feedback` 202 / no-key 401 → feedback list/search/show + the bad-id hint →
+usage --project); `python3 scripts/workflow.py validate`; five `doc-new-version` + `rebuild-docs`.
+
+**Deviations:** none. (As in the first pass, the `git diff main` scope check was run against
+the phase's real base `e350aae..HEAD` since P5 is committed on `main`.)
+
+---
+
+## First pass (historical) — Verdict: `changes_requested`
+
 **Verdict: `changes_requested`.** The phase is otherwise excellent — the headline
 onboarding + credential spine works flawlessly and headlessly, the CLI is a clean
 pure client, and the docs are corrected — but there is one real, reproducible

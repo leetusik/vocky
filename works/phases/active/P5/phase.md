@@ -139,6 +139,12 @@ _Running list of durable-truth changes for the REVIEW slice to consolidate into 
 - **Verified live end-to-end** at `http://127.0.0.1:8000`: `projects list` full id accepted by `projects show`/`usage --project`; captured feedback → `feedback list` full 36-char id copied into `feedback show <id>` → renders (the previously-dead step); `feedback show not-a-uuid` → friendly message, exit 1. Full suite **190 passed**, `validate` passes.
 - **No durable-doc change from this fix** — it makes the already-written `README.md` / `docs/cli.md` (`list → show`, `<FEEDBACK_ID>`/`<PROJECT_ID>` placeholders) actually work; no literal truncated id was shown as copy-pasteable. The re-review can now safely consolidate the S1–S5 "Doc impact" notes (the `experience.md` onboarding journey no longer enshrines a broken `feedback list → show` step).
 
+### P5.REVIEW (re-review after P5.F1 — verdict `pass`)
+
+- **Issue 1 confirmed closed** both via the F1-added unit round-trip cases (`test_list_id_round_trips_into_show`, `test_show_maps_invalid_id_to_friendly_hint`, `test_projects_list_prints_full_id`) and **live** at `http://127.0.0.1:8000`: `feedback list`/`search` print the full 36-char feedback id, that exact id renders in `feedback show`, `feedback show not-a-uuid` → friendly hint (exit 1), and `projects list`'s full id feeds `projects show`/`usage --project`.
+- **Phase re-validated green as a whole**: `uv run pytest` → **190 passed**; `vocky --version` → `0.1.0`; root + `projects`/`keys`/`feedback --help` match the surface; entry-point swap intact (`vocky`=CLI, `vocky-server`=server); pure-client scope holds on `e350aae..HEAD` (only `src/vocky/cli/*`, `tests/test_cli_*`, packaging, `README.md`, `docs/cli.md`); `admin_assets/docs.json` untouched; README has no residual stale-model claims; `python3 scripts/workflow.py validate` passes.
+- **Durable docs consolidated on the pass** (one version per affected area, `--source P5.REVIEW`): `experience` **v0008** (CLI onboarding journey + "for coding agents" contract, references `docs/cli.md`), `product` **v0007** (CLI as first-class user surface), `operations` **v0003** (`vocky-server` rename + CLI install + `~/.config/vocky` `0600` session store), `architecture` **v0007** (CLI as pure-client surface, console-script rename), `security` **v0006** (on-disk `0600` 30-day session token). `api.md` unchanged (v0006) — pure client, no contract change. `rebuild-docs` regenerated `docs/current/*`.
+
 ## Open Questions
 
 -

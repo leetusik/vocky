@@ -5,12 +5,12 @@
 
 ## Pointer
 
-- Current phase: `P5`
-- Current slice: `P5.REVIEW`
-- Next slice: `none`
+- Current phase: `P6`
+- Current slice: `P6.DECOMP`
+- Next slice: `P6.REVIEW`
 - Waiting on operator: `none`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-18T11:03:35+09:00`
+- Rebuilt at: `2026-07-18T11:21:20+09:00`
 
 ## Active Phases
 
@@ -23,7 +23,7 @@
 | [x] `P4` | `done` | `pass` | Web App: Tenant Dashboard & Project Pages | `none` | `works/phases/active/P4` |
 | [x] `P8` | `done` | `pass` | Design Gate: Brand, App UI & Landing | `none` | `works/phases/active/P8` |
 | [x] `P9` | `done` | `pass` | Apply the Design: App UI, Landing & Feature Changes | `none` | `works/phases/active/P9` |
-| [ ] `P5` | `in_progress` | `changes_requested` | CLI & Agent-First Onboarding | `P5.REVIEW` | `works/phases/active/P5` |
+| [x] `P5` | `done` | `pass` | CLI & Agent-First Onboarding | `none` | `works/phases/active/P5` |
 | [ ] `P6` | `planned` | `pending` | Landing Page, Webpage & Production Deploy | `P6.DECOMP` | `works/phases/active/P6` |
 
 ## Phase P1: Relicense & Agent-Capture Retirement
@@ -114,7 +114,7 @@
 | [x] `P5.S4` | `done` | Feedback read commands: feedback list/search/show over /app/feedback | `implementation` | `works/phases/active/P5/slices/P5.S4` |
 | [x] `P5.S5` | `done` | Agent-readable guide docs + README refresh (public Docs target) | `implementation` | `works/phases/active/P5/slices/P5.S5` |
 | [x] `P5.F1` | `done` | Surface full copy-pasteable ids in list output so feedback show / --project work CLI-only | `fix` | `works/phases/active/P5/slices/P5.F1` |
-| [ ] `P5.REVIEW` | `changes_requested` | phase review | `review` | `works/phases/active/P5/slices/P5.REVIEW` |
+| [x] `P5.REVIEW` | `done` | phase review | `review` | `works/phases/active/P5/slices/P5.REVIEW` |
 
 ## Phase P6: Landing Page, Webpage & Production Deploy
 

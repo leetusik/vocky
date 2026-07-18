@@ -1,10 +1,10 @@
 ---
 doc_id: experience
-version: v0007
-created_at: 2026-07-18T04:49:08+09:00
-source: P9.REVIEW
-summary: P9: the public landing now serves / to signed-out visitors (signed-in bounce to /dashboard preserved) as a real product surface
-previous: v0006_p4_the_vocky_web_app_sign_up_in_the_browser_tenant_dashboard_project_drill-down_with_show-once_key_mint_revoke_and_cross-project_korean-safe_feedback_search_read
+version: v0008
+created_at: 2026-07-18T11:15:51+09:00
+source: P5.REVIEW
+summary: P5: the vocky CLI onboarding journey — signup to project to key to capture to read from the terminal (headless --password-stdin, --base-url, VOCKY_CONFIG_DIR, generic-401, show-once key); docs/cli.md is the full reference
+previous: v0007_p9_the_public_landing_now_serves_to_signed-out_visitors_signed-in_bounce_to_dashboard_preserved_as_a_real_product_surface
 ---
 
 # Action Feedback Integration
@@ -306,6 +306,45 @@ The cross-project read surface — everything your projects have captured, newes
 - **Attachments download; they never render inline.** That is deliberate — attachment bytes are uploader-supplied, and displaying them in the page would be a security hole (see `security.md`).
 
 **The web app is read + search only for feedback.** There is no editing, commenting, or deleting here: feedback **management** stays on the `vk_`-keyed `/api/project/feedback` above, for your product's own admin panel. The web app is where a human *finds* feedback across projects.
+
+## The `vocky` CLI (P5)
+
+As of **P5** there is a third front door alongside the web app and raw curl: a **`vocky` command-line client**. It is vocky's **agent-first onboarding path** — a user working inside Claude Code or Codex (or the coding agent acting on their behalf) can sign up, log in, set up credentials, and read feedback **entirely from the terminal, without ever visiting the website**. The CLI is a **pure client** of the same `/auth/*` + `/app/*` surfaces (it holds the session token; it never becomes a new backend capability). The full self-contained reference — every command, flag, and the equivalent raw HTTP — lives in the hand-written **`docs/cli.md`** (linked from the README); this section is the journey-level map.
+
+### The onboarding journey as commands
+
+The signup → project → key → capture → read spine maps one-to-one onto CLI commands (each mirrors the raw-HTTP step documented under "Onboarding" above):
+
+```sh
+# 1. Sign up (or `vocky login`) — provisions your account + workspace, stores the session
+printf '%s' "$PASSWORD" | vocky signup --email you@example.com --password-stdin
+
+# 2. Create a project
+vocky projects create marketing-site           # -> Created project "marketing-site" (<project-id>).
+
+# 3. Mint a per-project `vk_` key — shown once
+vocky keys mint --project <project-id>          # prints the show-once warning, then the vk_… key
+
+# 4. Your product backend captures with that vk_ key over /api/feedback (same as the REST path above)
+
+# 5. Read and search what was captured, across all your projects
+vocky feedback list
+vocky feedback search 결제                       # Korean-safe substring search
+vocky feedback show <feedback-id>               # full record + operator comments + attachments
+```
+
+The command groups mirror the API surfaces: `vocky signup|login|logout|whoami` over `/auth/*`; `vocky projects`, `vocky keys`, and `vocky usage` over the session-authed `/app/*` control plane; and the read-only `vocky feedback list|search|show` over `/app/feedback`. `list`/`search` print each record's **full feedback id** (the copy-pasteable handle `feedback show` consumes) and `projects list` prints the **full project id** (the `--project` / `projects show` handle), so the terminal-only `list → show` and `list → --project` journeys complete without dropping to raw HTTP. Feedback **management** (edit/delete/comment) is deliberately out of the CLI — it stays on the `vk_`-keyed `/api/project/feedback` surface.
+
+### For coding agents (headless contract)
+
+The CLI is built so an agent can drive the whole flow with no interactive prompts and no secret ever landing on a process argv:
+
+- **`--password-stdin`** reads the password from one line of stdin, so signup/login never put the password on the command line.
+- **`--base-url`** (or the `VOCKY_BASE_URL` env) points the CLI at any vocky instance; the default is `http://127.0.0.1:8000`.
+- **`VOCKY_CONFIG_DIR`** overrides where the session store lives (XDG-aware, defaulting to `~/.config/vocky/`), so an agent can run an isolated, throwaway session per task.
+- **Generic 401**: an expired or missing session surfaces a friendly `Not signed in — run \`vocky login\`.` rather than a raw HTTP error.
+- **Show-once key**: `keys mint` prints the plaintext `vk_…` exactly once with an explicit "copy it now, it cannot be recovered" warning; it is never shown again.
+- **Errors go to stderr, success to stdout, with non-zero exit codes** — so an agent can branch on outcome. An invalid feedback id, for example, prints a hint pointing at `vocky feedback list` and exits 1.
 
 ## Human Review Boundary
 

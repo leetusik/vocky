@@ -1,10 +1,10 @@
 ---
 doc_id: architecture
-version: v0006
-created_at: 2026-07-16T23:29:08+09:00
-source: P4.REVIEW
-summary: P4: the web/ Next.js app + server-side BFF as vocky's browser surface (sealed httpOnly cookie, no CORS, no web-side DB); admin-UI convergence resolved — replacement built in P4, physical removal deferred to P6
-previous: v0005_p7_revive_mcp_as_a_write-only_capture_surface_mcp_mount_session_manager_lifespan_feeding_the_shared_queue_mcp_env_in_configuration_surface
+version: v0007
+created_at: 2026-07-18T11:15:57+09:00
+source: P5.REVIEW
+summary: P5: the vocky CLI as a new pure-client surface over /auth/* + /app/* (Typer app in src/vocky/cli/, no backend change), mirroring the web-app client framing; server console entry renamed to vocky-server
+previous: v0006_p4_the_web_next.js_app_server-side_bff_as_vocky_s_browser_surface_sealed_httponly_cookie_no_cors_no_web-side_db_admin-ui_convergence_resolved_replacement_built_in_p4_physical_removal_deferred_to_p6
 ---
 
 # Architecture
@@ -16,6 +16,8 @@ This architecture is intentionally lightweight. Vocky is still pre-MVP, and the 
 On top of that capture core, Vocky now has an **identity and tenancy layer**: real user accounts (email + password), a multi-tenant model (tenants → projects), per-project ingest credentials, a public `/auth/*` auth surface, a session-token-authed `/app/*` account control-plane, and a `src/vocky/accounts/` domain package. Public `/api/*` ingestion is guarded by **mandatory per-project credential auth** (`ProjectCredentialAuthMiddleware`), which replaced the old optional static-token `APIBearerAuthMiddleware`.
 
 As of **P4**, vocky also has a **browser surface of its own**: a Next.js app in `web/` that talks to `/auth/*` + `/app/*` through a **server-side BFF proxy** (sealed httpOnly cookie, no CORS, no web-side DB). It is the replacement for the packaged same-origin Admin Web UI — **built** in P4, with the old UI's **physical removal deferred to P6**. See "The Web App and the BFF Boundary" below.
+
+As of **P5**, vocky also has a **`vocky` CLI**: a Typer app in `src/vocky/cli/` that is a **pure session-token client** of `/auth/*` + `/app/*` — the same "client only, no backend change" shape as the web app. The server console entry was renamed `vocky` → `vocky-server` to free the `vocky` name for the CLI. See "The `vocky` CLI" below.
 
 On top of that, **P3 makes feedback project-scoped** (Feedback API v2). `feedback_events` gains a nullable `project_id`; the ingest middleware threads the resolved credential onto the ASGI scope so capture stamps the record's project and reads scope to it; three new feedback surfaces sit over the scoped store — the project-credential-authed `/api/project/feedback` (an external service's own admin panel reads + manages its own project's feedback), the session-authed `/app/feedback` (a signed-in user reads + searches across all their projects, Korean-safe via a `pg_trgm` substring-search subsystem), and derived usage-monitoring endpoints (`/app/usage`, `/app/projects/{id}/usage`, `/api/project/usage`). The ingest guard now also best-effort stamps `last_used_at`. See "Feedback Project Scoping & the P3 Feedback API" below.
 
@@ -117,6 +119,14 @@ P4 adds vocky's first frontend: a **Next.js app in `web/`** (D-P4-1 — a repo s
 **Admin-UI convergence (the P4 open question) is resolved: by replacement, not repair.** The `web/` app *is* the reshaped operator/tenant browser surface. The packaged same-origin Admin Web UI (`src/vocky/admin_ui.py`, `admin_assets/*`, the `/admin` mount) is **superseded but still mounted** — its physical removal is deferred to **P6**, when the new app is actually deployed, so no browser surface disappears in the interim. Admin REST (`/admin/api/*`) and its separate bearer boundary are untouched.
 
 **Deployment is P6.** P4 is local-dev-runnable only (`output: "standalone"` is set for a later container, but no Dockerfile, compose service, or nginx config ships).
+
+## The `vocky` CLI (P5)
+
+P5 adds a **`vocky` command-line client** in `src/vocky/cli/` (a Typer app). Like the web app, it required **no backend change at all** — no new route, no schema change; it is a pure client of the existing P2/P3 surfaces. What is architectural is the boundary and the packaging.
+
+- **A pure session-token client.** The CLI authenticates to `/auth/*` + `/app/*` with the account **session token** and drives exactly the endpoints that already existed: `signup|login|logout|whoami` (`/auth/*`), `projects` / `keys` / `usage` (`/app/*`), and read-only `feedback list|search|show` (`/app/feedback`). It **mints** `vk_` keys through `/app/*` but, like the web app, **never calls the `vk_`-keyed `/api/*` surface itself** — that is the external-service path a product backend uses. It adds no capability the API did not already have.
+- **Package layout.** `src/vocky/cli/` holds `app.py` (the root `typer.Typer`, `--version`, `--base-url`, and the `CliContext` stashed on `ctx.obj`), `context.py` (shared helpers: base-URL resolution, the `authed_client()` "must be signed in" seam, `cli_errors`/`fail`), `client.py` (a sync `httpx.Client` wrapper with uniform error mapping — any authenticated `401` → "run `vocky login`"), `config_store.py` (the on-disk session/base-URL store), and one module per command group (`auth.py`, `projects.py`, `feedback.py`) each exposing `register(app)`.
+- **Console-script rename.** `[project.scripts]` now maps `vocky = "vocky.cli:main"` (the CLI) and **`vocky-server = "vocky.main:main"`** (the server, renamed from `vocky`); `vocky-worker` and `vocky-smoke` are unchanged. Every server-run reference (`Dockerfile` CMD, `docker-compose.yml` app command, README) moved to `vocky-server`. `typer` was promoted from a transitive (via `mcp[cli]`) to a **direct** dependency. Install/config detail is in `operations.md`; the on-disk token posture is in `security.md`.
 
 ## MCP Write-Only Capture Surface (P7)
 

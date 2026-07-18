@@ -1,7 +1,7 @@
 {
   "docs": {
     "product": {
-      "latest": "v0006_p4_the_authenticated_web_app_is_vocky_s_primary_user_surface_tenant_dashboard_project_detail_cross-project_feedback_search_superseding_the_packaged_operator_admin_web_ui",
+      "latest": "v0007_p5_the_vocky_cli_is_a_first-class_user_surface_alongside_the_web_app_the_whole_accounts_to_key_to_capture_to_read_spine_is_completable_from_the_terminal_without_visiting_the_website",
       "current_path": "docs/current/product.md",
       "versions": [
         {
@@ -51,11 +51,19 @@
           "source": "P4.REVIEW",
           "summary": "P4: the authenticated web app is vocky's primary user surface (tenant dashboard, project detail, cross-project feedback search), superseding the packaged operator Admin Web UI",
           "previous": "v0005_p7_agent-decided_write-only_feedback_capture_returns_as_an_mcp_surface_agents_linked_to_a_project_s_mcp_save_feedback_with_the_project_s_vk__key_three_read_tools_stay_retired"
+        },
+        {
+          "id": "v0007_p5_the_vocky_cli_is_a_first-class_user_surface_alongside_the_web_app_the_whole_accounts_to_key_to_capture_to_read_spine_is_completable_from_the_terminal_without_visiting_the_website",
+          "path": "docs/versions/product/v0007_p5_the_vocky_cli_is_a_first-class_user_surface_alongside_the_web_app_the_whole_accounts_to_key_to_capture_to_read_spine_is_completable_from_the_terminal_without_visiting_the_website.md",
+          "created_at": "2026-07-18T11:15:51+09:00",
+          "source": "P5.REVIEW",
+          "summary": "P5: the vocky CLI is a first-class user surface alongside the web app — the whole accounts to key to capture to read spine is completable from the terminal without visiting the website",
+          "previous": "v0006_p4_the_authenticated_web_app_is_vocky_s_primary_user_surface_tenant_dashboard_project_detail_cross-project_feedback_search_superseding_the_packaged_operator_admin_web_ui"
         }
       ]
     },
     "experience": {
-      "latest": "v0007_p9_the_public_landing_now_serves_to_signed-out_visitors_signed-in_bounce_to_dashboard_preserved_as_a_real_product_surface",
+      "latest": "v0008_p5_the_vocky_cli_onboarding_journey_signup_to_project_to_key_to_capture_to_read_from_the_terminal_headless_--password-stdin_--base-url_vocky_config_dir_generic-401_show-once_key_docs_cli.md_is_the_full_reference",
       "current_path": "docs/current/experience.md",
       "versions": [
         {
@@ -113,11 +121,19 @@
           "source": "P9.REVIEW",
           "summary": "P9: the public landing now serves / to signed-out visitors (signed-in bounce to /dashboard preserved) as a real product surface",
           "previous": "v0006_p4_the_vocky_web_app_sign_up_in_the_browser_tenant_dashboard_project_drill-down_with_show-once_key_mint_revoke_and_cross-project_korean-safe_feedback_search_read"
+        },
+        {
+          "id": "v0008_p5_the_vocky_cli_onboarding_journey_signup_to_project_to_key_to_capture_to_read_from_the_terminal_headless_--password-stdin_--base-url_vocky_config_dir_generic-401_show-once_key_docs_cli.md_is_the_full_reference",
+          "path": "docs/versions/experience/v0008_p5_the_vocky_cli_onboarding_journey_signup_to_project_to_key_to_capture_to_read_from_the_terminal_headless_--password-stdin_--base-url_vocky_config_dir_generic-401_show-once_key_docs_cli.md_is_the_full_reference.md",
+          "created_at": "2026-07-18T11:15:51+09:00",
+          "source": "P5.REVIEW",
+          "summary": "P5: the vocky CLI onboarding journey — signup to project to key to capture to read from the terminal (headless --password-stdin, --base-url, VOCKY_CONFIG_DIR, generic-401, show-once key); docs/cli.md is the full reference",
+          "previous": "v0007_p9_the_public_landing_now_serves_to_signed-out_visitors_signed-in_bounce_to_dashboard_preserved_as_a_real_product_surface"
         }
       ]
     },
     "architecture": {
-      "latest": "v0006_p4_the_web_next.js_app_server-side_bff_as_vocky_s_browser_surface_sealed_httponly_cookie_no_cors_no_web-side_db_admin-ui_convergence_resolved_replacement_built_in_p4_physical_removal_deferred_to_p6",
+      "latest": "v0007_p5_the_vocky_cli_as_a_new_pure-client_surface_over_auth_app_typer_app_in_src_vocky_cli_no_backend_change_mirroring_the_web-app_client_framing_server_console_entry_renamed_to_vocky-server",
       "current_path": "docs/current/architecture.md",
       "versions": [
         {
@@ -167,6 +183,14 @@
           "source": "P4.REVIEW",
           "summary": "P4: the web/ Next.js app + server-side BFF as vocky's browser surface (sealed httpOnly cookie, no CORS, no web-side DB); admin-UI convergence resolved — replacement built in P4, physical removal deferred to P6",
           "previous": "v0005_p7_revive_mcp_as_a_write-only_capture_surface_mcp_mount_session_manager_lifespan_feeding_the_shared_queue_mcp_env_in_configuration_surface"
+        },
+        {
+          "id": "v0007_p5_the_vocky_cli_as_a_new_pure-client_surface_over_auth_app_typer_app_in_src_vocky_cli_no_backend_change_mirroring_the_web-app_client_framing_server_console_entry_renamed_to_vocky-server",
+          "path": "docs/versions/architecture/v0007_p5_the_vocky_cli_as_a_new_pure-client_surface_over_auth_app_typer_app_in_src_vocky_cli_no_backend_change_mirroring_the_web-app_client_framing_server_console_entry_renamed_to_vocky-server.md",
+          "created_at": "2026-07-18T11:15:57+09:00",
+          "source": "P5.REVIEW",
+          "summary": "P5: the vocky CLI as a new pure-client surface over /auth/* + /app/* (Typer app in src/vocky/cli/, no backend change), mirroring the web-app client framing; server console entry renamed to vocky-server",
+          "previous": "v0006_p4_the_web_next.js_app_server-side_bff_as_vocky_s_browser_surface_sealed_httponly_cookie_no_cors_no_web-side_db_admin-ui_convergence_resolved_replacement_built_in_p4_physical_removal_deferred_to_p6"
         }
       ]
     },
@@ -323,7 +347,7 @@
       ]
     },
     "operations": {
-      "latest": "v0002_p4_web_app_build_run_pnpm_dev_on_3030_output_standalone_and_its_two_server-only_env_keys_production_deploy_remains_p6",
+      "latest": "v0003_p5_the_vocky-server_server-entry_rename_and_vocky_cli_install_uv_tool_install_uvx_in-repo_uv_run_vocky_pypi_publish_is_p6_with_its_.config_vocky_config.json_0700_0600_vocky_config_dir_session_store",
       "current_path": "docs/current/operations.md",
       "versions": [
         {
@@ -341,11 +365,19 @@
           "source": "P4.REVIEW",
           "summary": "P4: web app build/run (pnpm dev on :3030, output standalone) and its two server-only env keys; production deploy remains P6",
           "previous": "v0001_bootstrap"
+        },
+        {
+          "id": "v0003_p5_the_vocky-server_server-entry_rename_and_vocky_cli_install_uv_tool_install_uvx_in-repo_uv_run_vocky_pypi_publish_is_p6_with_its_.config_vocky_config.json_0700_0600_vocky_config_dir_session_store",
+          "path": "docs/versions/operations/v0003_p5_the_vocky-server_server-entry_rename_and_vocky_cli_install_uv_tool_install_uvx_in-repo_uv_run_vocky_pypi_publish_is_p6_with_its_.config_vocky_config.json_0700_0600_vocky_config_dir_session_store.md",
+          "created_at": "2026-07-18T11:15:51+09:00",
+          "source": "P5.REVIEW",
+          "summary": "P5: the vocky-server server-entry rename and vocky CLI install (uv tool install / uvx / in-repo uv run vocky; PyPI publish is P6) with its ~/.config/vocky/config.json (0700/0600, VOCKY_CONFIG_DIR) session store",
+          "previous": "v0002_p4_web_app_build_run_pnpm_dev_on_3030_output_standalone_and_its_two_server-only_env_keys_production_deploy_remains_p6"
         }
       ]
     },
     "security": {
-      "latest": "v0005_p4_the_web_app_s_browser_credential_aes-256-gcm_sealed_httponly_session_cookie_via_the_bff_token_never_in_browser_js_rate-limited_public_auth_routes_the_show-once_vk__key_crossing_and_forced_attachment_download",
+      "latest": "v0006_p5_the_cli_s_on-disk_30-day_session_token_at_.config_vocky_config.json_0600_the_first_filesystem-resident_vocky_session_credential_the_cli_holds_the_session_token_and_mints_vk__keys_for_api",
       "current_path": "docs/current/security.md",
       "versions": [
         {
@@ -387,6 +419,14 @@
           "source": "P4.REVIEW",
           "summary": "P4: the web app's browser credential — AES-256-GCM sealed httpOnly session cookie via the BFF (token never in browser JS), rate-limited public auth routes, the show-once vk_ key crossing, and forced attachment download",
           "previous": "v0004_p7_mcp_requires_a_per-project_vk__credential_same_guard_401_last_used_at_as_api_dns-rebinding_on_static_token_retired"
+        },
+        {
+          "id": "v0006_p5_the_cli_s_on-disk_30-day_session_token_at_.config_vocky_config.json_0600_the_first_filesystem-resident_vocky_session_credential_the_cli_holds_the_session_token_and_mints_vk__keys_for_api",
+          "path": "docs/versions/security/v0006_p5_the_cli_s_on-disk_30-day_session_token_at_.config_vocky_config.json_0600_the_first_filesystem-resident_vocky_session_credential_the_cli_holds_the_session_token_and_mints_vk__keys_for_api.md",
+          "created_at": "2026-07-18T11:15:57+09:00",
+          "source": "P5.REVIEW",
+          "summary": "P5: the CLI's on-disk 30-day session token at ~/.config/vocky/config.json (0600) — the first filesystem-resident vocky session credential; the CLI holds the session token and mints vk_ keys for /api/*",
+          "previous": "v0005_p4_the_web_app_s_browser_credential_aes-256-gcm_sealed_httponly_session_cookie_via_the_bff_token_never_in_browser_js_rate-limited_public_auth_routes_the_show-once_vk__key_crossing_and_forced_attachment_download"
         }
       ]
     },
@@ -459,5 +499,5 @@
       ]
     }
   },
-  "last_rebuilt_at": "2026-07-18T04:49:45+09:00"
+  "last_rebuilt_at": "2026-07-18T11:19:16+09:00"
 }

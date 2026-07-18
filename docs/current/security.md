@@ -1,17 +1,17 @@
 ---
 doc_id: security
-version: v0005
-created_at: 2026-07-16T23:31:28+09:00
-source: P4.REVIEW
-summary: P4: the web app's browser credential — AES-256-GCM sealed httpOnly session cookie via the BFF (token never in browser JS), rate-limited public auth routes, the show-once vk_ key crossing, and forced attachment download
-previous: v0004_p7_mcp_requires_a_per-project_vk__credential_same_guard_401_last_used_at_as_api_dns-rebinding_on_static_token_retired
+version: v0006
+created_at: 2026-07-18T11:15:57+09:00
+source: P5.REVIEW
+summary: P5: the CLI's on-disk 30-day session token at ~/.config/vocky/config.json (0600) — the first filesystem-resident vocky session credential; the CLI holds the session token and mints vk_ keys for /api/*
+previous: v0005_p4_the_web_app_s_browser_credential_aes-256-gcm_sealed_httponly_session_cookie_via_the_bff_token_never_in_browser_js_rate-limited_public_auth_routes_the_show-once_vk__key_crossing_and_forced_attachment_download
 ---
 
 # Security
 
 ## Status
 
-Covers the authentication and secret-handling posture landed in P2 (password hashing, account session tokens, per-project ingest credentials, the mandatory `/api/*` ingest boundary) plus the P3 authorization posture for the new feedback surfaces: project-scoped read/manage authorization that answers 404-never-403 on cross-project/cross-tenant ids, the single-key project read/manage surface, best-effort `last_used_at` stamping, and the tightened project-scoped self-read. As of **P7** it also covers the MCP capture endpoint: `/mcp` is guarded by the same mandatory per-project `vk_` credential auth as `/api/*`, and its Streamable-HTTP transport carries DNS-rebinding protection. As of **P4** it also covers the **browser** — the web app in `web/` introduced vocky's first browser-held credential (a sealed httpOnly session cookie), its first public rate-limited auth surface, and the first place a plaintext `vk_` key is displayed to a human. Attachment-download authorization and admin-token handling are covered in `architecture.md` / `api.md`.
+Covers the authentication and secret-handling posture landed in P2 (password hashing, account session tokens, per-project ingest credentials, the mandatory `/api/*` ingest boundary) plus the P3 authorization posture for the new feedback surfaces: project-scoped read/manage authorization that answers 404-never-403 on cross-project/cross-tenant ids, the single-key project read/manage surface, best-effort `last_used_at` stamping, and the tightened project-scoped self-read. As of **P7** it also covers the MCP capture endpoint: `/mcp` is guarded by the same mandatory per-project `vk_` credential auth as `/api/*`, and its Streamable-HTTP transport carries DNS-rebinding protection. As of **P4** it also covers the **browser** — the web app in `web/` introduced vocky's first browser-held credential (a sealed httpOnly session cookie), its first public rate-limited auth surface, and the first place a plaintext `vk_` key is displayed to a human. As of **P5** it also covers the **`vocky` CLI**, which introduced vocky's first credential resident on the local **filesystem** — a 30-day session token written `0600` under `~/.config/vocky/` (see "The CLI's On-Disk Session Token" below). Attachment-download authorization and admin-token handling are covered in `architecture.md` / `api.md`.
 
 ## Passwords
 
@@ -121,6 +121,15 @@ The web app enforces **no** authorization of its own — it is a renderer of the
 - **404-never-403** survives end-to-end: the app maps vocky's `404` **and** `400` → its own not-found page. Collapsing the two is deliberate — a malformed id is effectively not-found, and distinguishing "malformed" from "not yours" leaks the shape of what exists.
 - Legacy NULL-`project_id` feedback rows stay invisible in the app because `/app/feedback` already scopes them out; the app adds no path around that scope.
 - The app renders no vocky token, `vk_` key, or cookie value into any page, on any route.
+
+## The CLI's On-Disk Session Token (P5)
+
+The `vocky` CLI is the **first place a vocky credential lives at rest on the local filesystem** (the web app's is a browser cookie; the service holds only hashes). The credential it stores is the account **session token** — the same opaque, 30-day, hashed-in-DB token minted by `/auth/*` (see "Session Tokens" above) — **not** a `vk_` ingest key.
+
+- **On-disk location and permissions.** The token (plus an optional base URL) is written as JSON to `~/.config/vocky/config.json` — XDG-aware, overridable with `VOCKY_CONFIG_DIR`. The config **directory is created `0700`** and the **file `0600`** (created via `os.open(..., 0o600)` then `chmod`), so the token is owner-only readable and never world- or group-readable. No password is ever written to disk — only the post-auth session token.
+- **The CLI holds the session token, not the `vk_` key.** Like the web app, the CLI authenticates to the `/app/*` control plane with the session token and **mints** `vk_` keys there; it never stores or uses a `vk_` key for `/api/*`. A freshly minted `vk_` key is shown **once** on stdout with an explicit non-recoverable warning and is never persisted by the CLI (the show-once discipline of "Per-Project Ingest Credentials" holds — the CLI keeps only what the user copies).
+- **Logout clears it.** `vocky logout` best-effort revokes the session at `/auth/logout` (hard-revoking the DB token row) and then unconditionally clears the local token, so a signed-out CLI holds no live credential. An expired or revoked token surfaces the same generic "Not signed in — run `vocky login`." rather than distinguishing failure modes.
+- **Headless-secret hygiene.** `signup`/`login` accept the password via `--password-stdin` (one line of stdin) so the password never lands on a process argv; `VOCKY_CONFIG_DIR` lets an agent scope a throwaway, isolated session per task rather than sharing the user's real store.
 
 ## Admin Surface (unchanged)
 
