@@ -131,6 +131,39 @@ _Deploy pattern — downstream slices depend on these._
     The actual `docker build` of both images, the `NEXT_PUBLIC_APP_URL`-missing assert firing, and the
     `curl /` 200 probe are **verified at S10 / CI** — do not expect an in-sandbox Docker build to work.
 
+- **S5 done — `compose.prod.yml` + `.env.prod.example` are the box's deploy topology; relevant to
+  S6 (vhost), S7 (deploy scripts), S10 (bring-up):**
+  - The `docker compose` CLI **is** available in-sandbox (v2.37.1); the daemon is not, but
+    `docker compose -f compose.prod.yml config -q` (the PARSER) runs without it. Prod + dev compose
+    both parse (exit 0); the rendered config was inspected and passes every topology assertion (no
+    host ports / `expose:` only, `external: true`, `attachments-data` on api+worker, container-name
+    upstreams, no retired token). Full build/health validation still lands at S10 / CI.
+  - **Five services, fixed `container_name`s** reached over `changple_shared_network`:
+    `vocky-postgres:5432`, `vocky-redis:6379`, `vocky-api:8000`, `vocky-worker` (no port), `vocky-web:3000`.
+    The edge (S6) addresses **api/web by container name**, never bare service alias.
+  - **In-app `/mcp`**: there is NO mcp service — `/mcp` is a Starlette Mount inside `vocky-api`. The
+    edge routes `/mcp → vocky-api:8000` (S6). `VOCKY_MCP_ALLOWED_HOSTS: vocky.hi2vi.com` is set on api.
+  - **Secrets contract**: NO `env_file:` anywhere. Exactly three `${...}` interpolations, supplied by
+    the box's gitignored `.env` (template = `.env.prod.example`): `POSTGRES_PASSWORD` (postgres + baked
+    into api/worker `DATABASE_URL`), `SESSION_SECRET` (web only), `VOCKY_ADMIN_AUTH_TOKEN` (api only).
+    `DATABASE_URL`/`REDIS_URL`/`VOCKY_API_BASE_URL` are committed literal container-name URLs;
+    `NEXT_PUBLIC_APP_URL=https://vocky.hi2vi.com` is a web `build.args` value (build-time, not `.env`).
+  - **Retired legacy API token** dropped from the dev `docker-compose.yml` and never introduced in
+    prod; `.dockerignore` leaned (added `.env.prod`, `works`, `docs`, `tests`, `dist`, `attachments`,
+    `web`, `node_modules`, `.next`; kept existing entries).
+
+- **Hand-off to S6 (edge `deploy/vocky.conf`):** upstreams are `vocky-api:8000` and `vocky-web:3000`
+  by container name. `/mcp → vocky-api:8000` (in-app MCP, no mcp container). Combine with the S1/S3
+  routing + HSTS/CSP hand-offs already recorded above.
+- **Hand-off to S7 (`deploy/deploy.sh`):** carry `COMPOSE_BAKE=false`; rebuild **all** services incl.
+  `worker` (it rides the api image — an un-rebuilt worker runs stale code); health-gate
+  api/web/postgres/redis on `healthy` and **worker on `running`** (it has no healthcheck by design);
+  run `docker compose -f compose.prod.yml exec vocky-api uv run --no-sync alembic upgrade head` after
+  `up -d`; **never `down -v`** (preserve `attachments-data` + `postgres-data` + `redis-data`).
+- **Hand-off to S10 (bring-up):** the box `.env` must define `POSTGRES_PASSWORD`, `SESSION_SECRET`,
+  `VOCKY_ADMIN_AUTH_TOKEN` (generate on the box, `openssl rand -base64 32`); template is
+  `.env.prod.example`. `.env` is gitignored + `.dockerignore`d — never committed.
+
 ## Constraints
 
 - **nginx house rules** (violating any breaks every co-tenant site through the shared edge): never
@@ -171,6 +204,17 @@ _Running list — the REVIEW slice consolidates these into durable-doc versions.
   confirmed prod-fit and left unchanged. REVIEW folds this into `docs/current/operations.md` (the web
   build/run image contract + the `NEXT_PUBLIC_APP_URL` build arg) and `docs/current/frontend.md` (the
   standalone production image note).
+- **P6.S5** (Production compose + env template): new repo-root `compose.prod.yml` (the OCI-box deploy
+  topology — five services `vocky-postgres`/`vocky-redis`/`vocky-api`/`vocky-worker`/`vocky-web`, fixed
+  container names over the external `changple_shared_network`, no host ports/`expose:`-only,
+  container-name upstreams, healthchecks + `depends_on: service_healthy`, `restart: unless-stopped`,
+  `attachments-data` shared api+worker, in-app `/mcp` on vocky-api with no mcp container, three
+  `${...}` secrets from the box `.env` and NO `env_file:`) + `.env.prod.example` (the box-`.env`
+  secrets template: `POSTGRES_PASSWORD`, `SESSION_SECRET`, `VOCKY_ADMIN_AUTH_TOKEN`). Retired legacy
+  API auth-token env var dropped from the dev `docker-compose.yml`; root `.dockerignore` leaned. REVIEW
+  folds this into `docs/current/operations.md` (the production deploy topology / serving contract / box
+  secrets model) and, if the doc set carries a deployment/architecture view, the container topology in
+  `docs/current/architecture.md`.
 
 ## Open Questions
 

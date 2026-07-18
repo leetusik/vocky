@@ -1,0 +1,219 @@
+# Production deployment for https://vocky.hi2vi.com (P6.S5).
+#
+# This is the OCI-box compose project — NOT the local dev stack (docker-compose.yml,
+# which publishes host ports). It ships five services: `postgres` (control-plane
+# datastore), `redis` (the capture queue), `api` (the FastAPI/Starlette app — the
+# public site's BFF upstream, the `/app` + `/auth` + `/admin/api` REST surface, and
+# the in-app `/mcp` MCP server mounted inside vocky-api itself — there is NO separate
+# mcp container), `worker` (the queue consumer that persists captures + attachments),
+# and `web` (the Next.js 16 standalone app — the public landing at `/` and the
+# authenticated UI + `/api/auth/*` BFF).
+#
+# Serving contract (mirrors ~/projects/personal/knowledge/compose.prod.yml):
+#   - Reached by the box's dedicated edge (compose project `edge` at /home/opc/edge,
+#     container `edge-nginx`) over the EXTERNAL `changple_shared_network`, BY CONTAINER
+#     NAME (vocky-api:8000 / vocky-web:3000) — NO public host-port publish. Every
+#     service is `expose:`-only; the edge vhost (deploy/vocky.conf, S6) routes traffic.
+#   - Fixed `container_name`s so peers + the edge address each other by name, and so a
+#     re-created container keeps its DNS name on the shared net.
+#   - `restart: unless-stopped`, container healthchecks, and `depends_on: service_healthy`
+#     gates so boot order is correct and the deploy health-gate (S7) can assert readiness.
+#
+# NO SECRETS live in this file: POSTGRES_PASSWORD, SESSION_SECRET, and
+# VOCKY_ADMIN_AUTH_TOKEN are `${...}` interpolations Compose reads from the box's
+# gitignored project `.env` (see .env.prod.example). There is deliberately NO
+# `env_file:` anywhere — each container receives ONLY the vars listed under its own
+# `environment:`, so the api's secrets never leak into the web container and vice
+# versa. `docker compose config` still validates with dummy values for the three.
+
+services:
+  postgres:
+    # Durable control-plane datastore (accounts / projects / captures / feedback).
+    # Reached by api + worker BY CONTAINER NAME (vocky-postgres:5432) over the shared
+    # network — NO public host port. Its volume must survive redeploys (never down -v).
+    image: postgres:17
+    container_name: vocky-postgres  # fixed name — DATABASE_URL targets it by name
+    environment:
+      # user/db are non-secret literals; the PASSWORD is the SECRET, supplied by the
+      # box's gitignored `.env` (POSTGRES_PASSWORD=...). No `:-` default — a missing
+      # value must fail loud on the box, never silently fall back to a weak password.
+      POSTGRES_DB: vocky
+      POSTGRES_USER: vocky
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - changple_shared_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    restart: unless-stopped
+
+  redis:
+    # The capture queue (RQ/Redis). Append-only persistence so an enqueued capture
+    # survives a redis restart. Reached by api + worker BY CONTAINER NAME
+    # (vocky-redis:6379) over the shared network — NO public host port.
+    image: redis:7-alpine
+    container_name: vocky-redis  # fixed name — REDIS_URL targets it by name
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - changple_shared_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    restart: unless-stopped
+
+  api:
+    # The FastAPI/Starlette app (same root Dockerfile as dev — uv two-layer build,
+    # default CMD `vocky-server`). Serves the `/app` + `/auth` + `/admin/api` REST
+    # surface, `= /healthz`, and the IN-APP `/mcp` MCP server (Starlette Mount — NO
+    # separate mcp container; the edge routes /mcp -> vocky-api:8000, S6). Reached by
+    # the edge + web BFF BY CONTAINER NAME (vocky-api:8000) — NO public host port.
+    build: .
+    container_name: vocky-api  # fixed name — the edge + web BFF proxy to it by name
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # DB + queue as literal container-name URLs over the shared net; the password
+      # is the SECRET POSTGRES_PASSWORD interpolated from the box's gitignored `.env`
+      # (user/db are the literals `vocky`). Migrations run explicitly on deploy
+      # (S7: `docker compose exec vocky-api uv run --no-sync alembic upgrade head`).
+      DATABASE_URL: postgresql+psycopg://vocky:${POSTGRES_PASSWORD}@vocky-postgres:5432/vocky
+      REDIS_URL: redis://vocky-redis:6379/0
+      VOCKY_HOST: 0.0.0.0
+      VOCKY_PORT: "8000"
+      VOCKY_LOG_LEVEL: INFO
+      # Bearer that guards the surviving /admin/api REST surface (the packaged Admin
+      # Web UI was removed in P6.S1). SECRET — generated on the box into `.env`.
+      VOCKY_ADMIN_AUTH_TOKEN: ${VOCKY_ADMIN_AUTH_TOKEN}
+      # Public /mcp DNS-rebinding allowlist (config.py VOCKY_MCP_ALLOWED_HOSTS). The
+      # in-app MCP server only accepts requests whose Host matches the public origin.
+      VOCKY_MCP_ALLOWED_HOSTS: vocky.hi2vi.com
+      # Attachments land on the shared named volume below (also mounted on worker).
+      VOCKY_ATTACHMENTS_DIR: /var/lib/vocky/attachments
+      VOCKY_ATTACHMENTS_MAX_BYTES: "5242880"
+      VOCKY_ATTACHMENTS_MAX_COUNT: "10"
+      VOCKY_ATTACHMENTS_ALLOWED_MIME_TYPES: image/jpeg,image/png,image/gif,image/webp
+      # NOTE: the retired legacy API auth-token env var is deliberately absent here
+      # (it was also dropped from the dev docker-compose.yml in this slice).
+    expose:
+      - "8000"
+    volumes:
+      # Attachments named volume, SHARED with vocky-worker (the worker persists the
+      # bytes an /app capture uploads; the api serves them). Must survive redeploys.
+      - attachments-data:/var/lib/vocky/attachments
+    networks:
+      - changple_shared_network
+    # Health via the image's own python (curl is absent in the slim uv image);
+    # start_period covers the app's cold boot before it accepts traffic.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status==200 else sys.exit(1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  worker:
+    # The capture-persistence queue consumer. REUSES the api image (build: .) with an
+    # overridden command — the image bakes no worker command. It shares the SAME
+    # attachments volume as the api so it can write the uploaded bytes.
+    #
+    # ⚠ STALE-WORKER FOOTGUN: the worker has no HTTP endpoint, so it has NO healthcheck
+    # here. The deploy script (S7) MUST rebuild the worker on every deploy (it rides
+    # the same image as the api — an un-rebuilt worker runs stale code) and gate it on
+    # container state `running` (NOT `healthy`, which it can never report).
+    build: .
+    container_name: vocky-worker  # fixed name on the shared net
+    command: ["uv", "run", "--no-sync", "vocky-worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://vocky:${POSTGRES_PASSWORD}@vocky-postgres:5432/vocky
+      REDIS_URL: redis://vocky-redis:6379/0
+      VOCKY_LOG_LEVEL: INFO
+      VOCKY_ATTACHMENTS_DIR: /var/lib/vocky/attachments
+    volumes:
+      # SAME named volume as the api (attachment bytes written here, served there).
+      - attachments-data:/var/lib/vocky/attachments
+    networks:
+      - changple_shared_network
+    restart: unless-stopped
+
+  web:
+    # The Next.js 16 standalone app (web/Dockerfile, output:'standalone' -> node
+    # server.js). Reached by the edge BY CONTAINER NAME (vocky-web:3000) — NO public
+    # host port. The public origin is baked into the client bundle at BUILD time.
+    build:
+      context: ./web
+      args:
+        # Public app origin, inlined into the bundle at build (src/content/site.ts ->
+        # canonical / OG / sitemap / robots + metadataBase). A build arg, NOT a runtime
+        # env — changing it needs a rebuild. web/Dockerfile asserts it is non-empty, so
+        # a build that forgets it fails loud. Safe to commit (public value).
+        NEXT_PUBLIC_APP_URL: "https://vocky.hi2vi.com"
+    container_name: vocky-web  # fixed name — the edge proxies to it by name
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      # Server-to-server base URL of the api container the BFF calls (the browser
+      # NEVER sees it — server-only, not NEXT_PUBLIC_). Literal container-name URL over
+      # the shared net; NOT a secret.
+      VOCKY_API_BASE_URL: http://vocky-api:8000
+      # Secret the AES-256-GCM session key derives from, sealing the session cookie. A
+      # box secret the OPERATOR generates into the gitignored `.env`. Interpolated here
+      # (NOT `env_file: .env`) so the api's POSTGRES_PASSWORD / VOCKY_ADMIN_AUTH_TOKEN
+      # are NOT injected into the web container. Rotating it logs every user out.
+      SESSION_SECRET: ${SESSION_SECRET}
+    expose:
+      - "3000"
+    networks:
+      - changple_shared_network
+    # node 22 has global fetch; start_period covers the standalone server's cold boot.
+    # (web/Dockerfile also carries an image-native HEALTHCHECK; this restates it so the
+    # deploy health-gate reads a compose-declared check.)
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  # Durable Postgres data (never down -v).
+  postgres-data:
+  # Durable Redis append-only file (queued captures survive a restart).
+  redis-data:
+  # Uploaded attachment bytes, SHARED by vocky-api + vocky-worker. Must persist across
+  # redeploys — the deploy script never removes it.
+  attachments-data:
+
+networks:
+  # Pre-existing external network the shared edge + co-tenant apps share.
+  # `external: true` = compose attaches to it, never creates/removes it.
+  changple_shared_network:
+    external: true
