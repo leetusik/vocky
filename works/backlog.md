@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P6`
-- Current slice: `P6.S1`
-- Next slice: `P6.S2`
+- Current slice: `P6.S2`
+- Next slice: `P6.S3`
 - Waiting on operator: `none`
 - Open deferred jobs: `4`
-- Rebuilt at: `2026-07-18T13:31:08+09:00`
+- Rebuilt at: `2026-07-18T13:44:30+09:00`
 
 ## Active Phases
 
@@ -24,7 +24,7 @@
 | [x] `P8` | `done` | `pass` | Design Gate: Brand, App UI & Landing | `none` | `works/phases/active/P8` |
 | [x] `P9` | `done` | `pass` | Apply the Design: App UI, Landing & Feature Changes | `none` | `works/phases/active/P9` |
 | [x] `P5` | `done` | `pass` | CLI & Agent-First Onboarding | `none` | `works/phases/active/P5` |
-| [ ] `P6` | `in_progress` | `pending` | Landing Page, Webpage & Production Deploy | `P6.S1` | `works/phases/active/P6` |
+| [ ] `P6` | `in_progress` | `pending` | Landing Page, Webpage & Production Deploy | `P6.S2` | `works/phases/active/P6` |
 
 ## Phase P1: Relicense & Agent-Capture Retirement
 
@@ -121,7 +121,7 @@
 | Slice | Status | Name | Kind | Path |
 |---|---|---|---|---|
 | [x] `P6.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P6/slices/P6.DECOMP` |
-| [ ] `P6.S1` | `todo` | Admin-UI removal | `implementation` | `works/phases/active/P6/slices/P6.S1` |
+| [x] `P6.S1` | `done` | Admin-UI removal | `implementation` | `works/phases/active/P6/slices/P6.S1` |
 | [ ] `P6.S2` | `todo` | Landing/site metadata & production origin | `implementation` | `works/phases/active/P6/slices/P6.S2` |
 | [ ] `P6.S3` | `todo` | CSP + HSTS security headers | `implementation` | `works/phases/active/P6/slices/P6.S3` |
 | [ ] `P6.S4` | `todo` | Web production Dockerfile | `implementation` | `works/phases/active/P6/slices/P6.S4` |

@@ -73,6 +73,11 @@ _Deploy pattern — downstream slices depend on these._
   `oracle-production-deploy-remote.sh`); `hi2vi_web/deploy/{deploy.sh,rollback.sh,github-actions-production-deploy.sh,oracle-production-deploy-remote.sh}`,
   `hi2vi_web/.github/workflows/deploy-production.yml`.
 - **Stale artifact:** `docker-compose.yml` still sets retired `VOCKY_API_AUTH_TOKEN` (line 45) — clean it (S5).
+- **S1 done — `/admin` route surface shrunk (relevant to S6 nginx map):** after removing the Web UI, the
+  **only** routes under the `/admin` prefix are `/admin/api/*` (9 routes, admin-bearer-guarded). Bare
+  `/admin`, `/admin/`, and `/admin/assets/*` no longer exist in the app. The nginx routing map need not
+  (and should not) expose any `/admin` Web-UI path; only `/admin/api/` if the admin REST API is to be
+  reachable through the edge. `VOCKY_ADMIN_AUTH_TOKEN` still guards `/admin/api`.
 - **Repo-state check (DECOMP):** all S1/S3/S5 targets present (`src/vocky/admin_ui.py`,
   `src/vocky/admin_assets/`, `scripts/check_admin_ui_package.py`, `web/next.config.ts`, the stale token in
   `docker-compose.yml`) and both sibling repos present with the referenced deploy artifacts. **One minor
@@ -90,6 +95,16 @@ _Deploy pattern — downstream slices depend on these._
 - **Design boundary:** favicon/OG are assembled from the **existing** round-01 brand (the `Mark`
   component, wordmark, brand tokens in `web/src/app/globals.css`) — implementation with the existing
   design system, **not** a new design round. A bespoke OG illustration would be a separate design gate.
+
+## Doc impact
+
+_Running list — the REVIEW slice consolidates these into durable-doc versions._
+
+- **P6.S1** (Admin Web UI removal): stale `/admin` Web-UI mentions to drop/correct — `README.md`
+  (token-into-UI instructions), `docs/current/architecture.md` (route-group "/admin packaged Admin Web
+  UI" + the P4-open-question "superseded but still mounted / removal deferred to P6" resolution notes),
+  `docs/current/api.md`, `docs/current/operations.md` (its "Deferred to P6" Admin-UI removal line). The
+  `/admin/api/*` REST surface and `VOCKY_ADMIN_AUTH_TOKEN` are unchanged.
 
 ## Open Questions
 

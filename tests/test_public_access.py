@@ -33,7 +33,6 @@ def test_path_auth_helpers_match_only_their_path_families_and_bearer_headers() -
     assert is_admin_api_path("/admin/api/feedback") is True
     assert is_admin_api_path("/admin/api/feedback/metrics") is True
     assert is_admin_api_path("/admin") is False
-    assert is_admin_api_path("/admin/assets/app.js") is False
     assert is_api_path("/api") is True
     assert is_api_path("/api/feedback") is True
     assert is_api_path("/admin/api/feedback") is False
@@ -154,10 +153,6 @@ def test_core_rest_and_admin_routes_are_registered_without_a_catch_all_mount() -
         "/healthz",
         "/admin/api/healthz",
         "/admin/api/feedback/metrics",
-        "/admin",
-        "/admin/assets/app.css",
-        "/admin/assets/app.js",
-        "/admin/assets/docs.json",
         "/api/feedback",
         "/app/projects/{project_id}/credentials",
     ):

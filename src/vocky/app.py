@@ -12,7 +12,6 @@ from starlette.routing import Mount, Route
 
 from vocky.accounts.auth import AuthError, auth_error_handler
 from vocky.admin_api import routes as admin_routes
-from vocky.admin_ui import routes as admin_ui_routes
 from vocky.api import routes as api_routes
 from vocky.app_api import routes as app_api_routes
 from vocky.app_feedback_api import routes as app_feedback_routes
@@ -63,7 +62,6 @@ def create_app() -> Starlette:
             *app_feedback_routes,
             *usage_routes,
             *admin_routes,
-            *admin_ui_routes,
             *api_routes,
             *project_feedback_routes,
             *attachment_routes,
