@@ -734,7 +734,159 @@ never down** — two concrete candidates, in order:
    layered on top of mount-gated client islands is the trickiest client mechanic in the round, and three
    later slices inherit whatever shape it takes.
 
+### S6 done — the primitives, the copy blocks and the three net-new mechanics (2026-07-29)
+
+`P11.S6` landed `ui/snippet.tsx`, `ui/trap.tsx`, the pure copy helper, the two `section-ids` entries
+and all four `landing.ts` copy blocks. **Nothing consumes them yet** — `page.tsx`, `hero.tsx` and
+`landing-nav.tsx` are untouched, so the shipped landing is byte-identical in output. All nine
+validation steps passed (`typecheck` 0, `lint` 0, `test` **61 → 70**, `build` 0, both greps clean,
+`skill_parity.py` PASS, `workflow.py validate` passed); verbatim output in the slice's `result.md`.
+
+#### The two primitives' prop shapes — S7–S9 consume these by name
+
+```ts
+// @/components/ui
+interface SnippetCopy {
+  copyLabel; copiedLabel; copyFailedLabel; selectionHint;   // all four from LANDING.snippet
+  announcement;                                             // PER SNIPPET, not shared
+}
+interface SnippetProps extends Omit<HTMLAttributes<HTMLDivElement>, "children">,
+                               VariantProps<typeof snippetVariants> {  // variant?: "row" | "block"
+  label?: ReactNode;   // block: the bar label (always pass one). row: optional leading tag.
+  command: string;     // the exact bytes shown AND copied
+  copy: SnippetCopy;
+}
+interface TrapProps extends HTMLAttributes<HTMLElement> {
+  label: ReactNode;    // e.g. "Known trap · Codex only"
+  children: ReactNode; // inline <code> is styled BY the primitive — write plain <code>
+}
+```
+
+```tsx
+<Snippet variant="row" command={heroInstall.command}
+         copy={{ ...LANDING.snippet, announcement: heroInstall.copyAnnouncement }} />
+```
+
+**`Snippet`'s root is an unstyled wrapper**, not the bordered frame: the failure hint sits below the
+frame and the live region must not live inside a `whitespace-pre` scroller. So a consumer's
+`className` is for layout (`mt-3`, `w-full`), never for restyling the frame. `Trap` is the opposite —
+`className` lands on the `<aside>` itself.
+
+#### Exact `landing.ts` copy-block keys
+
+```
+LANDING.snippet      copyLabel · copiedLabel · copyFailedLabel · selectionHint
+LANDING.heroInstall  label · sub · command · caption · captionNarrow · copyAnnouncement
+LANDING.quickstart   eyebrow · heading · lede
+  .steps.install     n · title · sub · command · copyAnnouncement
+  .steps.env         n · title · snippetLabel · command · copyAnnouncement
+                     note{text, code[]} · trap{label, body{text, code[]}}
+  .steps.verify      n · title · sub · snippetLabel · command · copyAnnouncement
+                     readings[]{code, verdict, body}          // "400" / "401" / "else"
+  .steps.capture     n · title · command · copyAnnouncement · resultBadge · resultText
+  .peer              before · linkLabel · after · href        // href = "#skill"
+  .aside             contractLabel · contractRows[]{name,value} · contractBody
+                     worksWithLabel · worksWith[]
+LANDING.skill        eyebrow · heading · lede{text, code[]} · copyAction · copyAnnouncement
+                     downloadAction · downloadHref · served · insideLabel · inside[]
+  .preview           filename · meta · downloadLabel · collapsedLines
+                     footerCollapsed · footerExpanded · footerNoJs
+                     expandLabel · collapseLabel · rawLabel · rawHref
+```
+
+- **`quickstart.steps` is an OBJECT, not an array** (`install` / `env` / `verify` / `capture`). The
+  four steps carry four different content shapes, so `.map()` would not typecheck usefully;
+  `steps.verify.readings` beats `steps[2].readings`. The `<ol>` ordering lives in S8's JSX and `n` is
+  the numeral the design paints in the 34px ink marker (correction 5).
+- **Rich strings are `{ text, code[] }`** — `text` is the verbatim sentence, and every occurrence of
+  each `code` token renders as an inline `<code>`. Used by `quickstart.steps.env.note`,
+  `quickstart.steps.env.trap.body` and `skill.lede`; the tokens are the ones §5.1/§6 name. Verified
+  that no token is a substring of another within the same string, so a straight split is safe. Chosen
+  over a segment array so a transcription slip at a boundary cannot hide.
+- **`skill.preview.meta` and all three footers are TEMPLATES** with `{lines}`, `{bytes}`,
+  `{collapsed}`. `collapsedLines: 22` is the design's window (correction 6 — keep 22). Hardcoding a
+  count is forbidden by §11.2. The preview's two buttons reuse `LANDING.snippet`'s labels.
+- Step 1's sub ships **`uv` as plain text**: the build-prompt marks inline code with an explicit
+  parenthetical everywhere it wants it, and §5.1's sub styling names no code treatment.
+
+#### The mount gate — `useIsHydrated()`, and why NOT `useState`+`useEffect`
+
+**The plan's spelling of the mount gate fails `pnpm lint`.** `react-hooks/set-state-in-effect` (React
+Compiler rules, bundled in `eslint-config-next`) rejects a synchronous `setState` inside an effect
+body as an **error**. So the gate lives in **`web/src/lib/use-is-hydrated.ts`**:
+
+```ts
+const subscribe = () => () => {};                      // module-level: must be a stable ref
+export const useIsHydrated = () => useSyncExternalStore(subscribe, () => true, () => false);
+```
+
+React renders and hydrates with the server snapshot (`false`), then re-renders `true` after
+hydration. Same observable behaviour as the mount effect, no hydration mismatch, no lint suppression.
+**S9 must use this same hook** for the preview's expand toggle — do not re-invent the effect form,
+it will not pass lint.
+
+#### The no-JS floor is now REGRESSION-TESTED, without jsdom
+
+`renderToStaticMarkup` (from `react-dom/server`, node build) reaches the pre-hydration frame with no
+DOM at all, so `web/tests/snippet-ssr.test.ts` asserts §8 directly: the server HTML contains **no
+`<button`**, contains the command as selectable text, carries `whitespace-pre` + `min-w-0 flex-1`,
+and wraps block comment lines in the sage span without altering the text. **S9 can use the exact same
+technique** on `SkillPreview` — it is a server component, so this is the cheapest possible proof that
+all 119 lines are in the HTML and that the toggle is absent (correction 7's whole tension, provable
+in CI). Importing a `"use client"` module from a Node test is fine; the directive is just a string.
+
+Still uncovered anywhere (S10's fidelity pass owns them): the 2000ms revert, the `Range`+`Selection`
+failure path, the persisting failure state, the live-region announcement, hover/focus visuals, and
+everything below 900px.
+
+#### Two plan/inventory facts that did not survive contact with the tree
+
+1. **The repo does NOT have zero `style={{…}}` occurrences — it has 15.** Twelve are in
+   `app/apple-icon.tsx` + `app/opengraph-image.tsx`, where next/og's `ImageResponse` cannot use
+   Tailwind classes at all, and three are `style={{ height: "40%" }}` on a decorative bar in
+   `landing/features.tsx`. The no-inline-styles rule still holds for components (the two new ones
+   have zero) — just do not cite "zero in the repo" as the evidence.
+2. **`/` does not prerender as static and never has.** `app/page.tsx` reads the session cookie
+   (`getSession()` + `redirect`) and its own P9.S6 comment says "reading the cookie makes `/`
+   dynamic, so it is never prerendered". `next build` prints `ƒ /` before and after this slice. Any
+   later slice's validation must expect `ƒ`, not `○`.
+
+#### Design-fidelity judgment calls made here (S10 should not "fix" these back)
+
+- `rounded-[12px]` on the block — no radius token lands on 12 (`lg` 10, `xl` 14). Likewise
+  `text-[13.5px]` is NOT the 13px `text-code-md` token.
+- `failed` uses the same caution treatment on dark as on light — §7 supplies a dark override for
+  `copied` only, and a dark caution colour would be a new token.
+- On failure the **block's** border also goes `hairline-caution` (§7 says "the row's border").
+- The row's optional `label` (in §3.1's signature, styled nowhere, unused this round) renders as the
+  block bar's label treatment on a light surface: mono `text-micro tracking-[.7px]` uppercase
+  `green-dark` — what §4's own micro label uses.
+- The trap's inline `<code>` treatment is applied with `[&_code]:…` descendant utilities (the repo's
+  first arbitrary variant — verified compiled into the CSS bundle), so consumers write plain `<code>`.
+- `ease-[ease]` compiles to `transition-timing-function: ease` — checked in the built CSS, since
+  Tailwind's default `transition` timing is not CSS `ease`.
+- Announcements beyond §7's `Copied the install command.`: `Copied the environment block.`,
+  `Copied the verify command.`, `Copied the capture command.`, `Copied the skill file.`
+
+#### Byte-locked payloads now guarded by CI
+
+`web/tests/landing-copy.test.ts` re-spells the install command, the `~/.zshenv` block and the verify
+command as literals, and additionally asserts the install line appears verbatim inside
+`web/public/install.sh` — so the landing and the installer cannot drift apart. **Note for anyone
+editing the verify command**: its `'%{http_code}\n'` needs `\\n` in the TS template literal, and each
+line continuation needs `\\`. This is the repo's first test importing from `@/content`; it works (no
+`server-only`, no JSX in that graph).
+
 ## Doc impact
+
+- **S6** (`P11.S6`): `docs/current/frontend.md` is now stale in two specific places — its primitive
+  inventory at `:89` (which enumerates `button … endpoint-card, reveal, select, chip` and must gain
+  **`snippet`** and **`trap`**, plus the new `lib/clipboard.ts` + `lib/use-is-hydrated.ts` helpers
+  and the fact that `Snippet` is the landing's first mount-gated client island), and its copy-as-data
+  paragraph at `:92` (which states `section-ids.ts` "now holds only the live landing anchors
+  (`features`/`how`/`pricing`)" — it now also holds `quickstart` and `skill`, and `landing.ts` gained
+  the `snippet` / `heroInstall` / `quickstart` / `skill` blocks). The review consolidates this with
+  S7–S10's section-inventory changes into one `frontend` version.
 
 - **DECOMP2** (`P11.DECOMP2`): no durable-truth change — decomposition wrote only `works/` state and this
   notebook. The landing's two new sections and three new primitives will change

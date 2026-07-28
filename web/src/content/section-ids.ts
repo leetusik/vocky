@@ -10,6 +10,10 @@ export const SECTION_IDS = {
   features: "features",
   how: "how",
   pricing: "pricing",
+  // P11.S6 — round 02's two new landing sections (build-prompt §2): the agent
+  // quickstart (nav-linked as "Get started") and the skill pane (no nav link).
+  quickstart: "quickstart",
+  skill: "skill",
 } as const;
 
 export type SectionId = (typeof SECTION_IDS)[keyof typeof SECTION_IDS];

@@ -54,3 +54,12 @@ export type { SelectProps } from "./select";
 // Small mono tag/pill — feedback tags + removable active-filter pills.
 export { Chip, chipVariants } from "./chip";
 export type { ChipProps } from "./chip";
+
+// P11.S6 — copyable command (row + block). Client island: the copy button
+// renders only after mount, so no-JS visitors get no button at all.
+export { Snippet, snippetVariants } from "./snippet";
+export type { SnippetCopy, SnippetProps } from "./snippet";
+
+// P11.S6 — a known non-fatal hazard. An <aside>, never an alert.
+export { Trap } from "./trap";
+export type { TrapProps } from "./trap";
