@@ -1123,3 +1123,81 @@ standalone path is correct by construction (`WORKDIR /app` + `COPY … /app/publ
   `inline-code`) and the fact that the no-JS floor is now regression-tested in
   `web/tests/skill-preview-ssr.test.ts`. No API/architecture/backend contract changed — the review
   consolidates this with S6/S7/S8/S10's notes into one `frontend` version.
+
+- **S7 addendum, found and recorded by `P11.S10` (`P11.S7` itself had no "Doc impact" bullet, and needed
+  one).** `P11.S7`'s changes are user-facing frontend truth like S6/S8/S9's, so `docs/current/frontend.md`
+  is stale in the same way: `:64`'s `landing/` module listing and `:231`'s landing-composition sentence
+  describe the hero as the two-column grid only (no mention of the install row `P11.S7` appended below it)
+  and don't reflect the nav's new five-link order (`How it works · Get started · Features · Pricing ·
+  Docs`, a whole-array reorder, not merely an insert — `landing.ts:52-56`). Both are real, checkable claims
+  once the review writes the consolidated `frontend` version — fold this in with S6/S8/S9's notes rather
+  than treating it as a sixth separate change; there is one `frontend` version to write, not six. No new
+  source change caused this addendum — `P11.S10` made no code edits (see its "S10 done" note below); this
+  is a gap-fill in the accumulated notes, done specifically because S10 was asked to make sure this section
+  is complete before the review runs.
+
+### S10 done — design-fidelity pass: zero code changes, one decision recorded (2026-07-29)
+
+`P11.S10` ran all seven §11 acceptance checks, the §8 no-JS floor, the §9 a11y floor, and the whole-round
+consistency checks (§5 of its own plan) against the finished round, and made **no source changes** — every
+check passed as shipped. Full verbatim evidence is in the slice's `result.md`; the load-bearing findings for
+the review:
+
+- **Acceptance check 3 (the composite no-`<button` check) needed a real `next start` + fetch of `/`,
+  not `renderToStaticMarkup`** — `page.tsx`'s `LandingPage` is an `async` server component reading the
+  session cookie, which that technique can't reach. The fetched pre-hydration HTML contains **exactly one**
+  `<button` in the whole document: P9's pre-existing `disabled=""` Pricing CTA (`Not yet — vocky is free
+  today`). No copy button — hero, any of the quickstart's four snippets, or either skill-pane button —
+  appears anywhere in the no-JS frame.
+- **Acceptance check 2 was re-run for real**, this time against a running server rather than only a source
+  read: appended a byte to `web/public/SKILL.md` (`119/7975` → `120/7976`), rebuilt, fetched `/`, and the
+  served meta line read the new computed values (`120 lines · 7976 bytes`); restored byte-for-byte from a
+  backup, rebuilt, fetched again (`119 lines · 7975 bytes`), and confirmed `git status` shows **zero diff**
+  on either `SKILL.md` and `scripts/skill_parity.py` reports `PASS` again post-restore. `pnpm
+  typecheck`/`lint`/`test`/`build` were all re-run clean after the restore.
+- **The `Section` padding question is decided: keep the shipped default (72/104px + the standard `px-5
+  md:px-14` gutter) for both `AgentQuickstart` and `SkillSection`; §5/§6's literal `Padding: 84px 28px` is
+  not applied to either.** This is the same call S8 and S9 already made, re-derived independently with a
+  stronger argument (full reasoning in `result.md`): their "no token lands on 84px, §1 forbids a new token"
+  point doesn't actually hold — an arbitrary Tailwind value like `py-[84px]` adds no token, and this exact
+  round already uses that technique a dozen other places (`rounded-[12px]`, `text-[13.5px]`, `size-[34px]`,
+  …) — so that reasoning is dropped as a supporting point, but the conclusion still holds on stronger
+  grounds: (1) the literal **28px** horizontal value is not the landing's shared gutter (`px-5 md:px-14` =
+  20/56px, identical across every other `Section`-based band), so honouring it would create a genuinely
+  visible edge-misalignment between these two sections and every neighbour — a real defect, not a style
+  nit; (2) the "`Padding: 84px 28px`" line is **identical, word-for-word, across two structurally different
+  sections**, always paired with the same "container 1180px" line, which reads as the design tool's own
+  generic Section-wrapper boilerplate — the same class of artifact DECOMP2's correction 3 already
+  identified for `.eyebrow`/`.note`/`.tag`/`.card` — whereas `container: 1180px` survives because it happens
+  to coincide with a real repo token (`max-w-page`), not because the whole line is normative; (3) `Section`
+  is itself a shared primitive whose entire job is one consistent padding rhythm across every band on the
+  page, and no other landing section overrides it — a one-off override here would be the actual
+  design-fidelity break. **This is recorded as a deliberate, argued departure from two explicit contract
+  values, made once and applied to both sections identically** — not an oversight, and no code change
+  follows from it.
+- **§9's "the two scrollers" is confirmed to describe one element in its two visual states, not two DOM
+  nodes.** The round added exactly one `overflow-auto` region (`skill-preview-body.tsx`'s pane body,
+  `tabIndex={0}` at line 88), covering both the collapsed (300/380px) and expanded (480/640px) states.
+  `Snippet`'s `overflow-x-auto` is a separate, single-line horizontal scroll whose full content is already
+  static selectable text with nothing clipped from assistive tech — no earlier slice ever flagged it as
+  needing `tabIndex`, and it doesn't need one. Global focus ring and reduced-motion CSS
+  (`globals.css:276-279`, `:282-291`) cover everything else with zero new component CSS, confirmed by `git
+  log` showing no P11 commit has ever touched `globals.css`.
+- **§7's asymmetric copy states and the §8 no-JS floor were verified by reading the code against the
+  table** (2000ms revert with a cleared timer, persisting failure with a `Range`/`Selection` select, absent
+  — not disabled — buttons pre-hydration, the no-JS footer string, the always-present download anchor) —
+  **not** exercised through a DOM, since this repo's vitest is `environment: "node"` with no jsdom/RTL. Per
+  the plan, no browser test runner was added. The three existing `*-ssr.test.ts` files already regression-
+  test the no-JS half of this in CI without jsdom; the interactive half (the real 2000ms timer, the real OS
+  selection, the real announcement) remains genuinely unverified here and is stated as such, not asserted.
+- **A `format:check` observation, not a validation-step finding** (it isn't in this slice's numbered
+  validation list and stays out of CI): 14 files now fail `pnpm format:check`, not the 12 the phase's
+  standing constraint names. The 2 extra are `agent-quickstart.tsx` (net-new, S8) and `hero.tsx` (touched by
+  S7), both solely due to `prettier-plugin-tailwindcss` reordering class lists — the exact non-issue S8's
+  notes already named. Confirmed `hero.tsx` was prettier-clean at the P10.REVIEW baseline commit, so this
+  one is new to the round, not inherited. **Not fixed** — `format:check` is deliberately not in CI and
+  fixing it is P12's call — but worth recording precisely so a later prettier sweep doesn't undercount.
+
+**Not proven** (same standing note as every P11 slice): nothing here was checked against a live origin — the
+site is not deployed until P12, and every fetch above was against a local `next start`, never
+`vocky.hi2vi.com`.
