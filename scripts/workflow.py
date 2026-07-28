@@ -29,22 +29,22 @@ CLAUDE_AGENTS = ROOT / ".claude" / "agents"
 CODEX_AGENTS = ROOT / ".codex" / "agents"
 EXECUTOR_TIERS = ("low", "mid", "high")
 # Shipped presets for the slice-executor tiers. A top-level mode = "<preset>" key in
-# the repo-root executors.toml picks one (absent file or key -> flex); per-tier
+# the repo-root executors.toml picks one (absent file or key -> economy); per-tier
 # [claude.<tier>] / [codex.<tier>] tables with model/effort keys override the active
 # preset field by field; apply with `sync-agents`. An empty effort means "write no
 # effort line" — the escape hatch for models that reject the effort parameter
 # (e.g. haiku). Models may not be empty. Codex tiers are identical in both presets.
-DEFAULT_EXECUTOR_MODE = "flex"
+DEFAULT_EXECUTOR_MODE = "economy"
 EXECUTOR_PRESETS = {
     "flex": {
-        "low": {"model": "sonnet", "effort": "xhigh", "codex_model": "gpt-5.5", "codex_effort": "medium"},
-        "mid": {"model": "opus", "effort": "xhigh", "codex_model": "gpt-5.5", "codex_effort": "high"},
+        "low": {"model": "sonnet", "effort": "high", "codex_model": "gpt-5.5", "codex_effort": "medium"},
+        "mid": {"model": "sonnet", "effort": "xhigh", "codex_model": "gpt-5.5", "codex_effort": "high"},
         "high": {"model": "opus", "effort": "xhigh", "codex_model": "gpt-5.5", "codex_effort": "xhigh"},
     },
     "economy": {
-        "low": {"model": "haiku", "effort": "", "codex_model": "gpt-5.5", "codex_effort": "medium"},
-        "mid": {"model": "sonnet", "effort": "xhigh", "codex_model": "gpt-5.5", "codex_effort": "high"},
-        "high": {"model": "opus", "effort": "xhigh", "codex_model": "gpt-5.5", "codex_effort": "xhigh"},
+        "low": {"model": "sonnet", "effort": "medium", "codex_model": "gpt-5.5", "codex_effort": "medium"},
+        "mid": {"model": "sonnet", "effort": "high", "codex_model": "gpt-5.5", "codex_effort": "high"},
+        "high": {"model": "opus", "effort": "high", "codex_model": "gpt-5.5", "codex_effort": "xhigh"},
     },
 }
 
@@ -150,7 +150,7 @@ def read_executors_toml() -> tuple:
 
 
 def executor_config() -> dict:
-    """The active preset (top-level mode in executors.toml; default flex) overlaid with any per-tier overrides; values pass through verbatim."""
+    """The active preset (top-level mode in executors.toml; default economy) overlaid with any per-tier overrides; values pass through verbatim."""
     mode, overrides = read_executors_toml()
     preset = EXECUTOR_PRESETS[mode or DEFAULT_EXECUTOR_MODE]
     config = {tier: dict(preset[tier]) for tier in EXECUTOR_TIERS}

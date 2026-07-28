@@ -6,7 +6,8 @@
       "Edit",
       "Write",
       "Glob",
-      "Grep"
+      "Grep",
+      "Bash(cp:*)"
     ],
     "deny": [
       "Bash(git push:*)",

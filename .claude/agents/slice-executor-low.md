@@ -3,7 +3,7 @@ name: slice-executor-low
 description: Executes exactly one already-planned slice in an isolated context; returns a structured verdict. Never commits and never transitions slice/phase status. Low tier - literal plan execution for low-risk slices; escalates on any surprise.
 tools: Read, Edit, Write, Glob, Grep, Bash
 model: sonnet
-effort: xhigh
+effort: medium
 permissionMode: bypassPermissions
 ---
 

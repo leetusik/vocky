@@ -23,7 +23,12 @@ Check:
 - Do `docs/current/*.md` match the latest versions in `docs/index.json` after consolidation? (`python3 scripts/workflow.py validate` checks this.)
 - Are any issues serious enough to require fix slices?
 
-On a **passing** review, before recording `pass`, consolidate docs: for each durable-truth area changed across the phase (per the "Doc impact" notes in `phase.md`), run `python3 scripts/workflow.py doc-new-version --doc <doc> --summary "..." --source <P>.REVIEW`, edit only the returned `edit_path`, then `python3 scripts/workflow.py rebuild-docs` — one version per affected doc, capturing the whole phase. On `changes_requested` / `blocked`, version nothing — fixes land first and the eventual passing re-review consolidates them.
+**Form the verdict from the complete picture, then branch on it.** Finish the validation and the judgment across every slice *first* — never abort at the first failing check, or the orchestrator learns one finding per review cycle instead of all of them at once. Only once the verdict is settled does the review split:
+
+- On a **passing** review, before recording `pass`, consolidate docs: for each durable-truth area changed across the phase (per the "Doc impact" notes in `phase.md`), run `python3 scripts/workflow.py doc-new-version --doc <doc> --summary "..." --source <P>.REVIEW`, edit only the returned `edit_path`, then `python3 scripts/workflow.py rebuild-docs` — one version per affected doc, capturing the whole phase.
+- On **`changes_requested` or `blocked`, stop here and hand back.** Doc consolidation is pass-only work: do not run it, and do no other pass-only step either. Return to the orchestrator the verdict, the numbered findings, and the proposed fix slices (`<P>.F<n>`, one line of scope each); it decides what happens next — create the fix slices, or take the decision to the operator. This is a full stop, not a skipped step you carry on past: the review ends there, and the docs stay unversioned until a later passing re-review consolidates the whole phase in one go.
+
+**The review does not write the phase explainer.** Explaining is a separate operation the operator runs when they want one (`/explain`); it left the review's default behaviour, so the review locates no explain skill, runs no KB probe, and has no offline fallback or commit of any kind. Its whole obligation is one pointer line, reported in `result.md` and in the structured return, identical on every verdict: `explain: not written — run /explain for this phase`.
 
 The orchestrator records exactly one verdict (the executor returns it; the executor never runs `review-phase` itself):
 

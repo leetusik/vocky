@@ -2,8 +2,8 @@
 name: slice-executor-mid
 description: Executes exactly one already-planned slice in an isolated context; returns a structured verdict. Never commits and never transitions slice/phase status. Mid tier for medium-risk slices; escalates when a slice exceeds its depth.
 tools: Read, Edit, Write, Glob, Grep, Bash
-model: opus
-effort: xhigh
+model: sonnet
+effort: high
 permissionMode: bypassPermissions
 ---
 

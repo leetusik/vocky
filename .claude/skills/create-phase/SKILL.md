@@ -15,6 +15,8 @@ Turn an operator request for new work into one or more phases — or a deferred 
 
 2. **Clarify.** Ask the operator about anything ambiguous before acting: scope and boundaries, whether this is one phase or several, a sensible name and objective for each, and whether the work should start now (a phase) or be parked for later (a deferred job). Wait for answers. Do not run any `workflow.py` command yet.
 
+   **If the work touches product visual design, one of those questions is the design split** — read the `design-cowork` skill and ask whether this is **one phase** (a design slice, then the build, decomposed in two passes) or **two** (a *design* phase, then an *apply* phase — the shape a big design wants). This is the only place that call can be made: the `DECOMP` slice's executor is forbidden from running `new-phase`, so a two-phase split decided later cannot be created from inside decomposition.
+
 3. **Confirm.** Present your refined understanding back to the operator — for each phase, the proposed **name** and **objective**; for deferred work, the title, reason, and trigger. Get explicit confirmation. Per the contract, do **not** run `new-phase` until the operator confirms.
 
 4. **Route on the operator's choice:**

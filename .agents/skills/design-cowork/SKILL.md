@@ -40,10 +40,33 @@ read-back — …`, with the `pending` window between them.
   **Implementation is always its own slice.**
 - **Big design → several design slices**, one per round, each with its own handoff and `pending`, and
   **two phases** (a *design* phase, then an *apply* phase — foundation first, net-new capabilities
-  isolated, a closing consistency sweep last). Otherwise one phase: **design slice → implement slice**.
+  isolated, a closing consistency sweep last). Otherwise one phase: **design slice → build**, cut in two
+  passes (next bullet). Which of the two it is gets decided at `/create-phase` — the `DECOMP` slice's
+  executor may not run `new-phase`, so a split decided later cannot be created from inside decomposition.
+- **A phase that both designs and builds decomposes in TWO passes.** The design decides *what gets
+  built* — features appear and disappear at the gate — so the opening `DECOMP` **must not cut the build
+  slices**; it cannot know them. It creates only what is knowable before the gate: any groundwork slices
+  that run first, the design slice(s), and a **second decomposition slice `P<N>.DECOMP2`**
+  (`--kind decomposition --risk high`) ordered immediately after the **last** design slice. **How many
+  design slices there are is decided here, at the first `DECOMP`** — a design with many items to cover
+  splits into several rounds, one slice each, each with its own handoff and `pending` gate; that count is
+  knowable up front from the inventory, unlike the build slices. What it produces
+  *instead* of build slices is a **build inventory** in `phase.md` — the candidate feature/surface list,
+  **what** to build, not how. That inventory is what the handoff's scope checklist is written from, and
+  the design is free to add to it and cut from it. A design slice keeps ordinary `S<n>` numbering: it is
+  not necessarily the phase's first slice.
+- **`P<N>.DECOMP2` cuts the build slices once the design has landed** — from the landed spec in
+  `phase.md` and the round's `build-prompt.md` — at orders after its own: **backing/backend work first,
+  then the design implementation**, then any fidelity fix. In every other way an ordinary decomposition
+  slice: the orchestrator plans it, `slice-executor-high` executes it, bare folders only, `--risk` set
+  deliberately, breakdown recorded in `phase.md`.
+- **A design-only phase keeps the single pass** — `DECOMP` → design slice(s) → `REVIEW`; there is nothing
+  left to cut. So does the *apply* phase of a two-phase split: its own `DECOMP` already runs after the
+  design landed.
 - **Expect the read-back to re-shape the phase** — it routinely proves the design is bigger than
-  decomposition assumed; cut new slices at fractional orders afterward. **Do not over-plan before the
-  gate:** you do not know what the operator will design.
+  decomposition assumed. In a mixed phase `DECOMP2` **is** that re-shaping, which is why it exists; in a
+  design-only or apply phase — and for anything `DECOMP2` itself missed — cut new slices at fractional
+  orders afterward. **Do not over-plan before the gate:** you do not know what the operator will design.
 - A **design-fidelity fix** slice is part of the normal shape, not a failure.
 
 ## The handoff — say what to design, decide nothing
@@ -168,3 +191,5 @@ feature. Put this rule in the implement slice's `plan.md` **and** the executor's
 - Write implementation code in a design slice.
 - Edit the returned record.
 - Rate a design slice `low`.
+- Pre-plan past the design gate — `DECOMP2` and everything after it is planned from the **landed**
+  design, never before it.
