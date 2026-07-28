@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import {
+  AgentQuickstart,
   ClosingCTA,
   Features,
   Hero,
@@ -25,6 +26,10 @@ import { getSession } from "@/lib/session";
 //
 // Server component throughout; the only client island is the `<Reveal>` inside
 // the `<Section reveal>` bands (progressive-enhancement, reduced-motion-safe).
+//
+// P11.S8 inserts `AgentQuickstart` at position 4, between `HowItWorks` and
+// `Showcase` (round 02 build-prompt §2). `SkillSection` lands at position 5,
+// P11.S9's job — not added here.
 export default async function LandingPage() {
   const token = await getSession();
   if (token) redirect("/dashboard");
@@ -36,6 +41,7 @@ export default async function LandingPage() {
         <Hero />
         <TrustStrip />
         <HowItWorks />
+        <AgentQuickstart />
         <Showcase />
         <Features />
         <Pricing />

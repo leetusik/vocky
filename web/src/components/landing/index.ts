@@ -7,6 +7,8 @@ export { LandingNav } from "./landing-nav";
 export { Hero } from "./hero";
 export { TrustStrip } from "./trust-strip";
 export { HowItWorks } from "./how-it-works";
+// P11.S8 — round 02's agent quickstart, page position 4, anchored `#quickstart`.
+export { AgentQuickstart } from "./agent-quickstart";
 export { Showcase } from "./showcase";
 export { Features } from "./features";
 export { Pricing } from "./pricing";

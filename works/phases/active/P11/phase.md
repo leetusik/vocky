@@ -917,6 +917,56 @@ correction 1. All ten validation steps passed; full verbatim output in the slice
 **Not proven** (same standing note as every P11 slice): nothing here was checked against a live origin —
 the site is not deployed until P12.
 
+### S8 done — `AgentQuickstart` landed (2026-07-29)
+
+`P11.S8` built `web/src/components/landing/agent-quickstart.tsx` (server component, zero props)
+and inserted it at page position 4. All ten validation steps passed (`typecheck` 0, `lint` 0,
+`test` **70 → 73**, `build` 0 with `ƒ /` unchanged, the literal-copy grep clean after one
+comment-wording fix, `style={{`/`role="alert"`/`aria-live="assertive"` all clean, a new permanent
+`web/tests/agent-quickstart-ssr.test.ts` proving no copy button across all four snippets, and
+`#quickstart` confirmed reachable from both the rendered id and `landing.ts`'s nav entry); full
+verbatim output in the slice's `result.md`.
+
+- **Two class-name corrections found by reading the primary source (`build-prompt.md`) against
+  `plan.md`, not just against the tree** — a new category beyond DECOMP2's nine: the plan's own
+  prose can drift from the design record it's translating. Both are recorded in full in
+  `result.md`'s Deviations section; summary for S9/S10:
+  1. **Reading-list chip radius is `rounded-sm` (6px), not `rounded-md` (8px).** `build-prompt.md`
+     §3.3 gives the raw value `border-radius:6px`; this repo's token scale maps 6px to
+     `radius-sm`, not `radius-md` (which is 8px here — a repo-specific redefinition, not stock
+     Tailwind's own 6px `md`). `plan.md` had written `rounded-md` directly; the raw px value is
+     normative per this same phase's own correction 5 precedent. **If S9 or S10 hits another
+     spec'd `border-radius:6px` anywhere, it's `rounded-sm` in this repo, not `rounded-md`.**
+  2. **Avoid `text-caption` next to an explicit `font-bold`/`font-*` override anywhere on the
+     landing.** `text-caption` (and every other composite `--text-*` token) bundles its own
+     `font-weight` in the same CSS custom property group as `font-size`/`line-height`; stacking an
+     unrelated `font-bold` class alongside it does not reliably win in the compiled cascade (no
+     guaranteed source-order tiebreak). S8's reading-list chip needed 12px/700 and used
+     `text-[12px] font-bold` instead of `text-caption font-bold` for exactly this reason.
+- **The section's own padding was deliberately left at `Section`'s default `py-section
+  md:py-section-lg`, not overridden to the spec's literal `84px 28px`.** No token lands on 84px,
+  and every other `Section`-based landing component (`HowItWorks`, `Showcase`, `Features`,
+  `Pricing`, `ClosingCTA`) already ships with `Section`'s baked-in padding rather than a
+  pixel-exact override — this is page-wide precedent, not a new judgment call invented here.
+  `Section`'s own container already lands exactly on `max-w-page` (1180px), confirmed before
+  writing any code — no second container was added.
+- **The `withInlineCode(text, code)` helper and its `INLINE_CODE_CLASS` companion are file-private
+  to `agent-quickstart.tsx`, not exported.** `S9`'s `skill.lede` is the same `{ text, code[] }`
+  shape and will want the identical treatment — either duplicate the ~12-line helper (matches this
+  phase's "one consumer, build inline" pattern already used for `Note`/`ReadingList`) or promote it
+  to a shared module; neither this slice's plan nor `build-prompt.md` calls for a shared helper, so
+  it was left un-promoted. Worth deciding explicitly at S9's plan time rather than defaulting.
+- **`ReadingList`'s third row renders the literal copy value `"else"` in its status chip, as
+  authored in `landing.ts` — not a placeholder needing a nicer label.** `LANDING.quickstart` is
+  final copy; this file does not second-guess field values, only how they're styled.
+- **`page.tsx` and `landing/index.ts` were both touched here, as `DECOMP2` flagged S8 and S9 both
+  would be** — S9 runs after S8 by `order`, so there is no conflict; S9's insertion point is
+  simply "after `<AgentQuickstart />`, before `<Showcase />`" and its barrel export goes after the
+  `// P11.S8 — …` line this slice added.
+- **Nothing here touches `#skill`'s target** — the peer row's `href="#skill"` compiles and its
+  anchor exists (`SECTION_IDS.skill`, from S6), but resolves to nothing until S9 lands the section,
+  exactly as the phase's DECOMP2 notes anticipated ("transient dead anchor").
+
 ## Doc impact
 
 - **S6** (`P11.S6`): `docs/current/frontend.md` is now stale in two specific places — its primitive
@@ -953,3 +1003,9 @@ the site is not deployed until P12.
   `.github/workflows/ci.yml` as the repo's first push/pull_request gate, its three jobs, and the two
   deliberate exclusions — no `format:check`, no pytest — as P12's to close), and `docs/current/qa.md` if the
   CI gate belongs there, all may need updates at the phase review.
+
+- **S8** (`P11.S8`): `docs/current/frontend.md` is now stale in one more specific place — its
+  landing-section inventory (whatever line enumerates `Hero / TrustStrip / HowItWorks / Showcase /
+  Features / Pricing / ClosingCTA`) must gain **`AgentQuickstart`** at position 4 (`#quickstart`,
+  the CLI + `VOCKY_API_TOKEN` agent onboarding path). No API/architecture change — the review
+  consolidates this with S6/S7/S9/S10's inventory notes into one `frontend` version.
