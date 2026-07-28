@@ -41,10 +41,17 @@ export const LANDING = {
   // In-page anchors derive from SECTION_IDS so they never drift from the
   // `<Section id>` targets. "Docs" is an EXTERNAL link (the repo README), not an
   // in-page anchor — vocky has no `/docs` route to fake.
+  //
+  // P11.S7 (round 02 build-prompt §2): "How it works" moves to first and "Get
+  // started" -> #quickstart is inserted second — a REORDER of the whole array,
+  // not an insert into today's order, so the final string reads
+  // "How it works · Get started · Features · Pricing · Docs". #skill gets no
+  // nav link. Five links is the ceiling.
   nav: {
     links: [
-      { label: "Features", href: `#${SECTION_IDS.features}` },
       { label: "How it works", href: `#${SECTION_IDS.how}` },
+      { label: "Get started", href: `#${SECTION_IDS.quickstart}` },
+      { label: "Features", href: `#${SECTION_IDS.features}` },
       { label: "Pricing", href: `#${SECTION_IDS.pricing}` },
       { label: "Docs", href: DOCS_URL, external: true },
     ],

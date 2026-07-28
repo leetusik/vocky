@@ -3,14 +3,14 @@
   "phase_id": "P11",
   "name": "Hero install row + nav (one new link, nav order per build-prompt 2)",
   "kind": "implementation",
-  "status": "todo",
+  "status": "done",
   "order": 8,
   "depends_on": [
     "P11.S6"
   ],
   "created_at": "2026-07-29T04:05:31+09:00",
-  "started_at": null,
-  "completed_at": null,
+  "started_at": "2026-07-29T04:32:04+09:00",
+  "completed_at": "2026-07-29T04:40:30+09:00",
   "risk": "medium",
   "source": {
     "type": "manual",

@@ -877,6 +877,46 @@ editing the verify command**: its `'%{http_code}\n'` needs `\\n` in the TS templ
 line continuation needs `\\`. This is the repo's first test importing from `@/content`; it works (no
 `server-only`, no JSX in that graph).
 
+### S7 done — hero install row + nav reorder landed (2026-07-29)
+
+`P11.S7` appended the install row below the hero's existing two-column grid (consuming S6's `Snippet` +
+`heroInstall` copy unchanged) and reordered `LANDING.nav.links` to
+`How it works · Get started · Features · Pricing · Docs` — a whole-array reorder, not an insert, per
+correction 1. All ten validation steps passed; full verbatim output in the slice's `result.md`.
+
+- **`landing-nav.tsx` needed zero changes.** It already maps generically over `nav.links` with no hardcoded
+  index or count, so the reorder + new `Get started` entry flowed through the existing component as-is —
+  confirmed before touching anything, per the plan's instruction.
+- **Active nav state case, confirmed: NONE exists today.** `landing-nav.tsx` has no scroll-spy, no
+  `IntersectionObserver`, no "current section" state of any kind — every link renders with the same static
+  class. Per §2's own qualifier ("same mechanism the existing nav uses if any; otherwise none"), no
+  scroll-spy was built. Any later slice or the review should not read "no active state" as an omission.
+- **`text-micro` is the exact token for the hero's micro label**, not an approximation: 11px/1.4/**0.8px**
+  tracking/700 (`globals.css:149-152`) matches §4's "11px/700/letter-spacing:.8px" precisely with no
+  override — same combination `ui/trap.tsx:43` already uses for its own label. Useful precedent for any
+  later slice styling a similar micro-label.
+- **The `vk_live_` grep (validation step 6) is no longer clean against `docs/` and never will be again**:
+  S5's design-record files (`build-prompt.md`, `output/result.md`, `handoff.md`) permanently contain the
+  literal string in negation form ("no `vk_live_`", "showed a `vk_live_` key tier [now corrected]") as part
+  of documenting the correction. These are read-only and pre-date this slice (landed at S5's commit). Any
+  later slice running this grep should expect exactly these three hits and confirm no *new* ones — the
+  bar is "no new matches in `web/`/`src/`", not "zero matches anywhere in `docs/`". This slice's own new
+  hero.tsx comment deliberately avoids spelling the literal string, so it adds none.
+- **Nav order, confirmed twice**: the `landing.ts` array, and a `renderToStaticMarkup` render of the actual
+  `LandingNav` component whose five in-page/`Docs` anchor labels came back in exactly
+  `How it works · Get started · Features · Pricing · Docs`.
+- **No copy button in the hero's server HTML, confirmed by hand** (temporary, not-committed
+  `renderToStaticMarkup` test on the real `Hero` component — same technique as S6's `snippet-ssr.test.ts`,
+  not an extension of that file). Both caption variants (`caption` / `captionNarrow`) render in the server
+  HTML simultaneously, confirming the width swap is CSS-only (`app:hidden` / `hidden app:block`), never JS.
+- **Both new `app:` utility classes verified compiled**, not just accepted by `tsc`: grepped the built
+  `.next/static/chunks/*.css` and found `app:grid-cols-[auto_minmax(0,1fr)]` and `app:gap-7` both correctly
+  nested under `@media (min-width:56.25rem)` (900px) — Tailwind can silently drop a malformed arbitrary
+  value, so this is worth checking explicitly for any later slice using a similar bracketed grid template.
+
+**Not proven** (same standing note as every P11 slice): nothing here was checked against a live origin —
+the site is not deployed until P12.
+
 ## Doc impact
 
 - **S6** (`P11.S6`): `docs/current/frontend.md` is now stale in two specific places — its primitive

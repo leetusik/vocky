@@ -7,6 +7,7 @@ import {
   Chip,
   EndpointCard,
   Section,
+  Snippet,
 } from "@/components/ui";
 import { LANDING } from "@/content";
 import { cn } from "@/lib/utils";
@@ -21,8 +22,13 @@ import { cn } from "@/lib/utils";
 // The Korean message carries `break-keep` (word-break: keep-all) so an eojeol
 // never splits across lines — the same locked floor globals.css applies to
 // headings, made explicit here for the body-copy example.
+//
+// P11.S7 appends the install row (round 02 build-prompt §4) BELOW this grid.
+// Nothing above this comment changed: the grid, the CTAs and the EndpointCard's
+// P11.S1-corrected payload (nested `source.product`, no live-tier prefix) are
+// untouched.
 
-const { hero } = LANDING;
+const { hero, heroInstall } = LANDING;
 
 const requestText = `${hero.request.auth}
 Content-Type: application/json
@@ -91,6 +97,36 @@ export function Hero() {
               ))}
             </div>
           </Card>
+        </div>
+      </div>
+
+      {/* Install row (round 02 build-prompt §4) — never inside the grid above.
+          `Start free` stays the primary CTA; this row is prominent by position,
+          quiet by weight (a mono row + secondary copy button, never a filled
+          button — result.md §6.1b). Narrow (<900px, `--breakpoint-app`): single
+          column, label block above the snippet, caption drops its third clause
+          via a CSS-only `app:` swap — never JS, to keep the no-JS floor and
+          avoid a hydration mismatch. */}
+      <div className="mt-11 grid grid-cols-1 items-center gap-[10px] border-t border-hairline pt-[26px] app:grid-cols-[auto_minmax(0,1fr)] app:gap-7">
+        <div>
+          <p className="font-mono text-micro text-green-dark uppercase">
+            {heroInstall.label}
+          </p>
+          <p className="mt-1 max-w-[22ch] text-body-sm text-steel">
+            {heroInstall.sub}
+          </p>
+        </div>
+
+        <div className="min-w-0">
+          <Snippet
+            variant="row"
+            command={heroInstall.command}
+            copy={{ ...LANDING.snippet, announcement: heroInstall.copyAnnouncement }}
+          />
+          <p className="mt-2 font-mono text-[11.5px] text-steel">
+            <span className="app:hidden">{heroInstall.captionNarrow}</span>
+            <span className="hidden app:block">{heroInstall.caption}</span>
+          </p>
         </div>
       </div>
     </Section>
