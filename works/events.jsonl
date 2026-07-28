@@ -315,3 +315,11 @@
 {"ts": "2026-07-28T23:53:46+09:00", "type": "doc_version_created", "doc": "decisions", "version": "v0007_p10_add_d-p10-1..5_no_tenants-to-orgs_rename_a_default_project_but_a_friendly_org_name_one_vk__prefix_for_both_scopes_omitting_--project_mints_an_org_key_and_no_design_round_for_the_org-key_surface", "source": "P10.REVIEW"}
 {"ts": "2026-07-29T00:01:26+09:00", "type": "slice_status_changed", "slice": "P10.REVIEW", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-07-29T00:01:26+09:00", "type": "phase_reviewed", "phase": "P10", "verdict": "pass", "reviewer": "slice-executor-high"}
+{"ts": "2026-07-29T00:15:04+09:00", "type": "slice_status_changed", "slice": "P11.DECOMP", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-07-29T00:18:18+09:00", "type": "slice_created", "phase": "P11", "slice": "P11.S1"}
+{"ts": "2026-07-29T00:18:18+09:00", "type": "slice_created", "phase": "P11", "slice": "P11.S2"}
+{"ts": "2026-07-29T00:18:18+09:00", "type": "slice_created", "phase": "P11", "slice": "P11.S3"}
+{"ts": "2026-07-29T00:18:18+09:00", "type": "slice_created", "phase": "P11", "slice": "P11.S4"}
+{"ts": "2026-07-29T00:18:18+09:00", "type": "slice_created", "phase": "P11", "slice": "P11.S5"}
+{"ts": "2026-07-29T00:18:18+09:00", "type": "slice_created", "phase": "P11", "slice": "P11.DECOMP2"}
+{"ts": "2026-07-29T00:22:01+09:00", "type": "slice_status_changed", "slice": "P11.DECOMP", "old_status": "in_progress", "new_status": "done"}
