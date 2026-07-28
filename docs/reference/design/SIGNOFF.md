@@ -4,6 +4,69 @@ _A factual record of each closed design gate. Newest round first._
 
 ---
 
+## Round 02 — onboarding on the landing · gate closed 2026-07-29
+
+**Phase:** P11 · **Slice:** P11.S5 · **Reviewer:** orchestrator-inline read-back (DesignSync)
+**Design project:** `1eaa0803-46e3-426a-ab04-17a802170234` (`vocky design system`, verified by id —
+the same project as round 01)
+
+### Authorization — the operator's literal words
+
+> "done"
+
+The round's design decisions were concluded by the operator in the Claude Design session. The record
+notes that the operator answered **"Decide for me" to all thirteen** of the handoff's §6 open questions,
+delegating each to the session — so the decisions are Claude Design's, made under the operator's explicit
+delegation, and each is recorded with its reasoning in `rounds/02-onboarding/output/result.md` §2.
+
+### What this covers
+
+Three onboarding surfaces the landing page did not have: a **hero install row** carrying
+`curl -fsSL https://vocky.hi2vi.com/install.sh | bash`, an **agent quickstart** section built around the
+two-variable contract (`VOCKY_BASE_URL` + `VOCKY_API_TOKEN`), and a **skill section** publishing
+`/SKILL.md` for reading, copying, and download.
+
+### What this supersedes
+
+**Nothing.** Round 01's brand, tokens, and shipped components are unchanged, and no existing landing copy
+or component was touched. This round is purely additive.
+
+### Token delta
+
+**None.** Every value resolves to an existing `@theme` token. The caution family (`--color-caution`,
+`--color-caution-deep`, `--color-surface-caution`, `--color-hairline-caution`) was shipped in round 01 but
+had no consumer; it now carries the trap treatment. The new vocabulary is **composition, not new tokens** —
+three new components (`Snippet`, `Trap`, `SkillPreview`), specified in `output/build-prompt.md` §3.
+`web/src/app/globals.css` requires **no change**.
+
+### Record location & fidelity
+
+- `rounds/02-onboarding/handoff.md` — what we asked for (OUT).
+- `rounds/02-onboarding/output/{result.md, build-prompt.md}` — what Claude Design returned (IN), landed
+  **verbatim and read-only**. **The build slices `P11.DECOMP2` cuts build from `build-prompt.md`.**
+- **The card set stays in the design project** and is **not** copied down. The project now holds **43
+  cards** — round 01's 30 plus **13 new** this round, across `Landing` (5), `Components` (4) and
+  `States` (4). `_ds_manifest.json` compiled cleanly with counts in sync, so the round was genuinely
+  visible in the Design System pane.
+- `build-prompt.md` is self-sufficient by design: it carries every value, copy string, state, breakpoint
+  and no-JS behaviour, because the executors that implement it have **no DesignSync**.
+
+### Notes on this round's record
+
+- **The round read the repo via a local-directory connection, not GitHub.** The handoff flagged that
+  GitHub `main` was 45 commits behind local and that everything this round designs against was unpushed.
+  No push happened and `ci.yml` did not fire.
+- **A project-side path change, not a repo one:** round 01's `result.md` / `build-prompt.md` occupied the
+  design project's `output/`, so the session copied them **unchanged** to `output/round-01/` before writing
+  round 02 to the canonical `output/`. Nothing was edited or deleted, and **this repo's**
+  `rounds/01-brand-app-landing/output/` is untouched.
+- **Apply-time note (not a record edit):** `result.md` §6.4 logs that the handoff cited the skill as
+  *119 lines, 7,975 bytes* while `wc -l` reports 120 (119 content lines + trailing newline).
+  `build-prompt.md` §3.4 requires both figures be **computed from the served file, never hardcoded**, so
+  the discrepancy cannot reach production.
+
+---
+
 ## Round 01 — brand, app UI & landing · gate closed 2026-07-18
 
 **Phase:** P8 · **Slice:** P8.S2 · **Reviewer:** orchestrator-inline read-back (DesignSync)

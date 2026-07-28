@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P11`
-- Current slice: `P11.S5`
-- Next slice: `P11.DECOMP2`
-- Waiting on operator: `P11.S5`
+- Current slice: `P11.DECOMP2`
+- Next slice: `P11.REVIEW`
+- Waiting on operator: `none`
 - Open deferred jobs: `6`
-- Rebuilt at: `2026-07-29T01:01:03+09:00`
+- Rebuilt at: `2026-07-29T04:00:17+09:00`
 
 ## Active Phases
 
@@ -18,7 +18,7 @@
 |---|---|---|---|---|---|
 | [x] `P6` | `done` | `pass` | Landing Page, Webpage & Production Deploy | `none` | `works/phases/active/P6` |
 | [x] `P10` | `done` | `pass` | Accounts v2: orgs, org-level keys & default project | `none` | `works/phases/active/P10` |
-| [ ] `P11` | `planned` | `pending` | Frictionless onboarding: working install, env-var quickstart, agent skill on the landing | `P11.S5` | `works/phases/active/P11` |
+| [ ] `P11` | `planned` | `pending` | Frictionless onboarding: working install, env-var quickstart, agent skill on the landing | `P11.DECOMP2` | `works/phases/active/P11` |
 | [ ] `P12` | `planned` | `pending` | Production launch & hardening: bring-up, rate limits, CI tests, QA doc | `P12.DECOMP` | `works/phases/active/P12` |
 
 ## Phase P6: Landing Page, Webpage & Production Deploy
@@ -58,7 +58,7 @@
 | [x] `P11.S2` | `done` | CLI: VOCKY_API_TOKEN resolution + vocky capture over /api/feedback | `implementation` | `works/phases/active/P11/slices/P11.S2` |
 | [x] `P11.S3` | `done` | curl \| bash installer: web/public/install.sh | `implementation` | `works/phases/active/P11/slices/P11.S3` |
 | [x] `P11.S4` | `done` | Canonical end-user SKILL.md, served byte-copy, parity script + first CI workflow | `implementation` | `works/phases/active/P11/slices/P11.S4` |
-| [~] `P11.S5` | `pending` | Design round 02: hero install row, agent env-var quickstart, skill-on-landing | `co-work` | `works/phases/active/P11/slices/P11.S5` |
+| [x] `P11.S5` | `done` | Design round 02: hero install row, agent env-var quickstart, skill-on-landing | `co-work` | `works/phases/active/P11/slices/P11.S5` |
 | [ ] `P11.DECOMP2` | `todo` | Decompose the build from the landed design | `decomposition` | `works/phases/active/P11/slices/P11.DECOMP2` |
 | [ ] `P11.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P11/slices/P11.REVIEW` |
 

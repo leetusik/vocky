@@ -479,6 +479,60 @@ has never executed on a GitHub runner (unpushed; GitHub `main` is 45 commits beh
 never been fetched from a live origin (`404` today, must flip to `200` after the first deploy — the served
 bytes must then `cmp` clean against the canonical, same as the `/install.sh` flip probe).
 
+### S5 done — design round 02 landed (gate closed 2026-07-29)
+
+`P11.S5` was run **inline on the main thread** (never dispatched — no executor has `DesignSync`). The
+handoff went out, the operator ran the round in Claude Design, and the returned record was read back,
+concreteness-checked, and landed **verbatim and read-only**.
+
+- **Record (on disk, read-only):** `docs/reference/design/rounds/02-onboarding/handoff.md` (OUT) and
+  `output/{result.md, build-prompt.md}` (IN). SIGNOFF entry in `docs/reference/design/SIGNOFF.md`.
+- **`output/build-prompt.md` is the implementation contract** and is deliberately self-sufficient — the
+  build executors have **no DesignSync**, and **the 43-card set stays in the design project**. Everything
+  needed to build is in that file: exact values, final copy strings, states, breakpoints, no-JS behaviour.
+- **Token delta: None.** No `globals.css` change. The caution family shipped in round 01 but had no
+  consumer; it now carries the trap treatment. **Do not add or rename a token.**
+- **No backend change.** `POST /api/feedback` is untouched.
+- The operator delegated all thirteen §6 questions ("Decide for me"); every decision and its reasoning is
+  in `output/result.md` §2.
+
+**What the design decided, in brief — `P11.DECOMP2` cuts the build slices from this:**
+
+- **Two new sections at positions 4 and 5**, between `HowItWorks` and `Showcase`: `AgentQuickstart`
+  (tone `default`, id `quickstart`) and `SkillSection` (tone `surfaceSoft`, id `skill`). Both `reveal`.
+- **`section-ids.ts` gains exactly two entries** (`quickstart`, `skill`) — `SectionId` is typed, so the
+  sections cannot compile without them.
+- **`landing-nav.tsx` gains exactly one link**, second position: `Get started` → `#quickstart`. `#skill`
+  gets **no** nav link.
+- **The hero gains an install row** appended *below* the existing two-column grid. **Nothing inside the
+  grid changes** — the corrected payload (nested `source.product`, no `vk_live_`) must not be edited.
+- **Three new components:** `ui/snippet.tsx` (row + block variants, client copy island),
+  `ui/trap.tsx` (an `<aside>`, amber, deliberately **no** `role="alert"`/`aria-live`), and
+  `landing/skill-preview.tsx` (**server** component reading the served `/SKILL.md` at request time).
+- **The preview must never hardcode its line/byte counts** — they are computed from the file just read, or
+  they drift the moment the skill is edited. And it must never be a pasted excerpt: that forks silently
+  from the `scripts/skill_parity.py` gate even while CI stays green.
+- **No-JS behaviour is locked and normative** (`build-prompt.md` §8): copy buttons are client islands that
+  render only after mount, so a no-JS visitor sees **no button at all** rather than an inert one; the
+  preview is server-rendered and natively scrollable; `Download SKILL.md` is a plain `<a download>` and
+  always works.
+- **`400` is the success reading** on the verify step, and **`401` says stop, never retry** — the published
+  skill says so, and the page must not contradict it.
+- **Copy is `textContent`, never a re-typed string**, and the install command uses `white-space:pre` +
+  `overflow-x:auto` so it never reflows at any width.
+- **All copy goes in `web/src/content/landing.ts`** under `heroInstall` / `quickstart` / `skill` — round
+  01's copy-as-data rule holds, and `build-prompt.md` §11.4 makes "zero literal strings in the new
+  components" an acceptance check.
+
+**RESPECT THE DESIGN.** `build-prompt.md` opens with this and it belongs in every build slice's `plan.md`
+**and** its executor dispatch prompt: ship every designed element as designed; do not drop, simplify,
+restyle, or "improve" one to save effort. Where an exact value is unspecified, pick the option closest to
+the designed intent, never a plainer fallback.
+
+**Not decided by this round** (`result.md` §7): a cache policy for `/install.sh` and `/SKILL.md` (a P12
+bring-up question), whether the dashboard's key-mint flow links back to `#quickstart`, and Korean copy for
+the three new surfaces (English-only, same as the shipped landing).
+
 ## Doc impact
 
 - **S2** (`P11.S2`): `vocky capture` + `VOCKY_API_TOKEN` are now real — `docs/current/experience.md`
