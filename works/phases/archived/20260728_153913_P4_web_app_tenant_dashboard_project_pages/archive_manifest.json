@@ -1,0 +1,17 @@
+{
+  "phase_id": "P4",
+  "archived_at": "2026-07-28T15:39:13+09:00",
+  "archive_reason": "phase_review_passed",
+  "review_verdict": "pass",
+  "source_path": "works/phases/active/P4",
+  "archive_path": "works/phases/archived/20260728_153913_P4_web_app_tenant_dashboard_project_pages",
+  "slices": [
+    "P4.DECOMP",
+    "P4.S1",
+    "P4.S2",
+    "P4.S3",
+    "P4.S4",
+    "P4.S5",
+    "P4.REVIEW"
+  ]
+}

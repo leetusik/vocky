@@ -1,0 +1,16 @@
+{
+  "phase_id": "P1",
+  "archived_at": "2026-07-28T15:39:13+09:00",
+  "archive_reason": "phase_review_passed",
+  "review_verdict": "pass",
+  "source_path": "works/phases/active/P1",
+  "archive_path": "works/phases/archived/20260728_153913_P1_relicense_agent-capture_retirement",
+  "slices": [
+    "P1.DECOMP",
+    "P1.S1",
+    "P1.S2",
+    "P1.S3",
+    "P1.F1",
+    "P1.REVIEW"
+  ]
+}

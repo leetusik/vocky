@@ -1,0 +1,18 @@
+{
+  "phase_id": "P5",
+  "archived_at": "2026-07-28T15:39:13+09:00",
+  "archive_reason": "phase_review_passed",
+  "review_verdict": "pass",
+  "source_path": "works/phases/active/P5",
+  "archive_path": "works/phases/archived/20260728_153913_P5_cli_agent-first_onboarding",
+  "slices": [
+    "P5.DECOMP",
+    "P5.S1",
+    "P5.S2",
+    "P5.S3",
+    "P5.S4",
+    "P5.S5",
+    "P5.F1",
+    "P5.REVIEW"
+  ]
+}

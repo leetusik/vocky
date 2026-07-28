@@ -1,102 +1,6 @@
 {
   "active_phases": [
     {
-      "id": "P1",
-      "name": "Relicense & Agent-Capture Retirement",
-      "objective": "Relicense vocky from AGPL-3.0 to MIT and retire the MCP/agent-decided capture feature — remove the MCP server wiring, tools, config, and related docs — refocusing the product on human-triggered REST feedback as the base for the SaaS pivot.",
-      "status": "done",
-      "order": 1,
-      "path": "works/phases/active/P1",
-      "review_status": "pass",
-      "current_slice": null,
-      "slice_count": 6,
-      "done_slice_count": 6
-    },
-    {
-      "id": "P2",
-      "name": "Accounts, Tenancy & Projects Core",
-      "objective": "Replace static env-var bearer-token auth with real user accounts (signup/login) and introduce the multi-tenant SaaS core: tenants, projects, and per-project credentials. Free service — no paid plans or billing.",
-      "status": "done",
-      "order": 2,
-      "path": "works/phases/active/P2",
-      "review_status": "pass",
-      "current_slice": null,
-      "slice_count": 6,
-      "done_slice_count": 6
-    },
-    {
-      "id": "P3",
-      "name": "Feedback API v2, Search & Usage Monitoring",
-      "objective": "Expose a full tenant/project-scoped REST API over feedback (capture plus get/list/manage) so external services' admin panels can consume feedback directly; add proper feedback search across a user's projects and per-tenant/project usage monitoring.",
-      "status": "done",
-      "order": 3,
-      "path": "works/phases/active/P3",
-      "review_status": "pass",
-      "current_slice": null,
-      "slice_count": 6,
-      "done_slice_count": 6
-    },
-    {
-      "id": "P7",
-      "name": "Agent-Capture Revival (MCP write-only)",
-      "objective": "Reintroduce the retired agent-decided feedback capture as a write-only MCP surface: agents linked to a project's Vocky MCP endpoint save user feedback at their own judgement via a single capture_feedback tool, feeding the same feedback queue/store as REST. Scoped by P2 per-project credentials and aligned with P3's v2 capture shape; the three retired read tools stay retired.",
-      "status": "done",
-      "order": 3.5,
-      "path": "works/phases/active/P7",
-      "review_status": "pass",
-      "current_slice": null,
-      "slice_count": 4,
-      "done_slice_count": 4
-    },
-    {
-      "id": "P4",
-      "name": "Web App: Tenant Dashboard & Project Pages",
-      "objective": "Build the authenticated web app — tenant dashboard and project detail pages — in a new Next.js app (hi2vi_web-style), replacing the packaged operator admin UI.",
-      "status": "done",
-      "order": 4,
-      "path": "works/phases/active/P4",
-      "review_status": "pass",
-      "current_slice": null,
-      "slice_count": 7,
-      "done_slice_count": 7
-    },
-    {
-      "id": "P8",
-      "name": "Design Gate: Brand, App UI & Landing",
-      "objective": "Run the Claude Design gate for vocky's brand, the app UI and the landing: write the handoff, hold the operator's design session, read the design back, and land the signed-off design as an implementable spec. Implementation is P9.",
-      "status": "done",
-      "order": 4.5,
-      "path": "works/phases/active/P8",
-      "review_status": "pass",
-      "current_slice": null,
-      "slice_count": 4,
-      "done_slice_count": 4
-    },
-    {
-      "id": "P9",
-      "name": "Apply the Design: App UI, Landing & Feature Changes",
-      "objective": "Implement P8's signed-off design across the app and the landing page, from the gate's build-prompt.md — foundation first, net-new capabilities isolated, backend reopened where the design requires it, closing with a design-fidelity fix and a consistency/DoD sweep.",
-      "status": "done",
-      "order": 4.6,
-      "path": "works/phases/active/P9",
-      "review_status": "pass",
-      "current_slice": null,
-      "slice_count": 9,
-      "done_slice_count": 9
-    },
-    {
-      "id": "P5",
-      "name": "CLI & Agent-First Onboarding",
-      "objective": "Ship a vocky CLI so a user can sign up, log in, and configure credentials from Claude Code or Codex, with agent-readable help/guide docs so vocky is fully usable without visiting the website.",
-      "status": "done",
-      "order": 5,
-      "path": "works/phases/active/P5",
-      "review_status": "pass",
-      "current_slice": null,
-      "slice_count": 8,
-      "done_slice_count": 8
-    },
-    {
       "id": "P6",
       "name": "Landing Page, Webpage & Production Deploy",
       "objective": "Build the public landing page/site in the Next.js app using the hi2vi_web Claude design-gate workflow, and deploy to production at vocky.hi2vi.com — app on the oracle-cloud box, nginx via edge.",
@@ -112,5 +16,5 @@
   "deferred_open_count": 5,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 0,
-  "last_rebuilt_at": "2026-07-18T19:44:20+09:00"
+  "last_rebuilt_at": "2026-07-28T15:51:14+09:00"
 }

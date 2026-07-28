@@ -1,0 +1,14 @@
+{
+  "phase_id": "P8",
+  "archived_at": "2026-07-28T15:39:13+09:00",
+  "archive_reason": "phase_review_passed",
+  "review_verdict": "pass",
+  "source_path": "works/phases/active/P8",
+  "archive_path": "works/phases/archived/20260728_153913_P8_design_gate_brand_app_ui_landing",
+  "slices": [
+    "P8.DECOMP",
+    "P8.S1",
+    "P8.S2",
+    "P8.REVIEW"
+  ]
+}

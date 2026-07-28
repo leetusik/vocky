@@ -1,0 +1,19 @@
+{
+  "phase_id": "P9",
+  "archived_at": "2026-07-28T15:39:13+09:00",
+  "archive_reason": "phase_review_passed",
+  "review_verdict": "pass",
+  "source_path": "works/phases/active/P9",
+  "archive_path": "works/phases/archived/20260728_153913_P9_apply_the_design_app_ui_landing_feature_changes",
+  "slices": [
+    "P9.DECOMP",
+    "P9.S1",
+    "P9.S2",
+    "P9.S3",
+    "P9.S4",
+    "P9.S5",
+    "P9.S6",
+    "P9.S7",
+    "P9.REVIEW"
+  ]
+}

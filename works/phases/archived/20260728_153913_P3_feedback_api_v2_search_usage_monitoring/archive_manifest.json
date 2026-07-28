@@ -1,0 +1,16 @@
+{
+  "phase_id": "P3",
+  "archived_at": "2026-07-28T15:39:13+09:00",
+  "archive_reason": "phase_review_passed",
+  "review_verdict": "pass",
+  "source_path": "works/phases/active/P3",
+  "archive_path": "works/phases/archived/20260728_153913_P3_feedback_api_v2_search_usage_monitoring",
+  "slices": [
+    "P3.DECOMP",
+    "P3.S1",
+    "P3.S2",
+    "P3.S3",
+    "P3.S4",
+    "P3.REVIEW"
+  ]
+}
