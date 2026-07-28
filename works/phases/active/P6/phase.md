@@ -25,6 +25,20 @@ shape as vocky), with `~/projects/personal/hi2vi_web` for the image-tag rollback
 2. **Include CI now** (GitHub Actions production-deploy chain mirroring knowledge/hi2vi).
 3. **Also include** PyPI publish of the `vocky` CLI **and** physical removal of the packaged Admin Web UI.
 
+**SECOND REFRAME (2026-07-28) — the bring-up moved out of P6 to P12.** Operator, verbatim: _"mind that deploy
+will be done at p12 so p6 doesn't have to mind it."_ So point 1 above no longer holds: **P6 ends with every
+deploy artifact authored and validated statically, and nothing deployed.** The live bring-up — Cloudflare DNS
+record, on-box `.env` secrets, the three `ORACLE_SSH_*` GitHub secrets, the `/home/opc/vocky` clone,
+`up -d --build`, the health gate, the migrate, the edge `scp` + `validate.sh` + `deploy.sh`, and the external
+smoke — is now owned by **P12** (`works/phases/active/P12/`). The `P6.S10` row in the table below and every
+"Hand-off to S10" note in *Findings & Notes* stay exactly as written: **they are the spec P12 executes**, and
+P12's `intent.md` points back here for them.
+
+Rationale for the move: P10 (Accounts v2) adds `UNIQUE(tenant_id, name)` and a three-phase
+`project_credentials.tenant_id` backfill. Deploying first would turn that into a live cutover on production data,
+with the migration-before-code ordering hazard and a defensive de-dupe of rows that might already exist.
+Deploying after P10/P11 makes it a migration against an empty schema. The sequence is **P6 → P10 → P11 → P12**.
+
 ## Decomposition
 
 Ten middle slices (P6.S1–P6.S10) + P6.REVIEW (order 9999). Ordering front-loads the low-coupling cleanups

@@ -268,3 +268,6 @@
 {"ts": "2026-07-28T15:39:13+09:00", "type": "phase_archived", "phase": "P8", "archive_path": "works/phases/archived/20260728_153913_P8_design_gate_brand_app_ui_landing"}
 {"ts": "2026-07-28T15:39:13+09:00", "type": "phase_archived", "phase": "P9", "archive_path": "works/phases/archived/20260728_153913_P9_apply_the_design_app_ui_landing_feature_changes"}
 {"ts": "2026-07-28T15:39:13+09:00", "type": "phase_archived", "phase": "P5", "archive_path": "works/phases/archived/20260728_153913_P5_cli_agent-first_onboarding"}
+{"ts": "2026-07-28T16:05:11+09:00", "type": "phase_created", "phase": "P10"}
+{"ts": "2026-07-28T16:05:17+09:00", "type": "phase_created", "phase": "P11"}
+{"ts": "2026-07-28T16:05:22+09:00", "type": "phase_created", "phase": "P12"}

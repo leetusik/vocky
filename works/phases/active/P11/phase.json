@@ -1,0 +1,26 @@
+{
+  "id": "P11",
+  "name": "Frictionless onboarding: working install, env-var quickstart, agent skill on the landing",
+  "objective": "Make vocky's onboarding real end to end for a coding agent: ship an install path for the `vocky` CLI that actually runs from the landing page (publish to PyPI or serve a `curl | bash` installer), add the missing `VOCKY_API_TOKEN` so two environment variables are the whole agent contract alongside today's `VOCKY_BASE_URL`, publish a copyable and downloadable end-user `SKILL.md` on the landing behind a byte-parity CI gate, and correct the landing's untrue hero payload (top-level `source_product` -> nested `source.product`, and the non-existent `vk_live_` prefix). Any net-new landing section goes through a design-cowork gate; no new backend capture contract.",
+  "status": "planned",
+  "order": 8,
+  "created_at": "2026-07-28T16:05:17+09:00",
+  "started_at": null,
+  "completed_at": null,
+  "review": {
+    "status": "pending",
+    "reviewed_at": null,
+    "reviewer": null,
+    "note": null
+  },
+  "paths": {
+    "phase_md": "phase.md",
+    "intent_md": "intent.md",
+    "slices_dir": "slices"
+  },
+  "archive": {
+    "archived": false,
+    "archived_at": null,
+    "archive_path": null
+  }
+}

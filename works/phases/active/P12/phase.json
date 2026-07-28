@@ -1,0 +1,26 @@
+{
+  "id": "P12",
+  "name": "Production launch & hardening: bring-up, rate limits, CI tests, QA doc",
+  "objective": "Take vocky live, then close the operational gaps its own phases left open: run the operator-gated production bring-up at `vocky.hi2vi.com` using the artifacts P6 authored but deliberately never executed (compose topology, edge vhost, deploy/rollback scripts, CI chain — none has ever touched real infrastructure), then rate-limit the public `/auth/*` surface (deferred D5 — a Cloudflare rule or an in-process per-IP limiter, since the shared edge forbids `limit_req_zone`), add the CI test workflow the repo has never had (`.github/workflows/` holds only `deploy-production.yml`), write `docs/current/qa.md` (still the bootstrap v0001 placeholder after nine phases), decide the fate of the now-unreachable `/admin/api/*` surface and its `VOCKY_ADMIN_AUTH_TOKEN` box secret, and add Postgres backups plus basic log/metrics. Deploying only after P10 and P11 is deliberate: the accounts-v2 migration then lands on an empty schema instead of as a live cutover on prod data. Feature work and the deferred attachment GC (D3, which needs a scheduler that does not exist) stay out of scope.",
+  "status": "planned",
+  "order": 9,
+  "created_at": "2026-07-28T16:05:22+09:00",
+  "started_at": null,
+  "completed_at": null,
+  "review": {
+    "status": "pending",
+    "reviewed_at": null,
+    "reviewer": null,
+    "note": null
+  },
+  "paths": {
+    "phase_md": "phase.md",
+    "intent_md": "intent.md",
+    "slices_dir": "slices"
+  },
+  "archive": {
+    "archived": false,
+    "archived_at": null,
+    "archive_path": null
+  }
+}

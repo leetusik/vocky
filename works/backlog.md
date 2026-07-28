@@ -7,16 +7,19 @@
 
 - Current phase: `P6`
 - Current slice: `P6.S9`
-- Next slice: `P6.S10`
+- Next slice: `P6.REVIEW`
 - Waiting on operator: `P6.S9`
 - Open deferred jobs: `5`
-- Rebuilt at: `2026-07-28T15:51:14+09:00`
+- Rebuilt at: `2026-07-28T16:15:48+09:00`
 
 ## Active Phases
 
 | Phase | Status | Review | Name | Current Slice | Path |
 |---|---|---|---|---|---|
 | [ ] `P6` | `in_progress` | `pending` | Landing Page, Webpage & Production Deploy | `P6.S9` | `works/phases/active/P6` |
+| [ ] `P10` | `planned` | `pending` | Accounts v2: orgs, org-level keys & default project | `P10.DECOMP` | `works/phases/active/P10` |
+| [ ] `P11` | `planned` | `pending` | Frictionless onboarding: working install, env-var quickstart, agent skill on the landing | `P11.DECOMP` | `works/phases/active/P11` |
+| [ ] `P12` | `planned` | `pending` | Production launch & hardening: bring-up, rate limits, CI tests, QA doc | `P12.DECOMP` | `works/phases/active/P12` |
 
 ## Phase P6: Landing Page, Webpage & Production Deploy
 
@@ -32,5 +35,25 @@
 | [x] `P6.S7` | `done` | Deploy + rollback scripts | `implementation` | `works/phases/active/P6/slices/P6.S7` |
 | [x] `P6.S8` | `done` | CI production-deploy chain | `implementation` | `works/phases/active/P6/slices/P6.S8` |
 | [~] `P6.S9` | `pending` | PyPI packaging + publish | `implementation` | `works/phases/active/P6/slices/P6.S9` |
-| [ ] `P6.S10` | `todo` | Production bring-up | `co-work` | `works/phases/active/P6/slices/P6.S10` |
 | [ ] `P6.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P6/slices/P6.REVIEW` |
+
+## Phase P10: Accounts v2: orgs, org-level keys & default project
+
+| Slice | Status | Name | Kind | Path |
+|---|---|---|---|---|
+| [ ] `P10.DECOMP` | `todo` | decompose phase | `decomposition` | `works/phases/active/P10/slices/P10.DECOMP` |
+| [ ] `P10.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P10/slices/P10.REVIEW` |
+
+## Phase P11: Frictionless onboarding: working install, env-var quickstart, agent skill on the landing
+
+| Slice | Status | Name | Kind | Path |
+|---|---|---|---|---|
+| [ ] `P11.DECOMP` | `todo` | decompose phase | `decomposition` | `works/phases/active/P11/slices/P11.DECOMP` |
+| [ ] `P11.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P11/slices/P11.REVIEW` |
+
+## Phase P12: Production launch & hardening: bring-up, rate limits, CI tests, QA doc
+
+| Slice | Status | Name | Kind | Path |
+|---|---|---|---|---|
+| [ ] `P12.DECOMP` | `todo` | decompose phase | `decomposition` | `works/phases/active/P12/slices/P12.DECOMP` |
+| [ ] `P12.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P12/slices/P12.REVIEW` |
