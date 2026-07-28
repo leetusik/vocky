@@ -96,6 +96,7 @@ async def test_credential_lifecycle_active_lookup_and_revoke(
 
     credential = await service.create_project_credential(
         CreateProjectCredential(
+            tenant_id=tenant.id,
             project_id=project.id,
             token_prefix="vk_ab12",
             token_hash="hash-abc",

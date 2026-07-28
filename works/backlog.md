@@ -6,18 +6,18 @@
 ## Pointer
 
 - Current phase: `P10`
-- Current slice: `P10.S1`
-- Next slice: `P10.S2`
+- Current slice: `P10.S2`
+- Next slice: `P10.S3`
 - Waiting on operator: `none`
 - Open deferred jobs: `6`
-- Rebuilt at: `2026-07-28T17:08:49+09:00`
+- Rebuilt at: `2026-07-28T22:39:53+09:00`
 
 ## Active Phases
 
 | Phase | Status | Review | Name | Current Slice | Path |
 |---|---|---|---|---|---|
 | [x] `P6` | `done` | `pass` | Landing Page, Webpage & Production Deploy | `none` | `works/phases/active/P6` |
-| [ ] `P10` | `planned` | `pending` | Accounts v2: orgs, org-level keys & default project | `P10.S1` | `works/phases/active/P10` |
+| [ ] `P10` | `planned` | `pending` | Accounts v2: orgs, org-level keys & default project | `P10.S2` | `works/phases/active/P10` |
 | [ ] `P11` | `planned` | `pending` | Frictionless onboarding: working install, env-var quickstart, agent skill on the landing | `P11.DECOMP` | `works/phases/active/P11` |
 | [ ] `P12` | `planned` | `pending` | Production launch & hardening: bring-up, rate limits, CI tests, QA doc | `P12.DECOMP` | `works/phases/active/P12` |
 
@@ -42,7 +42,7 @@
 | Slice | Status | Name | Kind | Path |
 |---|---|---|---|---|
 | [x] `P10.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P10/slices/P10.DECOMP` |
-| [ ] `P10.S1` | `todo` | Schema: projects UNIQUE(tenant_id,name), credential tenant_id + nullable project_id, signup default-project provisioning | `implementation` | `works/phases/active/P10/slices/P10.S1` |
+| [x] `P10.S1` | `done` | Schema: projects UNIQUE(tenant_id,name), credential tenant_id + nullable project_id, signup default-project provisioning | `implementation` | `works/phases/active/P10/slices/P10.S1` |
 | [ ] `P10.S2` | `todo` | Org-scoped enforcement landed dark: every credential-derived project filter becomes org-aware | `implementation` | `works/phases/active/P10/slices/P10.S2` |
 | [ ] `P10.S3` | `todo` | Org-key mint surface: /app/credentials routes + tenant-aware resolver (turns org keys on) | `implementation` | `works/phases/active/P10/slices/P10.S3` |
 | [ ] `P10.S4` | `todo` | Web app: dashboard org-keys panel, nullable project_id type, Workspace to Org copy | `implementation` | `works/phases/active/P10/slices/P10.S4` |

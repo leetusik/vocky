@@ -21,7 +21,6 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from vocky.accounts import (
-    CreateProject,
     CreateProjectCredential,
     ProjectCredentialRecord,
     ProjectRecord,
@@ -30,7 +29,7 @@ from vocky.accounts import (
 from vocky.accounts.auth import AuthContext, require_user
 from vocky.accounts.security import generate_opaque_token, sha256_hex
 from vocky.api import format_pydantic_error
-from vocky.auth_api import serialize_tenant
+from vocky.auth_api import serialize_project, serialize_tenant
 
 
 class AppAPIValidationError(ValueError):
@@ -63,17 +62,6 @@ class CreateCredentialInput(BaseModel):
             return None
         stripped = value.strip()
         return stripped or None
-
-
-def serialize_project(record: ProjectRecord) -> dict[str, object]:
-    """Serialize a project for a response."""
-
-    return {
-        "id": str(record.id),
-        "name": record.name,
-        "tenant_id": str(record.tenant_id),
-        "created_at": record.created_at.isoformat(),
-    }
 
 
 def serialize_credential(record: ProjectCredentialRecord) -> dict[str, object]:
@@ -175,7 +163,14 @@ async def list_projects(request: Request) -> JSONResponse:
 
 
 async def create_project(request: Request) -> JSONResponse:
-    """Create a project under the caller's tenant."""
+    """Get-or-create a project by name under the caller's tenant.
+
+    **Idempotent on name.** Project names are unique per tenant, so re-posting an
+    existing name returns that existing project with the same 201 shape rather
+    than failing the ``UNIQUE(tenant_id, name)`` constraint with a 500. Callers
+    cannot tell "created" from "already existed" — deliberately, so a retry or a
+    concurrent duplicate is never an error.
+    """
 
     ctx = await require_user(request)
 
@@ -184,8 +179,8 @@ async def create_project(request: Request) -> JSONResponse:
     except AppAPIValidationError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
-    project = await get_accounts_service().create_project(
-        CreateProject(tenant_id=ctx.tenant.id, name=payload.name)
+    project = await get_accounts_service().get_or_create_project(
+        ctx.tenant.id, payload.name
     )
     return JSONResponse({"project": serialize_project(project)}, status_code=201)
 
@@ -234,6 +229,9 @@ async def create_credential(request: Request) -> JSONResponse:
     key = f"vk_{generate_opaque_token()}"
     record = await get_accounts_service().create_project_credential(
         CreateProjectCredential(
+            # Project-bound, exactly as before: this route always sets both
+            # scopes, so it never writes an org-level (NULL project_id) row.
+            tenant_id=project.tenant_id,
             project_id=project.id,
             token_prefix=key[:12],
             token_hash=sha256_hex(key),

@@ -27,6 +27,14 @@ from vocky.accounts.types import (
 )
 from vocky.db import get_session_maker
 
+# The project every fresh signup lands with, and the fallback an org-level key
+# resolves to when a write names no project. There is deliberately **no**
+# ``DEFAULT_ORG_NAME``: an org keeps its friendly auto-name
+# (``"<localpart>'s workspace"``, minted in ``vocky.auth_api.signup``) because
+# nothing ever resolves an org by name. The ``"default"`` that matters is the
+# project.
+DEFAULT_PROJECT_NAME = "default"
+
 
 class AccountsPersistenceError(RuntimeError):
     """Raised when an accounts write cannot be persisted."""
@@ -125,6 +133,49 @@ class AccountsService:
 
         return tenant, member
 
+    async def provision_signup(
+        self,
+        user_id: UUID,
+        tenant_name: str,
+    ) -> tuple[TenantRecord, TenantMemberRecord, ProjectRecord]:
+        """Provision a new user's org + default project in one transaction.
+
+        The signup primitive: inserts the tenant (org) named ``tenant_name``, an
+        ``owner`` membership for ``user_id``, and the ``DEFAULT_PROJECT_NAME``
+        project under that tenant — all atomically in one session — and returns
+        the three records. Distinct from ``create_tenant_with_owner`` (which
+        creates no project and is kept for callers that want a bare tenant): a
+        fresh signup always lands with a project to capture into.
+
+        The org name is passed in rather than defaulted: only the *project* has
+        a canonical ``"default"`` name; the org keeps its friendly per-user
+        auto-name.
+
+        This narrows, but does not close, signup's orphan window — ``create_user``
+        still commits in its own transaction before this one runs.
+        """
+
+        async with self._session_maker() as session:
+            repository = AccountsRepository(session)
+            try:
+                tenant = await repository.create_tenant(tenant_name)
+                member = await repository.add_tenant_member(
+                    tenant_id=tenant.id,
+                    user_id=user_id,
+                    role="owner",
+                )
+                project = await repository.create_project(
+                    CreateProject(tenant_id=tenant.id, name=DEFAULT_PROJECT_NAME)
+                )
+                await session.commit()
+            except SQLAlchemyError as exc:
+                await session.rollback()
+                raise AccountsPersistenceError(
+                    "failed to provision signup workspace"
+                ) from exc
+
+        return tenant, member, project
+
     async def get_tenant(self, tenant_id: UUID) -> TenantRecord | None:
         """Return one tenant by id, or None when missing."""
 
@@ -187,6 +238,65 @@ class AccountsService:
             except SQLAlchemyError as exc:
                 await session.rollback()
                 raise AccountsReadError("failed to read projects") from exc
+
+    async def get_project_by_name(
+        self,
+        tenant_id: UUID,
+        name: str,
+    ) -> ProjectRecord | None:
+        """Return a tenant's project by name (oldest-wins), or None when missing."""
+
+        async with self._session_maker() as session:
+            repository = AccountsRepository(session)
+            try:
+                return await repository.get_project_by_name(tenant_id, name)
+            except SQLAlchemyError as exc:
+                await session.rollback()
+                raise AccountsReadError("failed to read project") from exc
+
+    async def get_or_create_project(
+        self,
+        tenant_id: UUID,
+        name: str,
+    ) -> ProjectRecord:
+        """Return the tenant's project named ``name``, creating it if absent.
+
+        The idempotent project primitive, backing ``POST /app/projects``: read by
+        name first, else insert. Race-safe against ``UNIQUE(tenant_id, name)`` —
+        a concurrent insert that wins the race surfaces as an ``IntegrityError``
+        on flush, which is rolled back and re-read so both callers converge on
+        the same row (never a 500).
+        """
+
+        async with self._session_maker() as session:
+            repository = AccountsRepository(session)
+            try:
+                existing = await repository.get_project_by_name(tenant_id, name)
+                if existing is not None:
+                    return existing
+                try:
+                    record = await repository.create_project(
+                        CreateProject(tenant_id=tenant_id, name=name)
+                    )
+                    await session.commit()
+                    return record
+                except IntegrityError:
+                    # A concurrent insert won the UNIQUE(tenant_id, name) race —
+                    # roll back and re-read the row the other writer committed.
+                    # This handler must stay nested *inside* the outer
+                    # SQLAlchemyError block: IntegrityError is a SQLAlchemyError,
+                    # so a sibling clause would never be reached.
+                    await session.rollback()
+                    raced = await repository.get_project_by_name(tenant_id, name)
+                    if raced is not None:
+                        return raced
+                    # Nothing to converge on — a genuine integrity failure.
+                    raise
+            except SQLAlchemyError as exc:
+                await session.rollback()
+                raise AccountsPersistenceError(
+                    "failed to get or create project"
+                ) from exc
 
     # -- credentials ------------------------------------------------------
 

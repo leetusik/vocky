@@ -57,7 +57,10 @@ async def test_create_list_and_get_project(configured_database: str) -> None:
         fetched = await client.get(f"/app/projects/{project_id}", headers=headers)
 
     assert listed.status_code == 200
-    assert [p["id"] for p in listed.json()["projects"]] == [project_id]
+    # Signup auto-provisions "default", so the created project is the second row
+    # (the list is oldest-first).
+    assert [p["name"] for p in listed.json()["projects"]] == ["default", "Website"]
+    assert [p["id"] for p in listed.json()["projects"]][1] == project_id
 
     assert fetched.status_code == 200
     assert fetched.json()["project"]["id"] == project_id
@@ -82,8 +85,9 @@ async def test_get_project_cross_tenant_returns_404(configured_database: str) ->
 
     # Cross-tenant read answers 404 (never 403): no existence leak.
     assert cross.status_code == 404
-    # The intruder's own project list is empty — full tenant isolation.
-    assert other_list.json()["projects"] == []
+    # The intruder sees only their own auto-provisioned project — full isolation.
+    assert [p["name"] for p in other_list.json()["projects"]] == ["default"]
+    assert project_id not in [p["id"] for p in other_list.json()["projects"]]
 
 
 @pytest.mark.anyio

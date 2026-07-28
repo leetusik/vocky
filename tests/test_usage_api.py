@@ -98,6 +98,9 @@ async def test_app_usage_aggregates_tenant_and_isolates_other(
 ) -> None:
     async with _client() as client:
         headers = await _signup(client, "alice@example.com")
+        # Signup auto-provisions "default"; it stays in the tenant's project list.
+        listed = await client.get("/app/projects", headers=headers)
+        default_a = listed.json()["projects"][0]["id"]
         project_a = await _make_project(client, headers, "Project A")
         project_b = await _make_project(client, headers, "Project B")
 
@@ -116,21 +119,26 @@ async def test_app_usage_aggregates_tenant_and_isolates_other(
 
         usage = await client.get("/app/usage", params=WINDOW, headers=headers)
 
-        # A brand-new tenant with no projects → zeroed metrics, empty project list.
+        # A brand-new tenant with no captures → zeroed metrics; its project list
+        # holds only the "default" project signup auto-provisions.
         empty = await _signup(client, "empty@example.com")
         empty_usage = await client.get("/app/usage", params=WINDOW, headers=empty)
 
     assert usage.status_code == 200
     body = usage.json()
     assert body["totals"] == {"total": 5, "liked": 3, "disliked": 1, "unrated": 1}
-    assert {p["id"] for p in body["projects"]} == {project_a, project_b}
-    assert {p["name"] for p in body["projects"]} == {"Project A", "Project B"}
+    assert {p["id"] for p in body["projects"]} == {project_a, project_b, default_a}
+    assert {p["name"] for p in body["projects"]} == {
+        "default",
+        "Project A",
+        "Project B",
+    }
     assert "window" in body
 
     assert empty_usage.status_code == 200
     empty_body = empty_usage.json()
     assert empty_body["totals"] == {"total": 0, "liked": 0, "disliked": 0, "unrated": 0}
-    assert empty_body["projects"] == []
+    assert [p["name"] for p in empty_body["projects"]] == ["default"]
 
 
 @pytest.mark.anyio

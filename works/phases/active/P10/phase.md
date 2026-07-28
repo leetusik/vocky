@@ -302,6 +302,76 @@ appends its own "landed" notes below when it finishes._
    (`src/vocky/auth.py:130-133`). A distinct org-key prefix would authenticate fine but buys no cheap
    pre-DB branch. Recorded as an **option**, deliberately not decided at DECOMP.
 
+### P10.S1 landed (2026-07-28) — what S2/S3 inherit
+
+**The invariant held: the schema permits `project_credentials.project_id IS NULL`, and not one NULL
+row exists.** Verified against the DB after the full suite: `SELECT count(*) FROM
+project_credentials WHERE project_id IS NULL` → `0`. There is exactly **one** `CreateProjectCredential`
+call site in the tree (`src/vocky/app_api.py:231`, `POST /app/projects/{id}/credentials`) and it sets
+both scopes. Every footgun below is therefore still unreachable.
+
+**Migration `20260728_1200` (`down_revision = "20260716_1600"`).** Applied and downgraded cleanly
+against the dev DB and, in a test, against the test DB. `alembic check` reports **no** drift on
+`projects` / `project_credentials` — the ORM and the migration agree. (It does report a pre-existing
+`remove_index ix_feedback_events_search_trgm`: that trigram index is deliberately unmodelled, dating
+from `20260716_1600`. Not caused by, and not fixed by, this slice — but a future `alembic check` gate
+would need to whitelist it.)
+
+**Facts S2 must build on:**
+- `ProjectCredentialRecord` now carries **`tenant_id` (always set)** and `project_id: UUID | None`.
+  S3's resolver gets org identity with **zero extra queries** — it is already on the record the
+  middleware resolves by `token_hash`.
+- `CreateProjectCredential` requires **both** `tenant_id: UUID` and `project_id: UUID | None` — no
+  defaults, deliberately, so an org-level mint has to say `project_id=None` out loud.
+- `serialize_credential` (`src/vocky/app_api.py:79-94`) is **still unconditional** `str(record.project_id)`.
+  Untouched on purpose (footgun 2) — it is S2's to make NULL-safe, and it is safe today only because
+  no NULL row exists. It is reused by `src/vocky/usage_api.py:38,135`; both still pass through.
+- `AccountsService.get_or_create_project(tenant_id, name)` exists and is race-safe. **S2's ingest
+  project resolution should call it**, with `DEFAULT_PROJECT_NAME` (`= "default"`, in
+  `vocky.accounts.service`, also re-exported from `vocky.accounts`) as the fallback for decision 2.
+- `AccountsRepository.get_project_by_name` / `AccountsService.get_project_by_name` resolve
+  oldest-wins by `(created_at, id)` — the same order the migration's de-dupe picks its survivor by.
+
+**Gotchas found while landing S1:**
+- **`get_or_create_project`'s nesting is load-bearing and easy to "tidy" into a bug.** `IntegrityError`
+  *is* a `SQLAlchemyError`, so the race handler only ever runs because it is nested **inside** the
+  outer `except SQLAlchemyError`. Flattening the two into sibling `except` clauses silently turns
+  every duplicate-name race back into a 500. A comment in the code says so; do not remove it.
+- **Import-cycle resolved by moving, not duplicating.** `serialize_project` now lives in
+  `src/vocky/auth_api.py` (signup returns a project) and `app_api.py` imports it from there, beside
+  `serialize_tenant`, which it already did. `app_api → auth_api` is the pre-existing direction; the
+  reverse would cycle. Knowledge copy-pasted the serializer instead — vocky does not. **Anything that
+  needs `serialize_project` must import it from `auth_api`.**
+- **One stale test the plan did not list:** `tests/test_persistence.py:45` pins the alembic head
+  string (`"20260716_1600"` → `"20260728_1200"`). **Every future migration in this phase must bump it
+  too** — it is the one assertion that hard-codes the revision id.
+- **`POST /app/projects` is now idempotent on name** and returns **201** either way; a caller cannot
+  distinguish created from already-existed. That is deliberate (no slice boundary carries a known
+  500), and S4 must reconcile the three web comments + the `web/tests/vocky-app.test.ts:101-108`
+  "keeps duplicate-named projects distinct" test that this falsifies.
+- **`/app/usage` now always lists at least the `"default"` project** for any signed-up tenant, so
+  "a tenant with no projects" is no longer reachable through signup. `usage_api.py`'s empty-scope
+  short-circuit is still correct and still worth keeping (S2's pattern to copy) — it is just no
+  longer exercised by the signup path. Two tests were re-pinned accordingly
+  (`tests/test_usage_api.py`, `tests/test_app_api.py`).
+- **The migration test is deliberately synchronous.** `alembic/env.py` calls `asyncio.run`, so it
+  cannot run inside the anyio loop; `tests/test_accounts_provisioning.py::test_org_credentials_migration_round_trip`
+  is a plain `def` that takes the session-scoped `test_database_url` fixture, calls
+  `asyncio.run(dispose_engine())` first (conftest's `:124` pattern) and drives psycopg synchronously.
+  It ends back at head and truncates, so it is self-restoring — but it is **order-independent only
+  because it disposes the async pool**; keep that call if the test is ever edited.
+- **Footgun 4 is narrowed, not closed.** `create_user` still commits in its own transaction before
+  `provision_signup`, so a failure between them still orphans a tenant-less user. Said so in
+  `signup`'s docstring; do not claim it fixed.
+- Footgun 6's TRUNCATE lists were **verified, not assumed**: no new table, so
+  `tests/conftest.py:142-146` and `:151-156` are unchanged.
+
+**Decision 3 is now pinned by a test.**
+`tests/test_accounts_provisioning.py::test_signup_provisions_default_project_under_friendly_org`
+asserts the org name is `"alice's workspace"`, that `DEFAULT_PROJECT_NAME == "default"`, **and** that
+`vocky.accounts.service` has **no** `DEFAULT_ORG_NAME` attribute. A later slice adopting knowledge's
+`"default"` org would fail that assertion rather than pass silently.
+
 ### P12 handoff (deploy)
 
 P10's migration lands against an **empty** schema — P6 authored the deploy kit but deployed nothing;
@@ -350,6 +420,33 @@ review time:
 - **Naming divergence to record explicitly (decision 3):** signup provisions a `"default"` **project**,
   **not** a `"default"` org — the org keeps `"<localpart>'s workspace"`. The phase objective's own
   wording says otherwise; the docs must follow the code.
+
+Appended by **`P10.S1`** (2026-07-28) — the durable truth this slice actually changed:
+
+- **`data.md`** — `projects` gains `UNIQUE(tenant_id, name)` (`uq_projects_tenant_id`);
+  `project_credentials` gains `tenant_id` **NOT NULL** (FK `tenants` CASCADE, `ix_project_credentials_tenant_id`)
+  and `project_id` becomes **nullable** with the meaning `IS NULL ⇒ org-level`. Migration
+  `20260728_1200`, which also de-dupes pre-existing duplicate `(tenant_id, name)` projects oldest-wins
+  and repoints both `project_credentials.project_id` and `feedback_events.project_id` to the survivor.
+- **`api.md`** — the signup 201 gains an **additive `project`** object beside `token` / `user` / `tenant`;
+  `POST /app/projects` is now **get-or-create, idempotent on name**, returning the existing project with
+  the same 201 shape instead of a duplicate-name 500.
+- **`experience.md`** — signup now lands every new account with a `"default"` project (onboarding no
+  longer starts at zero projects), and **project names are unique per org**, so the current
+  "names are not unique" guarantee (`:287`) is false as of this slice.
+- **`backend.md`** — three new accounts primitives: `AccountsService.provision_signup(user_id, tenant_name)`
+  (tenant + owner membership + `"default"` project in one session/one commit),
+  `get_or_create_project(tenant_id, name)` (race-safe against the new UNIQUE), and
+  `get_project_by_name(tenant_id, name)` (oldest-wins by `created_at, id`). `serialize_project` moved
+  from `app_api` to `auth_api` to keep the single `app_api → auth_api` import direction.
+- **`product.md`** — a new account is usable immediately: it arrives with an org **and** a project,
+  and re-creating a project by an existing name is a no-op rather than an error.
+- **`security.md`** — **schema-level only so far, and it must be said precisely.** The guarantee at
+  `:58` ("Because `project_credentials.project_id` is `NOT NULL`, the forced filter can never degrade
+  to an unscoped read") is **no longer true as a statement about the schema** — the column is nullable
+  as of `20260728_1200`. It is still true as a statement about *behavior*, because S1 writes no NULL
+  rows and adds no org-level mint path. The trust boundary itself is widened by S2/S3; the review must
+  rewrite `:58` rather than reword it.
 
 ## Open Questions
 

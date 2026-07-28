@@ -70,13 +70,19 @@ class ProjectRecord:
 
 @dataclass(slots=True, kw_only=True)
 class CreateProjectCredential:
-    """Input for storing a per-project credential.
+    """Input for storing an ingest credential.
 
     The caller computes ``token_prefix`` (short display prefix) and
     ``token_hash`` (sha256 hex of the plaintext key); the raw key is never stored.
+
+    ``tenant_id`` is always required. ``project_id`` is required too but may be
+    ``None``: ``None`` mints an **org-level** credential spanning every project
+    in the tenant, a UUID mints today's project-bound credential. Neither field
+    has a default, so every call site states its scope explicitly.
     """
 
-    project_id: UUID
+    tenant_id: UUID
+    project_id: UUID | None
     token_prefix: str
     token_hash: str
     name: str | None = None
@@ -84,10 +90,15 @@ class CreateProjectCredential:
 
 @dataclass(slots=True, kw_only=True)
 class ProjectCredentialRecord:
-    """Stored project credential metadata. Never exposes ``token_hash``."""
+    """Stored credential metadata. Never exposes ``token_hash``.
+
+    ``tenant_id`` is always set; ``project_id`` is ``None`` for an org-level
+    credential and a project id for a project-bound one.
+    """
 
     id: UUID
-    project_id: UUID
+    tenant_id: UUID
+    project_id: UUID | None
     name: str | None
     token_prefix: str
     created_at: datetime

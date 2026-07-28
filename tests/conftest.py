@@ -183,6 +183,7 @@ async def configured_project_credential(
     key = f"vk_{generate_opaque_token()}"
     credential = await service.create_project_credential(
         CreateProjectCredential(
+            tenant_id=tenant.id,
             project_id=project.id,
             token_prefix=key[:12],
             token_hash=sha256_hex(key),

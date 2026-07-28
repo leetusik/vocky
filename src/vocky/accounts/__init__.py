@@ -1,6 +1,7 @@
 """Accounts service exports."""
 
 from vocky.accounts.service import (
+    DEFAULT_PROJECT_NAME,
     AccountsPersistenceError,
     AccountsReadError,
     AccountsService,
@@ -21,6 +22,7 @@ from vocky.accounts.types import (
 )
 
 __all__ = [
+    "DEFAULT_PROJECT_NAME",
     "AccountsPersistenceError",
     "AccountsReadError",
     "AccountsService",

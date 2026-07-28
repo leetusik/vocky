@@ -1,7 +1,8 @@
 """Account auth routes: signup, login, logout, and the caller's identity.
 
 Public ``/auth/*`` surface (outside ``/api/*`` so the public-ingest middleware
-never guards it). Signup provisions a user, a tenant, and the owner membership,
+never guards it). Signup provisions a user, a tenant, the owner membership, and
+the tenant's ``"default"`` project (see ``AccountsService.provision_signup``),
 then mints an opaque DB-backed bearer token; login re-issues one. Raw tokens are
 returned once and stored only as a sha256 hash. Responses never expose
 ``password_hash`` or any ``token_hash``.
@@ -21,6 +22,7 @@ from vocky.accounts import (
     CreateAuthToken,
     CreateUser,
     DuplicateEmailError,
+    ProjectRecord,
     TenantRecord,
     UserRecord,
     get_accounts_service,
@@ -90,6 +92,24 @@ def serialize_tenant(record: TenantRecord) -> dict[str, object]:
     }
 
 
+def serialize_project(record: ProjectRecord) -> dict[str, object]:
+    """Serialize a project for a response.
+
+    Lives here rather than in ``app_api`` because signup now returns the
+    auto-provisioned project, and ``app_api`` already imports ``serialize_tenant``
+    / ``serialize_user`` from this module — the dependency runs ``app_api`` ->
+    ``auth_api``, never back, so the serializer moved to the upstream side of
+    that seam instead of being duplicated.
+    """
+
+    return {
+        "id": str(record.id),
+        "name": record.name,
+        "tenant_id": str(record.tenant_id),
+        "created_at": record.created_at.isoformat(),
+    }
+
+
 async def _parse_body(request: Request, model: type[BaseModel]) -> BaseModel:
     """Parse and validate a JSON object body into ``model``."""
 
@@ -122,7 +142,13 @@ async def _mint_token(user_id) -> str:
 
 
 async def signup(request: Request) -> JSONResponse:
-    """Create a user, their tenant, and owner membership; mint a session token."""
+    """Create a user, their org, its default project, and a session token.
+
+    The org keeps the friendly auto-name ``"<localpart>'s workspace"``; only the
+    project is named ``"default"``. Note that ``create_user`` commits in its own
+    transaction ahead of ``provision_signup``, so a failure between the two still
+    leaves an org-less user — narrowed, not closed.
+    """
 
     try:
         payload = await _parse_body(request, SignupInput)
@@ -140,7 +166,7 @@ async def signup(request: Request) -> JSONResponse:
         )
 
     workspace_name = f"{payload.email.split('@')[0]}'s workspace"
-    tenant, _member = await service.create_tenant_with_owner(user.id, workspace_name)
+    tenant, _member, project = await service.provision_signup(user.id, workspace_name)
     token = await _mint_token(user.id)
 
     return JSONResponse(
@@ -148,6 +174,7 @@ async def signup(request: Request) -> JSONResponse:
             "token": token,
             "user": serialize_user(user),
             "tenant": serialize_tenant(tenant),
+            "project": serialize_project(project),
         },
         status_code=201,
     )

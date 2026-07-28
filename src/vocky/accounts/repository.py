@@ -140,15 +140,47 @@ class AccountsRepository:
         models = (await self._session.execute(statement)).scalars().all()
         return tuple(self._to_project_record(model) for model in models)
 
+    async def get_project_by_name(
+        self,
+        tenant_id: UUID,
+        name: str,
+    ) -> ProjectRecord | None:
+        """Return a tenant's project by name, or None when missing.
+
+        Oldest-wins by ``(created_at, id)`` — the same order
+        ``list_projects_for_tenant`` uses, and the same order the org-level
+        credentials migration's de-dupe picks its survivor by, so the migration
+        and the runtime always agree on which row "the" project is. Backs
+        ``get_or_create_project`` and the ``UNIQUE(tenant_id, name)`` constraint
+        makes the match unique in practice.
+        """
+
+        statement = (
+            select(ProjectModel)
+            .where(
+                ProjectModel.tenant_id == tenant_id,
+                ProjectModel.name == name,
+            )
+            .order_by(ProjectModel.created_at, ProjectModel.id)
+            .limit(1)
+        )
+        model = (await self._session.execute(statement)).scalars().first()
+        return self._to_project_record(model) if model is not None else None
+
     # -- credentials ------------------------------------------------------
 
     async def create_project_credential(
         self,
         payload: CreateProjectCredential,
     ) -> ProjectCredentialRecord:
-        """Persist a project credential and return its metadata record."""
+        """Persist an ingest credential and return its metadata record.
+
+        ``payload.project_id`` may be ``None`` for an org-level credential; the
+        row's ``tenant_id`` is always set and is what authorizes it.
+        """
 
         model = ProjectCredentialModel(
+            tenant_id=payload.tenant_id,
             project_id=payload.project_id,
             name=payload.name,
             token_prefix=payload.token_prefix,
@@ -310,6 +342,7 @@ class AccountsRepository:
     ) -> ProjectCredentialRecord:
         return ProjectCredentialRecord(
             id=model.id,
+            tenant_id=model.tenant_id,
             project_id=model.project_id,
             name=model.name,
             token_prefix=model.token_prefix,

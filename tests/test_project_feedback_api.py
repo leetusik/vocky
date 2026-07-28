@@ -67,6 +67,7 @@ async def _mint_project_credential(tenant_id: UUID) -> tuple[str, UUID]:
     key = f"vk_{generate_opaque_token()}"
     await service.create_project_credential(
         CreateProjectCredential(
+            tenant_id=tenant_id,
             project_id=project.id,
             token_prefix=key[:12],
             token_hash=sha256_hex(key),

@@ -45,6 +45,9 @@ async def test_signup_creates_user_tenant_and_token(configured_database: str) ->
     assert body["token"]
     assert body["user"]["email"] == "alice@example.com"
     assert body["tenant"]["name"] == "alice's workspace"
+    # Additive since P10.S1: signup also provisions the org's "default" project.
+    assert body["project"]["name"] == "default"
+    assert body["project"]["tenant_id"] == body["tenant"]["id"]
     _assert_no_secrets(body)
 
 

@@ -42,7 +42,7 @@ async def test_migration_applies_and_expected_indexes_exist(configured_database:
             )
         ).scalars().all()
 
-    assert migration_version == "20260716_1600"
+    assert migration_version == "20260728_1200"
     assert index_rows == [
         "ix_feedback_events_channel",
         "ix_feedback_events_conversation_id",
