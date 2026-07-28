@@ -559,10 +559,6 @@ class FeedbackRepository:
     ) -> Select[Any]:
         """Apply the supported read filters to a statement."""
 
-        if filters.project_id is not None:
-            statement = statement.where(
-                FeedbackEventModel.project_id == filters.project_id
-            )
         if filters.project_ids is not None:
             statement = statement.where(
                 FeedbackEventModel.project_id.in_(filters.project_ids)

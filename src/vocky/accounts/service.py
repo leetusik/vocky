@@ -335,6 +335,46 @@ class AccountsService:
                     "failed to read project credentials"
                 ) from exc
 
+    async def list_org_credentials(
+        self,
+        tenant_id: UUID,
+    ) -> tuple[ProjectCredentialRecord, ...]:
+        """Return a tenant's org-level (``project_id IS NULL``) credentials.
+
+        Oldest-first, active and revoked, and disjoint from
+        ``list_project_credentials``: an org key spans every project its tenant
+        owns, so no per-project listing can surface it (P10).
+        """
+
+        async with self._session_maker() as session:
+            repository = AccountsRepository(session)
+            try:
+                return await repository.list_org_credentials(tenant_id)
+            except SQLAlchemyError as exc:
+                await session.rollback()
+                raise AccountsReadError("failed to read org credentials") from exc
+
+    async def get_credential(
+        self,
+        credential_id: UUID,
+    ) -> ProjectCredentialRecord | None:
+        """Return one credential by id, or None when missing.
+
+        Unscoped by design — one indexed read; the caller owns the ownership
+        check and must answer 404 (never 403) when the record is outside its
+        scope.
+        """
+
+        async with self._session_maker() as session:
+            repository = AccountsRepository(session)
+            try:
+                return await repository.get_credential(credential_id)
+            except SQLAlchemyError as exc:
+                await session.rollback()
+                raise AccountsReadError(
+                    "failed to read project credential"
+                ) from exc
+
     async def get_active_credential_by_token_hash(
         self,
         token_hash: str,

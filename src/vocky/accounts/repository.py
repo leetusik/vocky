@@ -205,6 +205,46 @@ class AccountsRepository:
         models = (await self._session.execute(statement)).scalars().all()
         return tuple(self._to_credential_record(model) for model in models)
 
+    async def list_org_credentials(
+        self,
+        tenant_id: UUID,
+    ) -> tuple[ProjectCredentialRecord, ...]:
+        """Return a tenant's **org-level** credentials, oldest-first.
+
+        Org-level means ``project_id IS NULL`` (P10): a key that authorizes every
+        project its tenant owns. Deliberately disjoint from
+        :meth:`list_project_credentials` — a per-project listing can never return
+        these rows, and this listing never returns a project-bound one — so the
+        two together enumerate a tenant's keys exactly once. Includes revoked
+        rows, like the per-project listing.
+        """
+
+        statement = (
+            select(ProjectCredentialModel)
+            .where(
+                ProjectCredentialModel.tenant_id == tenant_id,
+                ProjectCredentialModel.project_id.is_(None),
+            )
+            .order_by(ProjectCredentialModel.created_at, ProjectCredentialModel.id)
+        )
+        models = (await self._session.execute(statement)).scalars().all()
+        return tuple(self._to_credential_record(model) for model in models)
+
+    async def get_credential(
+        self,
+        credential_id: UUID,
+    ) -> ProjectCredentialRecord | None:
+        """Return one credential by id, or None when missing.
+
+        A plain indexed by-PK read carrying **no** ownership check: callers must
+        compare ``tenant_id`` / ``project_id`` themselves and answer 404 (never
+        403) on a mismatch, so a credential id outside the caller's scope is
+        indistinguishable from one that does not exist.
+        """
+
+        model = await self._session.get(ProjectCredentialModel, credential_id)
+        return self._to_credential_record(model) if model is not None else None
+
     async def get_active_credential_by_token_hash(
         self,
         token_hash: str,

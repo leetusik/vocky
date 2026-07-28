@@ -15,7 +15,8 @@ operational visibility, not billing):
 - ``GET /api/project/usage`` (ingest ``vk_`` key, guarded by the
   ``ProjectCredentialAuthMiddleware``): the credential's own **scope's** capture
   volume plus its credentials — one project for a project-bound key, the org's
-  whole project set for an org-level key (P10).
+  whole project set for an org-level key (P10). An org-level caller also sees the
+  org-level keys themselves, which no per-project listing can return.
 
 Scoping reuses the shared ``_apply_query_filters`` chokepoint: every call sets
 :attr:`FeedbackQueryFilters.project_ids` to a concrete id tuple, and an **empty**
@@ -42,7 +43,7 @@ from vocky.accounts import (
 from vocky.accounts.auth import require_user
 from vocky.admin_api import serialize_metrics
 from vocky.app_api import _load_scoped_project, serialize_credential
-from vocky.auth import get_request_project_ids
+from vocky.auth import get_request_credential, get_request_project_ids
 from vocky.feedback import (
     FeedbackMetricCounts,
     FeedbackMetrics,
@@ -114,6 +115,8 @@ async def _project_usage_response(
     project_ids: tuple[UUID, ...],
     start: datetime,
     end: datetime,
+    *,
+    org_tenant_id: UUID | None = None,
 ) -> JSONResponse:
     """Build a scoped usage payload: metrics + the scope's credentials.
 
@@ -123,8 +126,15 @@ async def _project_usage_response(
     org-level key) — both report derived capture volume plus the credentials
     behind it, surfacing each key's ``last_used_at``.
 
-    An empty scope short-circuits to zeroed metrics and no credentials; the
-    query is never issued with an empty id set.
+    ``org_tenant_id`` is set **only** for an org-level caller, and it exists
+    because a per-project listing structurally cannot return org-level rows
+    (``project_id IS NULL``): without the union an org key's own usage view would
+    omit the very key it is being called with. The project drill-down passes
+    ``None``, so its payload is unchanged — an org key is not one project's key.
+
+    An empty project scope short-circuits to zeroed metrics; the metrics query is
+    never issued with an empty id set. Credentials are still listed in that case
+    (an org that owns no projects still owns its org keys).
     """
 
     query = FeedbackMetricsQuery(
@@ -149,15 +159,22 @@ async def _project_usage_response(
         credentials.extend(
             await get_accounts_service().list_project_credentials(project_id)
         )
-    # Each per-project listing is already ordered ``(created_at, id)``;
-    # concatenating several loses that order, so re-sort on the same key to keep
-    # the payload globally oldest-first. (A single-project scope is unchanged.)
+
+    # Resolved in P10.S3 (the note S2 left here): a per-project listing cannot
+    # return **org-level** rows (``project_id IS NULL``), so an org-level caller
+    # must have its own keys unioned in — otherwise its usage view omits the very
+    # key it authenticated with. The two listings are disjoint, so the union
+    # never double-counts.
+    if org_tenant_id is not None:
+        credentials.extend(
+            await get_accounts_service().list_org_credentials(org_tenant_id)
+        )
+
+    # Each listing is already ordered ``(created_at, id)``; concatenating several
+    # loses that order, so re-sort on the same key to keep the payload globally
+    # oldest-first. (A single-project scope is unchanged.)
     credentials.sort(key=lambda record: (record.created_at, record.id))
 
-    # NOTE for P10.S3: a per-project listing cannot return **org-level** rows
-    # (``project_id IS NULL``), so once ``list_org_credentials`` exists it must
-    # be unioned in here — otherwise an org key's own usage view omits the very
-    # keys it was minted as.
     payload["credentials"] = [serialize_credential(record) for record in credentials]
     return JSONResponse(payload)
 
@@ -222,13 +239,24 @@ async def get_api_project_usage(request: Request) -> JSONResponse:
     """Return the authenticating credential's scoped usage + its credentials."""
 
     scope = get_request_project_ids(request)
+    # ``credential.project_id`` is read here as a *shape* test, never as a
+    # filter: the project filter is ``scope`` above. An org-level key must also
+    # see the org-level keys, which no per-project listing can return.
+    credential = get_request_credential(request)
 
     try:
         start, end = _resolve_usage_window(request)
     except FeedbackQueryValidationError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
-    return await _project_usage_response(scope, start, end)
+    return await _project_usage_response(
+        scope,
+        start,
+        end,
+        org_tenant_id=(
+            credential.tenant_id if credential.project_id is None else None
+        ),
+    )
 
 
 routes = [

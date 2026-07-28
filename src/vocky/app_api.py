@@ -6,8 +6,13 @@ public-ingest nor the admin middleware guards it). Every handler begins with
 generic 401 by the app-wide handler registered in ``create_app()``. Project
 reads are scoped to the caller's tenant: a project that is missing *or* owned by
 another tenant answers 404, so cross-tenant existence never leaks. Credential
-endpoints mint a per-project ingest key whose plaintext value is returned once
-(on create) and never persisted or re-exposed.
+endpoints mint an ingest key whose plaintext value is returned once (on create)
+and never persisted or re-exposed — at **project** scope under
+``/app/projects/{id}/credentials`` and, since P10, at **org** scope under
+``/app/credentials`` (``project_id IS NULL``: valid for every project the tenant
+owns). The two surfaces are disjoint in both directions: a project listing never
+shows an org key, and the org routes answer 404 for a project-bound credential
+id, so neither can revoke or probe the other's rows.
 """
 
 from __future__ import annotations
@@ -294,6 +299,91 @@ async def delete_credential(request: Request) -> Response:
     return Response(status_code=204)
 
 
+async def create_org_credential(request: Request) -> JSONResponse:
+    """Mint an **org-level** ingest credential; the plaintext key is returned once.
+
+    The org-wide counterpart of :func:`create_credential` (P10): the row is
+    written with ``project_id=None``, so the key authorizes capture, read, and
+    manage across **every** project its tenant owns, present and future, and a
+    capture may name its project (get-or-created, defaulting to ``"default"``).
+    Same key material and same 201 ``{credential, key}`` shape as the per-project
+    mint — the plaintext ``vk_`` value is emitted only here and only once.
+    """
+
+    ctx = await require_user(request)
+
+    try:
+        payload = await _parse_optional_body(request, CreateCredentialInput)
+    except AppAPIValidationError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    key = f"vk_{generate_opaque_token()}"
+    record = await get_accounts_service().create_project_credential(
+        CreateProjectCredential(
+            # Org-level: ``project_id`` is NULL on purpose. The tenant is the
+            # only binding, and it is what the ingest middleware resolves the
+            # key's project scope from.
+            tenant_id=ctx.tenant.id,
+            project_id=None,
+            token_prefix=key[:12],
+            token_hash=sha256_hex(key),
+            name=payload.name,
+        )
+    )
+    return JSONResponse(
+        {"credential": serialize_credential(record), "key": key},
+        status_code=201,
+    )
+
+
+async def list_org_credentials(request: Request) -> JSONResponse:
+    """List the caller's org-level credentials (metadata only, oldest-first).
+
+    Only ``project_id IS NULL`` rows: a project's keys stay on
+    ``/app/projects/{id}/credentials``, so the two listings never overlap.
+    """
+
+    ctx = await require_user(request)
+    credentials = await get_accounts_service().list_org_credentials(ctx.tenant.id)
+    return JSONResponse(
+        {"credentials": [serialize_credential(record) for record in credentials]},
+        status_code=200,
+    )
+
+
+async def delete_org_credential(request: Request) -> Response:
+    """Revoke one of the caller's org-level credentials by id.
+
+    **404, never 403 — and narrower than it looks.** The id must resolve to a
+    credential that is *both* owned by the caller's tenant *and* org-level; a
+    **project-bound** credential of the caller's own tenant answers 404 here
+    exactly as another tenant's does. So this route can neither revoke nor probe
+    a project-bound key, and the per-project route (which scopes through the
+    project) stays the only way to revoke one.
+    """
+
+    ctx = await require_user(request)
+
+    try:
+        credential_id = UUID(request.path_params["credential_id"])
+    except ValueError:
+        return JSONResponse(
+            {"detail": "credential_id must be a valid UUID"}, status_code=400
+        )
+
+    service = get_accounts_service()
+    record = await service.get_credential(credential_id)
+    if (
+        record is None
+        or record.tenant_id != ctx.tenant.id
+        or record.project_id is not None
+    ):
+        return JSONResponse({"detail": "credential not found"}, status_code=404)
+
+    await service.revoke_credential(credential_id)
+    return Response(status_code=204)
+
+
 routes = [
     Route("/app/tenant", get_tenant, methods=["GET"]),
     Route("/app/projects", list_projects, methods=["GET"]),
@@ -312,6 +402,16 @@ routes = [
     Route(
         "/app/projects/{project_id}/credentials/{credential_id}",
         delete_credential,
+        methods=["DELETE"],
+    ),
+    # Org-level credentials (P10) — additive beside the per-project routes above
+    # and session-authed the same way; no path project, because an org key is
+    # bound to the tenant rather than to one project.
+    Route("/app/credentials", create_org_credential, methods=["POST"]),
+    Route("/app/credentials", list_org_credentials, methods=["GET"]),
+    Route(
+        "/app/credentials/{credential_id}",
+        delete_org_credential,
         methods=["DELETE"],
     ),
 ]

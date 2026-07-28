@@ -1,10 +1,10 @@
-"""Org-level (``project_id IS NULL``) credential scoping — the P10.S2 dark path.
+"""Org-level (``project_id IS NULL``) credential scoping — the enforcement path.
 
-Nothing in production mints an org-level credential yet (P10.S3 adds the mint
-surface), so these tests construct one **directly at the service layer**. That is
-not a breach of S1's "no NULL rows" invariant — that invariant is about
-production code paths, and this branch is exactly what needs proving before it
-can be turned on.
+Written for P10.S2, when no org key was mintable, so these tests construct one
+**directly at the service layer**. They stay that way after P10.S3 turned minting
+on: they exercise the *enforcement* branch against route subsets (no ``/app/*``
+session surface is mounted here), and the real ``POST /app/credentials`` mint is
+covered end-to-end in ``tests/test_org_credentials_api.py``.
 """
 
 from __future__ import annotations
@@ -223,15 +223,19 @@ async def test_org_key_usage_aggregates_project_credentials(
         response = await client.get("/api/project/usage")
 
     assert response.status_code == 200
-    project_ids = {entry["project_id"] for entry in response.json()["credentials"]}
+    credentials = response.json()["credentials"]
+    project_ids = {entry["project_id"] for entry in credentials}
+    # The gap S2 pinned here is closed by P10.S3: a per-project listing cannot
+    # return ``project_id IS NULL`` rows, so the org-level ones are unioned in —
+    # otherwise the org key's own usage view omits the key it authenticated with.
     assert project_ids == {
         str(configured_project_credential.project_id),
         str(second.id),
+        None,
     }
-    # KNOWN GAP, handed to P10.S3: a per-project listing cannot return
-    # ``project_id IS NULL`` rows, so the org key omits itself here. S3 must
-    # union ``list_org_credentials`` in.
-    assert None not in project_ids
+    assert org_key[:12] in {entry["token_prefix"] for entry in credentials}
+    # Still globally oldest-first across the union, not per-project batches.
+    assert credentials == sorted(credentials, key=lambda entry: entry["created_at"])
 
 
 def test_serialize_credential_renders_null_for_an_org_row() -> None:

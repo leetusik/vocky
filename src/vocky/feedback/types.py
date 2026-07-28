@@ -118,9 +118,18 @@ class FeedbackAttachmentRecord:
 
 @dataclass(slots=True, kw_only=True)
 class FeedbackQueryFilters:
-    """Supported filters for feedback read queries."""
+    """Supported filters for feedback read queries.
 
-    project_id: UUID | None = None
+    Project scoping is **set-based only** (``project_ids``). The single-project
+    ``project_id`` filter was removed in P10.S3: with a nullable
+    ``project_credentials.project_id`` a ``None`` single-project filter means
+    *"no filter"* rather than *"no rows"*, i.e. a global cross-tenant read, so
+    the field was the mechanism behind the phase's headline footgun. Every
+    credential-derived scope now arrives as a concrete id tuple resolved by
+    :func:`vocky.auth.get_request_project_ids`, and an empty tuple is
+    short-circuited by the caller rather than passed to a query.
+    """
+
     project_ids: tuple[UUID, ...] | None = None
     search: str | None = None
     start_ingested_at: datetime | None = None

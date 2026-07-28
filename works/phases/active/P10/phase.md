@@ -474,6 +474,109 @@ behavior so S3's change is a visible test edit rather than a silent one.
   and S2 must not add one. **S3 should re-point `tests/test_org_credential_scope.py::_mint_credential`
   at the real mint route** so the tests stop reaching under the API.
 
+### P10.S3 landed (2026-07-28) — org keys are ON; what S4/S5 inherit
+
+**The trust boundary is now actually open.** As of this slice a `vk_` key can exist with
+`project_id IS NULL`, and it authorizes capture, read, and manage across **every** project in its org,
+present and future. It is safe only because S2 landed: every credential-derived project filter is
+already set-based, resolved once in the middleware. **S3 added no resolver logic** — verified by
+reading `resolve_credential_project_ids` (`src/vocky/auth.py:112-141`): the project-bound branch
+returns `(credential.project_id,)` with no DB call and the org branch returns the tenant's project set.
+It was correct as written and is untouched.
+
+**Cite S2's proof, don't re-derive it:** 191/191 byte-for-byte with zero assertion edits is the
+additivity proof, and it is gone now that minting is on. S3's suite is **201 passed** (196 + 5 new),
+green on the first run, with exactly **one** existing assertion changed — the usage pin S2 planted on
+purpose (below).
+
+**The three new routes (`src/vocky/app_api.py`), session-authed via `require_user` like their
+neighbours. S4 and S5 build on exactly these shapes:**
+
+| route | request | response |
+|---|---|---|
+| `POST /app/credentials` | optional body `{"name"?: str\|null}` (empty body = no name; `max_length=200`, blank ⇒ `null`) | `201 {"credential": {...}, "key": "vk_..."}` — identical shape to the per-project mint; plaintext returned **once** |
+| `GET /app/credentials` | — | `200 {"credentials": [...]}` — org-level rows only, oldest-first, **including revoked** |
+| `DELETE /app/credentials/{credential_id}` | — | `204`; `400` on a malformed UUID; `404 {"detail": "credential not found"}` otherwise |
+
+**Client-visible nullability (binds S4's TS types and S5's CLI output):** the credential payload is the
+existing `serialize_credential` shape verbatim —
+`{id, project_id, name, token_prefix, created_at, last_used_at, revoked_at}` — and for an org row
+**`project_id` is JSON `null`**. Pinned by `tests/test_org_credentials_api.py`
+(`test_project_bound_mint_is_unchanged` asserts the exact key set). Nothing else in the payload moved:
+no new field, no scope discriminator — **`project_id === null` *is* the "org key" signal**, and that is
+what a client must branch on.
+
+**404-never-403 is narrower than it looks, and it is deliberate.** `DELETE /app/credentials/{id}`
+answers 404 unless the row is *both* `tenant_id == ctx.tenant.id` **and** `project_id IS NULL`. So a
+**project-bound credential of the caller's own tenant 404s here**, exactly like another tenant's key
+and like an id that does not exist. The org surface can therefore neither revoke nor probe a
+project-bound key; `/app/projects/{id}/credentials/{cid}` stays the only way to revoke one. The two
+listings are disjoint in both directions (`list_org_credentials` is `project_id IS NULL`,
+`list_project_credentials` is `project_id = :id`), so a tenant's keys enumerate exactly once across the
+two surfaces — which is also why the usage union below cannot double-count.
+
+**New accounts primitives (both plain reads, no transaction semantics):**
+- `AccountsRepository/Service.list_org_credentials(tenant_id)` — `tenant_id = :tid AND project_id IS
+  NULL`, ordered `(created_at, id)`, revoked included.
+- `AccountsRepository/Service.get_credential(credential_id)` — an **unscoped** by-PK read; the caller
+  owns the ownership check. Deliberately **not** modelled on `delete_credential`'s list-and-scan-in-
+  Python shape (`app_api.py`): one indexed read plus an explicit check is O(1) and states the rule in
+  one place. The existing per-project route was left exactly as it was — rewriting it is not this
+  slice's job, and it is still correct.
+
+**The usage union — S2's handoff, closed.** `_project_usage_response` gained a keyword-only
+`org_tenant_id: UUID | None` and unions `list_org_credentials(org_tenant_id)` in when it is set.
+`get_api_project_usage` passes `credential.tenant_id` **only** when `credential.project_id is None`;
+the session drill-down `/app/projects/{id}/usage` passes nothing, so **its payload is unchanged** — an
+org key is not one project's key and must not appear in a project's drill-down (S4: the dashboard
+needs its own org-keys panel; there is no per-project surface that will show them). The re-sort on
+`(created_at, id)` now covers the union, so the payload stays globally oldest-first. The `NOTE for
+P10.S3` comment in `src/vocky/usage_api.py` was **replaced by the resolution**, not deleted.
+`tests/test_org_credential_scope.py::test_org_key_usage_aggregates_project_credentials` — the pin S2
+planted — now asserts `None ∈ project_ids`, that the calling key's own `token_prefix` is present, and
+that the union is still sorted.
+
+**Decision: keep `vk_` for org keys too — the open question is closed.** No distinct prefix.
+- The prefix is **never validated**: auth resolves purely by `sha256_hex` (`src/vocky/auth.py:181-187`),
+  so a second prefix buys **no** cheap pre-DB branch — the only mechanical argument for one.
+- `vk_` is published as *the* key shape in `docs/current/` and on the landing page; forking it mid-phase
+  fragments that story for a distinction the product surfaces explicitly anyway (S4 in the dashboard
+  panel, S5 in CLI output — and `project_id: null` in the payload).
+- **Counter-argument, recorded honestly:** a distinct prefix would let a human, a log scrubber, or a
+  secret-scanning rule tell a broad key from a narrow one *at a glance*, which has real
+  incident-response value. Nothing here forecloses it: it would be a **mint-side-only, purely additive**
+  change (one line in `create_org_credential`), because nothing reads the prefix for auth. If it is ever
+  wanted, only newly minted keys would carry it and old ones keep working.
+
+**Cleanup done: `FeedbackQueryFilters.project_id` is deleted.** Re-verified before touching it
+(`grep -rn "filters.project_id\b\|project_id=" src/vocky/feedback/ src/vocky/*.py`, plus a repo-wide
+sweep of every `FeedbackQueryFilters(...)` construction in `src/` **and** `tests/`): **no setter
+anywhere** — S2's note that `tests/test_persistence.py` constructs it was stale; that file only
+mentions the `ix_feedback_events_project_id` index name. The field and its `_apply_query_filters`
+branch are gone, so **footgun 1's mechanism no longer exists in the type** — project scoping is now
+expressible only as `project_ids`, a set. No test needed changing.
+
+**Gotchas / notes for later slices:**
+- **An org with zero projects still owns its org keys.** `/api/project/usage` short-circuits *metrics*
+  on an empty project scope but still lists credentials, so a brand-new org key is never invisible to
+  itself. (Unreachable through signup today — provisioning always creates `"default"` — but reachable
+  if every project is deleted.)
+- **`get_credential` is unscoped on purpose.** Any future caller must do its own tenant check; there is
+  no safety net in the repository layer. It is used in exactly one place today.
+- **Route order is not load-bearing here** (`/app/credentials` cannot collide with
+  `/app/projects/...`), but the org routes are registered *after* the per-project ones to keep the
+  additive reading of the file.
+- **S5 (CLI):** the org path needs no `--project`; `keys mint/list/revoke` at org scope map 1:1 onto the
+  three routes above. The lean-CLI invariant is untouched by this slice — no `src/vocky/cli/**` change,
+  and `vocky.smoke` stays server-free.
+- **S4/S5 both:** `/api/project/feedback` records carry `project_id` **only** for an org key (S2's
+  serializer fork), so a client that shows the project column must key it off the credential's scope,
+  not off the field's presence in one sample response.
+- **Live-verified against the running compose stack**, not just the suite: signup → `POST
+  /app/credentials` → capture with `"project": "mobile"` → the worker persisted it → `GET
+  /api/project/feedback` returned it with `project_id` → `/api/project/usage` listed the org key itself
+  → a bogus id 404'd → `DELETE` 204'd → the same key then 401'd on `/api/*`.
+
 ### P12 handoff (deploy)
 
 P10's migration lands against an **empty** schema — P6 authored the deploy kit but deployed nothing;
@@ -587,10 +690,51 @@ Appended by **`P10.S2`** (2026-07-28) — the durable truth this slice actually 
 - **`product.md`** — no user-visible change yet by design: this slice is **dark**. Worth stating that
   the org-key capability is enforced before it is offered.
 
+Appended by **`P10.S3`** (2026-07-28) — the durable truth this slice actually changed:
+
+- **`security.md`** — **this is the slice where the published guarantee actually changes**, and the doc
+  must say so plainly rather than soften it. Before S3 an ingest key was project-bound at *both* binding
+  and enforcement, and `:58` published that as a schema-anchored guarantee ("Because
+  `project_credentials.project_id` is `NOT NULL`, the forced filter can never degrade to an unscoped
+  read"). As of S3 a key with `project_id IS NULL` **can exist** — mintable by any signed-in user at
+  `POST /app/credentials` — and it authorizes capture, read, and manage across **every** project in its
+  org, including projects created later. That sentence must be **rewritten**, not reworded: the
+  guarantee is now (a) *tenancy* isolation, enforced by a middleware-resolved project-id **tuple** that
+  can never be `None` (`get_request_project_ids`), plus (b) an explicit, user-chosen key scope —
+  project-bound or org-level — which the credential payload reports as `project_id` (non-null vs
+  `null`). Also durable: the org credential surface is **404-never-403 and disjoint** — a project-bound
+  credential id is unreachable (unrevokable and unprobeable) through `/app/credentials/{id}`, and an org
+  key is unreachable through the per-project routes; and `FeedbackQueryFilters.project_id` (the
+  single-project filter whose `None` meant *"no filter"*, footgun 1) is **deleted**, so an unscoped
+  project read is no longer expressible in the type.
+- **`api.md`** — three **new** `/app/*` routes (`:125-139` neighbourhood): `POST /app/credentials`
+  (optional `{name?}` body → `201 {credential, key}`, plaintext key returned once, same shape as the
+  per-project mint), `GET /app/credentials` (org-level rows only, oldest-first, revoked included), and
+  `DELETE /app/credentials/{credential_id}` (`204`; `400` malformed UUID; `404` for anything that is not
+  *both* the caller's tenant *and* org-level — explicitly including the caller's **own** project-bound
+  keys). The credential payload is unchanged in shape and `project_id` is `null` for an org row —
+  `project_id === null` is the org-key discriminator; there is no separate scope field. `GET
+  /api/project/usage` under an **org** key now also lists the org-level keys themselves (the per-project
+  drill-down `/app/projects/{id}/usage` is unchanged and still shows only that project's keys).
+- **`backend.md`** — two new accounts primitives: `list_org_credentials(tenant_id)` (`project_id IS
+  NULL`, ordered `created_at, id`) and `get_credential(credential_id)` (an **unscoped** by-PK read whose
+  caller owns the ownership check). `usage_api._project_usage_response` gained a keyword-only
+  `org_tenant_id` that unions the org-level rows in for an org-level caller only.
+  `FeedbackQueryFilters.project_id` and its `_apply_query_filters` branch are **removed** — project
+  scoping is set-based (`project_ids`) only.
+- **`product.md`** — org-level keys are **live**: a user can mint one key that works across every
+  project in the org (with capture naming its project, get-or-created, defaulting to `"default"`), list
+  those keys, and revoke them — alongside, not instead of, per-project keys, whose behavior is
+  unchanged. The two kinds are deliberately **not** distinguishable by prefix (both `vk_`); scope is
+  surfaced in the UI/CLI and by `project_id: null`.
+- **`experience.md`** — the key story is now a choice with a stated trade-off: a **project key** is the
+  narrow default; an **org key** is one key for the whole org, so revoking it cuts every project at
+  once, and it is the key to use when a client captures into several projects.
+
 ## Open Questions
 
-- **Distinct org-key token prefix?** (footgun 8) The `vk_` prefix is never validated, so a separate
-  prefix would authenticate fine but buys no cheap pre-DB branch. Deliberately left open at DECOMP —
-  decide in S3 or leave as-is and record it.
+- ~~**Distinct org-key token prefix?**~~ (footgun 8) — **RESOLVED in `P10.S3`: keep `vk_` for both.**
+  Reasoning and the recorded counter-argument are in the `P10.S3 landed` section above. A distinct
+  prefix stays available later as a mint-side-only, purely additive change.
 - **`DASHBOARD.projects.empty` / `project.ts:82` empty states** become near-unreachable once signup
   provisions a project. Keep, or simplify? S4's call.
