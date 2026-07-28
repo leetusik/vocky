@@ -84,6 +84,30 @@ def resolve_base_url(base_url_flag: str | None) -> str:
     return DEFAULT_BASE_URL
 
 
+def resolve_api_token() -> str:
+    """Resolve the ``vk_`` ingest key for ``vocky capture`` from its env var.
+
+    Precedence is exactly one tier: ``VOCKY_API_TOKEN`` or nothing. There is
+    **no** ``--token`` flag — the same reasoning ``auth.py`` already applies to
+    ``--password`` (never ``--password-stdin``'s stdin path, but a bare flag):
+    argv is world-readable via ``ps`` and lands in shell history, and a ``vk_``
+    key is a bearer credential with the same exposure. There is also **no**
+    config-store persistence — ``config_store`` holds only the session `token`
+    and `clear_token()` only pops that key, so a persisted `vk_` key would
+    silently survive `vocky logout`, a leak-shaped bug. Fails with a message
+    naming the env var when it is unset or blank.
+    """
+
+    env_api_token = os.environ.get("VOCKY_API_TOKEN", "").strip()
+    if env_api_token:
+        return env_api_token
+
+    fail(
+        "VOCKY_API_TOKEN is not set — mint a key with `vocky keys mint` and "
+        "export it."
+    )
+
+
 def fail(message: str) -> NoReturn:
     """Print ``message`` to stderr and exit non-zero."""
 

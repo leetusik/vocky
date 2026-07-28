@@ -92,12 +92,18 @@ class ApiClient:
         token: str | None = None,
         json: Any = None,
         params: dict[str, Any] | None = None,
+        unauthorized_message: str | None = None,
     ) -> Any:
         """Send a request and return parsed JSON (or ``None`` for empty bodies).
 
         Injects a Bearer header from ``token`` when given, else from the client's
         stored token when ``auth`` is true. Raises :class:`CliError` /
         :class:`ApiError` on failure — see the module docstring.
+
+        ``unauthorized_message`` overrides the default "Not signed in — run
+        `vocky login`." message a token-bearing ``401`` raises — for a caller
+        whose token is not a session token (e.g. ``capture``'s ``vk_`` key),
+        that default is actively wrong. It never changes any other outcome.
         """
 
         headers: dict[str, str] = {}
@@ -118,7 +124,11 @@ class ApiClient:
                 f"Could not reach vocky at {self.base_url} ({exc})."
             ) from exc
 
-        return self._handle(response, token_sent=bool(effective_token))
+        return self._handle(
+            response,
+            token_sent=bool(effective_token),
+            unauthorized_message=unauthorized_message,
+        )
 
     def get(self, path: str, **kwargs: Any) -> Any:
         return self.request("GET", path, **kwargs)
@@ -130,7 +140,12 @@ class ApiClient:
         return self.request("DELETE", path, **kwargs)
 
     @staticmethod
-    def _handle(response: httpx.Response, *, token_sent: bool) -> Any:
+    def _handle(
+        response: httpx.Response,
+        *,
+        token_sent: bool,
+        unauthorized_message: str | None = None,
+    ) -> Any:
         if response.is_success:
             if response.status_code == 204 or not response.content:
                 return None
@@ -142,9 +157,10 @@ class ApiClient:
         # A 401 on an authenticated request means the session is expired/invalid
         # — steer the user to re-login. A 401 on a request that sent no token
         # (login/signup) is a credential rejection: surface the server detail so
-        # the command can render "Incorrect email or password".
+        # the command can render "Incorrect email or password". A caller may
+        # override the message (e.g. `capture`'s `vk_` key isn't a session).
         if response.status_code == 401 and token_sent:
-            raise CliError("Not signed in — run `vocky login`.")
+            raise CliError(unauthorized_message or "Not signed in — run `vocky login`.")
 
         raise ApiError(response.status_code, ApiClient._extract_detail(response))
 

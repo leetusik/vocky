@@ -37,6 +37,8 @@ A trailing slash is stripped. Resolve it once per invocation; every command in t
 
 `vocky logout` best-effort revokes the token server-side, then removes it from the file.
 
+**`VOCKY_API_TOKEN`.** A second, unrelated credential: a `vk_` **ingest** key (minted with `vocky keys mint`), read from this environment variable only — there is no `--token` flag (a bearer key on argv is `ps`-visible and lands in shell history, the same reasoning as `--password`) and it is **never** written to the config store, so it can never be conflated with the session token or survive `vocky logout`. It is used by exactly one command, `vocky capture` — every other command still uses the stored session token.
+
 ## For coding agents — the contract
 
 The CLI is designed to be run headlessly, with no interactive prompts and no secret ever landing on `argv`:
@@ -61,7 +63,7 @@ The CLI is designed to be run headlessly, with no interactive prompts and no sec
 
 - **Streams and exit codes.** Success output goes to **stdout**; errors go to **stderr** and the process exits **non-zero**. Parse stdout for results.
 
-- **Generic-401 semantics.** Any authenticated command that hits a `401` (expired/invalid session) prints `Not signed in — run \`vocky login\`.` to stderr and exits non-zero — re-authenticate and retry. A bad login is deliberately generic (`Incorrect email or password.`): vocky never reveals whether the email or the password was wrong, so you cannot enumerate accounts.
+- **Generic-401 semantics.** Any **session**-authenticated command that hits a `401` (expired/invalid session) prints `Not signed in — run \`vocky login\`.` to stderr and exits non-zero — re-authenticate and retry. A bad login is deliberately generic (`Incorrect email or password.`): vocky never reveals whether the email or the password was wrong, so you cannot enumerate accounts. `vocky capture`'s `401` is different — it names `VOCKY_API_TOKEN` instead, since a `vk_` key rejection has nothing to do with your session.
 
 - **The `vk_` key is shown once.** `vocky keys mint` prints the plaintext key exactly once, on its own line (the last line of output). Capture it then — vocky stores only a hash and cannot show it again. If you lose it, revoke it and mint a new one.
 
@@ -69,7 +71,7 @@ The CLI is designed to be run headlessly, with no interactive prompts and no sec
 
 Global options (on `vocky` itself): `--base-url URL`, `--version`, `--help`. Every sub-command also accepts `--help`.
 
-Auth summary: `signup` and `login` are unauthenticated; `logout`, `whoami`, and everything under `projects` / `keys` / `usage` / `feedback` send your stored **session** token as `Authorization: Bearer <session-token>`.
+Auth summary: `signup` and `login` are unauthenticated; `logout`, `whoami`, and everything under `projects` / `keys` / `usage` / `feedback` send your stored **session** token as `Authorization: Bearer <session-token>`. `vocky capture` is the one exception — it sends the `vk_` key from `VOCKY_API_TOKEN` instead.
 
 ### Account auth (`/auth/*`)
 
@@ -114,6 +116,23 @@ Soft-revoke at either scope: the key stops working immediately and stays listed 
 | Command | HTTP | Notes |
 | --- | --- | --- |
 | `vocky usage [--project <PROJECT_ID>] [--start ISO8601] [--end ISO8601]` | `GET /app/usage` or `GET /app/projects/{id}/usage` → `{window,totals,daily_counts,projects|credentials}` | Whole-tenant totals + a project list, or one project's totals + its credentials' last-used. `--start`/`--end` map to `start_ingested_at`/`end_ingested_at`; the window defaults to the last 30 days. Derived volume only — no billing/metering. |
+
+### Capture — send feedback with a `vk_` key (`/api/feedback`)
+
+| Command | HTTP | Notes |
+| --- | --- | --- |
+| `vocky capture MESSAGE --product PRODUCT [options]` | `POST /api/feedback {message, source:{product,integration?}, ...}` → `202 {request_id, accepted_at, status:"accepted"}` | Authenticates with the `vk_` key from `VOCKY_API_TOKEN` — **not** the session token. Prints `Captured — request_id <id>` on success. |
+
+Options: `--product PRODUCT` (required, maps to `source.product`), `--integration` (`source.integration`), `--value 1|2` (`feedback_value`; `1 = liked, 2 = disliked`), `--comment`, `--tag` (repeatable), `--session-id`, `--user-id`, and `--project` (destination project name — honored only for an **org-level** key; a project-bound key ignores it). Pass `MESSAGE` as `-` to read the message from stdin (one read, trailing newline stripped) instead of fighting shell quoting.
+
+```sh
+export VOCKY_BASE_URL=https://vocky.example.com
+export VOCKY_API_TOKEN=vk_your_key_here
+vocky capture "Pricing page feedback button was hard to find" --product marketing-site --value 2
+# -> Captured — request_id <full id>
+```
+
+A missing `VOCKY_API_TOKEN` fails locally (no HTTP call) naming the env var. A `401` (wrong/revoked key) also names `VOCKY_API_TOKEN` — it is deliberately **not** the "run `vocky login`" message, since a `vk_` key rejection has nothing to do with your session.
 
 ### Feedback — cross-project read (`/app/feedback`, read-only)
 
@@ -212,7 +231,16 @@ curl -X POST "http://127.0.0.1:8000/app/projects" \
 
 ### 4. Capture feedback with the `vk_` key
 
-Capture is not a CLI command in this release (the CLI does account setup + reads); a product backend or an agent captures directly over `/api/*` with the `vk_` key:
+Either `vocky capture` (export the key as `VOCKY_API_TOKEN` first) or raw `curl` over `/api/*` with the `vk_` key — a product backend or an agent can use whichever it prefers:
+
+```sh
+export VOCKY_API_TOKEN=vk_<your-project-key>
+vocky capture "Pricing page feedback button was hard to find" \
+  --product marketing-site --integration web-backend --value 2 --user-id user_123
+# -> Captured — request_id <full id>
+```
+
+Equivalent raw HTTP:
 
 ```sh
 curl -X POST "http://127.0.0.1:8000/api/feedback" \

@@ -321,4 +321,60 @@ correct these two install sections to describe the real path; the review consoli
   `.agents/skills/`.
 - **S5**: every visual question is posed back to Claude Design, never answered here.
 
+### S2 done — `VOCKY_API_TOKEN` resolution + `vocky capture` landed
+
+`P11.S2` closed both gaps the phase objective names: `VOCKY_API_TOKEN` now exists (`resolve_api_token()`
+in `src/vocky/cli/context.py`) and `vocky capture` is a real top-level command
+(`src/vocky/cli/capture.py`, registered in `app.py`). All design decisions in the slice's `plan.md`
+(token resolution shape, the `context.make_client(token=..., use_stored_token=False)` seam, the
+401-override threading, command shape, registration, the `keys mint` hint, the version bump) were
+implemented as specified — nothing was re-litigated.
+
+**Exact surface `P11.S4`'s end-user skill should author against:**
+
+- **Env var**: `VOCKY_API_TOKEN` — the only way to supply the `vk_` key; no `--token` flag exists. Missing
+  or blank → exit non-zero, no HTTP call, stderr is exactly:
+  `VOCKY_API_TOKEN is not set — mint a key with \`vocky keys mint\` and export it.`
+- **Command**: `vocky capture MESSAGE --product PRODUCT [--integration I] [--value 1|2] [--comment C]
+  [--tag T ...] [--session-id S] [--user-id U] [--project P]`. `MESSAGE` positional; pass `-` to read the
+  whole message from stdin instead of fighting shell quoting. `--product` is the only required option.
+  `--tag` is repeatable; omitted entirely from the request body when not given (never sent as `[]`).
+  `--project` is REST-only-parity: honored only for an **org-level** `vk_` key, ignored by a project-bound
+  one (same as the REST/MCP contract already documented).
+- **Success output** (exact string, request id printed in full): `Captured — request_id <full id>`.
+- **401 output** (exact string; deliberately not "run `vocky login`" — that message is reserved for the
+  session-token commands): `Unauthorized — check VOCKY_API_TOKEN (the key may be wrong or revoked).`
+- **Auth**: `Authorization: Bearer <vk_ key>` — never the stored session token. Built via
+  `context.make_client(token=api_token, use_stored_token=False)`, which structurally guarantees the two
+  credentials can't cross.
+- **Two-export quickstart** (now real): `export VOCKY_BASE_URL=...` + `export VOCKY_API_TOKEN=vk_...` +
+  `vocky capture "..." --product ...`. `vocky keys mint`'s output now includes a hint line pointing at this
+  exact export, right before the show-once key line.
+- **Version**: `pyproject.toml` is now `0.2.0` (was stale `0.1.0` since before P10). `vocky --version` only
+  reflects it after a reinstall (`importlib.metadata` reads installed metadata, not the source tree) — the
+  installer (`P11.S3`) reinstalls on every run, so this is a non-issue there.
+- **Import isolation held**: `vocky.cli.*` (including new `capture.py`) still imports only typer / httpx /
+  stdlib / `vocky.smoke`. The lean install from a built wheel resolves exactly **15 packages** (httpx +
+  typer + transitives, no pydantic/sqlalchemy/uvicorn/psycopg) — verified with `uv build` +
+  `uvx --from dist/vocky-0.2.0-py3-none-any.whl vocky --version`.
+- **Not proven**: no live server round trip — every test stubs the transport. The real end-to-end proof
+  (a running server, a real `vk_` key, a real 202) is P12's live smoke per the phase's hand-off section.
+
+**Environment finding for later full-suite baselines**: this dev environment has a live Postgres reachable
+on the test suite's default `127.0.0.1:55432`, so `uv run pytest -q` here shows **0** errors, not the
+~108 `psycopg.OperationalError`s the phase's earlier citations (from `P6.S9`) describe for a no-DB
+environment. Establish pre/post-slice baselines by comparison (e.g. `git stash` the slice's diff and
+re-run) rather than assuming the ~108 number will reproduce here.
+
+**Docs correction beyond the plan's three bullets**: `docs/cli.md`'s end-to-end walkthrough step 4
+("Capture is not a CLI command in this release") was left false by the plan's specified edits alone, so it
+was corrected too (now shows both `vocky capture` and the raw-HTTP equivalent) — a minimal, same-file
+consistency fix, not a scope expansion.
+
 ## Doc impact
+
+- **S2** (`P11.S2`): `vocky capture` + `VOCKY_API_TOKEN` are now real — `docs/current/experience.md`
+  (agent-facing capture/onboarding guidance should mention the CLI path alongside REST/MCP) and
+  `docs/current/operations.md` (CLI import-isolation section, if it enumerates command modules, should
+  list `capture.py`) may need updates at the phase review; `docs/current/api.md` is unaffected (no backend
+  contract changed).

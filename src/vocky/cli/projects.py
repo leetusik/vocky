@@ -147,6 +147,10 @@ def _keys_mint(
             "Copy this key now — it is shown only once and cannot be recovered. "
             "If you lose it, revoke it and mint a new one."
         )
+        typer.echo(
+            "Export it for `vocky capture` and agent skills:  "
+            "export VOCKY_API_TOKEN=<the key below>"
+        )
         typer.echo(result["key"])
 
 
