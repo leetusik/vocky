@@ -2,7 +2,7 @@
   "current_phase": "P11",
   "current_slice": "P11.S5",
   "next_slice": "P11.DECOMP2",
-  "waiting_on_operator": null,
-  "mode": "phase",
-  "updated_at": "2026-07-29T00:58:24+09:00"
+  "waiting_on_operator": "P11.S5",
+  "mode": "waiting",
+  "updated_at": "2026-07-29T01:01:03+09:00"
 }

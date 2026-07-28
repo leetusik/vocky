@@ -8,9 +8,9 @@
 - Current phase: `P11`
 - Current slice: `P11.S5`
 - Next slice: `P11.DECOMP2`
-- Waiting on operator: `none`
+- Waiting on operator: `P11.S5`
 - Open deferred jobs: `6`
-- Rebuilt at: `2026-07-29T00:58:24+09:00`
+- Rebuilt at: `2026-07-29T01:01:03+09:00`
 
 ## Active Phases
 
@@ -58,7 +58,7 @@
 | [x] `P11.S2` | `done` | CLI: VOCKY_API_TOKEN resolution + vocky capture over /api/feedback | `implementation` | `works/phases/active/P11/slices/P11.S2` |
 | [x] `P11.S3` | `done` | curl \| bash installer: web/public/install.sh | `implementation` | `works/phases/active/P11/slices/P11.S3` |
 | [x] `P11.S4` | `done` | Canonical end-user SKILL.md, served byte-copy, parity script + first CI workflow | `implementation` | `works/phases/active/P11/slices/P11.S4` |
-| [ ] `P11.S5` | `todo` | Design round 02: hero install row, agent env-var quickstart, skill-on-landing | `co-work` | `works/phases/active/P11/slices/P11.S5` |
+| [~] `P11.S5` | `pending` | Design round 02: hero install row, agent env-var quickstart, skill-on-landing | `co-work` | `works/phases/active/P11/slices/P11.S5` |
 | [ ] `P11.DECOMP2` | `todo` | Decompose the build from the landed design | `decomposition` | `works/phases/active/P11/slices/P11.DECOMP2` |
 | [ ] `P11.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P11/slices/P11.REVIEW` |
 
