@@ -836,6 +836,64 @@ completed Workspace → Org wording pattern from the web app (`orgLabel`, "org" 
 throughout) to mirror in CLI help/output — same product-facing rename, same frozen wire identifiers
 (`tenant_id`, `tenants[]`, `VockyTenant`, every route name unchanged).
 
+### P10.S5 landed (2026-07-28) — CLI parity done; P10.REVIEW is next
+
+**The CLI can now do everything the dashboard can.** `vocky keys mint|list|revoke` all work with
+and without `--project`, mapping 1:1 onto S3's three `/app/credentials*` routes exactly as S3 and
+S4's landed notes predicted — no resolver or route surprises, this slice was purely the client
+surface.
+
+**Implementation shape, for the record:**
+- `_PROJECT_OPTION` (`projects.py`) flipped from required (`typer.Option(...)`) to optional
+  (`typer.Option(None, ...)`) in one place, which changes `mint`/`list`/`revoke` together — all
+  three bodies branch on `project is not None` to pick the org route vs. the existing per-project
+  route.
+- **`keys mint`'s scope line is derived from which route the CLI itself called** (`project is not
+  None`), not from the response body's `credential.project_id`. This sidesteps the
+  absent-vs-`None` trap entirely for mint (it never reads `credential.get("project_id")`), and is
+  strictly more reliable than trusting the server echo. `keys list` *does* derive scope from
+  `credential.get("project_id")` per row (that's the only place in this module reading it), so
+  every credential stub in `tests/test_cli_projects.py` was given an explicit `project_id` — the
+  plan's trap is closed by construction, not by convention.
+- `keys list`'s empty-state hint got a null branch so it never renders the `--project None` bug
+  the plan flagged; the org-empty branch names `vocky keys list --project <PROJECT_ID>` explicitly
+  (decision 2).
+- `keys revoke`'s 400-malformed-id hint (copied from `feedback.py`'s `ApiError`/`exc.status_code`
+  pattern) only fires on the org-level (`project is None`) branch, matching the plan's decision 3
+  wording precisely; the project-scoped branch is untouched from before this slice.
+- `signup` now prints an additive one-line project announcement
+  (`A "default" project was created too.`) beside the existing (now Org-worded) workspace-creation
+  line, reading `result["project"]["name"]` — the additive field S1 already ships.
+
+**The accepted cost, restated because it is real:** `--project` no longer has Typer's exit-2 path
+for "missing required option." No test asserted that exit code before this slice, so nothing broke,
+but an agent script that relied on the old required-option failure to catch a forgotten `--project`
+now silently succeeds — with a *broader* key. The printed `Scope: ...` line (mint) and the
+per-row scope suffix (list) are the mitigation; nothing about this was worked around or softened.
+
+**Lean-CLI invariant: verified live, not just by grep.** Built a throwaway venv, installed only the
+bare `dependencies` group (`httpx`, `typer` — no `server` extra, exactly the `pip install vocky`
+scenario), and ran `python -c "import vocky.cli.app"` → succeeded. No import outside `typer` /
+`httpx` / `vocky.cli.*` was added; `client.py:27 → vocky.smoke.make_http_user_agent → httpx` is the
+only hop, unchanged. `src/vocky/smoke.py` was read but not touched, per plan.
+
+**`docs/cli.md` and `README.md` were read but explicitly not edited** — out of scope per the plan,
+flagged in Doc impact below for the review to reconcile against what this slice actually shipped
+(the org-level `keys` usage, the scope line, the relaxed `--project` requirement and its cost, and
+Workspace → Org wording throughout).
+
+**All 12 Workspace → Org CLI sites landed**, verified by `grep -rn -i workspace src/vocky/cli/`
+returning nothing. Wire identifiers (`tenant`, `tenants[]`, every route, every JSON field) are
+untouched — only English prose in help text, docstrings, and `typer.echo` strings changed, matching
+the pattern S4 already completed in the web app.
+
+**P10 is now feature-complete at the middle-slice level.** S1–S5 have all landed; `P10.REVIEW` is
+the only slice left. The review should re-verify: the trust-boundary rewrite of `security.md:58`
+(flagged by S1/S2/S3, still not written), the naming divergence (decision 3 — `"default"` project,
+friendly-named org, not the phase objective's literal wording), and now also this slice's
+CLI-specific doc sites (`docs/cli.md`'s Keys section, walkthrough, and the three wording lines;
+`README.md`'s two hardcoded `--project` examples).
+
 ## Doc impact
 
 Appended by **`P10.S4`** (2026-07-28) — no NEW durable truth beyond what `P10.S1`–`P10.S3` already
@@ -849,3 +907,26 @@ fact. Two small notes for the review to fold in:
   `P10.S3`'s doc-impact note) is now visibly live in the product: the dashboard's org-keys panel and
   the per-project keys panel sit side by side, and the app's login copy reads "Access your org,
   projects, and feedback." No new concept, just confirmation it shipped.
+
+Appended by **`P10.S5`** (2026-07-28) — the durable truth this slice actually changed, all CLI-side:
+
+- **`docs/cli.md`** (flagged, not edited — this slice's scope excludes it) — needs: the Keys
+  section (`:91-97` as last read) documenting `keys mint/list/revoke` now accept an **optional**
+  `--project`, with the org-level route each maps to when it is omitted; the walkthrough (`:136-171`
+  as last read) gaining an org-key example; the Workspace→Org wording sites (`:78`/`:81`/`:201` as
+  last read); and — **load-bearing** — a note that the plaintext key remains the strict last line of
+  `keys mint` output even with the new scope line, since `:66` already hardens that as a contract
+  coding agents parse against.
+- **`README.md`** (flagged, not edited) — `:78`/`:325` (as last read) hardcode `--project` in their
+  `keys mint` examples; the review should decide whether to show the org-level form too or add a
+  one-line pointer to `docs/cli.md`.
+- **`product.md` / `experience.md`** — the org-vs-project key choice (already product-live per S4)
+  is now also CLI-live: `vocky keys mint` (no `--project`) mints an org key from the terminal, and
+  `vocky keys list`/`revoke` manage it the same way, matching the dashboard panel. No new concept.
+- **No `security.md` change from this slice** — S5 is a pure client surface against S2/S3's already
+  landed enforcement; nothing about the trust boundary itself moved. The `:58` rewrite S1/S2/S3
+  already flagged is still owed, unrelated to this slice.
+- **Naming divergence (decision 3), reinforced not changed**: `vocky signup`'s new project line
+  reads `"{project name}"` verbatim from the additive `project` field (`"default"`), never
+  constructing an org name — the CLI has no `DEFAULT_ORG_NAME` concept to reach for, consistent
+  with `P10.S1`'s pinning test.

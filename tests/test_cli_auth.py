@@ -48,7 +48,9 @@ def _stub_api(monkeypatch, handler):
     monkeypatch.setattr(CliContext, "make_client", fake_make_client)
 
 
-def test_signup_stores_token_and_reports_workspace(config_env, monkeypatch):
+def test_signup_stores_token_and_reports_org_and_default_project(
+    config_env, monkeypatch
+):
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/auth/signup"
         assert json.loads(request.content) == {
@@ -62,6 +64,7 @@ def test_signup_stores_token_and_reports_workspace(config_env, monkeypatch):
                 "token": "sess-new",
                 "user": {"email": "cli@example.com"},
                 "tenant": {"name": "cli's workspace"},
+                "project": {"name": "default"},
             },
         )
 
@@ -74,8 +77,11 @@ def test_signup_stores_token_and_reports_workspace(config_env, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert config_store.get_token() == "sess-new"
+    # The org name (server-generated, contains the literal word "workspace") is
+    # unaffected by the Workspace -> Org product-facing rename.
     assert "cli's workspace" in result.stdout
     assert "was created for you automatically." in result.stdout
+    assert '"default" project was created too.' in result.stdout
 
 
 def test_login_wrong_password_is_generic_and_stores_no_token(config_env, monkeypatch):

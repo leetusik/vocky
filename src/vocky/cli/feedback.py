@@ -26,7 +26,7 @@ from vocky.cli.context import CliContext, cli_errors, fail
 feedback_app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
-    help="Read and search feedback across your workspace's projects.",
+    help="Read and search feedback across your org's projects.",
 )
 
 _MESSAGE_WIDTH = 60
@@ -35,7 +35,7 @@ _PROJECT_OPTION = typer.Option(
     None,
     "--project",
     metavar="PROJECT_ID",
-    help="Narrow to one owned project instead of the whole workspace.",
+    help="Narrow to one owned project instead of the whole org.",
 )
 _LIMIT_OPTION = typer.Option(
     None,
@@ -132,7 +132,7 @@ def _feedback_list(
     limit: int | None = _LIMIT_OPTION,
     cursor: str | None = _CURSOR_OPTION,
 ) -> None:
-    """List feedback across your workspace's projects, newest first."""
+    """List feedback across your org's projects, newest first."""
 
     with cli_errors():
         context: CliContext = ctx.obj

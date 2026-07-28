@@ -6,18 +6,18 @@
 ## Pointer
 
 - Current phase: `P10`
-- Current slice: `P10.S5`
-- Next slice: `P10.REVIEW`
+- Current slice: `P10.REVIEW`
+- Next slice: `none`
 - Waiting on operator: `none`
 - Open deferred jobs: `6`
-- Rebuilt at: `2026-07-28T23:22:11+09:00`
+- Rebuilt at: `2026-07-28T23:30:30+09:00`
 
 ## Active Phases
 
 | Phase | Status | Review | Name | Current Slice | Path |
 |---|---|---|---|---|---|
 | [x] `P6` | `done` | `pass` | Landing Page, Webpage & Production Deploy | `none` | `works/phases/active/P6` |
-| [ ] `P10` | `planned` | `pending` | Accounts v2: orgs, org-level keys & default project | `P10.S5` | `works/phases/active/P10` |
+| [ ] `P10` | `planned` | `pending` | Accounts v2: orgs, org-level keys & default project | `P10.REVIEW` | `works/phases/active/P10` |
 | [ ] `P11` | `planned` | `pending` | Frictionless onboarding: working install, env-var quickstart, agent skill on the landing | `P11.DECOMP` | `works/phases/active/P11` |
 | [ ] `P12` | `planned` | `pending` | Production launch & hardening: bring-up, rate limits, CI tests, QA doc | `P12.DECOMP` | `works/phases/active/P12` |
 
@@ -46,7 +46,7 @@
 | [x] `P10.S2` | `done` | Org-scoped enforcement landed dark: every credential-derived project filter becomes org-aware | `implementation` | `works/phases/active/P10/slices/P10.S2` |
 | [x] `P10.S3` | `done` | Org-key mint surface: /app/credentials routes + tenant-aware resolver (turns org keys on) | `implementation` | `works/phases/active/P10/slices/P10.S3` |
 | [x] `P10.S4` | `done` | Web app: dashboard org-keys panel, nullable project_id type, Workspace to Org copy | `implementation` | `works/phases/active/P10/slices/P10.S4` |
-| [ ] `P10.S5` | `todo` | CLI parity: org-level key mint/list/revoke plus Workspace to Org wording | `implementation` | `works/phases/active/P10/slices/P10.S5` |
+| [x] `P10.S5` | `done` | CLI parity: org-level key mint/list/revoke plus Workspace to Org wording | `implementation` | `works/phases/active/P10/slices/P10.S5` |
 | [ ] `P10.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P10/slices/P10.REVIEW` |
 
 ## Phase P11: Frictionless onboarding: working install, env-var quickstart, agent skill on the landing

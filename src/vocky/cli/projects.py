@@ -19,12 +19,13 @@ from typing import Any
 
 import typer
 
-from vocky.cli.context import CliContext, cli_errors
+from vocky.cli.client import ApiError
+from vocky.cli.context import CliContext, cli_errors, fail
 
 projects_app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
-    help="Manage the projects under your workspace.",
+    help="Manage the projects under your org.",
 )
 keys_app = typer.Typer(
     no_args_is_help=True,
@@ -33,10 +34,10 @@ keys_app = typer.Typer(
 )
 
 _PROJECT_OPTION = typer.Option(
-    ...,
+    None,
     "--project",
     metavar="PROJECT_ID",
-    help="The project the key belongs to.",
+    help="The project the key belongs to (omit to mint/list/revoke at org level).",
 )
 
 
@@ -52,7 +53,7 @@ def _date(timestamp: str | None) -> str:
 
 
 def _projects_list(ctx: typer.Context) -> None:
-    """List the projects under your workspace, oldest first."""
+    """List the projects under your org, oldest first."""
 
     with cli_errors():
         context: CliContext = ctx.obj
@@ -80,7 +81,7 @@ def _projects_create(
     ctx: typer.Context,
     name: str = typer.Argument(..., metavar="NAME", help="The project's name."),
 ) -> None:
-    """Create a project under your workspace."""
+    """Create a project under your org."""
 
     with cli_errors():
         context: CliContext = ctx.obj
@@ -115,12 +116,12 @@ def _projects_show(
 
 def _keys_mint(
     ctx: typer.Context,
-    project: str = _PROJECT_OPTION,
+    project: str | None = _PROJECT_OPTION,
     name: str | None = typer.Option(
         None, "--name", metavar="LABEL", help="An optional display label for the key."
     ),
 ) -> None:
-    """Mint a `vk_` ingest key for a project (shown once)."""
+    """Mint a `vk_` ingest key for a project, or for the whole org (shown once)."""
 
     with cli_errors():
         context: CliContext = ctx.obj
@@ -128,11 +129,18 @@ def _keys_mint(
         if name is not None:
             body["name"] = name
         with context.authed_client() as client:
-            result = client.post(
-                f"/app/projects/{project}/credentials",
-                json=body or None,
-            )
+            if project is not None:
+                result = client.post(
+                    f"/app/projects/{project}/credentials",
+                    json=body or None,
+                )
+            else:
+                result = client.post("/app/credentials", json=body or None)
 
+        # The widening is real, so say so before the warning: an org-level key
+        # authorizes every project in the org, not just one.
+        scope = "this project only" if project is not None else "your whole org"
+        typer.echo(f"Scope: {scope}.")
         # The show-once contract: the plaintext key is returned only here and is
         # never recoverable — warn, then print it alone so it is easy to copy.
         typer.echo(
@@ -144,20 +152,30 @@ def _keys_mint(
 
 def _keys_list(
     ctx: typer.Context,
-    project: str = _PROJECT_OPTION,
+    project: str | None = _PROJECT_OPTION,
 ) -> None:
-    """List a project's credentials (metadata only; never the key)."""
+    """List a project's credentials, or the org's (metadata only; never the key)."""
 
     with cli_errors():
         context: CliContext = ctx.obj
         with context.authed_client() as client:
-            result = client.get(f"/app/projects/{project}/credentials")
+            if project is not None:
+                result = client.get(f"/app/projects/{project}/credentials")
+            else:
+                result = client.get("/app/credentials")
 
         credentials = result.get("credentials") or []
         if not credentials:
-            typer.echo(
-                f"No keys yet. Mint one with `vocky keys mint --project {project}`."
-            )
+            if project is not None:
+                typer.echo(
+                    f"No keys yet. Mint one with `vocky keys mint --project {project}`."
+                )
+            else:
+                typer.echo(
+                    "No org keys yet. Mint one with `vocky keys mint`. "
+                    "(Project-scoped keys are listed separately with "
+                    "`vocky keys list --project <PROJECT_ID>`.)"
+                )
             return
 
         for credential in credentials:
@@ -165,26 +183,46 @@ def _keys_list(
             last_used = credential.get("last_used_at")
             last_used_text = _date(last_used) if last_used else "never"
             state = "revoked" if credential.get("revoked_at") else "active"
+            # `project_id` is the org-key signal: null on an org-level row, set
+            # on a project-bound one. Every stub in this module's tests sets the
+            # field explicitly so this can't misread test scaffolding as scope.
+            scope = "project" if credential.get("project_id") is not None else "org"
             typer.echo(
                 f"{credential['id']}  {credential['token_prefix']}…  {label}  "
                 f"(created {_date(credential.get('created_at'))}, "
-                f"last used {last_used_text}, {state})"
+                f"last used {last_used_text}, {state}, {scope})"
             )
 
 
 def _keys_revoke(
     ctx: typer.Context,
-    project: str = _PROJECT_OPTION,
+    project: str | None = _PROJECT_OPTION,
     credential_id: str = typer.Argument(
         ..., metavar="CREDENTIAL_ID", help="The credential id to revoke."
     ),
 ) -> None:
-    """Revoke (soft-delete) one of a project's keys."""
+    """Revoke (soft-delete) one of a project's keys, or an org-level key."""
 
     with cli_errors():
         context: CliContext = ctx.obj
         with context.authed_client() as client:
-            client.delete(f"/app/projects/{project}/credentials/{credential_id}")
+            if project is not None:
+                client.delete(f"/app/projects/{project}/credentials/{credential_id}")
+            else:
+                try:
+                    client.delete(f"/app/credentials/{credential_id}")
+                except ApiError as exc:
+                    # The server rejects a non-UUID id with a raw 400 — translate
+                    # it to a hint that points at the command that surfaces full
+                    # ids. A 404 (unknown, revoked-elsewhere, or another tenant's
+                    # id) is left to surface raw — see docs/cli.md's
+                    # 404-never-403 contract.
+                    if exc.status_code == 400:
+                        fail(
+                            f"'{credential_id}' is not a valid credential id — "
+                            "copy the full id from `vocky keys list`."
+                        )
+                    raise
 
         typer.echo(f"Revoked key {credential_id}.")
 
@@ -198,7 +236,7 @@ def _usage(
         None,
         "--project",
         metavar="PROJECT_ID",
-        help="Scope usage to one project instead of the whole workspace.",
+        help="Scope usage to one project instead of the whole org.",
     ),
     start: str | None = typer.Option(
         None, "--start", metavar="ISO8601", help="Window start (ISO-8601)."
@@ -207,7 +245,7 @@ def _usage(
         None, "--end", metavar="ISO8601", help="Window end (ISO-8601)."
     ),
 ) -> None:
-    """Show capture usage for your workspace or a single project."""
+    """Show capture usage for your org or a single project."""
 
     with cli_errors():
         context: CliContext = ctx.obj

@@ -64,7 +64,7 @@ def _signup(
     email: str | None = _EMAIL_OPTION,
     password_stdin: bool = _PASSWORD_STDIN_OPTION,
 ) -> None:
-    """Create an account (and its auto-provisioned workspace) and sign in."""
+    """Create an account (and its auto-provisioned org) and sign in."""
 
     with cli_errors():
         context: CliContext = ctx.obj
@@ -89,9 +89,10 @@ def _signup(
         config_store.set_token(result["token"])
         typer.echo(f"Signed up and signed in as {result['user']['email']}.")
         typer.echo(
-            f'A workspace "{result["tenant"]["name"]}" '
+            f'An org "{result["tenant"]["name"]}" '
             "was created for you automatically."
         )
+        typer.echo(f'A "{result["project"]["name"]}" project was created too.')
 
 
 def _login(
@@ -140,7 +141,7 @@ def _logout(ctx: typer.Context) -> None:
 
 
 def _whoami(ctx: typer.Context) -> None:
-    """Show the signed-in account and its workspace(s)."""
+    """Show the signed-in account and its org(s)."""
 
     with cli_errors():
         context: CliContext = ctx.obj
@@ -154,7 +155,7 @@ def _whoami(ctx: typer.Context) -> None:
         tenants = result.get("tenants") or []
         if tenants:
             names = ", ".join(str(tenant["name"]) for tenant in tenants)
-            label = "Workspace" if len(tenants) == 1 else "Workspaces"
+            label = "Org" if len(tenants) == 1 else "Orgs"
             typer.echo(f"{label}: {names}")
 
 

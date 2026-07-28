@@ -120,6 +120,7 @@ def test_keys_mint_prints_key_once_with_warning(config_env, monkeypatch):
             json={
                 "credential": {
                     "id": "c1",
+                    "project_id": "p1",
                     "token_prefix": "vk_abcd1234",
                     "name": "backend",
                 },
@@ -134,7 +135,89 @@ def test_keys_mint_prints_key_once_with_warning(config_env, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert "shown only once" in result.stdout
-    assert "vk_abcd1234secretsecret" in result.stdout
+    # The plaintext key must remain the last line — a contract coding agents
+    # parse against (docs/cli.md).
+    assert result.stdout.rstrip("\n").splitlines()[-1] == "vk_abcd1234secretsecret"
+
+
+def test_keys_mint_without_project_hits_org_route_and_shows_scope(
+    config_env, monkeypatch
+):
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/app/credentials"
+        return httpx.Response(
+            201,
+            json={
+                "credential": {
+                    "id": "c2",
+                    "project_id": None,
+                    "token_prefix": "vk_orgorg1",
+                    "name": None,
+                },
+                "key": "vk_orgorg1secretsecret",
+            },
+        )
+
+    _stub_api(monkeypatch, handler)
+    result = runner.invoke(app, ["keys", "mint"])
+
+    assert result.exit_code == 0, result.output
+    assert "org" in result.stdout
+    assert result.stdout.rstrip("\n").splitlines()[-1] == "vk_orgorg1secretsecret"
+
+
+def test_keys_list_renders_org_and_project_scoped_rows(config_env, monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/app/credentials"
+        return httpx.Response(
+            200,
+            json={
+                "credentials": [
+                    {
+                        "id": "c-org",
+                        "project_id": None,
+                        "name": "ci",
+                        "token_prefix": "vk_orgorg1",
+                        "created_at": "2026-07-18T00:00:00+00:00",
+                        "last_used_at": None,
+                        "revoked_at": None,
+                    },
+                    {
+                        "id": "c-proj",
+                        "project_id": "p1",
+                        "name": "backend",
+                        "token_prefix": "vk_abcd1234",
+                        "created_at": "2026-07-18T00:00:00+00:00",
+                        "last_used_at": None,
+                        "revoked_at": None,
+                    },
+                ]
+            },
+        )
+
+    _stub_api(monkeypatch, handler)
+    result = runner.invoke(app, ["keys", "list"])
+
+    assert result.exit_code == 0, result.output
+    assert "org" in result.stdout
+    assert "project" in result.stdout
+
+
+def test_keys_list_empty_org_hint_names_project_scoped_command(
+    config_env, monkeypatch
+):
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/app/credentials"
+        return httpx.Response(200, json={"credentials": []})
+
+    _stub_api(monkeypatch, handler)
+    result = runner.invoke(app, ["keys", "list"])
+
+    assert result.exit_code == 0, result.output
+    assert "--project None" not in result.stdout
+    assert "--project" in result.stdout
 
 
 def test_keys_revoke_confirms(config_env, monkeypatch):
@@ -148,6 +231,32 @@ def test_keys_revoke_confirms(config_env, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert "Revoked key c1." in result.stdout
+
+
+def test_keys_revoke_without_project_hits_org_route(config_env, monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "DELETE"
+        assert request.url.path == "/app/credentials/c2"
+        return httpx.Response(204)
+
+    _stub_api(monkeypatch, handler)
+    result = runner.invoke(app, ["keys", "revoke", "c2"])
+
+    assert result.exit_code == 0, result.output
+    assert "Revoked key c2." in result.stdout
+
+
+def test_keys_revoke_without_project_translates_malformed_id(config_env, monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/app/credentials/not-a-uuid"
+        return httpx.Response(400, json={"detail": "credential_id must be a valid UUID"})
+
+    _stub_api(monkeypatch, handler)
+    result = runner.invoke(app, ["keys", "revoke", "not-a-uuid"])
+
+    assert result.exit_code == 1
+    assert "not a valid credential id" in result.stderr
+    assert "vocky keys list" in result.stderr
 
 
 def test_no_token_says_login_and_makes_no_call(tmp_path, monkeypatch):
