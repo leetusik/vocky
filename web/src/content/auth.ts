@@ -44,7 +44,7 @@ export const AUTH_ERRORS = {
 export const LOGIN_PAGE: AuthPageCopy = {
   title: "Sign in",
   lead: "Sign in",
-  sub: "Access your workspace, projects, and feedback.",
+  sub: "Access your org, projects, and feedback.",
   emailLabel: "Email",
   emailPlaceholder: "you@example.com",
   passwordLabel: "Password",
@@ -59,7 +59,7 @@ export const LOGIN_PAGE: AuthPageCopy = {
 export const SIGNUP_PAGE: AuthPageCopy = {
   title: "Create account",
   lead: "Create your account",
-  sub: "A workspace is created for you automatically.",
+  sub: "An org and a default project are created for you automatically.",
   emailLabel: "Email",
   emailPlaceholder: "you@example.com",
   passwordLabel: "Password",

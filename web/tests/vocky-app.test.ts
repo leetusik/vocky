@@ -1,15 +1,26 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import {
   createCredential,
+  createOrgCredential,
   createProject,
   getFeedbackDetail,
   getProject,
   getProjectUsage,
   getUsage,
   listFeedback,
+  listOrgCredentials,
   listProjects,
   revokeCredential,
+  revokeOrgCredential,
 } from "@/lib/vocky/app";
 import type {
   VockyCredential,
@@ -21,9 +32,11 @@ import type {
 // P4.S3/S4 — the `/app/*` client seam, driven against a STUBBED vocky (global
 // fetch is replaced; the live round-trip is verified separately against a real
 // vocky). What these lock down: the envelope unwrapping, that the bearer + path
-// go out correctly, and the shapes that bite — a duplicate-named project list,
-// the zero-project `daily_counts: []`, and the mint response, whose plaintext
-// `key` must survive the call (it is the only copy that will ever exist).
+// go out correctly, and the shapes that bite — the zero-project
+// `daily_counts: []`, and the mint response, whose plaintext `key` must survive
+// the call (it is the only copy that will ever exist). P10.S4 adds the
+// org-level credential surface (`project_id: null`), additive beside the
+// per-project one.
 
 const TOKEN = "0GkQ3vJ8bYd1wZs5RfN7tXcA2eLmPqU9hVjK4oIyB6M";
 
@@ -43,6 +56,17 @@ const CREDENTIAL: VockyCredential = {
   created_at: "2026-07-16T00:00:00+00:00",
   last_used_at: null,
   revoked_at: null,
+};
+
+/**
+ * An ORG-LEVEL sibling of `CREDENTIAL` (P10.S4): identical shape, but
+ * `project_id: null` — the org-key signal, and the only difference between a
+ * project-bound and an org-level credential on the wire.
+ */
+const ORG_CREDENTIAL: VockyCredential = {
+  ...CREDENTIAL,
+  id: "6d5e4f3a-4444-4b2c-9d0e-1f2a3b4c5d6e",
+  project_id: null,
 };
 
 beforeAll(() => {
@@ -98,13 +122,20 @@ describe("listProjects", () => {
     await expect(listProjects(TOKEN)).resolves.toEqual([]);
   });
 
-  it("keeps duplicate-named projects distinct (vocky enforces no uniqueness)", async () => {
-    const twin: VockyProject = { ...PROJECT, id: "twin-id" };
-    stubVocky(200, { projects: [PROJECT, twin] });
+  it("passes distinct projects through keyed on id, not name", async () => {
+    // P10.S1 added `UNIQUE(tenant_id, name)`, so vocky itself never returns two
+    // same-named projects for one tenant — this test no longer asserts a
+    // duplicate-name scenario. What it still locks down: the client trusts
+    // `id`, not `name`, as each row's identity (unaffected either way).
+    const other: VockyProject = {
+      ...PROJECT,
+      id: "twin-id",
+      name: "Another project",
+    };
+    stubVocky(200, { projects: [PROJECT, other] });
 
     const projects = await listProjects(TOKEN);
     expect(projects).toHaveLength(2);
-    expect(projects[0].name).toBe(projects[1].name);
     expect(new Set(projects.map((p) => p.id)).size).toBe(2);
   });
 });
@@ -113,7 +144,9 @@ describe("createProject", () => {
   it("POSTs {name} and unwraps {project}", async () => {
     stubVocky(201, { project: PROJECT });
 
-    await expect(createProject(TOKEN, "Support widget")).resolves.toEqual(PROJECT);
+    await expect(createProject(TOKEN, "Support widget")).resolves.toEqual(
+      PROJECT,
+    );
 
     const { url, init, headers } = lastCall();
     expect(url).toBe("http://vocky.test:8000/app/projects");
@@ -176,12 +209,17 @@ describe("getUsage", () => {
         { day: "2026-06-16", total: 1, liked: 1, disliked: 0, unrated: 0 },
         { day: "2026-06-17", total: 2, liked: 1, disliked: 1, unrated: 0 },
       ],
-      projects: [{ id: PROJECT.id, name: PROJECT.name, created_at: PROJECT.created_at }],
+      projects: [
+        { id: PROJECT.id, name: PROJECT.name, created_at: PROJECT.created_at },
+      ],
     });
 
     const usage = await getUsage(TOKEN);
     expect(usage.totals.total).toBe(3);
-    expect(usage.daily_counts.map((d) => d.day)).toEqual(["2026-06-16", "2026-06-17"]);
+    expect(usage.daily_counts.map((d) => d.day)).toEqual([
+      "2026-06-16",
+      "2026-06-17",
+    ]);
     // The narrower usage serializer: no `tenant_id`, hence its own type.
     expect(usage.projects[0]).not.toHaveProperty("tenant_id");
   });
@@ -256,6 +294,77 @@ describe("revokeCredential", () => {
     const { url, init, headers } = lastCall();
     expect(url).toBe(
       `http://vocky.test:8000/app/projects/${PROJECT.id}/credentials/${CREDENTIAL.id}`,
+    );
+    expect(init.method).toBe("DELETE");
+    expect(init.body).toBeUndefined();
+    expect(headers.Authorization).toBe(`Bearer ${TOKEN}`);
+  });
+});
+
+// ── /app/credentials — the org-level key surface (P10.S4) ───────────────────
+
+describe("listOrgCredentials", () => {
+  it("unwraps {credentials} and sends the bearer to /app/credentials", async () => {
+    stubVocky(200, { credentials: [ORG_CREDENTIAL] });
+
+    await expect(listOrgCredentials(TOKEN)).resolves.toEqual([ORG_CREDENTIAL]);
+
+    const { url, init, headers } = lastCall();
+    expect(url).toBe("http://vocky.test:8000/app/credentials");
+    expect(init.method).toBe("GET");
+    expect(headers.Authorization).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it("tolerates a missing envelope key, yielding []", async () => {
+    stubVocky(200, {});
+    await expect(listOrgCredentials(TOKEN)).resolves.toEqual([]);
+  });
+});
+
+describe("createOrgCredential", () => {
+  it("returns BOTH the credential and the show-once plaintext key, whole", async () => {
+    const key = "vk_Z9y8X7w6V5u4T3s2R1q0P9o8N7m6L5k4";
+    stubVocky(201, { credential: ORG_CREDENTIAL, key });
+
+    // Same envelope discipline as `createCredential`: unwrapping to
+    // `credential` would discard the only copy of the key that will ever exist.
+    await expect(createOrgCredential(TOKEN)).resolves.toEqual({
+      credential: ORG_CREDENTIAL,
+      key,
+    });
+
+    const { url, init, headers } = lastCall();
+    expect(url).toBe("http://vocky.test:8000/app/credentials");
+    expect(init.method).toBe("POST");
+    // An omitted name sends `{}` — vocky defaults it to null — not `{name: null}`.
+    expect(init.body).toBe("{}");
+    expect(headers.Authorization).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it("sends {name} when one is given", async () => {
+    stubVocky(201, {
+      credential: { ...ORG_CREDENTIAL, name: "Mobile app" },
+      key: "vk_zzz",
+    });
+
+    const minted = await createOrgCredential(TOKEN, "Mobile app");
+    expect(minted.credential.name).toBe("Mobile app");
+    expect(minted.credential.project_id).toBeNull();
+    expect(lastCall().init.body).toBe(JSON.stringify({ name: "Mobile app" }));
+  });
+});
+
+describe("revokeOrgCredential", () => {
+  it("DELETEs the encoded credential id and resolves undefined on vocky's 204", async () => {
+    stubVocky(204, undefined);
+
+    await expect(
+      revokeOrgCredential(TOKEN, ORG_CREDENTIAL.id),
+    ).resolves.toBeUndefined();
+
+    const { url, init, headers } = lastCall();
+    expect(url).toBe(
+      `http://vocky.test:8000/app/credentials/${ORG_CREDENTIAL.id}`,
     );
     expect(init.method).toBe("DELETE");
     expect(init.body).toBeUndefined();

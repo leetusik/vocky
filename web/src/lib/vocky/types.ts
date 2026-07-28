@@ -53,9 +53,11 @@ export interface VockyIdentity {
  * `serialize_project` — the canonical, full project shape from
  * `GET|POST /app/projects`.
  *
- * NOTE: vocky enforces NO uniqueness on `name` — two projects in the same tenant
- * may legitimately share one. Anything rendering a list of these MUST key on
- * `id`, never on `name`.
+ * NOTE (P10.S1): `name` is now UNIQUE per tenant (`UNIQUE(tenant_id, name)`),
+ * and `POST /app/projects` is get-or-create — a duplicate name returns the
+ * EXISTING row rather than erroring. Anything rendering a list of these still
+ * keys on `id`, never on `name`: that convention predates the constraint and
+ * stays correct regardless of it.
  */
 export interface VockyProject {
   id: string;
@@ -139,10 +141,19 @@ export interface VockyUsage {
  *
  * `token_prefix` is `key[:12]` — `"vk_"` plus the first 9 characters of the
  * opaque token. It is a DISPLAY STUB, not a usable credential.
+ *
+ * `project_id` (P10.S4): `null` means an ORG-LEVEL key — minted at
+ * `POST /app/credentials` and authorizing capture/read/manage across every
+ * project in the org, present and future. There is no separate scope field:
+ * `project_id === null` IS the org-key signal. A consumer that needs a
+ * project id for a project-BOUND credential should read it from the project
+ * already in scope (e.g. the project-detail page's own `projectId`), never
+ * from this field — it is absent exactly when the credential is org-level.
  */
 export interface VockyCredential {
   id: string;
-  project_id: string;
+  /** `null` ⇔ org-level (spans every project in the org); see the doc above. */
+  project_id: string | null;
   /** Optional display label; `null` when the key was minted unnamed. */
   name: string | null;
   token_prefix: string;
@@ -325,13 +336,7 @@ export interface VockyFeedbackQuery {
   channel?: string;
   target_type?: "message" | "conversation" | "surface";
   trigger_type?:
-    | "like"
-    | "dislike"
-    | "comment"
-    | "rating"
-    | "survey"
-    | "manual"
-    | "other";
+    "like" | "dislike" | "comment" | "rating" | "survey" | "manual" | "other";
   /** Blank is a 400 here, unlike the other text filters. */
   tag?: string;
   /** 1–100; vocky defaults to 50. */

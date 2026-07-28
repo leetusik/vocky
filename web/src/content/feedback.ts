@@ -51,7 +51,9 @@ export const FEEDBACK = {
     /**
      * TWO empty states, distinguished on purpose: an empty list means something
      * different before you own any project (nothing can arrive yet) than it does
-     * after (your filters matched nothing).
+     * after (your filters matched nothing). Near-unreachable as of P10 (signup
+     * provisions a `"default"` project for every new account) — kept as a
+     * defensive fallback, since a zero-project state is still representable.
      */
     emptyNoProjects:
       "No projects yet. Create one from the dashboard, then send feedback with its API key.",

@@ -16,7 +16,12 @@ export { APP_NAV, APP_SHELL } from "./app";
 export type { AppNavItem } from "./app";
 
 // Tenant dashboard (P4.S3) — usage/trend/projects copy + the create-project form.
-export { CREATE_PROJECT_ERRORS, DASHBOARD } from "./dashboard";
+// P10.S4 adds the org-keys panel copy + its status-keyed error copy.
+export {
+  CREATE_PROJECT_ERRORS,
+  DASHBOARD,
+  ORG_CREDENTIAL_ERRORS,
+} from "./dashboard";
 export type { StatTileCopy } from "./dashboard";
 
 // Project detail (P4.S4) — per-project usage + credentials, mint/revoke copy.

@@ -2,6 +2,7 @@ import "server-only";
 
 import { getJson, sendJson } from "./client";
 import type {
+  VockyCredential,
   VockyFeedbackDetail,
   VockyFeedbackPage,
   VockyFeedbackQuery,
@@ -59,8 +60,11 @@ export async function listProjects(
  * 400, not an empty-string store. Callers validate their own input first and map
  * a 400 by status.
  *
- * Duplicate names are ALLOWED (no uniqueness constraint anywhere in vocky), so
- * this can legitimately return a project whose `name` matches an existing one.
+ * GET-OR-CREATE, idempotent on name (P10.S1): `projects` now carries
+ * `UNIQUE(tenant_id, name)`, and a name that already exists in the caller's org
+ * returns the EXISTING row rather than erroring. Always answers 201 either way,
+ * so a caller cannot tell "created" from "already existed" from the status
+ * alone.
  */
 export async function createProject(
   token: string,
@@ -302,4 +306,80 @@ export async function getFeedbackDetail(
     { token, signal },
   );
   return raw.record;
+}
+
+// ── /app/credentials — the org-level key surface (P10.S4) ───────────────────
+// Additive beside the per-project `/app/projects/{id}/credentials` routes
+// above: an org-level key (`project_id: null`) authorizes capture, read, and
+// manage across every project in the caller's org. The two listings are
+// disjoint in both directions, so a tenant's keys enumerate exactly once
+// across the two surfaces.
+
+/** The `GET /app/credentials` envelope. */
+interface RawOrgCredentialsResponse {
+  credentials?: VockyCredential[];
+}
+
+/**
+ * `GET /app/credentials` (bearer) → 200 `{credentials: [...]}` — the caller's
+ * tenant's ORG-LEVEL credentials only (`project_id IS NULL`), oldest-first,
+ * INCLUDING revoked (revoke is a stamp, not a delete — same as the per-project
+ * list). Never includes a project-bound credential.
+ *
+ * The `?? []` is defensive only — vocky always sends the key.
+ */
+export async function listOrgCredentials(
+  token: string,
+  signal?: AbortSignal,
+): Promise<VockyCredential[]> {
+  const raw = await getJson<RawOrgCredentialsResponse>("/app/credentials", {
+    token,
+    signal,
+  });
+  return raw.credentials ?? [];
+}
+
+/**
+ * `POST /app/credentials` (bearer) `{name?}` → 201 `{credential, key}` — mints
+ * an ORG-LEVEL key (`project_id: null` on the returned credential).
+ *
+ * Returns the envelope WHOLE (`VockyMintedCredential`), exactly like
+ * `createCredential` above: `key` is the PLAINTEXT `vk_…` credential and vocky
+ * returns it EXACTLY ONCE (only its sha256 hash is persisted), so unwrapping
+ * to `credential` would discard the only copy in existence.
+ *
+ * `name` is OPTIONAL, same rules as the per-project mint: an omitted name
+ * sends `{}` (never `{name: null}`), and vocky maps a blank/whitespace name to
+ * `null` rather than a 400.
+ */
+export async function createOrgCredential(
+  token: string,
+  name?: string,
+): Promise<VockyMintedCredential> {
+  return sendJson<VockyMintedCredential>(
+    "/app/credentials",
+    "POST",
+    name === undefined ? {} : { name },
+    { token },
+  );
+}
+
+/**
+ * `DELETE /app/credentials/{id}` (bearer) → 204, empty body.
+ *
+ * 404-never-403, and NARROWER than the per-project delete: vocky 404s unless
+ * the row is BOTH the caller's tenant AND org-level — so a project-bound
+ * credential of the caller's OWN tenant also 404s here; it can only be revoked
+ * through `/app/projects/{id}/credentials/{cid}`. 400 on a malformed id.
+ */
+export async function revokeOrgCredential(
+  token: string,
+  credentialId: string,
+): Promise<void> {
+  await sendJson<void>(
+    `/app/credentials/${encodeURIComponent(credentialId)}`,
+    "DELETE",
+    undefined,
+    { token },
+  );
 }

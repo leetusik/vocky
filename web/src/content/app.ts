@@ -30,7 +30,7 @@ export const APP_SHELL = {
   /** Accessible name for the rail's <nav> landmark. */
   navLabel: "Primary",
   /** Prefix before the tenant name in the topbar identity. */
-  workspaceLabel: "Workspace",
+  orgLabel: "Org",
   soonTag: "Soon",
   logoutLabel: "Sign out",
   logoutPendingLabel: "Signing out…",

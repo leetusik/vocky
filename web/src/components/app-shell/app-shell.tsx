@@ -8,7 +8,7 @@ import { RailNav } from "./rail-nav";
 /**
  * The authenticated app shell (P4.S2; restyled to the vocky system in P9.S3) —
  * the chrome S3–S5 render inside. A sticky topbar (brand mark + wordmark ·
- * workspace/user · `flex-1` spacer · logout) over a `[rail | main]` grid that
+ * org/user · `flex-1` spacer · logout) over a `[rail | main]` grid that
  * collapses to a single column below the `app` breakpoint (900px).
  *
  * Unlike hi2vi's one-big-client-island console, this is a SERVER component: the
@@ -35,7 +35,7 @@ export function AppShell({
         </span>
         <span className="h-5 w-px bg-hairline" />
         <span className="hidden text-body-sm text-steel sm:inline">
-          {APP_SHELL.workspaceLabel}{" "}
+          {APP_SHELL.orgLabel}{" "}
           <b className="font-semibold text-charcoal">{tenantName}</b>
         </span>
         <span className="flex-1" />

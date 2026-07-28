@@ -103,14 +103,24 @@ const credentialColumns: DataTableColumn<VockyCredential>[] = [
     // An already-revoked key has nothing to revoke; the badge tells that story.
     // `project_id` comes off the row, which is what lets this stay a module-level
     // const rather than being rebuilt per render.
-    cell: (credential) =>
-      credential.revoked_at === null ? (
+    cell: (credential) => {
+      if (credential.revoked_at !== null) return null;
+      // `VockyCredential.project_id` widened to `string | null` in P10.S4 (an
+      // org-level key has `project_id: null`). This page renders the
+      // credentials embedded in `/app/projects/{id}/usage`, which is
+      // per-project by construction — org-level keys never appear in a
+      // project's drill-down (P10.S3: they have their own dashboard panel) —
+      // so `project_id` is always set here. An explicit narrow, not a cast:
+      // the invariant is about WHERE this data comes from, not the type.
+      if (credential.project_id === null) return null;
+      return (
         <RevokeCredentialButton
           projectId={credential.project_id}
           credentialId={credential.id}
           credentialLabel={credential.name ?? credential.token_prefix}
         />
-      ) : null,
+      );
+    },
   },
 ];
 

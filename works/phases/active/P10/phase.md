@@ -736,5 +736,116 @@ Appended by **`P10.S3`** (2026-07-28) — the durable truth this slice actually 
 - ~~**Distinct org-key token prefix?**~~ (footgun 8) — **RESOLVED in `P10.S3`: keep `vk_` for both.**
   Reasoning and the recorded counter-argument are in the `P10.S3 landed` section above. A distinct
   prefix stays available later as a mint-side-only, purely additive change.
-- **`DASHBOARD.projects.empty` / `project.ts:82` empty states** become near-unreachable once signup
-  provisions a project. Keep, or simplify? S4's call.
+- ~~**`DASHBOARD.projects.empty` / `project.ts:82` empty states** become near-unreachable once signup
+  provisions a project. Keep, or simplify?~~ — **RESOLVED in `P10.S4`: kept, per the plan's
+  recommendation.** All three near-unreachable empty states (`DASHBOARD.projects.empty`,
+  `DASHBOARD.trend.empty`, `FEEDBACK.list.emptyNoProjects`) were kept verbatim as defensive
+  fallbacks — they cost nothing, an empty state is still representable, and nothing guarantees a
+  tenant keeps at least one project forever. Only their rationale comments were updated to say they
+  are now near-unreachable via signup rather than implying "a tenant with no projects" is a live
+  onboarding state. `project.ts:82` (`PROJECT.trend.empty`) was already correctly documented as
+  defensive-only pre-P10 (a capture-less *project* still zero-fills, unlike a *tenant* with zero
+  projects) and needed no change; it was not in `P10.S4`'s plan scope.
+
+### P10.S4 landed (2026-07-28) — what S5 inherits
+
+**Web is done: the dashboard now has a working org-keys panel, `VockyCredential.project_id` is
+`string | null`, and Workspace → Org copy is complete.** Verified with all six commands from `web/`
+(`pnpm install` / `typecheck` / `lint` / `test` — 61 passed, 5 files / `build` / `format:check`), plus
+a by-eye re-read of `dashboard/actions.ts` confirming every export is an async function or a
+type-only interface (the plan's #1 footgun — green CI does not prove this).
+
+**Type widening landed exactly as scoped.** `VockyCredential.project_id: string` → `string | null`
+broke exactly the one site the plan predicted
+(`projects/[projectId]/page.tsx`'s `RevokeCredentialButton` cell) and it was narrowed with an
+explicit two-step guard (`revoked_at !== null` then `project_id === null` → `null`), not a cast — a
+comment states the invariant it relies on (this page's credentials are always project-bound because
+they come from `/app/projects/{id}/usage`, and org keys never appear there per S3). `VockyFeedback.project_id`
+(a different, already-nullable type) was left untouched.
+
+**The show-once key panel is now a shared component**, `web/src/components/show-once-key.tsx`
+(`ShowOnceKey`, `"use client"`, takes a `copy: ShowOnceKeyCopy` prop), lifted out of
+`projects/[projectId]/mint-credential-form.tsx` where it was module-private. **The dismissal logic
+was preserved verbatim** — `state.ok !== dismissedAt`, stamp-keyed not boolean-keyed — in both the
+project mint form (now importing the shared component) and the new
+`dashboard/mint-org-credential-form.tsx`. This is the plan's #2 footgun; it was not touched.
+
+**Three new BFF client fns in `web/src/lib/vocky/app.ts`**: `listOrgCredentials` / `createOrgCredential`
+/ `revokeOrgCredential`, following the file's existing conventions exactly — `token` first positional,
+`createOrgCredential` returns the mint envelope WHOLE (never unwrapped, same as `createCredential`),
+optional name sends `{}` never `{name: null}`, credential id `encodeURIComponent`'d, no extra caching
+flags (`getJson`/`sendJson` already bake in `cache: "no-store"`), errors enumerated by status in the
+JSDoc rather than caught.
+
+**Server actions added to `dashboard/actions.ts`** (`mintOrgCredentialAction` /
+`revokeOrgCredentialAction`), mirroring the project actions' shape (`(_prevState, formData) =>
+Promise<State>`, ids as hidden inputs, `requireIdentity()` OUTSIDE the try, zod `safeParse` only,
+errors mapped by HTTP status against a new status-keyed `ORG_CREDENTIAL_ERRORS` in
+`content/dashboard.ts` — one object covering both mint and revoke, since both actions live on one
+panel, unlike `project.ts`'s split `MINT_CREDENTIAL_ERRORS`/`REVOKE_CREDENTIAL_ERRORS`). **The form's
+initial state lives in the client islands** (`mint-org-credential-form.tsx` /
+`revoke-org-credential-button.tsx`), never in `actions.ts` — the plan's #1 footgun. **`revalidatePath("/dashboard")`
+takes no second argument** in both new actions — the plan's #3 footgun; `/dashboard` is static, unlike
+`/projects/[projectId]`.
+
+**Dashboard panel**: a fourth `<section aria-labelledby="org-keys">` in `dashboard/page.tsx`'s stack,
+after the projects section. `listOrgCredentials(token)` is a third leg of the page's existing
+`Promise.all` (alongside `listProjects` / `getUsage`) — no sequential round-trip added. A slimmer,
+dashboard-local `orgCredentialColumns` (name/key/created/lastUsed/status/actions, no project column)
+was defined rather than extracting a shared parameterized `credentialColumns` factory, per the plan —
+the org table's actions cell renders a different, non-project-scoped revoke island.
+
+**Workspace → Org is complete**: `content/app.ts`'s `workspaceLabel: "Workspace"` → `orgLabel: "Org"`
+(key AND value renamed — a `workspaceLabel` key holding `"Org"` would have misled the next reader),
+its one consumer `app-shell/app-shell.tsx:38` plus the stale "workspace/user" doc comment at `:11`;
+`content/auth.ts`'s login sub ("Access your org, projects, and feedback.") and signup sub, which was
+also **understated** and now reads "An org and a default project are created for you automatically."
+Landing copy (`content/landing.ts`) was explicitly left untouched — P11's, per the phase's decision 4.
+
+**All four stale non-uniqueness claims corrected** (S1's `UNIQUE(tenant_id, name)` falsified them):
+`types.ts` (`VockyProject`'s doc comment), `app.ts` (`createProject`'s JSDoc, now noting
+get-or-create/idempotency), `dashboard/page.tsx`'s `rowKey` comment, and
+`tests/vocky-app.test.ts`'s "keeps duplicate-named projects distinct" test — renamed and rewritten to
+assert what is still true (client keys on `id`, not `name`) rather than a scenario vocky can no
+longer produce. The test still passed before the rewrite (it only asserted client behavior, not a
+backend guarantee), so this was a correctness fix to the test's name/rationale, not a behavior change.
+
+**Test coverage**: three new `describe` blocks in `tests/vocky-app.test.ts` (`listOrgCredentials` /
+`createOrgCredential` / `revokeOrgCredential`), `mockImplementation`-stubbed per the file's convention,
+plus a null-`project_id` `ORG_CREDENTIAL` fixture (`{...CREDENTIAL, project_id: null}`) sibling to the
+existing `CREDENTIAL`. 61 tests total, up from 55.
+
+**One deviation from the plan, not a scope change**: `pnpm format:check` was run before AND after
+Prettier reformatted the six files this slice actually edited that had drifted from the formatter
+(`dashboard/actions.ts`, `dashboard/page.tsx`, `content/dashboard.ts`, `content/index.ts`,
+`lib/vocky/types.ts`, `tests/vocky-app.test.ts`). The repo carries **pre-existing** format debt on 12
+files this slice did not touch (`README.md`, `projects/[projectId]/actions.ts`, `apple-icon.tsx`,
+`opengraph-image.tsx`, `lib/bff.ts`, `lib/env.ts`, `lib/session.ts`, `lib/vocky/auth.ts`, four test
+files) — verified pre-existing via `git stash` against the baseline before this slice's edits (15
+files failed at baseline; 3 of the 6 this slice reformatted were already in that pre-existing list).
+`pnpm format:check` therefore still exits 1 at the repo level; every file this slice touched is
+clean. Not this slice's job to fix — `projects/[projectId]/actions.ts` in particular is scoped read,
+not scoped edit, in `P10.S4`'s plan.
+
+**S5 (CLI) inherits**: the exact same route shapes S3 documented above — `POST /app/credentials`
+(optional `{name?}` → `201 {credential, key}`), `GET /app/credentials` (org rows only,
+oldest-first, revoked included), `DELETE /app/credentials/{id}` (`204`/`400`/`404`,
+404-never-403-and-narrower-than-it-looks). The client-visible contract is unchanged from what S3
+pinned: `project_id === null` is the org-key signal, no separate scope field. S5 also inherits the
+completed Workspace → Org wording pattern from the web app (`orgLabel`, "org" not "workspace"
+throughout) to mirror in CLI help/output — same product-facing rename, same frozen wire identifiers
+(`tenant_id`, `tenants[]`, `VockyTenant`, every route name unchanged).
+
+## Doc impact
+
+Appended by **`P10.S4`** (2026-07-28) — no NEW durable truth beyond what `P10.S1`–`P10.S3` already
+flagged above; this slice is the web-side confirmation/implementation of those changes, not a new
+fact. Two small notes for the review to fold in:
+
+- **`experience.md`** — the signup copy is now literally "An org and a default project are created
+  for you automatically" in the web app, matching the wording direction `P10.S1`'s doc-impact note
+  already called for (decision 3: a `"default"` project, not a `"default"` org).
+- **`product.md` / `experience.md`** — the org-vs-project key choice (already documented by
+  `P10.S3`'s doc-impact note) is now visibly live in the product: the dashboard's org-keys panel and
+  the per-project keys panel sit side by side, and the app's login copy reads "Access your org,
+  projects, and feedback." No new concept, just confirmation it shipped.
