@@ -284,3 +284,4 @@
 {"ts": "2026-07-28T16:39:17+09:00", "type": "doc_version_created", "doc": "product", "version": "v0008_p6_the_packaged_admin_web_ui_is_retired_for_real_vocky_is_deploy-ready_but_not_deployed_launch_is_p12_and_the_cli_is_packaged_but_unpublished_distribution_is_p11", "source": "P6.REVIEW"}
 {"ts": "2026-07-28T16:44:51+09:00", "type": "slice_status_changed", "slice": "P6.REVIEW", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-07-28T16:44:51+09:00", "type": "phase_reviewed", "phase": "P6", "verdict": "pass", "reviewer": "slice-executor-high"}
+{"ts": "2026-07-28T16:52:55+09:00", "type": "slice_status_changed", "slice": "P10.DECOMP", "old_status": "todo", "new_status": "ready"}

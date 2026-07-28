@@ -10,7 +10,7 @@
 - Next slice: `P10.REVIEW`
 - Waiting on operator: `none`
 - Open deferred jobs: `5`
-- Rebuilt at: `2026-07-28T16:44:51+09:00`
+- Rebuilt at: `2026-07-28T16:52:55+09:00`
 
 ## Active Phases
 
@@ -41,7 +41,7 @@
 
 | Slice | Status | Name | Kind | Path |
 |---|---|---|---|---|
-| [ ] `P10.DECOMP` | `todo` | decompose phase | `decomposition` | `works/phases/active/P10/slices/P10.DECOMP` |
+| [r] `P10.DECOMP` | `ready` | decompose phase | `decomposition` | `works/phases/active/P10/slices/P10.DECOMP` |
 | [ ] `P10.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P10/slices/P10.REVIEW` |
 
 ## Phase P11: Frictionless onboarding: working install, env-var quickstart, agent skill on the landing
