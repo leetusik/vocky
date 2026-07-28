@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P11`
-- Current slice: `P11.S3`
-- Next slice: `P11.S4`
+- Current slice: `P11.S4`
+- Next slice: `P11.S5`
 - Waiting on operator: `none`
 - Open deferred jobs: `6`
-- Rebuilt at: `2026-07-29T00:36:59+09:00`
+- Rebuilt at: `2026-07-29T00:44:32+09:00`
 
 ## Active Phases
 
@@ -18,7 +18,7 @@
 |---|---|---|---|---|---|
 | [x] `P6` | `done` | `pass` | Landing Page, Webpage & Production Deploy | `none` | `works/phases/active/P6` |
 | [x] `P10` | `done` | `pass` | Accounts v2: orgs, org-level keys & default project | `none` | `works/phases/active/P10` |
-| [ ] `P11` | `planned` | `pending` | Frictionless onboarding: working install, env-var quickstart, agent skill on the landing | `P11.S3` | `works/phases/active/P11` |
+| [ ] `P11` | `planned` | `pending` | Frictionless onboarding: working install, env-var quickstart, agent skill on the landing | `P11.S4` | `works/phases/active/P11` |
 | [ ] `P12` | `planned` | `pending` | Production launch & hardening: bring-up, rate limits, CI tests, QA doc | `P12.DECOMP` | `works/phases/active/P12` |
 
 ## Phase P6: Landing Page, Webpage & Production Deploy
@@ -56,7 +56,7 @@
 | [x] `P11.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P11/slices/P11.DECOMP` |
 | [x] `P11.S1` | `done` | Landing hero honesty: nested source.product + real vk_ key shape | `implementation` | `works/phases/active/P11/slices/P11.S1` |
 | [x] `P11.S2` | `done` | CLI: VOCKY_API_TOKEN resolution + vocky capture over /api/feedback | `implementation` | `works/phases/active/P11/slices/P11.S2` |
-| [ ] `P11.S3` | `todo` | curl \| bash installer: web/public/install.sh | `implementation` | `works/phases/active/P11/slices/P11.S3` |
+| [x] `P11.S3` | `done` | curl \| bash installer: web/public/install.sh | `implementation` | `works/phases/active/P11/slices/P11.S3` |
 | [ ] `P11.S4` | `todo` | Canonical end-user SKILL.md, served byte-copy, parity script + first CI workflow | `implementation` | `works/phases/active/P11/slices/P11.S4` |
 | [ ] `P11.S5` | `todo` | Design round 02: hero install row, agent env-var quickstart, skill-on-landing | `co-work` | `works/phases/active/P11/slices/P11.S5` |
 | [ ] `P11.DECOMP2` | `todo` | Decompose the build from the landed design | `decomposition` | `works/phases/active/P11/slices/P11.DECOMP2` |

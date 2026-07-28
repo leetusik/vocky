@@ -291,6 +291,19 @@ correct these two install sections to describe the real path; the review consoli
 - The **Cloudflare-not-a-barrier probe is unrunnable in P11**; P12 runs it live.
 - P12 **extends `.github/workflows/ci.yml`** with the Postgres-backed pytest job. S4 must shape that file
   so P12 adds a job rather than starting from nothing.
+- **Armed flip probe, exact command** (`P11.S3`): `curl -sS -o /dev/null -w '%{http_code}'
+  https://vocky.hi2vi.com/install.sh` → **`404` today**; must read **`200`** after the first deploy. Same
+  shape for `/SKILL.md` once `P11.S4` lands it.
+- **`git push` is a hard prerequisite for the hosted installer to be honest, not a nicety** (`P11.S3`):
+  `uv tool install git+https://github.com/leetusik/vocky` resolves whatever is on **GitHub `main`**, which
+  is **45 commits behind local** as of this slice (remote head `3e1e85a`, last pushed 2026-07-17) — every
+  commit of P9/P10/P11 is unpushed, so installing from the real `git+https://` target today would silently
+  deliver a pre-P10 CLI with no org keys and no `vocky capture`. `P11.S3` therefore verified
+  `web/public/install.sh` only against a **local** target (`VOCKY_INSTALL_TARGET=$PWD`), never against the
+  real GitHub URL. **After pushing, P12 must install-and-check, not assert**: run the installer (or `uv
+  tool install --reinstall git+https://github.com/leetusik/vocky`) into a clean environment and assert
+  `vocky --version` reads **`0.2.0`** (or newer) and `vocky capture --help` renders — exactly the two
+  assertions `P11.S3` already proved against the local target.
 
 ## Constraints
 
@@ -371,6 +384,46 @@ re-run) rather than assuming the ~108 number will reproduce here.
 was corrected too (now shows both `vocky capture` and the raw-HTTP equivalent) — a minimal, same-file
 consistency fix, not a scope expansion.
 
+### S3 done — `web/public/install.sh` landed and verified against a local target
+
+`P11.S3` shipped the `curl | bash` installer at `web/public/install.sh` (61 lines) exactly to the plan's
+shape: `set -euo pipefail`, two constants (`UV_BIN_DIR`, `INSTALL_TARGET` with the `VOCKY_INSTALL_TARGET`
+override), `say`/`die` helpers, **every executable statement inside `main()`**, and **`main "$@"` as the
+literal last line**. All eight validation steps passed — see `result.md` for verbatim output. Two findings
+worth recording for later slices:
+
+- **The `main()` wrapper's safety held under both truncation shapes tested**: piping a mid-function
+  prefix (`head -n 40`) produced a bash **parse error** (exit 2, no output, `main` never reached — a
+  truncated function body can't even finish parsing); piping the file up through the closing `}` but
+  before the final `main "$@"` line (`head -n 59`) parsed clean and exited **0 with no output** (the
+  function is defined but never called). Either cut point proves the same thing: a truncated `curl | bash`
+  can never half-execute.
+- **The `uv` bootstrap branch WAS exercised**, not skipped: validation used `env -i` with a minimal PATH
+  (`/usr/bin:/bin:/usr/sbin:/sbin`), which has no `uv` on it regardless of the host machine's own `uv`
+  install, so both the fresh-install run and the second (idempotency) run against the same temp `HOME`
+  installed `uv` via the Astral installer inside the script. This is stronger evidence than the plan
+  anticipated (it expected the branch might be skipped in an environment with `uv` already on PATH).
+
+**Exact final install line — `P11.S4`'s skill and the `P11.S5` design handoff both quote this verbatim**:
+
+```
+curl -fsSL https://vocky.hi2vi.com/install.sh | bash
+```
+
+Both `docs/cli.md` and `README.md` now show this exact line, explicitly marked "once the site is live",
+with the checkout-based install kept as what works today, and no PyPI promise anywhere in either file
+(verified: `grep -rn "PyPI\|pip install vocky\|uv publish" README.md docs/cli.md` — zero matches).
+
+**Not proven** (must not be asserted as done): no live `https://vocky.hi2vi.com/install.sh` fetch — the
+site is not deployed; the `404 → 200` flip is P12's; and the real `git+https://github.com/leetusik/vocky`
+target was **never installed from** in this slice — GitHub `main` is 45 commits behind local (see "Hand-off
+to P12" above), so installing from it today would silently deliver a pre-P10 CLI. `VOCKY_INSTALL_TARGET`
+stood in for it throughout validation.
+
+Untouched, as the plan required: `web/Dockerfile`, `web/next.config.ts`, `deploy/vocky.conf` — all three
+already serve `web/public/` correctly (confirmed again this slice: no dockerignore/gitignore excludes
+`install.sh` or `public/`, `Dockerfile:40` still copies `public/`).
+
 ## Doc impact
 
 - **S2** (`P11.S2`): `vocky capture` + `VOCKY_API_TOKEN` are now real — `docs/current/experience.md`
@@ -378,3 +431,11 @@ consistency fix, not a scope expansion.
   `docs/current/operations.md` (CLI import-isolation section, if it enumerates command modules, should
   list `capture.py`) may need updates at the phase review; `docs/current/api.md` is unaffected (no backend
   contract changed).
+- **S3** (`P11.S3`): install now has a real path — `docs/current/operations.md` (its CLI/install narrative,
+  if any, should mention `web/public/install.sh` and the `curl -fsSL https://vocky.hi2vi.com/install.sh |
+  bash` line, marked as live only once the site deploys) and `docs/current/experience.md` (onboarding
+  guidance's "how do I get the CLI" gap is now closed) both describe the install story and may need updates
+  at the phase review. Source files edited directly (not doc versions): `docs/cli.md:9-19` and
+  `README.md:48-63`, both corrected to drop the stale "PyPI planned (P6)" framing and describe the hosted
+  `curl \| bash` line (marked "once the site is live") plus the checkout path as what works today, with the
+  lean/`server`-extra split stated as packaging fact, no PyPI promise.

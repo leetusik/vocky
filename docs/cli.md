@@ -8,7 +8,18 @@ The `vocky` CLI is a pure client of vocky's existing HTTP API. It authenticates 
 
 ## Install
 
-The console script is `vocky`. PyPI publishing is planned (P6); until then install from a checkout:
+The console script is `vocky`. **Once `https://vocky.hi2vi.com` is live**, the fastest install is the
+hosted `curl | bash` script (served from `web/public/install.sh`, no infra beyond the site itself):
+
+```sh
+curl -fsSL https://vocky.hi2vi.com/install.sh | bash
+```
+
+It bootstraps `uv` if you don't already have it, then runs `uv tool install --reinstall`, so re-running
+the same line later is how you upgrade. Nothing lands system-wide; everything installs under
+`$HOME/.local`. Read the script before piping it into a shell — it is short and every step is commented.
+
+**Today, before the site is deployed**, install from a checkout instead:
 
 ```sh
 uv run vocky --help          # run straight from a repo checkout, no install

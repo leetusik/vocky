@@ -47,7 +47,17 @@ The fastest way to start. Everything below runs against a local vocky at `http:/
 
 ### Install
 
-The console script is `vocky` (the server entry point is the separate `vocky-server`). PyPI publishing is P6; until then, install from a checkout:
+The console script is `vocky` (the server entry point is the separate `vocky-server`). **Once
+`https://vocky.hi2vi.com` is live**, the fastest path is the hosted installer:
+
+```sh
+curl -fsSL https://vocky.hi2vi.com/install.sh | bash
+```
+
+It's a small, auditable `curl | bash` script (`web/public/install.sh`) that bootstraps `uv` if needed and
+installs `vocky` under `$HOME/.local` — nothing system-wide. Re-run the same line any time to upgrade.
+
+**Today, before the site is deployed**, install from a checkout instead:
 
 ```sh
 # Option A — run it straight from a repo checkout (no install)
@@ -60,7 +70,9 @@ uv tool install .
 uvx --from . vocky --help
 ```
 
-Once published to PyPI, `pip install vocky` / `uvx vocky` install the **lean CLI** (httpx + typer only); self-hosting the full server stack uses the `server` extra — `pip install "vocky[server]"`.
+vocky is a lean/`server`-extra split package (`pyproject.toml`): a plain `uv tool install` or `pip install`
+resolves only the **lean CLI** (httpx + typer + their transitives — no pydantic/sqlalchemy/uvicorn); the
+full server stack lives behind the `server` extra, e.g. `pip install ".[server]"` from a checkout.
 
 ### The onboarding spine
 
