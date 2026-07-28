@@ -2,16 +2,16 @@
   "id": "P6",
   "name": "Landing Page, Webpage & Production Deploy",
   "objective": "Build the public landing page/site in the Next.js app using the hi2vi_web Claude design-gate workflow, and deploy to production at vocky.hi2vi.com — app on the oracle-cloud box, nginx via edge.",
-  "status": "in_progress",
+  "status": "done",
   "order": 6,
   "created_at": "2026-07-15T14:55:54+09:00",
   "started_at": "2026-07-18T13:28:23+09:00",
-  "completed_at": null,
+  "completed_at": "2026-07-28T16:44:51+09:00",
   "review": {
-    "status": "pending",
-    "reviewed_at": null,
-    "reviewer": null,
-    "note": null
+    "status": "pass",
+    "reviewed_at": "2026-07-28T16:44:51+09:00",
+    "reviewer": "slice-executor-high",
+    "note": "P6 met its twice-reframed scope: every production artifact authored and statically validated, nothing deployed. All nine middle slices re-validated and reproduced their recorded outcomes (uv build -> 79KB sdist/95KB wheel; uvx --from wheel vocky --version -> 0.1.0 in 15 packages, independently confirming S9's lean-CLI split). Suites: web 56/56 + lint + build (13/13 pages, six metadata routes static); backend 79 passed / 108 psycopg errors = the recorded no-DB baseline exactly; both compose files config -q clean; bash -n clean on all four deploy scripts; workflow YAML parses; edge routing map re-reconciled against all 30 live backend routes plus the built web route list with no uncovered prefix or misroute. Doc impact consolidated into 8 versions (operations v0004, security v0007, frontend v0005, architecture v0008, api v0007, backend v0004, product v0008, experience v0009); backend added beyond the running list because S1 had made its create_app route line false; decisions deliberately not versioned (nothing in it is false). Five non-blocking findings, all stale source wording with no behavior/contract impact, left for a fast-path sweep: README admin-UI + PyPI-caveat lines, Makefile retired VOCKY_API_AUTH_TOKEN export, a compose.prod.yml comment citing the pre-S7 migrate idiom, and an intentional unused-var declaration in the remote deploy script. Not runnable in-sandbox and reported rather than skipped: docker build, compose up + health gate, nginx -t, any script execution, the 108 DB tests, shellcheck/actionlint -- all are P12's behavioral proof. explain: not written."
   },
   "paths": {
     "phase_md": "phase.md",

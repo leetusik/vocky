@@ -1,15 +1,17 @@
 ---
 doc_id: experience
-version: v0008
-created_at: 2026-07-18T11:15:51+09:00
-source: P5.REVIEW
-summary: P5: the vocky CLI onboarding journey — signup to project to key to capture to read from the terminal (headless --password-stdin, --base-url, VOCKY_CONFIG_DIR, generic-401, show-once key); docs/cli.md is the full reference
-previous: v0007_p9_the_public_landing_now_serves_to_signed-out_visitors_signed-in_bounce_to_dashboard_preserved_as_a_real_product_surface
+version: v0009
+created_at: 2026-07-28T16:38:55+09:00
+source: P6.REVIEW
+summary: P6: the install story is packaged but unpublished — lean pip install vocky vs vocky[server], and vocky.hi2vi.com is not live yet
+previous: v0008_p5_the_vocky_cli_onboarding_journey_signup_to_project_to_key_to_capture_to_read_from_the_terminal_headless_--password-stdin_--base-url_vocky_config_dir_generic-401_show-once_key_docs_cli.md_is_the_full_reference
 ---
 
 # Action Feedback Integration
 
 This guide describes how a product can integrate Vocky for explicit human-triggered user feedback actions over REST.
+
+> **Read this against a self-hosted Vocky.** There is no hosted vocky yet: `https://vocky.hi2vi.com` is not live (the production deploy kit exists but was never executed — bring-up is **P12**), and the `vocky` CLI is not on PyPI (distribution is **P11**). Every base URL below is your own deployment, and the CLI is installed from a checkout of this repo. See `operations.md`.
 
 There are two ways to do the account/project/credential setup below: **the web app** (point-and-click — see "The Web App" at the end of this guide) or the **REST calls** shown here. They are the same operations against the same API; use whichever suits you. Everything after setup — capture and reads — is API-only.
 
@@ -258,7 +260,7 @@ curl "https://vocky.example.com/api/project/usage" -H "Authorization: Bearer vk_
 
 ## The Web App
 
-Everything above is the API. As of **P4** there is also a **web app** — Vocky's authenticated browser surface, and the replacement for the packaged self-hosted operator Admin Web UI. It does the account/project/credential work and the cross-project feedback reading **without curl**. (It runs locally today; the public deployment at `vocky.hi2vi.com` is P6.)
+Everything above is the API. As of **P4** there is also a **web app** — Vocky's authenticated browser surface, and the replacement for the packaged self-hosted operator Admin Web UI (which **P6 deleted**, so the web app is now the only browser surface). It does the account/project/credential work and the cross-project feedback reading **without curl**. (It runs locally today; `vocky.hi2vi.com` is **not live** — the deploy kit is authored but unexecuted, and bring-up is P12.)
 
 It is a signed-in **tenant owner's** surface, not an end-user one: you see your own tenant, your own projects, and your own feedback. Anything belonging to someone else answers "not found" — never "forbidden" — so you cannot even probe what exists.
 
@@ -311,6 +313,19 @@ The cross-project read surface — everything your projects have captured, newes
 
 As of **P5** there is a third front door alongside the web app and raw curl: a **`vocky` command-line client**. It is vocky's **agent-first onboarding path** — a user working inside Claude Code or Codex (or the coding agent acting on their behalf) can sign up, log in, set up credentials, and read feedback **entirely from the terminal, without ever visiting the website**. The CLI is a **pure client** of the same `/auth/*` + `/app/*` surfaces (it holds the session token; it never becomes a new backend capability). The full self-contained reference — every command, flag, and the equivalent raw HTTP — lives in the hand-written **`docs/cli.md`** (linked from the README); this section is the journey-level map.
 
+### Installing it (P6) — lean CLI vs the `server` extra
+
+**The package is not published yet**, so today you install from a checkout (`uv tool install .`, `uvx --from . vocky`, or `uv run vocky` in-repo). P6 nevertheless settled what the install *will* look like, because it changes what a CLI user has to download:
+
+| | |
+| --- | --- |
+| `pip install vocky` / `uvx vocky` | the **lean CLI** — httpx + typer only (≈15 packages). No database driver, no web server, no MCP SDK. |
+| `pip install "vocky[server]"` | the full self-hosted stack, for running Vocky rather than talking to it. |
+
+That split is what makes the agent-first path cheap: a coding agent asked to "set up vocky" pulls a small client, not a server runtime. It holds only because the CLI never imports server code — a stray server-side import in a `vocky.cli.*` module silently breaks the lean install.
+
+**P11** decides whether the published channel is PyPI at all (the alternative under consideration is a `curl | bash` installer) and performs the publish. Whatever P11 ships will not be version `0.1.0` — P10 and P11 both change the CLI's surface.
+
 ### The onboarding journey as commands
 
 The signup → project → key → capture → read spine maps one-to-one onto CLI commands (each mirrors the raw-HTTP step documented under "Onboarding" above):
@@ -350,4 +365,6 @@ The CLI is built so an agent can drive the whole flow with no interactive prompt
 
 Feedback review and management are now first-class but always scoped and authenticated: a project's `vk_` key reads/manages its own project's feedback (`/api/project/feedback`); a signed-in user reads/searches across all their projects (`/app/feedback`, or the same thing point-and-click in the web app); the end-user self-read (`GET /api/feedback`) returns one product user's own records. Self-hosted operators can also use the dedicated Admin REST API endpoints; when `VOCKY_ADMIN_AUTH_TOKEN` is set, Admin REST clients must send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`. There is no unscoped or cross-tenant public query surface.
 
-The **web app** (P4) is the browser expression of the session-authed `/app/*` surface — it adds no capability of its own, and deliberately carries **no** feedback management (that stays on `/api/project/feedback`). The packaged same-origin Admin Web UI it replaces is superseded but still shipped; it is removed in P6.
+**Admin REST is API-only now.** The packaged browser UI that used to sit over it was removed in **P6**, so operator review over `/admin/api/*` means scripts, curl, or your own dashboard. In the reference production deployment the edge also **404s the whole `/admin` prefix**, keeping Admin REST reachable only from inside the deployment's network.
+
+The **web app** (P4) is the browser expression of the session-authed `/app/*` surface — it adds no capability of its own, and deliberately carries **no** feedback management (that stays on `/api/project/feedback`). It is now vocky's only browser surface.

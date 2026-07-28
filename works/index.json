@@ -4,13 +4,13 @@
       "id": "P6",
       "name": "Landing Page, Webpage & Production Deploy",
       "objective": "Build the public landing page/site in the Next.js app using the hi2vi_web Claude design-gate workflow, and deploy to production at vocky.hi2vi.com — app on the oracle-cloud box, nginx via edge.",
-      "status": "in_progress",
+      "status": "done",
       "order": 6,
       "path": "works/phases/active/P6",
-      "review_status": "pending",
-      "current_slice": "P6.S9",
+      "review_status": "pass",
+      "current_slice": null,
       "slice_count": 11,
-      "done_slice_count": 9
+      "done_slice_count": 11
     },
     {
       "id": "P10",
@@ -52,5 +52,5 @@
   "deferred_open_count": 5,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 0,
-  "last_rebuilt_at": "2026-07-28T16:15:48+09:00"
+  "last_rebuilt_at": "2026-07-28T16:44:51+09:00"
 }

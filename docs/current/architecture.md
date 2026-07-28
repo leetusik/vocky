@@ -1,21 +1,23 @@
 ---
 doc_id: architecture
-version: v0007
-created_at: 2026-07-18T11:15:57+09:00
-source: P5.REVIEW
-summary: P5: the vocky CLI as a new pure-client surface over /auth/* + /app/* (Typer app in src/vocky/cli/, no backend change), mirroring the web-app client framing; server console entry renamed to vocky-server
-previous: v0006_p4_the_web_next.js_app_server-side_bff_as_vocky_s_browser_surface_sealed_httponly_cookie_no_cors_no_web-side_db_admin-ui_convergence_resolved_replacement_built_in_p4_physical_removal_deferred_to_p6
+version: v0008
+created_at: 2026-07-28T16:35:36+09:00
+source: P6.REVIEW
+summary: P6: the packaged Admin Web UI is physically removed (only /admin/api/* survives) and the production deployment topology lands — five containers on the shared edge network, worker reusing the api image
+previous: v0007_p5_the_vocky_cli_as_a_new_pure-client_surface_over_auth_app_typer_app_in_src_vocky_cli_no_backend_change_mirroring_the_web-app_client_framing_server_console_entry_renamed_to_vocky-server
 ---
 
 # Architecture
 
 ## Status
 
-This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through server-to-server REST using Redis-backed queueing plus a dedicated worker while exposing a scoped end-user REST read, separate Admin REST endpoints, and a same-origin self-hosted Admin Web UI with dashboard metrics, feedback review management, in-app operator documentation, and REST capture try-it over the same PostgreSQL feedback store. As of **P7**, a **write-only MCP capture surface** is also mounted at `/mcp` (see "MCP Write-Only Capture Surface" below): agents linked to a project's MCP endpoint save feedback through a single `capture_feedback` tool that feeds the same queue/store as REST. The three MCP read/query tools retired in P1 (`list_feedback`, `summarize_feedback`, `list_liked_conversations`) stay retired — reads remain REST-only.
+This architecture is intentionally lightweight. Vocky is still pre-MVP, and the current service accepts capture work through server-to-server REST using Redis-backed queueing plus a dedicated worker while exposing a scoped end-user REST read and separate Admin REST endpoints over the same PostgreSQL feedback store. **As of P6 the packaged same-origin Admin Web UI is physically deleted** (`src/vocky/admin_ui.py`, `admin_assets/*`, and the `/admin` + `/admin/assets/*` routes) — the `web/` app that replaced it in P4 is now the only browser surface, and the only routes left under the `/admin` prefix are the nine `/admin/api/*` REST endpoints. As of **P7**, a **write-only MCP capture surface** is also mounted at `/mcp` (see "MCP Write-Only Capture Surface" below): agents linked to a project's MCP endpoint save feedback through a single `capture_feedback` tool that feeds the same queue/store as REST. The three MCP read/query tools retired in P1 (`list_feedback`, `summarize_feedback`, `list_liked_conversations`) stay retired — reads remain REST-only.
 
 On top of that capture core, Vocky now has an **identity and tenancy layer**: real user accounts (email + password), a multi-tenant model (tenants → projects), per-project ingest credentials, a public `/auth/*` auth surface, a session-token-authed `/app/*` account control-plane, and a `src/vocky/accounts/` domain package. Public `/api/*` ingestion is guarded by **mandatory per-project credential auth** (`ProjectCredentialAuthMiddleware`), which replaced the old optional static-token `APIBearerAuthMiddleware`.
 
-As of **P4**, vocky also has a **browser surface of its own**: a Next.js app in `web/` that talks to `/auth/*` + `/app/*` through a **server-side BFF proxy** (sealed httpOnly cookie, no CORS, no web-side DB). It is the replacement for the packaged same-origin Admin Web UI — **built** in P4, with the old UI's **physical removal deferred to P6**. See "The Web App and the BFF Boundary" below.
+As of **P4**, vocky also has a **browser surface of its own**: a Next.js app in `web/` that talks to `/auth/*` + `/app/*` through a **server-side BFF proxy** (sealed httpOnly cookie, no CORS, no web-side DB). It was built in P4 as the replacement for the packaged same-origin Admin Web UI, and **P6 completed that replacement by deleting the old UI**. See "The Web App and the BFF Boundary" below.
+
+As of **P6**, vocky also has a complete **production deployment topology** for `vocky.hi2vi.com` — five containers behind a shared edge nginx on an existing OCI box. It is **authored and unexecuted**: nothing is deployed, and the live bring-up is **P12**. See "Production Deployment Topology (P6)" below and the runbook in `operations.md`.
 
 As of **P5**, vocky also has a **`vocky` CLI**: a Typer app in `src/vocky/cli/` that is a **pure session-token client** of `/auth/*` + `/app/*` — the same "client only, no backend change" shape as the web app. The server console entry was renamed `vocky` → `vocky-server` to free the `vocky` name for the CLI. See "The `vocky` CLI" below.
 
@@ -26,11 +28,14 @@ On top of that, **P3 makes feedback project-scoped** (Feedback API v2). `feedbac
 - `README.md`: product-facing project overview
 - `AGENTS.md`: coding-agent workflow rules
 - `pyproject.toml`: Python project metadata and dependencies
-- `src/vocky/`: service code, public REST and Admin REST/Web UI routing, persistence layer, and smoke script
-- `web/`: the Next.js browser app (P4) — vocky's authenticated web surface and its server-side BFF; TypeScript/pnpm, its own gate (see `frontend.md`, `operations.md`)
+- `src/vocky/`: service code, public REST and Admin REST routing, the CLI, persistence layer, and smoke script
+- `web/`: the Next.js browser app (P4) — vocky's authenticated web surface and its server-side BFF; TypeScript/pnpm, its own gate (see `frontend.md`, `operations.md`); `web/Dockerfile` (P6) is its production image
 - `alembic/` and `alembic.ini`: database migration environment
 - `tests/`: validation, persistence, and REST/persistence coverage
-- `Dockerfile`, `docker-compose.yml`, `.env.example`, `Makefile`: local run, package verification, external smoke checks, and self-hosted development workflow
+- `Dockerfile`, `docker-compose.yml`, `.env.example`, `Makefile`: local run, external smoke checks, and self-hosted development workflow
+- `compose.prod.yml`, `.env.prod.example` (P6): the production deploy topology and its box-secrets template — **not** the local dev stack
+- `deploy/` (P6): the production deploy kit — `vocky.conf` (edge nginx vhost), `deploy.sh` / `rollback.sh` (on-box release + rollback), and the two GitHub Actions transport/gate scripts
+- `.github/workflows/` (P6): the manual, main-only production-deploy workflow
 - `docs/`: stable reference documents
 - `works/`: active backlog, deferred queue, active work items, archives, and templates
 - `scripts/`: workflow helpers
@@ -43,7 +48,7 @@ The first MVP should be built from these parts:
 - A storage layer that preserves raw feedback plus the metadata needed for retrieval and basic aggregates
 - A scoped end-user REST read that returns one user's own records plus operator comments
 - Dedicated Admin REST endpoints for human operators, dashboard metrics, and review workflows
-- A packaged same-origin Admin Web UI for self-hosted operators, including dashboard metrics, feedback review management, in-app operator docs, and an operator REST capture try-it flow backed by the existing capture endpoint rather than a separate browser-facing data API
+- A browser surface for tenants and operators. *Historically this was a packaged same-origin Admin Web UI served by the service itself; P4 replaced it with the `web/` Next.js app and **P6 deleted the packaged UI**. The browser surface is now `web/` only.*
 
 ## Runtime Shape
 
@@ -58,15 +63,14 @@ The current service uses these choices:
 - A write-only **FastMCP Streamable-HTTP** transport mounted at `/mcp` (its `session_manager` nested in the host lifespan), exposing the single `capture_feedback` tool
 - Public account-auth routes under `/auth/*` (signup, login, logout, me)
 - Session-token-authed account control-plane routes under `/app/*` (tenant, projects, per-project credentials)
-- Starlette Admin REST routes under `/admin/api/*`
-- Starlette Admin Web UI routes under `/admin` and packaged static assets under `/admin/assets/*`
+- Starlette Admin REST routes under `/admin/api/*` — **the only `/admin`-prefixed routes that exist** (the Web UI routes `/admin` and `/admin/assets/*` were deleted in P6)
 - A plain `/healthz` endpoint on the same host app for smoke checks
 - **Mandatory** per-project credential auth for public REST `/api/*` **and** `/mcp` traffic via `ProjectCredentialAuthMiddleware` (no open fallback)
 - Optional bearer-token protection for Admin REST traffic when `VOCKY_ADMIN_AUTH_TOKEN` is set
 - Docker builds install runtime dependencies and the local project into the image, while Compose app and worker commands use `uv run --no-sync` so container startup does not repeat dependency sync
 - REST capture and Admin REST handlers share validation helpers, service, and persistence layers, and the worker reuses the same persistence path
 
-Server-to-server product integrations should use `/api/feedback` for capture-only ingestion, especially explicit product/UI-triggered feedback from pages, widgets, controls, surveys, or other product surfaces. Human/operator tools should use `/admin/api/*`, while browser operators can load the packaged UI from `/admin`. The Admin Docs try-it flow may send same-origin browser requests to `POST /api/feedback` as an operator verification convenience, but it uses the existing capture-only contract and creates normal queued feedback on success.
+Server-to-server product integrations should use `/api/feedback` for capture-only ingestion, especially explicit product/UI-triggered feedback from pages, widgets, controls, surveys, or other product surfaces. Human/operator tools should use `/admin/api/*` directly (scripts, curl, dashboards) — **there is no packaged browser UI for it any more**; humans who want a browser use the `web/` app, which is a client of `/auth/*` + `/app/*`, not of Admin REST.
 
 ## Two-Track API Shape
 
@@ -75,7 +79,7 @@ Vocky now has two public-facing tracks over the same feedback schema:
 - Public REST track for server-to-server product integrations: `POST /api/feedback` capture plus `GET /api/feedback`, a scoped end-user read of one user's own feedback (required `user_id` + `source_product`) together with operator comments and cursor pagination. REST capture uses the shared capture field set for explicit human-triggered product/UI feedback, including surface feedback represented with `target_type="surface"` when applicable.
 - Admin REST track for humans and dashboards: `/admin/api/feedback` list/detail, `/admin/api/feedback/metrics` dashboard metrics, `/admin/api/feedback/{feedback_id}/comments` operator comment add/list (with the feedback detail response carrying a `comments` array), plus patch/delete management endpoints.
 
-The Admin Web UI is a same-origin browser surface layered over the Admin REST track for protected dashboard data, feedback review management, and packaged static docs assets for operator reference content. It can also render an internal REST capture try-it docs block that posts to same-origin `/api/feedback`. Its packaged docs still reference the retired static `VOCKY_API_AUTH_TOKEN` bearer and no longer reflect the live `/api/*` per-project credential model. **P4 resolved the reshaping question by replacement rather than repair:** the `web/` app (below) is now vocky's browser surface, and this packaged UI is superseded rather than updated — its physical removal is **P6** work, so its stale packaged docs stay as-is until then and should not be treated as current guidance. Both API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. Public REST is capture plus a single scoped end-user read (`GET /api/feedback`); it does not expose broad review, query, summary, job-status, or management endpoints. The scoped read returns only the caller-identified user's own records, scoped by required `user_id` + `source_product`, together with operator comments; any optional filters are AND-combined with that mandatory scope so the read never returns cross-user data. REST does not add a separate wire shape; website and product context should be represented with `target_type`, `target_id`, `target_text`, nullable `channel`, `tags`, `source_metadata`, and `attributes`. `target_type` is the review discriminator for message, conversation, and surface feedback; it does not create a second feedback store or a new capture endpoint. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, channel category, metadata, target context, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
+**Admin REST is now an API-only track.** There was once a same-origin packaged Admin Web UI layered over it (dashboard, review management, packaged operator docs, a REST capture try-it block). P4 resolved the reshaping question **by replacement rather than repair** — the `web/` app became vocky's browser surface — and **P6 deleted the packaged UI outright**, taking its stale in-app docs (which still described the retired static `VOCKY_API_AUTH_TOKEN` model) with it. Nothing about the `/admin/api/*` contract or its bearer boundary changed. Both API tracks use the same PostgreSQL `feedback_events` table, feedback service, and repository. Public REST is capture plus a single scoped end-user read (`GET /api/feedback`); it does not expose broad review, query, summary, job-status, or management endpoints. The scoped read returns only the caller-identified user's own records, scoped by required `user_id` + `source_product`, together with operator comments; any optional filters are AND-combined with that mandatory scope so the read never returns cross-user data. REST does not add a separate wire shape; website and product context should be represented with `target_type`, `target_id`, `target_text`, nullable `channel`, `tags`, `source_metadata`, and `attributes`. `target_type` is the review discriminator for message, conversation, and surface feedback; it does not create a second feedback store or a new capture endpoint. Admin REST is the surface that can inspect and manage all feedback records, including likes, dislikes, comments, channel category, metadata, target context, messages, and used context. The browser workflow intentionally exposes a narrower edit surface than Admin REST: `feedback_value`, `comment`, `channel`, and `tags`.
 
 ## Identity and Tenancy Layer
 
@@ -116,9 +120,9 @@ P4 adds vocky's first frontend: a **Next.js app in `web/`** (D-P4-1 — a repo s
 
 **The backend's authorization stance is preserved end-to-end, not re-implemented.** The web app enforces nothing on its own: **404-never-403** on foreign ids surfaces because the app maps vocky's `404`/`400` → Next's `notFound()` (a malformed id is effectively not-found; distinguishing them would leak the shape of what exists), and legacy NULL-`project_id` rows stay invisible because `/app/feedback` already scopes them out. Tenant isolation remains a backend property; the app renders it.
 
-**Admin-UI convergence (the P4 open question) is resolved: by replacement, not repair.** The `web/` app *is* the reshaped operator/tenant browser surface. The packaged same-origin Admin Web UI (`src/vocky/admin_ui.py`, `admin_assets/*`, the `/admin` mount) is **superseded but still mounted** — its physical removal is deferred to **P6**, when the new app is actually deployed, so no browser surface disappears in the interim. Admin REST (`/admin/api/*`) and its separate bearer boundary are untouched.
+**Admin-UI convergence is fully closed as of P6.** P4 resolved it *by replacement, not repair* — the `web/` app is the reshaped operator/tenant browser surface — and **P6 carried out the removal**: `src/vocky/admin_ui.py`, `src/vocky/admin_assets/`, the `/admin` + `/admin/assets/*` routes, the wheel asset-packaging check (`scripts/check_admin_ui_package.py`, and the `Makefile`'s `package-check` target it fed), and the UI-only tests are all deleted. **Admin REST (`/admin/api/*`), `AdminBearerAuthMiddleware`, and `VOCKY_ADMIN_AUTH_TOKEN` are untouched.** Consequence for routing: after P6 the *only* paths under `/admin` are `/admin/api/*`, so an edge or proxy in front of vocky never needs to expose an `/admin` shell (and `deploy/vocky.conf` deliberately 404s the whole prefix).
 
-**Deployment is P6.** P4 is local-dev-runnable only (`output: "standalone"` is set for a later container, but no Dockerfile, compose service, or nginx config ships).
+**The app is deployable but not deployed.** P6 authored `web/Dockerfile`, `compose.prod.yml`, the edge vhost, the deploy/rollback scripts, and the CI chain — and executed none of them. The live bring-up is **P12**.
 
 ## The `vocky` CLI (P5)
 
@@ -136,6 +140,20 @@ P7 revives the agent-decided capture path retired in P1 as a **write-only** MCP 
 - **Transport security.** `make_transport_security_settings` enables DNS-rebinding protection with a localhost allowlist (`127.0.0.1:*`, `localhost:*`, `[::1]:*`) extendable via `VOCKY_MCP_ALLOWED_HOSTS` / `VOCKY_MCP_ALLOWED_ORIGINS`. The allowlist matcher requires a port, so a public deployment must add its `Host` (with port) to `VOCKY_MCP_ALLOWED_HOSTS`.
 - **Auth (whole endpoint).** `/mcp` is guarded by the same `ProjectCredentialAuthMiddleware` as `/api/*`: its predicate is now `is_api_path(p) or is_mcp_path(p)`, so the **entire** transport (including `initialize`) requires a valid, non-revoked per-project `vk_` credential; missing/unknown/revoked answer the same generic `401`, and `last_used_at` is stamped best-effort. The static `VOCKY_MCP_AUTH_TOKEN` is **not** revived. Because the app-level middleware runs before the mount dispatches, its `scope[PROJECT_CREDENTIAL_SCOPE_KEY]` stash propagates into the mounted sub-app.
 - **The `capture_feedback` tool (`src/vocky/tools/capture_feedback.py`).** The **sole** registered tool (`mcp.list_tools() == ["capture_feedback"]`), write-only. Flat parameter list (`source` nested), with an injected `ctx: Context` that FastMCP excludes from the tool schema. It builds a thin `McpCaptureFeedbackInput` → `normalize_mcp_payload` (no `attachment_ids` — agents have no upload flow), reads the stashed credential back off `ctx.request_context.request` via `get_request_credential`, stamps `payload.project_id = credential.project_id`, then `get_capture_queue().enqueue_feedback(...)` — the **same** shared queue → worker → `feedback_events` path as REST. It returns a raw `CallToolResult` (structured capture receipt, or an `isError=True` result on validation / queue failure); `install_protocol_aware_call_handler(mcp)` passes that raw result straight through as the `ServerResult` and keeps unknown-tool a protocol error.
+
+## Production Deployment Topology (P6)
+
+> **Authored, not deployed.** Every artifact described here exists in the repo and was statically validated only. Nothing runs; `https://vocky.hi2vi.com` does not answer. The live bring-up is **P12**, sequenced after P10 so its schema migrations land against an empty database instead of production data. The operational runbook (deploy/rollback lifecycle, CI, secrets, box paths) lives in `operations.md`; this section records only the *shape*.
+
+vocky deploys as a **five-container Compose project co-tenanting an existing OCI box** behind a shared edge nginx. The architectural properties that matter:
+
+- **Nothing is directly exposed.** Every service is `expose:`-only — no host ports at all — and is addressed **by fixed container name** over a pre-existing external Docker network shared with the edge and the other co-tenant sites. The only ingress is the edge vhost.
+- **Two upstreams, one origin.** `vocky-api:8000` and `vocky-web:3000` sit behind one hostname, split by longest-prefix routing at the edge. The web app's own BFF prefixes (`/api/auth/`, `/api/app/`) deliberately win over the api's `/api/` — that overlap is the single most fragile thing in the routing map, and it is why the prefixes were chosen to nest cleanly rather than collide.
+- **`/mcp` is in-process, not a service.** It is a Starlette `Mount` inside the api container (its FastMCP `session_manager` nested in the host lifespan), so it deploys, scales, and fails with the api. There is no MCP container and never was one.
+- **The worker is the api image.** `vocky-worker` carries `image: vocky-api:latest` with **no build of its own**, running the same image under an overridden `vocky-worker` command. This is a deliberate architectural constraint, not a packaging convenience: when the worker had its own build stanza, a partial rebuild could leave it executing stale persistence code behind a fresh api — a silent data-path bug. One build now freshens both by construction. The corollary is that the worker has **no healthcheck** (no HTTP endpoint), so it is gated on container *state* rather than health.
+- **Migrations are external to the images.** Neither the api image nor the worker bakes a migration step; `alembic upgrade head` runs in a one-off container **before** the new app code serves. The images stay stateless build artifacts, and schema advancement is an explicit, observable deploy step that can fail and roll back on its own.
+- **Three volumes are permanent state.** `postgres-data`, `redis-data` (append-only, so queued captures survive a restart), and `attachments-data` — the last **shared between api and worker**, because the worker writes uploaded bytes that the api later serves. No deploy path may ever remove them.
+- **The rollback unit is an image tag, not a git revert.** Both app images carry explicit `:latest` tags that are moved to `:previous` before each build, so a failed release is undone by flipping tags and recreating — seconds, no rebuild, no data movement. It follows that a *schema-incompatible* revert is not a rollback at all but a redeploy of an older git ref.
 
 ## Configuration Surface
 
@@ -167,14 +185,16 @@ The supported local operator workflow adds these host-side settings:
 
 `VOCKY_HOST` remains the application bind address inside the process. The `*_PUBLISH_HOST` variables control which host interface Docker publishes to. `VOCKY_BASE_URL` remains the local verification target, while `VOCKY_EXTERNAL_BASE_URL` is reserved for public custom-domain operator docs and client examples.
 
-The root `.env`, copied from `.env.example`, is the primary local configuration source for both Docker Compose and the Make-based host workflow. The Compose app service receives its Admin auth setting (`VOCKY_ADMIN_AUTH_TOKEN`) from this file; `/api/*` auth is no longer env-configured (per-project credentials replaced `VOCKY_API_AUTH_TOKEN`). The supported self-hosted path remains Compose-first and includes Redis plus the worker process. `make bootstrap` should bring up the service dependencies, apply migrations, and wait for readiness. `make verify` should build and inspect a fresh wheel for packaged Admin UI assets, wait for readiness, verify the eventual write path with the REST smoke flow, and run the test suite. `make compose-down` should tear the stack back down.
+The root `.env`, copied from `.env.example`, is the primary **local** configuration source for both Docker Compose and the Make-based host workflow. The Compose app service receives its Admin auth setting (`VOCKY_ADMIN_AUTH_TOKEN`) from this file; `/api/*` auth is no longer env-configured (per-project credentials replaced `VOCKY_API_AUTH_TOKEN`). The supported self-hosted path remains Compose-first and includes Redis plus the worker process. `make bootstrap` should bring up the service dependencies, apply migrations, and wait for readiness. `make verify` runs the smoke flow and the test suite — as of **P6** it no longer builds and inspects a wheel for packaged Admin UI assets, since those assets no longer exist (`package-check` was removed with the UI). `make compose-down` should tear the stack back down.
+
+**Production configuration is a separate surface.** `compose.prod.yml` + `.env.prod.example` (P6) define the box's configuration independently of the local `.env`: exactly three interpolated secrets (`POSTGRES_PASSWORD`, `SESSION_SECRET`, `VOCKY_ADMIN_AUTH_TOKEN`), with `DATABASE_URL` / `REDIS_URL` / `VOCKY_API_BASE_URL` as committed literal container-name URLs and `NEXT_PUBLIC_APP_URL` as a build arg. There is deliberately **no `env_file:`** in the production compose, so each container sees only its own vars. See `operations.md`.
 
 The supported operator modes are:
 
 - Internal self-hosting: Compose publishes on loopback by default and host-side checks use `VOCKY_BASE_URL`.
 - Public custom-domain deploy: operators can publish the app through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL` to the public origin such as `https://vocky.example.com`, and require `VOCKY_ADMIN_AUTH_TOKEN` before exposing Admin REST. `/api/*` is always credential-authed (per-project keys), so it needs no extra env gating before exposure. `make external-smoke` and `make external-verify` run the public checks against `VOCKY_EXTERNAL_BASE_URL`.
 
-The `/admin` shell and `/admin/assets/*` static assets, including packaged operator docs, can load without server-side auth, but protected Admin data remains unavailable unless the browser supplies the configured Admin bearer token to `/admin/api/*`. `/api/*` and `/admin/api/*` have separate auth boundaries: `/api/*` requires a per-project credential and `/admin/api/*` uses the Admin bearer token. (The packaged Admin Docs try-it block still references the retired `VOCKY_API_AUTH_TOKEN`. P4 superseded that surface with the `web/` app rather than updating it; the packaged UI and its stale docs are removed in P6.)
+`/api/*` and `/admin/api/*` have separate auth boundaries: `/api/*` requires a per-project credential and `/admin/api/*` uses the Admin bearer token. Since **P6** there is no unauthenticated `/admin` shell at all — the UI and its packaged docs (which still referenced the retired `VOCKY_API_AUTH_TOKEN`) were deleted, so every surviving `/admin`-prefixed route is bearer-guarded Admin REST.
 
 The `web/` app has its own, separate configuration surface — two server-only keys, `VOCKY_API_BASE_URL` and `SESSION_SECRET` — documented in `operations.md`. It shares no env with the service and needs no DB or Redis credentials.
 
@@ -187,8 +207,8 @@ For Cloudflare Tunnel users, the recommended public shape is a hostname-to-servi
 - `/api/*` and `/mcp` ingest auth is mandatory per-project credential auth; there is no unauthenticated or globally-shared-token ingest path
 - Free service — no billing, usage metering, or plan tiers
 - No automatic classification or summarization in the MVP
-- Admin Web UI includes a same-origin self-hosted operator shell, dashboard metrics, recent activity, feedback list/filter/detail inspection, review-field editing, guarded delete, in-app operator docs, and an operator-only REST capture try-it form. **Superseded as of P4** by the `web/` app (its packaged docs still reference the retired static token and are not current guidance); it stays mounted until P6 removes it
-- The `web/` Next.js app (P4) is vocky's authenticated browser surface for tenants: signup/login, tenant dashboard, project detail with credential mint/revoke, and cross-project feedback read/search. It is a session-token BFF client of `/auth/*` + `/app/*` — never the `vk_`-keyed `/api/*` surface — and adds no backend capability of its own. Feedback **management** is not in it (that stays on `/api/project/feedback`); production deploy is P6
+- **There is no packaged Admin Web UI.** It was superseded by the `web/` app in P4 and physically removed in **P6**. Operator/admin work over `/admin/api/*` is API-only (scripts, curl, an operator's own dashboard)
+- The `web/` Next.js app (P4) is vocky's **only** browser surface: signup/login, tenant dashboard, project detail with credential mint/revoke, cross-project feedback read/search, and the public landing. It is a session-token BFF client of `/auth/*` + `/app/*` — never the `vk_`-keyed `/api/*` surface — and adds no backend capability of its own. Feedback **management** is not in it (that stays on `/api/project/feedback`). It is deploy-ready as of P6 but **not deployed** (P12)
 - Channel handling uses the built-in nullable MVP categories `web`, `mobile`, and `support`; custom category management and deployment-configured category lists are outside the MVP
 - No separate Admin REST database or per-surface feedback store
 - Feedback is project-scoped: `feedback_events.project_id` is stamped at capture from the authenticating credential; project-scoped review/manage (`/api/project/feedback`), cross-project read/search (`/app/feedback`), and derived usage monitoring are implemented. Usage is operational only — derived capture volume + last-used, no metering/billing
@@ -389,7 +409,8 @@ The implemented P1 read query model uses these constraints:
 
 ## Open Questions
 
-- When the packaged same-origin Admin Web UI is physically removed (`admin_ui.py`, `admin_assets/*`, the `/admin` mount) — **P6**, once the `web/` app is deployed. P4 answered the *convergence* question (the web app replaces it as the browser surface); what remains is only the removal timing. Whether Admin REST (`/admin/api/*`) itself outlives the UI it served is a separate open question
+- **Resolved in P6:** the packaged Admin Web UI is removed. What remains open is whether **Admin REST (`/admin/api/*`) itself outlives the UI it served** — it now has no first-party client at all, and the production edge 404s the whole `/admin` prefix, so it is reachable only from inside the Docker network. Retiring it, or keeping it as a deliberate internal operator API, is a P12-or-later call
+- Whether `VOCKY_ADMIN_AUTH_TOKEN` should stay a **mandatory** box secret now that `/admin` is edge-unreachable. It is kept as defense in depth (co-tenant containers on the shared network can reach `vocky-api:8000` directly), but the tension is real and is routed to P12
 - Whether the `web/` app should ever surface feedback **management** (PATCH/DELETE/comments). P4 deliberately kept it read+search only, since management lives on the `vk_`-keyed `/api/project/feedback`; a signed-in owner arguably wants it too, but that would be a new decision
 - Whether completed-job receipts or dead-letter inspection should become part of a later public review surface
 - Whether the end-user attachment download (`GET /api/feedback/{id}/attachments/{id}`) should also be project-scoped for parity with the D-P3-6 self-read tightening (currently `user_id`+`source_product`+exact-UUID scoped; a possible future hardening)

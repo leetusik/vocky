@@ -1,19 +1,21 @@
 ---
 doc_id: frontend
-version: v0004
-created_at: 2026-07-18T04:46:05+09:00
-source: P9.REVIEW
-summary: P9: apply the round-01 vocky design across the app and landing — deep-emerald value swap, Pretendard, new component vocabulary, net-new states, public / landing; placeholder retired
-previous: v0003_p8_drop_the_deleted_web_design_canvas_section_design_gate_closed_at_p8_applied_by_p9_not_deferred_to_p6_placeholder_state_stays_live
+version: v0005
+created_at: 2026-07-28T16:34:12+09:00
+source: P6.REVIEW
+summary: P6: the site metadata/OG/robots/sitemap/manifest routes, the NEXT_PUBLIC_APP_URL build-time origin, the prod-gated CSP, and the standalone production image; the replaced Admin Web UI is now actually deleted
+previous: v0004_p9_apply_the_round-01_vocky_design_across_the_app_and_landing_deep-emerald_value_swap_pretendard_new_component_vocabulary_net-new_states_public_landing_placeholder_retired
 ---
 
 # Frontend
 
 ## Status
 
-Vocky has one frontend: the **authenticated web app + public landing** in `web/` (P4 built the app; P9 applied the design and added the landing). It is a Next.js 16 / React 19 / TypeScript app that talks to vocky's `/auth/*` + `/app/*` surfaces through a **server-side BFF proxy**, and it is the browser surface that replaces the packaged same-origin operator Admin Web UI (`src/vocky/admin_ui.py` + `admin_assets/*`). The replacement is **built** as of P4; the physical removal of the old admin UI is deferred to **P6**, so no browser surface disappears in the interim.
+Vocky has **exactly one** frontend: the **authenticated web app + public landing** in `web/` (P4 built the app; P9 applied the design and added the landing). It is a Next.js 16 / React 19 / TypeScript app that talks to vocky's `/auth/*` + `/app/*` surfaces through a **server-side BFF proxy**. It replaced the packaged same-origin operator Admin Web UI — and as of **P6 that old UI is physically deleted** (`src/vocky/admin_ui.py`, `admin_assets/*`, and the `/admin` + `/admin/assets/*` routes are gone). There is no longer a second browser surface anywhere in the product.
 
-P4 delivered signup/login/logout, the app shell, the tenant dashboard, project detail (with credential mint/revoke), and cross-project feedback list/search/detail. **P9 applied the round-01 signed-off vocky design** (`docs/reference/design/rounds/01-brand-app-landing/`) across all of it and added the two net-new surfaces: the public `/` landing and the designed `loading`/`error`/`not-found`/`global-error` states. What remains **not** here: the **production deploy**, which stays **P6** (local-dev-runnable + `output: "standalone"` only).
+P4 delivered signup/login/logout, the app shell, the tenant dashboard, project detail (with credential mint/revoke), and cross-project feedback list/search/detail. **P9 applied the round-01 signed-off vocky design** (`docs/reference/design/rounds/01-brand-app-landing/`) across all of it and added the two net-new surfaces: the public `/` landing and the designed `loading`/`error`/`not-found`/`global-error` states. **P6** finished the site's production-facing edges: the metadata/OG/favicon/robots/sitemap/manifest routes, the marketing description, the real production origin, and a production `Content-Security-Policy` — plus `web/Dockerfile`, the standalone production image.
+
+**The app is still not deployed.** P6 authored the whole deploy kit and executed none of it; `https://vocky.hi2vi.com` does not answer. The live bring-up is **P12**. See `operations.md`.
 
 The app is a **session-token client only** (the guarded `(app)` surfaces + the public `(auth)` and landing). It calls `/auth/*` and `/app/*`; it never touches the `vk_`-keyed `/api/*` surface, which is the external-service credential path. There is no web-side database. **No backend/contract change was needed to apply the design** (`build-prompt.md §9`): everything maps to existing serializers, and the only new behavior is web-tier (the `/` landing behind the existing signed-in→dashboard bounce, and a project-detail breadcrumb from already-fetched data).
 
@@ -24,7 +26,7 @@ The app is a subdirectory of this repo (**D-P4-1**), versioned and committed by 
 - **Next.js 16** (App Router, Turbopack) / **React 19** / **TypeScript**, package manager **pnpm** (`packageManager: pnpm@10.28.2`, node `>=22.13.0`)
 - **Tailwind v4**, CSS-first (`@theme` in `globals.css`); there is no `tailwind.config.*`
 - Runtime deps are deliberately few: `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`, `tw-animate-css`, `server-only`, `zod`. **Pretendard is vendored, not a new dependency** — a single variable woff2 loaded via `next/font/local` (no `@fontsource/*` package added).
-- `next.config.ts` sets `output: "standalone"` (build-only; emits `.next/standalone/server.js` for the P6 deploy) plus generic security headers (`nosniff`, `Referrer-Policy`, `Permissions-Policy`, `X-Frame-Options: DENY`). A full CSP/HSTS and the edge/nginx wiring are P6.
+- `next.config.ts` sets `output: "standalone"` (build-only; emits `.next/standalone/server.js`, which `web/Dockerfile` copies into its runtime stage), the generic security headers (`nosniff`, `Referrer-Policy`, `Permissions-Policy` — now including `browsing-topics=()`, `X-Frame-Options: DENY`), and a **production-gated CSP** (P6). **HSTS is not set here** — it belongs to the edge vhost, along with an additive `upgrade-insecure-requests` CSP. There is no `middleware.ts` and no nonce, deliberately: a nonce forces dynamic rendering and would cost static generation across the app. Full rationale in `security.md`.
 - Scripts: `dev` / `build` / `start` (all bound `127.0.0.1:3030`), `lint`, `typecheck`, `test` (vitest), `format`
 
 ## Directory Shape
@@ -35,8 +37,12 @@ web/
     layout.tsx            root layout (fonts, globals.css, metadata)
     page.tsx              "/" → the PUBLIC LANDING (signed in → /dashboard bounce)
     globals.css           the @theme token system (vocky deep-emerald, applied)
-    not-found.tsx         root 404 (404-never-403 copy)
+    not-found.tsx         root 404 (404-never-403 copy; backs to "/", not /dashboard)
     global-error.tsx      root-layout crash fallback (own <html><body>)
+    icon.svg              favicon (static SVG, Mark geometry)          } P6 metadata
+    apple-icon.tsx        180x180 ImageResponse (div-rebuilt Mark)     } file-convention
+    opengraph-image.tsx   1200x630 ImageResponse brand card            } routes — all six
+    robots.ts / sitemap.ts / manifest.ts   MetadataRoute generators    } static-prerendered
     (auth)/               PUBLIC, unguarded: login, signup (+ auth-card, credentials-form)
     (app)/                GUARDED: layout.tsx awaits requireIdentity()
       loading.tsx         stat-tile + chart skeleton (app-group Suspense fallback)
@@ -155,12 +161,13 @@ Actions map failures **by status** (400/401/404 → copy from `src/content/`), n
 | `loading` / `error` / `not-found` / `global-error` | net-new states | app-group skeleton, danger-mark error boundary, 404-never-403 pages, root crash fallback |
 | `/api/auth/{login,signup,logout}` | BFF | the public credential pipeline |
 | `/api/app/feedback/[id]/attachments/[id]` | BFF | binary proxy (forced download) |
+| `icon.svg`, `apple-icon`, `opengraph-image`, `robots.txt`, `sitemap.xml`, `manifest.webmanifest` | metadata (P6) | all `○ Static` — prerendered at build |
 
-The guarded routes are `ƒ (Dynamic)`; the landing `/` is `ƒ` too (it reads the session cookie); `/_not-found` prerenders static. `next build` needs no env because env reads are lazy.
+The guarded routes are `ƒ (Dynamic)`; the landing `/` is `ƒ` too (it reads the session cookie); `/_not-found` and the six P6 metadata routes prerender static. `next build` needs no env because env reads are lazy — the one exception is `NEXT_PUBLIC_APP_URL`, which is *optional* (it falls back to the dev origin) but is inlined at build when present.
 
 **The app shell** (`src/components/app-shell/`) is a **server component** — only logout and the pathname-aware rail are client islands, so the server-fetched identity never crosses a client boundary. Its topbar leads with the **brand lockup (Mark 32 + Wordmark)** (no longer `SITE.name` text) · workspace/user · spacer · logout, over an `app:`-breakpoint `[rail | main]` grid (`grid-cols-1 app:grid-cols-[248px_minmax(0,1fr)]`); below 900px the rail collapses to a horizontal strip. **`LogoutButton` is now a `<Button variant="ghost" size="sm">`** (the bespoke chip markup is gone), keeping the pending + best-effort logout logic verbatim.
 
-**`RailNav`** is a client island only because the active item derives from `usePathname()`. An item is active when `pathname === item.href || pathname.startsWith(item.href + "/")` — the prefix rule is what keeps *Feedback* highlighted on `/feedback/[id]`. The active item now carries an **inset green accent bar** (`shadow-[inset_2px_0_0_var(--color-green)]`) on `bg-green-soft`. It also retains a **`soon`** affordance (a muted, non-interactive "Soon" tag). **No item sets `soon` today** — the mechanism is kept for P6's new surfaces.
+**`RailNav`** is a client island only because the active item derives from `usePathname()`. An item is active when `pathname === item.href || pathname.startsWith(item.href + "/")` — the prefix rule is what keeps *Feedback* highlighted on `/feedback/[id]`. The active item now carries an **inset green accent bar** (`shadow-[inset_2px_0_0_var(--color-green)]`) on `bg-green-soft`. It also retains a **`soon`** affordance (a muted, non-interactive "Soon" tag). **No item sets `soon` today** — the mechanism is kept for whichever surface lands next.
 
 **Usage components** (`src/components/usage/`) are presentational, props-only server components reused by both the dashboard and project detail (each page renders exactly one of each, since they hardcode DOM ids). `StatTiles` is compact (`Card p-4`) with a per-key leading rating dot. **`TrendChart` is the round-01 dependency-free *area* chart** (§4.14): `viewBox 0 0 100 42`, a green gradient fill + line + hairline baseline, per-point `<circle>`+`<title>` hover, `preserveAspectRatio="none"`, `role="img"` + an `sr-only` peak/total summary, and **both empty shapes** preserved (empty note box for no data; a flat baseline for an all-zero series, `Math.max(1, …)` guarding divide-by-zero). The P8 "adopt a chart library?" question was resolved as **no library** — this is the applied redesign.
 
@@ -206,6 +213,22 @@ The browser has no bearer, so the route relays server-side via `getRaw` and **fo
 
 **The landing** (`page.tsx` + `content/landing.ts` + `components/landing/*`) is P9's largest net-new surface. `page.tsx` is a server component: `getSession()` → `redirect("/dashboard")` for a live session, else it renders `LandingNav · main#main-content · LandingFooter`. Outside `(app)`, so it renders its own chrome. Copy is a single grounded `LANDING` const (hero with a real `POST /api/feedback` JSON body incl. a Korean `message`, trust strip, how-it-works, showcase, six features, Free-now/paid-later pricing, closing CTA, footer) — no lorem, no fake routes: doc links resolve to the real `github.com/leetusik/vocky` repo (README / GitHub / MIT `LICENSE`), never a fabricated `/docs`. The pricing "coming later" control is **disabled copy — no waitlist endpoint** (§9). `Reveal` is used sparingly on below-the-fold bands only; `break-keep` guards every Korean body example.
 
+## Site Metadata, the Public Origin, and the Production Image (P6)
+
+P6 finished the landing's public-facing edges without opening a new design round — every asset is assembled from the **existing** round-01 brand (the `Mark` geometry, the wordmark, the `globals.css` tokens). A bespoke OG illustration would have been its own design gate; it was deliberately not done.
+
+**The six metadata routes** live under `web/src/app/` as Next 16 file conventions, not in `public/`:
+
+- **`icon.svg`** — a static SVG favicon: the Mark's green tile plus its three rising white bars, at literal colors.
+- **`apple-icon.tsx`** (180×180) and **`opengraph-image.tsx`** (1200×630) — `next/og` `ImageResponse` routes. The Mark is **rebuilt with divs** (Satori renders no `<svg>` from a React component tree the way the browser does), and both use the **default ImageResponse font**. Loading the vendored *variable* Pretendard woff2 here is a known Satori failure mode and was deliberately avoided; the OG card's only text is the wordmark and one real line of `LANDING.hero.headline`.
+- **`robots.ts`**, **`sitemap.ts`**, **`manifest.ts`** — `MetadataRoute` generators. `robots` allows `/` and disallows the authenticated + BFF surface (`/dashboard`, `/projects/`, `/feedback`, `/api/`); the sitemap contains **only `/`**, because it is the only public page. **Adding a public route means extending `sitemap.ts`** — nothing does it automatically.
+
+`layout.tsx` gained `openGraph` and `twitter` (`summary_large_image`) metadata; Next injects `og:image`/`twitter:image` from the `opengraph-image` route automatically. `SITE.description` was rewritten from an internal "tenant dashboard" line to grounded marketing copy drawn from the landing hero.
+
+**`NEXT_PUBLIC_APP_URL` is the single origin knob**, and it is **build-time, not runtime**. `SITE.url` reads it (blank → `http://127.0.0.1:3030`), and from there it drives `metadataBase`, the canonical + OG URLs, `robots`'s `host` and `sitemap`, and the sitemap `loc`. Because Next inlines `NEXT_PUBLIC_*` at build, a missing value bakes the localhost origin into the image — so `web/Dockerfile` declares `ARG NEXT_PUBLIC_APP_URL` and **asserts it non-empty before `next build`**, and `compose.prod.yml` passes `https://vocky.hi2vi.com` through the web service's `build.args`. **Changing the public origin requires an image rebuild.**
+
+**The production image** (`web/Dockerfile`, P6) is a multi-stage `node:22-slim` build: pnpm frozen install, `pnpm build`, then a runtime stage carrying `.next/standalone` + `.next/static` + `public/`, running `node server.js` as `USER node` on `EXPOSE 3000` with a fetch-based `HEALTHCHECK`. One trap is worth remembering: **the build stage must not set `NODE_ENV=production`** — pnpm would prune `typescript` / `tailwindcss` / `@tailwindcss/postcss` / `eslint-config-next` and the build would fail. `web/public/` holds only a `.gitkeep` so the runtime `COPY /app/public ./public` resolves; every real asset comes from the `app/` routes above. Details in `operations.md`.
+
 **The net-new states** (`build-prompt.md §6`) are real designed surfaces, not framework defaults: `(app)/loading.tsx` (a stat-tile + chart skeleton, `feedback/loading.tsx` for the list's different shape), `(app)/error.tsx` (a danger-tinted Mark boundary that **never renders `error.message`** — a security floor), root + in-app `not-found.tsx` (the **404-never-403** subcopy — *"…isn't here — or isn't yours to see"* — single-sourced in `STATES.notFound.body`), and `global-error.tsx` (own `<html><body>`). Copy lives verbatim in `content/states.ts`. Skeletons are static under reduced motion (`animate-pulse motion-reduce:animate-none`, `aria-hidden` with an `sr-only role="status"` sibling).
 
 ## Testing
@@ -228,4 +251,7 @@ The browser has no bearer, so the route relays server-side via `getRaw` and **fo
 - **RESPECT THE DESIGN** — the round-01 design is applied as designed (layout, density, tokens, interactions, empty/error states); the `build-prompt.md` §10 checklist is the definition-of-done. Don't drop, simplify, or "improve" a designed element to save effort.
 - Attachments **download, never render inline**; the identical-login-error mapping lives in the form/BFF and must not change; `FieldError` keeps its empty `min-h-[1.25rem]` `aria-live="polite"` region; `word-break: keep-all` and a Korean-capable `--font-sans` are preserved.
 - Copy belongs in `src/content/`, not inline in components.
-- Deploy is **P6**: local-dev-runnable + `output: "standalone"` only.
+- **`NEXT_PUBLIC_APP_URL` is build-time.** Never treat it as a runtime setting; changing the public origin means rebuilding the web image. It is the only `NEXT_PUBLIC_` var the app has, and it carries no secret.
+- **The production CSP is all-`'self'`.** Introducing any third-party script, font, image, or fetch origin requires editing the directive string in `next.config.ts` — and self-hosting remains the default answer. Never set HSTS in the app; that is the edge's.
+- **Adding a public route means updating `robots.ts` and `sitemap.ts`.** Neither is generated from the route table.
+- **The app is authored for deployment but not deployed.** The image + compose + vhost exist (P6); the live bring-up is **P12**.

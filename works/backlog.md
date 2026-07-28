@@ -5,18 +5,18 @@
 
 ## Pointer
 
-- Current phase: `P6`
-- Current slice: `P6.S9`
-- Next slice: `P6.REVIEW`
-- Waiting on operator: `P6.S9`
+- Current phase: `P10`
+- Current slice: `P10.DECOMP`
+- Next slice: `P10.REVIEW`
+- Waiting on operator: `none`
 - Open deferred jobs: `5`
-- Rebuilt at: `2026-07-28T16:15:48+09:00`
+- Rebuilt at: `2026-07-28T16:44:51+09:00`
 
 ## Active Phases
 
 | Phase | Status | Review | Name | Current Slice | Path |
 |---|---|---|---|---|---|
-| [ ] `P6` | `in_progress` | `pending` | Landing Page, Webpage & Production Deploy | `P6.S9` | `works/phases/active/P6` |
+| [x] `P6` | `done` | `pass` | Landing Page, Webpage & Production Deploy | `none` | `works/phases/active/P6` |
 | [ ] `P10` | `planned` | `pending` | Accounts v2: orgs, org-level keys & default project | `P10.DECOMP` | `works/phases/active/P10` |
 | [ ] `P11` | `planned` | `pending` | Frictionless onboarding: working install, env-var quickstart, agent skill on the landing | `P11.DECOMP` | `works/phases/active/P11` |
 | [ ] `P12` | `planned` | `pending` | Production launch & hardening: bring-up, rate limits, CI tests, QA doc | `P12.DECOMP` | `works/phases/active/P12` |
@@ -34,8 +34,8 @@
 | [x] `P6.S6` | `done` | Edge nginx vhost (vocky.conf) | `implementation` | `works/phases/active/P6/slices/P6.S6` |
 | [x] `P6.S7` | `done` | Deploy + rollback scripts | `implementation` | `works/phases/active/P6/slices/P6.S7` |
 | [x] `P6.S8` | `done` | CI production-deploy chain | `implementation` | `works/phases/active/P6/slices/P6.S8` |
-| [~] `P6.S9` | `pending` | PyPI packaging + publish | `implementation` | `works/phases/active/P6/slices/P6.S9` |
-| [ ] `P6.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P6/slices/P6.REVIEW` |
+| [x] `P6.S9` | `done` | PyPI packaging + publish | `implementation` | `works/phases/active/P6/slices/P6.S9` |
+| [x] `P6.REVIEW` | `done` | phase review | `review` | `works/phases/active/P6/slices/P6.REVIEW` |
 
 ## Phase P10: Accounts v2: orgs, org-level keys & default project
 

@@ -1,17 +1,17 @@
 ---
 doc_id: backend
-version: v0003
-created_at: 2026-07-16T18:52:17+09:00
-source: P7.REVIEW
-summary: P7: mcp_server.py FastMCP bootstrap, capture_feedback tool module, is_mcp_path broadened ingest guard, McpCaptureFeedbackInput
-previous: v0002_accounts_domain_package_require_user_authcontext_autherror_guard_security_primitives_and_auth_api_app_api_route_modules
+version: v0004
+created_at: 2026-07-28T16:37:48+09:00
+source: P6.REVIEW
+summary: P6: create_app no longer registers admin_ui_routes — the Admin Web UI module and its assets are deleted; middleware and the /admin/api routes are unchanged
+previous: v0003_p7_mcp_server.py_fastmcp_bootstrap_capture_feedback_tool_module_is_mcp_path_broadened_ingest_guard_mcpcapturefeedbackinput
 ---
 
 # Backend
 
 ## Status
 
-This doc covers the **accounts / identity backend** landed in P2: the `src/vocky/accounts/` domain package, the reusable user-auth guard, the security primitives, and the `/auth/*` + `/app/*` route modules and their app wiring. As of **P7** it also covers the **MCP capture backend**: the FastMCP server bootstrap (`src/vocky/mcp_server.py`), the write-only `capture_feedback` tool module (`src/vocky/tools/capture_feedback.py`), the broadened ingest guard (`is_mcp_path`), and the thin MCP input model. The feedback capture/read backend (service, repository, worker, queue, storage) is documented in `architecture.md`; this doc does not repeat it.
+This doc covers the **accounts / identity backend** landed in P2: the `src/vocky/accounts/` domain package, the reusable user-auth guard, the security primitives, and the `/auth/*` + `/app/*` route modules and their app wiring. As of **P7** it also covers the **MCP capture backend**: the FastMCP server bootstrap (`src/vocky/mcp_server.py`), the write-only `capture_feedback` tool module (`src/vocky/tools/capture_feedback.py`), the broadened ingest guard (`is_mcp_path`), and the thin MCP input model. As of **P6** it also records the **removal of the packaged Admin Web UI** from the backend (see "Admin Web UI Removal" below) — a deletion only; no accounts, MCP, or Admin REST behavior changed. The feedback capture/read backend (service, repository, worker, queue, storage) is documented in `architecture.md`; this doc does not repeat it.
 
 ## Accounts Domain Package (`src/vocky/accounts/`)
 
@@ -55,7 +55,20 @@ The write-only MCP capture surface (architecture: "MCP Write-Only Capture Surfac
 
 ## App Wiring (`src/vocky/app.py`)
 
-`create_app()` registers routes in order: `/healthz`, `*auth_routes`, `*app_api_routes`, `*app_feedback_routes`, `*usage_routes`, `*admin_routes`, `*admin_ui_routes`, `*api_routes`, `*project_feedback_routes`, `*attachment_routes`, and (P7) a trailing `Mount("/mcp", app=mcp.streamable_http_app())` — kept last so it cannot shadow the core routes. The host `lifespan` **nests `async with mcp.session_manager.run():`** around its existing resource-disposal `try/finally`, because the mounted FastMCP sub-app's own lifespan is not triggered by the host `Mount` and `/mcp` would otherwise 500 at request time. Middleware: `ProjectCredentialAuthMiddleware` (no token — now guards `/api/*` **and** `/mcp`) and `AdminBearerAuthMiddleware(token=settings.admin_auth_token_value)` (guards `/admin/api/*`). `exception_handlers={AuthError: auth_error_handler}` renders the shared 401. `/auth/*` and `/app/*` match neither middleware's path predicate, so they are guarded only per-handler (or unauthenticated, for signup/login).
+`create_app()` registers routes in order: `/healthz`, `*auth_routes`, `*app_api_routes`, `*app_feedback_routes`, `*usage_routes`, `*admin_routes`, `*api_routes`, `*project_feedback_routes`, `*attachment_routes`, and (P7) a trailing `Mount("/mcp", app=mcp.streamable_http_app())` — kept last so it cannot shadow the core routes. **(P6: the `*admin_ui_routes` spread and its `from vocky.admin_ui import routes as admin_ui_routes` import were removed with the Admin Web UI — see below.)** The host `lifespan` **nests `async with mcp.session_manager.run():`** around its existing resource-disposal `try/finally`, because the mounted FastMCP sub-app's own lifespan is not triggered by the host `Mount` and `/mcp` would otherwise 500 at request time. Middleware: `ProjectCredentialAuthMiddleware` (no token — now guards `/api/*` **and** `/mcp`) and `AdminBearerAuthMiddleware(token=settings.admin_auth_token_value)` (guards `/admin/api/*`). `exception_handlers={AuthError: auth_error_handler}` renders the shared 401. `/auth/*` and `/app/*` match neither middleware's path predicate, so they are guarded only per-handler (or unauthenticated, for signup/login).
+
+## Admin Web UI Removal (P6)
+
+The packaged operator Web UI is **deleted from the backend**. What went:
+
+- **`src/vocky/admin_ui.py`** — the five flat Starlette Web-UI `Route`s (`/admin`, `/admin/assets/{app.css,app.js,docs.json}`).
+- **`src/vocky/admin_assets/`** — the whole package (`__init__.py`, `index.html`, `app.css`, `app.js`, `docs.json`).
+- **`scripts/check_admin_ui_package.py`** and the `Makefile`'s `package-check` target that built and inspected a wheel for those assets. `make verify` is now `smoke test`.
+- **`tests/test_admin_ui.py`**, plus the UI-asset assertions inside `tests/test_public_access.py` (the `/admin` and `/admin/assets/*` route-registration checks and the `is_admin_api_path("/admin/assets/app.js")` case).
+
+What deliberately **stayed**: `src/vocky/admin_api.py` and its nine `/admin/api/*` routes; `AdminBearerAuthMiddleware` and `is_admin_api_path` in `src/vocky/auth.py`; the `admin_auth_token` config; `VOCKY_ADMIN_AUTH_TOKEN` in `docker-compose.yml` / `.env.example`; and `tests/test_admin_api.py`. `pyproject.toml` needed no edit — the wheel's `packages = ["src/vocky"]` simply stops including the now-absent `admin_assets`.
+
+The surviving route surface under the prefix is therefore **exactly nine `/admin/api/*` routes**, all bearer-guarded; bare `/admin`, `/admin/`, and `/admin/assets/*` return whatever the app's normal not-found path returns, because no route matches them.
 
 ## Config Change (`src/vocky/config.py`)
 

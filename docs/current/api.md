@@ -1,10 +1,10 @@
 ---
 doc_id: api
-version: v0006
-created_at: 2026-07-16T23:34:11+09:00
-source: P4.REVIEW
-summary: P4: correct the stale Admin-Docs-try-it forward reference — P4 superseded the packaged operator UI with the web app rather than updating its docs; removal moves to P6 (no API contract change)
-previous: v0005_p7_add_write-only_capture_feedback_mcp_tool_contract_flat_inputs_source_nested_no_attachment_ids_capture_receipt_and_the_mcp_per-project_vk__credential_auth_model_un-retire_mcp_as_a_write-only_surface
+version: v0007
+created_at: 2026-07-28T16:37:48+09:00
+source: P6.REVIEW
+summary: P6: the packaged Admin Web UI routes are deleted — /admin and /admin/assets/* no longer exist, only the bearer-guarded /admin/api/* REST surface remains, and it is 404d at the production edge
+previous: v0006_p4_correct_the_stale_admin-docs-try-it_forward_reference_p4_superseded_the_packaged_operator_ui_with_the_web_app_rather_than_updating_its_docs_removal_moves_to_p6_no_api_contract_change
 ---
 
 # API
@@ -15,7 +15,11 @@ The Web Feedback Capture REST API, the Feedback Attachment Upload REST API, the 
 
 The account and tenancy surfaces are also implemented: a public **Account Auth API** (`/auth/*`: signup, login, logout, me) and a session-token-authed **Account Control-Plane API** (`/app/*`: the caller's tenant, projects, and per-project credentials). Public `/api/*` ingest auth changed: the optional static-token model (`VOCKY_API_AUTH_TOKEN`) is retired and replaced by **mandatory per-project credential auth** — every `/api/*` request must present a valid, non-revoked project key (`vk_…`) as `Authorization: Bearer`, and missing/malformed/unknown/revoked all answer `401`.
 
-**Feedback API v2 (P3)** is also implemented: feedback is now project-scoped, and three new surfaces sit over it — the project-credential-authed **Project Feedback API** (`/api/project/feedback`: an external service's own admin panel reads and manages **its own project's** feedback), the session-authed **App Feedback API** (`/app/feedback`: a signed-in user reads and searches feedback across **all their projects**, Korean-safe), and **Usage Monitoring** (`/app/usage`, `/app/projects/{id}/usage`, `/api/project/usage`: derived capture volume + credential last-used, operational-only, no metering). All project/tenant-scoped reads answer **404 (never 403)** on a foreign id. These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
+**Feedback API v2 (P3)** is also implemented: feedback is now project-scoped, and three new surfaces sit over it — the project-credential-authed **Project Feedback API** (`/api/project/feedback`: an external service's own admin panel reads and manages **its own project's** feedback), the session-authed **App Feedback API** (`/app/feedback`: a signed-in user reads and searches feedback across **all their projects**, Korean-safe), and **Usage Monitoring** (`/app/usage`, `/app/projects/{id}/usage`, `/api/project/usage`: derived capture volume + credential last-used, operational-only, no metering). All project/tenant-scoped reads answer **404 (never 403)** on a foreign id.
+
+**P6 changed no endpoint contract.** It removed the packaged Admin Web UI, which deleted the non-API routes `/admin` and `/admin/assets/*`; the nine `/admin/api/*` endpoints, their auth boundary, and every request/response shape in this doc are untouched. P6 also authored (but did not deploy) the production edge, which **404s the `/admin` prefix** — see the Admin REST notes below.
+
+These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
 
 ## Purpose
 
@@ -25,7 +29,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 
 - Account Auth API contract for user signup, login, logout, and identity (`/auth/*`)
 - Account Control-Plane API contract for a user's tenant, projects, and per-project credentials (`/app/*`)
-- Web Feedback Capture REST API contract for server-to-server website and product feedback ingestion, plus operator-only Admin Docs try-it against the same endpoint
+- Web Feedback Capture REST API contract for server-to-server website and product feedback ingestion (the operator-only Admin Docs try-it flow against the same endpoint was removed with the Admin Web UI in P6)
 - MCP Capture Tool contract for agent-decided, write-only feedback capture at the `/mcp` endpoint (`capture_feedback`)
 - Feedback Attachment Upload REST API contract for uploading an image and receiving an `attachment_id` to reference from a later capture call
 - End-User Feedback Read REST API contract for a scoped server-to-server read of a single user's own feedback plus operator comments
@@ -265,7 +269,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Base path: `/api`
 - Auth or permissions:
   - Mandatory per-project credential auth (see the Public `/api/*` Credential Auth Model). Every request must send `Authorization: Bearer vk_<token>` for a valid, non-revoked project credential; missing/malformed/unknown/revoked all return `401`.
-  - The retired static `VOCKY_API_AUTH_TOKEN` bearer is gone. (The packaged Admin Docs try-it flow still references it and is **not** current guidance. P4 superseded that operator surface with the `web/` app rather than updating its packaged docs, so both are removed together in **P6**.)
+  - The retired static `VOCKY_API_AUTH_TOKEN` bearer is gone. (The packaged Admin Docs try-it flow that still referenced it was **deleted in P6** along with the rest of the Admin Web UI, so no in-product surface describes the retired model any more.)
 - Endpoint:
   - `POST /api/feedback`
 - Inputs:
@@ -579,9 +583,10 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - Admin REST is the human/operator review surface.
   - Operator comments are a separate first-class store keyed by feedback id, distinct from the user-supplied `comment` field captured at feedback time. The `POST`/`GET /admin/api/feedback/{feedback_id}/comments` endpoints and the `comments` array in the detail response are the operator add/list surface; comments are not editable or deletable individually in this MVP.
   - The Admin REST API and the public REST surfaces share the same `feedback_events` schema and service/repository layer.
-  - The packaged Admin Web UI consumes this same-origin Admin REST surface for dashboard metrics, feedback list/filter/detail review, review-field editing, and guarded delete.
-  - `/admin` and `/admin/assets/*` are static Admin Web UI routes rather than Admin REST endpoints. They can load without an Admin bearer token, while protected data remains under `/admin/api/*`.
-  - Browser editing intentionally exposes only `feedback_value`, `comment`, `channel`, and `tags`, even though Admin REST can also patch `source_metadata` and `attributes`.
+  - **Admin REST has no first-party client as of P6.** The packaged Admin Web UI that consumed it (dashboard metrics, list/filter/detail review, review-field editing, guarded delete) was physically removed; consumers are now operator scripts, curl, or a self-hosted operator's own dashboard. The endpoint contracts below are unchanged.
+  - **`/admin` and `/admin/assets/*` no longer exist.** They were static Web UI routes, not Admin REST endpoints, and were deleted in P6. After the removal the **only** routes under the `/admin` prefix are the nine `/admin/api/*` endpoints, and every one of them is bearer-guarded — there is no unauthenticated `/admin` path left.
+  - **The production edge does not expose `/admin` at all.** `deploy/vocky.conf` answers `location /admin/ { return 404; }`, so Admin REST is reachable only from inside the deployment's Docker network (or an SSH tunnel), never from `https://vocky.hi2vi.com`. The Admin bearer remains required regardless — see `security.md`.
+  - Browser editing (in the packaged UI, while it existed) intentionally exposed only `feedback_value`, `comment`, `channel`, and `tags`, even though Admin REST can also patch `source_metadata` and `attributes`.
   - Exact `target_type` filtering is implemented for Admin list review, but target fields remain immutable and are not editable review fields in this phase.
 </content>
 </invoke>

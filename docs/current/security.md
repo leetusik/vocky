@@ -1,17 +1,19 @@
 ---
 doc_id: security
-version: v0006
-created_at: 2026-07-18T11:15:57+09:00
-source: P5.REVIEW
-summary: P5: the CLI's on-disk 30-day session token at ~/.config/vocky/config.json (0600) — the first filesystem-resident vocky session credential; the CLI holds the session token and mints vk_ keys for /api/*
-previous: v0005_p4_the_web_app_s_browser_credential_aes-256-gcm_sealed_httponly_session_cookie_via_the_bff_token_never_in_browser_js_rate-limited_public_auth_routes_the_show-once_vk__key_crossing_and_forced_attachment_download
+version: v0007
+created_at: 2026-07-28T16:33:19+09:00
+source: P6.REVIEW
+summary: P6: the production edge/app security split — prod-gated app CSP, edge HSTS + additive upgrade-insecure-requests, Cloudflare real-IP restore, /admin 404 internal-only at the edge, and the unthrottled /auth/* origin gap (D5)
+previous: v0006_p5_the_cli_s_on-disk_30-day_session_token_at_.config_vocky_config.json_0600_the_first_filesystem-resident_vocky_session_credential_the_cli_holds_the_session_token_and_mints_vk__keys_for_api
 ---
 
 # Security
 
 ## Status
 
-Covers the authentication and secret-handling posture landed in P2 (password hashing, account session tokens, per-project ingest credentials, the mandatory `/api/*` ingest boundary) plus the P3 authorization posture for the new feedback surfaces: project-scoped read/manage authorization that answers 404-never-403 on cross-project/cross-tenant ids, the single-key project read/manage surface, best-effort `last_used_at` stamping, and the tightened project-scoped self-read. As of **P7** it also covers the MCP capture endpoint: `/mcp` is guarded by the same mandatory per-project `vk_` credential auth as `/api/*`, and its Streamable-HTTP transport carries DNS-rebinding protection. As of **P4** it also covers the **browser** — the web app in `web/` introduced vocky's first browser-held credential (a sealed httpOnly session cookie), its first public rate-limited auth surface, and the first place a plaintext `vk_` key is displayed to a human. As of **P5** it also covers the **`vocky` CLI**, which introduced vocky's first credential resident on the local **filesystem** — a 30-day session token written `0600` under `~/.config/vocky/` (see "The CLI's On-Disk Session Token" below). Attachment-download authorization and admin-token handling are covered in `architecture.md` / `api.md`.
+Covers the authentication and secret-handling posture landed in P2 (password hashing, account session tokens, per-project ingest credentials, the mandatory `/api/*` ingest boundary) plus the P3 authorization posture for the new feedback surfaces: project-scoped read/manage authorization that answers 404-never-403 on cross-project/cross-tenant ids, the single-key project read/manage surface, best-effort `last_used_at` stamping, and the tightened project-scoped self-read. As of **P7** it also covers the MCP capture endpoint: `/mcp` is guarded by the same mandatory per-project `vk_` credential auth as `/api/*`, and its Streamable-HTTP transport carries DNS-rebinding protection. As of **P4** it also covers the **browser** — the web app in `web/` introduced vocky's first browser-held credential (a sealed httpOnly session cookie), its first public rate-limited auth surface, and the first place a plaintext `vk_` key is displayed to a human. As of **P5** it also covers the **`vocky` CLI**, which introduced vocky's first credential resident on the local **filesystem** — a 30-day session token written `0600` under `~/.config/vocky/` (see "The CLI's On-Disk Session Token" below). As of **P6** it also covers the **production browser-transport posture** — the app/edge Content-Security-Policy split, HSTS, Cloudflare real-IP restore, and the decision to keep `/admin` unreachable from the internet (see "Production Transport Security" below). Attachment-download authorization and admin-token handling are covered in `architecture.md` / `api.md`.
+
+> **P6's production security posture is authored, not live.** The vhost, headers, and TLS choices below describe `deploy/vocky.conf` and `web/next.config.ts` as they sit in the repo. **Nothing is deployed** — `https://vocky.hi2vi.com` does not answer, and none of the edge-side controls has ever been exercised by a real request. The live bring-up is **P12**.
 
 ## Passwords
 
@@ -131,6 +133,53 @@ The `vocky` CLI is the **first place a vocky credential lives at rest on the loc
 - **Logout clears it.** `vocky logout` best-effort revokes the session at `/auth/logout` (hard-revoking the DB token row) and then unconditionally clears the local token, so a signed-out CLI holds no live credential. An expired or revoked token surfaces the same generic "Not signed in — run `vocky login`." rather than distinguishing failure modes.
 - **Headless-secret hygiene.** `signup`/`login` accept the password via `--password-stdin` (one line of stdin) so the password never lands on a process argv; `VOCKY_CONFIG_DIR` lets an agent scope a throwaway, isolated session per task rather than sharing the user's real store.
 
-## Admin Surface (unchanged)
+## Admin Surface — the Web UI is gone; the REST boundary remains (P6)
 
-- `AdminBearerAuthMiddleware` and `VOCKY_ADMIN_AUTH_TOKEN` are untouched by the accounts work; `/admin/api/*` keeps its own separate bearer boundary. **P4 resolved the operator-surface reshaping by replacement**: the `web/` app is the new browser surface, and the packaged Admin Web UI is superseded but still mounted (its packaged docs still reference the retired static `VOCKY_API_AUTH_TOKEN` and are not current guidance). Physical removal of that UI is **P6**; until then, a deployment exposing `/admin` should still set `VOCKY_ADMIN_AUTH_TOKEN`.
+**The packaged same-origin Admin Web UI was physically removed in P6** (`src/vocky/admin_ui.py`, `src/vocky/admin_assets/*`, the `/admin` and `/admin/assets/*` routes, and the wheel asset-packaging check). P4 had already superseded it with the `web/` app; P6 deleted it. Its stale packaged docs — which still described the retired static `VOCKY_API_AUTH_TOKEN` model — went with it, so that particular piece of misleading in-product guidance no longer exists anywhere.
+
+What is **unchanged**: `AdminBearerAuthMiddleware`, `VOCKY_ADMIN_AUTH_TOKEN`, and the nine `/admin/api/*` endpoints. The Admin REST bearer boundary is exactly as it was; only the browser shell that consumed it is gone. After the removal, the **only** routes under the `/admin` prefix are `/admin/api/*` — there is no unauthenticated `/admin` shell left to load.
+
+**`/admin` is internal-only in production, by edge policy.** `deploy/vocky.conf` answers `location /admin/ { return 404; }`, so `/admin/api/*` is not reachable through `https://vocky.hi2vi.com` at all — an operator uses it over the shared Docker network or an SSH tunnel. Two consequences worth stating plainly:
+
+- The bearer token is **still required** on the api service, and `.env.prod.example` still lists `VOCKY_ADMIN_AUTH_TOKEN` as a box secret. That is deliberate defense in depth rather than redundancy: the edge is not the only thing that can reach `vocky-api:8000` — every co-tenant container on `changple_shared_network` can too, so the app-level bearer is the actual boundary and the edge 404 is a second, outer layer.
+- Whether the token stays mandatory once `/admin` is edge-unreachable is a **P12** question, not settled here.
+
+## Production Transport Security (P6) — the app/edge split
+
+The browser-facing security headers are split deliberately across two owners. **The app owns the CSP; the edge owns HSTS and the TLS/real-IP layer.** nginx passes the app's headers through untouched — it must never re-declare or strip them.
+
+### The app half — `web/next.config.ts`
+
+The four generic headers (`X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, `X-Frame-Options: DENY`) ship on every path in every environment. `Permissions-Policy` was tightened to `camera=(), microphone=(), geolocation=(), browsing-topics=()`.
+
+The **Content-Security-Policy is production-gated** (`process.env.NODE_ENV === "production"`), and is all-`'self'`:
+
+```
+default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';
+img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'self';
+frame-ancestors 'none'; base-uri 'self'; object-src 'none'
+```
+
+Three deliberate choices behind that string:
+
+- **`'unsafe-inline'` on `script-src`/`style-src`, and no nonce.** Next's App Router emits nonce-less inline hydration/bootstrap scripts, `next/font` injects an inline `<style>`, and React emits inline `style` attributes. A nonce would require a `middleware.ts` that forces **dynamic rendering and loses static generation** across the app. The trade was taken knowingly; it is the same call the sibling `hi2vi_web` makes.
+- **No external origin is allowed at all** — vocky's CSP carries none of hi2vi_web's analytics origins. Fonts are self-hosted (vendored Pretendard woff2), and the OG/apple-icon PNGs and the SVG favicon are same-origin server-rendered responses, so `img-src 'self' data:` and `font-src 'self'` cover everything the app actually loads. Introducing any third-party script, font, or image origin means editing this string.
+- **`frame-ancestors 'none'`** duplicates `X-Frame-Options: DENY` on purpose (the modern directive plus the legacy header).
+
+**The app sets no HSTS.** Under `pnpm dev` the CSP is absent by design, so local development is not fighting it.
+
+### The edge half — `deploy/vocky.conf`
+
+- **HSTS: `Strict-Transport-Security: max-age=300`, with no `includeSubDomains` and no `preload`.** The short max-age is the shared-edge house style: `hi2vi.com` hosts several co-tenant sites off one wildcard, and a long-lived or subdomain-wide HSTS pin taken by mistake is effectively irreversible for all of them. Lengthening it is a conscious later decision, not a default.
+- **An *additive* `Content-Security-Policy: upgrade-insecure-requests`.** Multiple CSP headers **intersect** rather than override, so this composes with the app's policy instead of replacing it — that is why the edge may add this one directive and nothing else.
+- **TLS** terminates on the wildcard `hi2vi.crt` (`*.hi2vi.com`), behind Cloudflare in **Full (Strict)** mode. `:80` returns a server-level `301` to https before any location matching.
+- **Cloudflare real-IP restore** — the full v4+v6 `set_real_ip_from` range list plus `real_ip_header CF-Connecting-IP`. Without it every request would appear to originate from a Cloudflare edge address, which would break any IP-based logging or throttling and make abuse untraceable.
+- `client_max_body_size 12m` bounds request bodies at the edge, ahead of the app's own attachment limits.
+
+### The `/auth/*` origin rate-limit gap (D5)
+
+**`/auth/login` and `/auth/signup` reach the api through the edge with no server-side per-IP limiter.** vocky's only rate limiting lives in the **web BFF** (`/api/auth/*`, 5/15min login and 10/15min signup, per-IP and per-route-namespaced) — that protects the browser path but **not** a direct HTTP client hitting `/auth/*`, which is an unauthenticated password grant plus open signup.
+
+The obvious fix is unavailable at this edge: `limit_req_zone` names are **global across the whole `conf.d/` tree**, so declaring one would risk an `nginx -t` failure for every co-tenant site — a house-rule violation.
+
+**Status: accepted for launch behind Cloudflare**, and tracked as deferred job **D5** — add a Cloudflare rate-limiting rule for `/auth/*` and/or an in-process per-IP limiter in `src/vocky/auth_api.py`. It is folded into the P12 bring-up. This is a known, deliberate gap, not an oversight.

@@ -76,9 +76,22 @@ and repeatedly. No new backend capture contract: the `POST /api/feedback` shape 
   hardening). Execution order **P10 → P11 → P12**. P11 **depends on P10**: the copy depicts the org /
   default-project / key flow P10 finalizes, and writing marketing copy against a model that is about to change is
   how the current hero got its two untrue lines. Mirrors knowledge's own P18 → P20 argument.
-- **P11 also depends on the `P6.S9` publish decision.** If the operator runs `uv publish`, PyPI is the hero's
-  install line and this phase gets simpler. If not, the installer path is the fallback. Do not plan the install
-  slice before that is settled.
+- **P11 owns the PyPI publish outright** (moved here from `P6.S9`, operator decision 2026-07-28). P6 packaged and
+  verified the distribution — the lean CLI / `server` extra split, the PyPI metadata, and the sdist-bloat fix
+  (an unconstrained `uv build` produced a ~680 MB sdist because hatchling ignores `web/.gitignore`; a
+  root-anchored `[tool.hatch.build.targets.sdist] include` brings it to 79 KB) — but **deliberately did not
+  publish**, because publishing would have decided this phase's install question by default and would have shipped
+  a `0.1.0` that P10 and P11 both change. See `works/phases/active/P6/slices/P6.S9/result.md` for the verified
+  packaging state and the publish procedure. Consequences for this phase:
+  - **The install fork is entirely P11's call**: PyPI (`uv publish`, then `uv tool install vocky` is true) vs a
+    `curl | bash` installer vs both. Nothing is pre-committed.
+  - **The version will not be `0.1.0`.** P10 changes CLI project resolution (repo-basename default, `--project`
+    override, org-level keys) and this phase adds `VOCKY_API_TOKEN`. Bump before publishing, and publish *after*
+    the CLI is the shape the landing page describes — not before.
+  - `uv publish` is operator-authorized (PyPI token via `UV_PUBLISH_TOKEN`) and irreversible, so the publish step
+    is a `pending` operator gate wherever it lands in this phase.
+  - The PyPI name `vocky` was **free** (404) when P6.S9 ran — re-check before planning, and treat name
+    reservation as a separate cheap action the operator may already have taken.
 - **The site is not live while this phase runs.** Per the operator (verbatim: _"mind that deploy will be done at p12
   so p6 doesn't have to mind it"_), the production bring-up moved out of P6 into **P12**, which runs *after* this
   phase. Two consequences DECOMP must plan around:

@@ -1,21 +1,29 @@
 ---
 doc_id: operations
-version: v0003
-created_at: 2026-07-18T11:15:51+09:00
-source: P5.REVIEW
-summary: P5: the vocky-server server-entry rename and vocky CLI install (uv tool install / uvx / in-repo uv run vocky; PyPI publish is P6) with its ~/.config/vocky/config.json (0700/0600, VOCKY_CONFIG_DIR) session store
-previous: v0002_p4_web_app_build_run_pnpm_dev_on_3030_output_standalone_and_its_two_server-only_env_keys_production_deploy_remains_p6
+version: v0004
+created_at: 2026-07-28T16:31:08+09:00
+source: P6.REVIEW
+summary: P6: the vocky.hi2vi.com production deploy kit — compose topology, box secrets, web image, edge vhost, deploy/rollback runbook, CI chain, lean-CLI split; authored + statically validated, NOT deployed
+previous: v0003_p5_the_vocky-server_server-entry_rename_and_vocky_cli_install_uv_tool_install_uvx_in-repo_uv_run_vocky_pypi_publish_is_p6_with_its_.config_vocky_config.json_0700_0600_vocky_config_dir_session_store
 ---
 
 # Operations
 
 ## Status
 
-This doc covers running the **web app** (`web/`, the Next.js frontend added in P4) and installing/running the **`vocky` CLI** (added in P5). It is deliberately scoped: the **backend/service** operational surface — the Compose-first self-hosted workflow, `make bootstrap` / `verify` / `compose-down`, and the full `DATABASE_URL` / `REDIS_URL` / `VOCKY_*` configuration surface — is documented in **`architecture.md` § Configuration Surface** and is not duplicated here.
+This doc covers running the **web app** (`web/`, the Next.js frontend added in P4), installing/running the **`vocky` CLI** (added in P5), and — as of **P6** — the complete **production deploy kit** for `vocky.hi2vi.com`. It is deliberately scoped: the **backend/service** local operational surface — the Compose-first self-hosted workflow, `make bootstrap` / `verify` / `compose-down`, and the full `DATABASE_URL` / `REDIS_URL` / `VOCKY_*` configuration surface — is documented in **`architecture.md` § Configuration Surface** and is not duplicated here.
 
 **Server console-entry rename (P5).** The server's console script is now **`vocky-server`** (`vocky.main:main`) — the bare `vocky` name is the new user-facing CLI. Every self-host/run reference moved off `vocky` to `vocky-server`: the `Dockerfile` `CMD`, the `docker-compose.yml` app service `command`, and the README "Running The App Directly". (The `Makefile` was untouched — it starts the server via Compose, not a direct `uv run vocky`.) The worker entry (`vocky-worker`) and smoke entry (`vocky-smoke`) are unchanged.
 
-**Production deploy is P6.** P4 targets **local-dev-runnable only**: no Dockerfile, no compose service, no nginx config, no `vocky.hi2vi.com`. The app is deploy-*ready* (`output: "standalone"`) but not deploy-*ed*.
+> ### ⚠ vocky is NOT deployed
+>
+> **P6 authored the entire production deploy kit and deployed none of it.** Every artifact below — `compose.prod.yml`, `.env.prod.example`, `web/Dockerfile`, `deploy/vocky.conf`, `deploy/deploy.sh`, `deploy/rollback.sh`, and the three-file GitHub Actions chain — exists in the repo and was **statically validated only** (compose parser, `bash -n`, YAML parse, `pnpm build`, house-rule greps). **Nothing has ever run against real infrastructure.** There is no `vocky` DNS record, no box clone, no box `.env`, no `ORACLE_SSH_*` GitHub secrets, and no running container. `https://vocky.hi2vi.com` does not answer.
+>
+> The **live bring-up is P12** — deliberately sequenced after P10 (Accounts v2, which adds a `UNIQUE(tenant_id, name)` constraint and a three-phase `project_credentials.tenant_id` backfill) so those migrations land against an empty schema instead of becoming a live cutover on production data. Sequence: **P6 → P10 → P11 → P12**.
+>
+> **The `vocky` CLI is also not on PyPI.** P6 made the package publishable; **P11** owns the distribution decision (PyPI vs a `curl | bash` installer) and the actual publish.
+>
+> Read every "production" section below as *the design that will be applied*, not as a description of something running.
 
 ## Running the Web App Locally
 
@@ -58,9 +66,27 @@ The app holds **no database** of its own and needs no DB/Redis credentials: it i
 
 ## Build Output
 
-`next.config.ts` sets `output: "standalone"`, so `pnpm build` emits a lean traced server at `.next/standalone/server.js` for a container to run in P6. It is **build-only** — `next dev` and `next start` ignore it, so local dev is unaffected.
+`next.config.ts` sets `output: "standalone"`, so `pnpm build` emits a lean traced server at `.next/standalone/server.js` — this is exactly what `web/Dockerfile` copies into its runtime stage. It is **build-only** — `next dev` and `next start` ignore it, so local dev is unaffected.
 
-The config also ships generic, everywhere-safe security headers (`X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, `X-Frame-Options: DENY`). A full **CSP**, **HSTS**, and the edge/nginx wiring are deliberately deferred to the P6 deploy, where the real origin is known.
+The config ships the generic, everywhere-safe security headers (`X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, `X-Frame-Options: DENY`) and, as of **P6**, a **production-gated Content-Security-Policy**. **HSTS is not set by the app** — it lives at the edge vhost, together with an *additive* `upgrade-insecure-requests` CSP. See `security.md` for the directive string and the app/edge split.
+
+### `NEXT_PUBLIC_APP_URL` — the single origin knob (P6)
+
+`src/content/site.ts` reads `process.env.NEXT_PUBLIC_APP_URL` (blank → `http://127.0.0.1:3030`). That one value drives `metadataBase`, the canonical/OpenGraph URLs, `robots.txt`'s `host` + `sitemap`, and the sitemap `loc`.
+
+It is **inlined at build time, not read at runtime** — a build that forgets it bakes the localhost origin into the image. Three places therefore have to agree:
+
+- `web/.env.example` documents it (blank locally).
+- `web/Dockerfile` declares `ARG NEXT_PUBLIC_APP_URL` and **asserts it is non-empty before `next build`**, so a mis-invoked image build fails loudly rather than shipping a wrong origin.
+- `compose.prod.yml` passes it through the web service's `build.args` as the literal `https://vocky.hi2vi.com`.
+
+Changing the public origin therefore requires an **image rebuild**, not an env edit.
+
+### The metadata file-convention routes (P6)
+
+`web/src/app/` ships the Next 16 metadata routes, all built from the existing round-01 brand (no new design round): `icon.svg` (static SVG favicon), `apple-icon.tsx` and `opengraph-image.tsx` (`next/og` `ImageResponse`, div-rebuilt Mark, **default ImageResponse font** — the variable Pretendard woff2 is deliberately *not* loaded, avoiding the Satori variable-font failure mode), `robots.ts`, `sitemap.ts`, and `manifest.ts`. `pnpm build` static-prerenders all six (`○` in the route summary); a Satori failure would fail the build, so the build *is* the check.
+
+`robots.txt` disallows the authenticated + BFF surface (`/dashboard`, `/projects/`, `/feedback`, `/api/`); only `/` is in the sitemap. **Adding a public route means extending `sitemap.ts`.**
 
 ## Local Worker Gotcha
 
@@ -84,7 +110,26 @@ uvx --from . vocky --help     # one-off run without installing
 uv run vocky --help           # in-repo (development), no install
 ```
 
-`typer` is a **direct** dependency (promoted from transitive in P5). A **PyPI publish** (so `uv tool install vocky` / `uvx vocky` work from the index rather than a local checkout) is deferred to **P6** — today the install source is this repo.
+`typer` is a **direct** dependency (promoted from transitive in P5). **The package is not published anywhere yet** — today the install source is this repo (see "CLI Distribution Model" below).
+
+### CLI Distribution Model (P6) — lean core + a `server` extra
+
+P6 made `vocky` publishable and split its dependency surface so a CLI user does not install a database driver:
+
+| Install | Gets |
+| --- | --- |
+| `pip install vocky` / `uvx vocky` | **lean CLI only** — `httpx` + `typer` (≈15 packages resolved) |
+| `pip install "vocky[server]"` | the full self-hosted stack — adds alembic, greenlet, `mcp[cli]`, pydantic-settings, `psycopg[binary]`, redis, sqlalchemy, starlette, `uvicorn[standard]`, python-multipart, argon2-cffi |
+
+The split works only because the CLI is **import-isolated**: `vocky/__init__.py` is trivial and `vocky.cli.*` imports nothing beyond typer / httpx / stdlib / the httpx-only `vocky.smoke`. Adding a server-side import to a CLI module silently breaks the lean install — a `uvx --from dist/*.whl vocky --version` check is the cheap guard.
+
+Three packaging facts worth keeping:
+
+- **`[tool.uv] default-extras` does not exist in uv 0.8.x** (it is rejected as an unknown `[tool.uv]` field). The idiom used instead is a **self-referencing dev group**: `"vocky[server]"` inside `[dependency-groups] dev` (a default group), so a plain `uv sync` still installs core + server + dev and the suite stays green. Dependency groups never enter built distribution metadata, so the wheel/sdist stay lean (`server` appears only as an `; extra == "server"` gate).
+- **The sdist include-list is load-bearing — do not remove it.** Hatchling's default sdist selection ignores the nested `web/.gitignore`, so an unconstrained `uv build` sweeps in `web/node_modules` + the `.next` cache and produces a **~680 MB sdist** (unpublishable — PyPI's limit is 100 MB). `[tool.hatch.build.targets.sdist] include = ["/src/vocky", "/README.md", "/LICENSE"]` brings it to **79 KB**. The leading `/` anchoring matters: bare `README.md` / `LICENSE` globs otherwise match thousands of nested `node_modules` files.
+- **The backend `Dockerfile` passes `--extra server` on both `uv sync` layers**, deterministically, rather than relying on any default-extras behavior. The server image's dependency set is unchanged from before the split.
+
+Current artifacts: `dist/vocky-0.1.0-py3-none-any.whl` (95 KB) + `dist/vocky-0.1.0.tar.gz` (79 KB), with SPDX `License-Expression: MIT`, keywords, classifiers, and `[project.urls]` in the wheel `METADATA`. **The PyPI name `vocky` was free (404) when P6 built these; nothing has been uploaded.** **P11** decides whether distribution is PyPI at all (vs a `curl | bash` installer) and performs any publish — and the published version will not be `0.1.0`, since P10 and P11 both change the CLI.
 
 ### Session store and config
 
@@ -98,10 +143,126 @@ The CLI keeps its state in a small JSON file, **not** in env only:
 
 The API base URL resolves in this precedence: `--base-url` flag → `VOCKY_BASE_URL` env → stored `base_url` in the config → `http://127.0.0.1:8000` (local default). A `--password-stdin` flag on `signup`/`login` reads the password from one line of stdin so it never lands on argv — the headless-agent path.
 
-## Deferred to P6
+## Production Deploy Kit (P6) — `vocky.hi2vi.com`
 
-- Production Dockerfile / compose service / nginx (edge) config for the web app
-- **PyPI publish of the `vocky` CLI** (so `uv tool install vocky` / `uvx vocky` resolve from the index rather than a local checkout)
-- The `vocky.hi2vi.com` domain on the `oracle-cloud` box, fronted by the `edge` nginx
-- CSP + HSTS (they need the real origin)
-- Physical removal of the packaged Admin Web UI (`src/vocky/admin_ui.py`, `admin_assets/*`, the `/admin` mount). P4 built the replacement browser surface; the old UI stays mounted until the new app is actually deployed, so no browser surface disappears in the interim.
+Everything in this section is **authored and unexecuted**. It mirrors the two sibling deployments on the same box: `~/projects/personal/knowledge` (`knowledge.hi2vi.com`, the same app shape) for the serving contract and edge vhost, and `~/projects/personal/hi2vi_web` for the image-tag rollback model and the CI chain.
+
+### The box and the shared edge
+
+- **Box:** `ssh oracle-cloud` = `opc@140.245.64.173`. vocky is a **co-tenant**, not the only thing on it.
+- **Edge:** a standalone Compose project at `/home/opc/edge` (container `edge-nginx`, `nginx:1.27-alpine`) on the external `changple_shared_network`, with `conf.d/` and `certs/` bound read-only from the host. Co-tenant vhosts that must never be disturbed: `00-default.conf`, `changple5.conf`, `changple-web.conf`, `hi2vi.conf`, `knowledge.conf`.
+- **Apply path for a vhost:** `scp deploy/vocky.conf` into `/home/opc/edge/conf.d/`, then `cd /home/opc/edge && ./validate.sh && ./deploy.sh` — an `nginx -t` gate plus a **graceful reload**. Never recreate the edge container.
+- **TLS:** the wildcard `/home/opc/edge/certs/hi2vi.crt` (+ `.key`) already carries SANs `*.hi2vi.com, hi2vi.com`, so `vocky.hi2vi.com` needs **nothing provisioned**. Cloudflare is Full (Strict).
+- **DNS:** an operator-added **proxied `vocky`** record on the `hi2vi.com` Cloudflare zone. Not yet created.
+
+### Serving contract
+
+The whole topology follows one rule: **no host ports.** Every service is `expose:`-only and is reached **by container name** over the pre-existing external `changple_shared_network`. Nothing about vocky is directly reachable from the internet except through the edge.
+
+`compose.prod.yml` (repo root — **not** the local dev `docker-compose.yml`, which does publish host ports) defines five services with fixed `container_name`s:
+
+| Service key | Container | Reached as | Notes |
+| --- | --- | --- | --- |
+| `postgres` | `vocky-postgres` | `vocky-postgres:5432` | `postgres:17`, `postgres-data` volume, `pg_isready` healthcheck |
+| `redis` | `vocky-redis` | `vocky-redis:6379` | `redis:7-alpine`, `--appendonly yes`, `redis-data` volume |
+| `api` | `vocky-api` | `vocky-api:8000` | root `Dockerfile`; `image: vocky-api:latest`; python-urllib `/healthz` healthcheck (`start_period: 60s`) |
+| `worker` | `vocky-worker` | — (no port) | **reuses `image: vocky-api:latest` with no `build:`**, command `uv run --no-sync vocky-worker` |
+| `web` | `vocky-web` | `vocky-web:3000` | `web/Dockerfile`; `image: vocky-web:latest`; node-fetch `/` healthcheck |
+
+All five carry `restart: unless-stopped`; `depends_on: service_healthy` gates api and worker on postgres+redis and web on api. Named volumes: `postgres-data`, `redis-data`, and `attachments-data` — the last **shared by api and worker** (the worker writes uploaded attachment bytes, the api serves them) and it must survive every redeploy.
+
+**There is no MCP container.** `/mcp` is a Starlette `Mount` **inside `vocky-api`**, so the edge routes `/mcp → vocky-api:8000` like any other api path. `VOCKY_MCP_ALLOWED_HOSTS: vocky.hi2vi.com` is set on the api service so the transport's DNS-rebinding allowlist accepts the public host.
+
+> **The worker used to be the sharpest footgun here, and it is now closed by construction.** When the worker had its own `build: .`, a partial rebuild could leave it running stale code behind a fresh api. It now runs the *exact* tag `docker compose build` produces for the api, so one build freshens both. It has **no healthcheck by design** (no HTTP endpoint), so the deploy script gates it on container **state**, not health.
+
+> **Clone the box to `/home/opc/vocky` — the path is load-bearing.** `deploy.sh`'s `dc()` pins **no `-p`**, so the Compose project name derives from the clone directory's basename. `/home/opc/vocky` → project `vocky` → volumes `vocky_postgres-data` / `vocky_redis-data` / `vocky_attachments-data`. A clone at any other path would silently orphan the datastore volumes on the next deploy. Container names are pinned and image tags explicit, so *only the directory name* matters for identity.
+
+### Box secrets
+
+`.env.prod.example` is the template for the box's gitignored `.env`. There is deliberately **no `env_file:` anywhere** in `compose.prod.yml`: each container receives only the vars listed under its own `environment:`, so the api's secrets are never injected into the web container and vice versa. Exactly **three** `${...}` interpolations exist, all generated on the box (`openssl rand -base64 32`):
+
+| Secret | Consumed by |
+| --- | --- |
+| `POSTGRES_PASSWORD` | the postgres service, and baked into the api/worker `DATABASE_URL` |
+| `SESSION_SECRET` | **web only** — rotating it logs every user out |
+| `VOCKY_ADMIN_AUTH_TOKEN` | **api only** — guards `/admin/api/*` |
+
+None has a `:-` default: a missing value must fail loudly on the box rather than silently fall back to something weak. `DATABASE_URL`, `REDIS_URL`, and `VOCKY_API_BASE_URL` are **committed literal container-name URLs**, not secrets, and do not belong in `.env`; `NEXT_PUBLIC_APP_URL` is a build arg, not an env var.
+
+### The images
+
+- **`web/Dockerfile`** — multi-stage `node:22-slim`. Build stage: `corepack prepare pnpm@10.28.2`, `pnpm install --frozen-lockfile`, the `NEXT_PUBLIC_APP_URL` assert, `pnpm build`. **It deliberately does not set `NODE_ENV=production` in the build stage** — pnpm would prune `typescript` / `tailwindcss` / `@tailwindcss/postcss` / `eslint-config-next` and the build would fail. Runtime stage: `NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0`, copies `.next/standalone` + `.next/static` + `public/`, `USER node`, `EXPOSE 3000`, a fetch-based `HEALTHCHECK`, `CMD ["node","server.js"]`. `web/public/` exists (holding only `.gitkeep`) purely so the runtime `COPY /app/public ./public` resolves — real assets are served by the `app/` file-convention routes. There is no `sharp` closure because the app uses no `next/image`.
+- **Backend root `Dockerfile`** — unchanged by P6 apart from `--extra server`. Standard uv two-layer build, `CMD ["uv","run","--no-sync","vocky-server"]`. It runs as **root on purpose** (it writes the shared attachments volume; non-root would need volume-ownership plumbing). It bakes **no migration and no worker command** — the migration is run externally by `deploy.sh`, and the worker overrides the command in compose. Do not bake either into the image.
+
+### Edge vhost — `deploy/vocky.conf`
+
+The routing map, longest-prefix over the two container-name upstreams:
+
+| Location | → | Notes |
+| --- | --- | --- |
+| `/api/auth/`, `/api/app/` | `vocky-web:3000` | the Next BFF (credential routes + the binary attachment proxy) — these beat `/api/` |
+| `/api/` | `vocky-api:8000` | `vk_`-keyed capture + project read/manage (`/api/project/*` correctly falls here) |
+| `/auth/`, `/app/` | `vocky-api:8000` | account auth + the session-authed control plane |
+| `= /healthz` | `vocky-api:8000` | exact match; the CI smoke target |
+| `/mcp` | `vocky-api:8000` | **SSE-safe**: `proxy_buffering off`, 3600s read/send timeouts |
+| `/admin/` | **`return 404`** | not exposed at the edge — see `security.md` |
+| `/` | `vocky-web:3000` | catch-all: the landing and every app page |
+
+Other load-bearing properties: `:80` returns a server-level `301` to https; TLS terminates on the hi2vi wildcard cert; **Cloudflare real-IP restore** (the full v4+v6 `set_real_ip_from` list, byte-identical to `knowledge.conf`, plus `real_ip_header CF-Connecting-IP`); `client_max_body_size 12m`; and **Docker DNS re-resolution** — `resolver 127.0.0.11 valid=30s ipv6=off` with **variable** `proxy_pass` upstreams (`set $vocky_api vocky-api;`), so a recreated container's new IP is picked up without an nginx reload.
+
+> **The `proxy_set_header` inheritance footgun.** nginx inherits a server-level `proxy_set_header` set into a `location` **only if that location sets none of its own** — the first per-location `proxy_set_header` drops the *entire* inherited set. `vocky.conf` therefore hoists `Host` / `X-Real-IP` / `X-Forwarded-For` / `X-Forwarded-Proto` / `proxy_http_version 1.1` / `Connection ""` to the server level and **every location sets none**. Adding a single per-location header would silently strip the rest for that route.
+
+**Shared-edge house rules** (violating any breaks *every* co-tenant site): never `default_server`; no `listen [::]` (IPv6); **no `limit_req_zone`** — zone and location names are global across the whole `conf.d/` tree, so a duplicate fails `nginx -t` for all sites; always restore Cloudflare real IPs; always use the resolver + variable upstreams.
+
+### Deploy and rollback runbook
+
+`deploy/deploy.sh [git-ref]` (default `origin/main`), run from the box clone. **The ordering is load-bearing — do not reorder:**
+
+1. Preflight (git / docker / compose v2; `compose.prod.yml`, `.git`, `.env` all present).
+2. `git fetch --prune` + `git checkout REF` (a dirty **tracked** tree fails loudly under `set -e`).
+3. Tag the live images `vocky-api:latest → :previous` and `vocky-web:latest → :previous` — the rollback points.
+4. `up -d postgres redis`, gate both **healthy**.
+5. `docker compose build` (freshens api **and** worker, since the worker reuses the api tag).
+6. **Migrate before serving** — `alembic upgrade head` in a one-off container.
+7. `up -d` — recreate api/worker/web on the new images against the already-migrated schema.
+8. Health-gate: **api and web on `healthy`, worker on `running`** (two consecutive clean polls plus `.State.Restarting == false`, so a single `running` glimpse before a crash-loop cannot pass).
+
+On a migration or gate failure it captures diagnostics and, if a `:previous` exists, flips both image tags back, `up -d --no-build`, and re-gates — distinguishing "rolled back and healthy" from "the rollback is also unhealthy". The **first** deploy has no `:previous`, leaves the stack up for inspection, and exits non-zero.
+
+Two absolutes:
+
+- **`COMPOSE_BAKE=false` is exported** — this host's Compose version panics on the bake build path (a CLI bug).
+- **It never runs `down` or `down -v`** on any path. `postgres-data`, `redis-data`, and `attachments-data` survive every deploy and every rollback.
+
+The migrate command takes the **service key `api`**, not the container name:
+
+```sh
+docker compose -f compose.prod.yml run --rm -T --no-deps --name vocky-migrate-$$ api \
+  uv run --no-sync alembic upgrade head
+```
+
+`docker compose run` does not accept a `container_name` as a target ("no such service: vocky-api"). The one-off container inherits the api service's `environment:` block — including the interpolated `DATABASE_URL`, which `config.py` reads directly — and the shared network. `--name` sidesteps the pinned `container_name: vocky-api`. If a Compose version ever refuses `run` on a name-pinned service, `MIGRATE_VIA_DOCKER_RUN=1` switches to a plain `docker run --network changple_shared_network` fallback that rebuilds `DATABASE_URL` from `POSTGRES_PASSWORD`.
+
+`deploy/rollback.sh` is the manual counterpart: verify both `vocky-*:previous` exist, retag `:previous → :latest`, `up -d --no-build`, re-gate. **It does not re-migrate** — that assumes additive migrations. A schema-incompatible revert is a git-ref redeploy (`deploy/deploy.sh <sha>`), not a rollback.
+
+Env-overridable knobs on both scripts: `APP_DIR`, `COMPOSE_FILE`, `ENV_FILE`, `HEALTH_TRIES` (default 24), `HEALTH_INTERVAL` (default 5s).
+
+### CI deploy path
+
+`.github/workflows/deploy-production.yml` is **manual only** (`workflow_dispatch`), **main-guarded**, and **ancestor-verified** — it can only ever ship a commit that is already on `origin/main`. It runs `environment: production` (url `https://vocky.hi2vi.com`), `concurrency: {group: vocky-deploy, cancel-in-progress: false}`, `timeout-minutes: 90`, `permissions: contents: read`.
+
+Three files, ported from hi2vi_web's proven chain:
+
+1. **the workflow** — preflight guards `refs/heads/main` and emits `target_sha`; the deploy job `bash -n`s all three helper scripts (including `deploy/deploy.sh`), runs the transport, then smokes, then uploads artifacts `if: always()`.
+2. **`deploy/github-actions-production-deploy.sh`** — runner transport: SSH to `opc@140.245.64.173` (temp key file at `umask 077`, `StrictHostKeyChecking=yes` with `UserKnownHostsFile`, optional passphrase via ssh-agent + askpass), a `TARGET_SHA` 40-hex assert, ship+run the on-box gate against `/home/opc/vocky`, scp artifacts back.
+3. **`deploy/oracle-production-deploy-remote.sh`** — the on-box gate: refuse a dirty tracked tree, `git fetch --prune origin main`, `git merge-base --is-ancestor` the target against **fetched** origin/main, then hand off to `deploy/deploy.sh "$TARGET_SHA"` (which owns checkout, build, migrate, gate, and rollback — the CI adds no second copy of that logic).
+
+**External smoke:** two endpoints through the edge, `https://vocky.hi2vi.com/healthz` (proves the api) **and** `https://vocky.hi2vi.com/` (proves the web), each retried 5×6s; the step fails if **either** never returns 200.
+
+**Required GitHub repo secrets** on `leetusik/vocky` — `ORACLE_SSH_PRIVATE_KEY`, `ORACLE_SSH_KNOWN_HOSTS`, `ORACLE_SSH_PASSPHRASE`. It is the **same box** as hi2vi/knowledge, so the existing key material is reused. **None of the three is set yet.**
+
+### Known operational gaps carried into P12
+
+- **`/auth/*` has no origin rate limit.** The public account-auth surface (`/auth/login`, `/auth/signup` — an unauthenticated password grant plus open signup) reaches `vocky-api` through the edge, but vocky has no server-side per-IP limiter (the sibling `knowledge` does), and the shared edge **forbids** `limit_req_zone`. At launch it relies on Cloudflare in front. Tracked as deferred job **D5**: add a Cloudflare rate rule and/or an in-process limiter in `src/vocky/auth_api.py`. Accepted for launch behind Cloudflare.
+- **`VOCKY_ADMIN_AUTH_TOKEN` is a required box secret for a surface that is unreachable from outside.** The edge 404s `/admin/`, so `/admin/api/*` is internal-only, yet the api still requires the token to be configured. That is intentional defense in depth (a co-tenant on the shared network could otherwise reach `vocky-api:8000` directly), but whether the token stays mandatory is a P12 question.
+- The **first** `deploy.sh` run hits the no-`:previous` branch for both images (expected — there is no rollback point yet), and the one-off migrate creates the schema from empty.

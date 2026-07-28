@@ -1,7 +1,21 @@
 # P6.S9 — PyPI packaging + publish · result
 
-**Status: `needs_operator`.** Packaging + build + lean-CLI verify are done; `vocky` is publishable to
-PyPI. The actual `uv publish` is operator-authorized (PyPI token) and was **not** run — instructions below.
+**Status: `done` (packaging only — the publish moved to P11).**
+
+> **SCOPE CHANGE, 2026-07-28 (operator).** The original status was `needs_operator`, waiting on `uv publish`.
+> That gate is withdrawn and **the publish is no longer part of P6**. Two things changed after this slice ran:
+> the production bring-up moved out of P6 into **P12**, so nothing left in P6 needs a published package; and
+> **P11** (frictionless onboarding) was created to own the install story, which has not yet chosen between PyPI
+> and a `curl | bash` installer. Publishing here would decide that by default — and would ship a `0.1.0` that
+> **P10** (org-level keys, `--project`, repo-basename project resolution) and **P11** (`VOCKY_API_TOKEN`) both
+> change, so the version anyone following the landing page installs would be obsolete on arrival.
+>
+> This slice's actual deliverable — the lean-CLI / `server` extra split, the PyPI metadata, and the sdist-bloat
+> fix — is complete and verified below. **The publish instructions in the section below are retained verbatim as
+> the hand-off to P11**, not as a pending action on P6.
+>
+> Still open, and deliberately left to the operator as a standalone call independent of any phase: the PyPI name
+> `vocky` was **free** (404) when this slice ran. Reserving it is cheap insurance and is not gated on P11.
 
 ## What changed
 
@@ -71,10 +85,11 @@ The full pytest suite could not exercise the 108 DB-backed tests in-sandbox (no 
 consistent with the S4/S5 findings); the baseline check proves the split changed nothing here (identical
 79/108 before and after). Behavioral DB validation lands at S10 / CI, as with the other P6 deploy slices.
 
-## Publish — operator's next step (do NOT run here)
+## Publish — hand-off to P11 (do NOT run here; no longer a P6 gate)
 
-Everything is built and verified; publishing is irreversible and needs a PyPI token, so it is the operator's
-step:
+Everything is built and verified; publishing is irreversible and needs a PyPI token. **P11 decides whether this
+runs at all** (PyPI vs a `curl | bash` installer). If P11 picks PyPI, this is the procedure — and note the
+version will not be `0.1.0` by then, since P10 and P11 both change the CLI:
 
 1. Artifacts are in `dist/`: `dist/vocky-0.1.0-py3-none-any.whl` (95 KB) + `dist/vocky-0.1.0.tar.gz` (79 KB).
 2. The name `vocky` is **free** on PyPI (re-confirmed: `curl -s -o /dev/null -w '%{http_code}'

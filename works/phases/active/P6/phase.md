@@ -407,4 +407,59 @@ _Running list — the REVIEW slice consolidates these into durable-doc versions.
   and relies on Cloudflare in front. **Resolution:** the orchestrator opens a **deferred job** — add a
   Cloudflare rate rule and/or an in-process `/auth` limiter — and REVIEW records the gap in
   `operations.md` / `security.md`. Accepted for launch behind Cloudflare.
--
+  **REVIEW confirmed:** deferred job **D5** exists (`works/deferred/open/D5/`, source `P6.S6`, still
+  `deferred`), its `reason`/`trigger` text is accurate, and the gap is now written into both
+  `operations.md` and `security.md`. Decision not reopened. D5 folds into P12.
+
+## REVIEW notes (P6.REVIEW — verdict `pass`)
+
+_Durable cross-phase notes from the phase review. Full detail in `slices/P6.REVIEW/result.md`._
+
+- **P6 met the reframed objective: every production artifact authored + statically validated, nothing
+  deployed.** S1–S9 all `done`; re-running every slice's validation reproduced its recorded outcome
+  exactly — `uv run pytest -q` → 79 passed / 108 `psycopg.OperationalError` (identical to S1's and S9's
+  numbers), web 56/56 + lint clean + build clean, both compose files `config -q` exit 0, `bash -n` on all
+  four deploy scripts, workflow YAML parses, house-rule and retired-token greps empty, `workflow.py
+  validate` passes. `uv build` **reproduced** the 79 KB sdist / 95 KB wheel and `uvx --from <wheel> vocky
+  --version` → `0.1.0` in 15 packages, so the lean-CLI split and the hatch sdist include-list are both
+  holding independently of S9's own run.
+- **Still unproven in-sandbox and therefore P12's job:** `docker build` of either image, `docker compose
+  up` + the five-service health gate, `nginx -t` on `deploy/vocky.conf`, any execution of `deploy.sh` /
+  `rollback.sh` / the CI chain, and the 108 DB-backed tests. `shellcheck` and `actionlint` are not
+  installed here either. Do not treat any of these as "verified" when P12 starts.
+- **Cross-slice consistency checks that passed** (worth not re-deriving): the edge routing map was
+  re-reconciled against all 30 live backend routes plus the web app's built route list — every path lands
+  as intended under longest-prefix, `/api/project/*` correctly falls to `/api/` → api, and the two real
+  BFF routes (`/api/auth/*`, `/api/app/feedback/[id]/attachments/[id]`) correctly beat `/api/`. `/home/opc/vocky`
+  is consistent across all three CI/deploy scripts and the workflow. The CI's two smoke targets
+  (`/healthz`, `/`) are both real, correctly-routed edge paths.
+- **The `/admin` story is coherent end to end** and needs no further work in P6: UI deleted (S1) → only
+  nine bearer-guarded `/admin/api/*` routes remain → edge 404s the whole `/admin/` prefix (S6) →
+  `VOCKY_ADMIN_AUTH_TOKEN` still a required box secret. The apparent tension is **deliberate defense in
+  depth** — co-tenant containers on `changple_shared_network` can reach `vocky-api:8000` directly, so the
+  app-level bearer is the real boundary and the edge 404 is an outer layer. **Whether the token stays
+  mandatory, and whether Admin REST outlives the UI it served, are now the two open questions in
+  `architecture.md` — both routed to P12.**
+- **Three stale-source findings the review could not fix** (it writes no source code) — all doc-only
+  wording, fast-path eligible, no fix slices needed: (1) `README.md` lines 32 / 184 / 233 still describe
+  the deleted Admin Web UI as shipping; (2) `README.md` line 48 says "PyPI publishing is P6" (it is P11);
+  (3) `Makefile` line 15 still exports the retired `VOCKY_API_AUTH_TOKEN` in `EXPORTED_ENV_VARS`
+  (harmless, unread). Plus two minor ones: `compose.prod.yml`'s api comment still cites the pre-S7
+  `docker compose exec vocky-api …` migrate idiom (`deploy.sh` is correct; `run`/`exec` take a **service
+  key**, so the comment's command would fail as written), and
+  `deploy/oracle-production-deploy-remote.sh` declares `PROJECT_NAME` / `COMPOSE_ENV_FILE` without
+  referencing them (intentional per S8 — would be SC2034 if shellcheck were installed).
+- **Docs consolidated into 8 new versions** (`operations` v0004, `security` v0007, `frontend` v0005,
+  `architecture` v0008, `api` v0007, `backend` v0004, `product` v0008, `experience` v0009). Two facts are
+  now stated honestly across the doc set and **must not be contradicted until the owning phase lands**:
+  **vocky is not deployed** (bring-up is P12) and **the CLI is not on PyPI** (distribution is P11).
+  `operations.md`'s "Deferred to P6" list is gone; `operations.md` now carries the full production runbook.
+- **`backend.md` was versioned although the "Doc impact" list never named it** — S1 had made its §App
+  Wiring line (`create_app()` registers `*admin_ui_routes`) factually false. Lesson for future slices:
+  when you delete a module that a doc names in a route-registration list, add that doc to the running list.
+- **`decisions.md` was deliberately *not* versioned** — nothing in it is false (D-P8-1 already reinterprets
+  D-P4-3's "until P6" clauses), so a new version would have been authorship rather than consolidation.
+- **Gotcha for any future `doc-new-version` call: keep `--summary` short.** The version filename is the
+  slugified summary, macOS caps a filename at 255 bytes, and the `Edit` tool's temp-file suffix consumes
+  ~28 more — so a long summary fails with `ENAMETOOLONG` either at creation or, worse, at first edit
+  (leaving a written file plus an index entry to clean up by hand). Roughly **≤ 180 characters** is safe.
