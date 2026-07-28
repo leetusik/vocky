@@ -260,6 +260,18 @@ here so no later slice re-derives them:
 3. `section-ids.ts:8-13` is the `SECTION_IDS` **map**; the `SectionId` **type** alias is at `:15`.
 4. `docs/cli.md:9-21` → the Install section is `:9-19`.
 
+### S1 done — landing hero honesty verified end to end
+
+`P11.S1` applied the three plan-specified edits to `web/src/content/landing.ts` (file-header comment,
+`vk_9f3c…` auth line with no `live_` tier, and the nested `"source": { "product": "checkout-web" }`
+payload) and nothing else. All six validation steps passed: `pnpm typecheck` (0), `pnpm test` (61/61,
+unchanged baseline), `pnpm lint` (0), `pnpm format:check` (fails only on 12 pre-existing unrelated files,
+`landing.ts` not among them — left alone), `grep -rn "vk_live" web/ src/ docs/` (zero repo-wide matches),
+`grep -n "source_product" web/src/content/landing.ts` (exactly the one expected comment-line occurrence).
+No doc version was needed: `docs/current/frontend.md:231`'s landing description doesn't assert the false
+`vk_live_`/flat-`source_product` shape specifically, so nothing there became stale — no "Doc impact" entry
+added for this slice.
+
 ### Stale-doc finding for a later slice (not fixed here — `DECOMP` writes no source)
 
 `docs/cli.md:11` ("PyPI publishing is planned (P6)") and `README.md:50` ("PyPI publishing is P6") are

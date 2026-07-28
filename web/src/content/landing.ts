@@ -8,9 +8,11 @@
 // server-to-server `POST /api/feedback` capture call, `vk_` ingest keys (shown
 // once, hashed, revocable), the 1/2/null rating, cross-project substring search
 // over message/comment/target text, MIT-licensed + self-hostable. The hero
-// request body mirrors the real capture shape in `lib/vocky/types.ts`
-// (`message` incl. Korean, `feedback_value: 2` = dislike, `source_product`,
-// `target_type`, `tags`).
+// request body mirrors the real capture CONTRACT in `src/vocky/capture.py`
+// (`message` incl. Korean, the REQUIRED nested `source.product`,
+// `feedback_value: 2` = dislike, `target_type`, `tags`). `lib/vocky/types.ts`
+// describes the stored/READ record, where `source_product` is flat — the
+// capture REQUEST nests it, and only the request is depicted here.
 //
 // DOC LINKS RESOLVE TO A REAL TARGET — the GitHub repo, its README, its MIT
 // LICENSE — never a fake `/docs` route that would 404 (a locked floor).
@@ -54,9 +56,9 @@ export const LANDING = {
     request: {
       method: "POST",
       path: "/api/feedback",
-      auth: "Authorization: Bearer vk_live_9f3c…",
+      auth: "Authorization: Bearer vk_9f3c…",
       body: `{
-  "source_product": "checkout-web",
+  "source": { "product": "checkout-web" },
   "message": "결제 단계에서 카드가 자꾸 거절돼요.",
   "feedback_value": 2,
   "target_type": "message",
