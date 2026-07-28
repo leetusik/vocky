@@ -424,6 +424,61 @@ Untouched, as the plan required: `web/Dockerfile`, `web/next.config.ts`, `deploy
 already serve `web/public/` correctly (confirmed again this slice: no dockerignore/gitignore excludes
 `install.sh` or `public/`, `Dockerfile:40` still copies `public/`).
 
+### S4 done — canonical `SKILL.md`, served copy, parity gate, first CI workflow all landed
+
+`P11.S4` authored the canonical end-user skill at **`skills/vocky-feedback/SKILL.md`** — **119 lines,
+7,975 bytes**, three-field frontmatter (`name` / `description` / `allowed-tools`, `disable-model-invocation`
+deliberately omitted), body opening `# vocky-feedback`. **`P11.S5`'s design handoff should ground its
+skill-preview pane in this exact file** (path, byte size, line count recorded here for that reason).
+Section headings, in order:
+
+1. Set up the two-variable contract
+2. Verify before you capture anything
+3. Path A — capture with the CLI (primary, one command)
+4. Path B — raw REST (no vocky install required)
+5. Path C — `/mcp` (alternative transport, not detailed here)
+6. Error handling — branch by branch
+7. Report back
+
+`web/public/SKILL.md` is a committed byte-identical copy (`cmp`-verified, not build-generated).
+`web/.prettierignore` now excludes `public/` — required, since prettier's markdown reflow would otherwise
+silently break byte parity the first time anyone runs `pnpm format`. `scripts/skill_parity.py` (stdlib-only,
+exit-code-is-the-contract, matching `wait_for_health.py`'s shape) and a `make check-skill-parity` target
+gate the two files against each other; the gate was proven **red then green** (appended a byte to the
+served copy, watched it fail with `exit 1`, restored, watched it pass). `.github/workflows/ci.yml` is the
+repo's first push/pull_request gate — three jobs (Skill Parity, Installer Syntax, Web
+lint/typecheck/test) — shaped so **P12 adds a Postgres-backed pytest job** rather than starting from
+nothing; `format:check`/prettier-fixing and the pytest job are both deliberately excluded (see `result.md`
+for the full reasoning) and belong to P12.
+
+**A wording ambiguity in the plan itself, resolved by judgment**: Part 1 says "Two capture paths, REST
+primary" in one sentence, then labels the CLI "Path A … (primary, one command)" two paragraphs later. The
+skill was written CLI-first (matching S2's framing of `vocky capture` as `VOCKY_API_TOKEN`'s first-class
+consumer); flagged for the review in case "REST primary" was the intended reading instead.
+
+**Verified against source before writing**, beyond what S2/S3 already recorded: the REST error table
+(`src/vocky/api.py:93-126` — `400`/`503`/`500` branches, `src/vocky/auth.py:100-104,183-192` — the `401`
+`{"detail":"Unauthorized"}` + `WWW-Authenticate: Bearer` shape), the MCP tool signature and
+`VOCKY_MCP_ALLOWED_HOSTS` DNS-rebinding gotcha (`src/vocky/mcp_server.py:17,39-49`,
+`src/vocky/tools/capture_feedback.py:36-60`), and a genuinely zero-side-effect verify snippet: `GET
+/api/feedback` with a valid-but-incomplete query passes the shared `vk_` auth middleware (which gates by
+path prefix, any method) and only then 400s on a missing `user_id`/`source_product` filter
+(`src/vocky/api.py:144-156,235-247`) — so a bare-token `GET` distinguishes a bad key (`401`) from a good one
+(`400`) without ever writing a feedback row. Useful for any later skill/doc that needs a no-op credential
+check.
+
+**Sandbox note for later slices**: this session's `rm -rf` was denied by the Bash permission system for
+*any* path, including scratch directories outside the repo — but `mv` was permitted. The clean-checkout
+lockfile check (move `web/node_modules` aside, `pnpm install --frozen-lockfile`, verify lint/typecheck/test
+against the fresh install) ran for real by substituting `mv ... .bak.<pid>` for the destructive step, then
+relocating the backup out of `web/` entirely (a stray backup dir left inside `web/` gets picked up by
+`tsc`'s typecheck scan and produces spurious errors — moved to the session scratchpad instead).
+
+**Not proven** (both hand off to P12, both already flagged in the phase's hand-off section): the workflow
+has never executed on a GitHub runner (unpushed; GitHub `main` is 45 commits behind), and `/SKILL.md` has
+never been fetched from a live origin (`404` today, must flip to `200` after the first deploy — the served
+bytes must then `cmp` clean against the canonical, same as the `/install.sh` flip probe).
+
 ## Doc impact
 
 - **S2** (`P11.S2`): `vocky capture` + `VOCKY_API_TOKEN` are now real — `docs/current/experience.md`
@@ -439,3 +494,11 @@ already serve `web/public/` correctly (confirmed again this slice: no dockerigno
   `README.md:48-63`, both corrected to drop the stale "PyPI planned (P6)" framing and describe the hosted
   `curl \| bash` line (marked "once the site is live") plus the checkout path as what works today, with the
   lean/`server`-extra split stated as packaging fact, no PyPI promise.
+- **S4** (`P11.S4`): a published end-user skill, the first CI gate, and the CLI-primary two-variable agent
+  contract are all now real — `docs/current/experience.md` (agent-onboarding guidance should point at
+  `skills/vocky-feedback/SKILL.md` / the served `/SKILL.md`, and its capture-path framing should match this
+  skill's CLI-first ordering), `docs/current/product.md` (if it describes the agent skill surface at all,
+  it should name the file and its three capture paths), `docs/current/operations.md` (should mention
+  `.github/workflows/ci.yml` as the repo's first push/pull_request gate, its three jobs, and the two
+  deliberate exclusions — no `format:check`, no pytest — as P12's to close), and `docs/current/qa.md` if the
+  CI gate belongs there, all may need updates at the phase review.

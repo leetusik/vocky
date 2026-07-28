@@ -4,3 +4,8 @@ pnpm-lock.yaml
 out/
 build/
 node_modules/
+
+# Served static files — committed byte-for-byte copies (e.g. SKILL.md) held to
+# their canonical source by scripts/skill_parity.py; prettier's markdown
+# reflow would silently break that byte parity.
+public/

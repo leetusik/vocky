@@ -1,0 +1,95 @@
+name: CI
+
+# The repo's first push/pull_request gate. `deploy-production.yml` is
+# `workflow_dispatch`-only and has never run on a push. This workflow checks
+# the parts of the tree that are green today without a database: the
+# canonical/served SKILL.md byte-parity gate, the web app's lint/typecheck/
+# vitest suite, and a syntax check on the installer shell script.
+#
+# Deliberately excluded for now (both land in P12, which owns the Postgres
+# service container a real pytest run needs):
+#   - `pnpm exec prettier --check .` — 12 pre-existing failures in files this
+#     workflow has no business touching; fixing them is a separate decision.
+#   - `uv run pytest` — needs a live Postgres; a bare GitHub runner has none.
+# P12 is expected to add a job to this same file, not start a new one.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  skill-parity:
+    name: Skill Parity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check SKILL.md byte parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/skill_parity.py
+
+  installer-syntax:
+    name: Installer Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate install.sh parses
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n web/public/install.sh
+
+  web:
+    name: Web (lint, typecheck, test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable pnpm via corepack
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@10.28.2 --activate
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+
+      - name: Lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm lint
+
+      - name: Typecheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm typecheck
+
+      - name: Test
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm test
