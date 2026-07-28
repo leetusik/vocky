@@ -1,7 +1,7 @@
 {
   "docs": {
     "product": {
-      "latest": "v0009_p10_the_accounts_plane_is_user_org_project_signup_lands_a_ready-to-use_account_with_a_default_project_and_a_key_is_now_a_user_s_choice_between_one_project_and_the_whole_org",
+      "latest": "v0010_p11_distribution_is_a_curl_bash_installer_not_pypi_and_vocky_ships_a_published_agent-skill_surface_with_three_capture_paths_behind_two_environment_variables",
       "current_path": "docs/current/product.md",
       "versions": [
         {
@@ -75,11 +75,19 @@
           "source": "P10.REVIEW",
           "summary": "P10: the accounts plane is user/org/project — signup lands a ready-to-use account with a default project, and a key is now a user's choice between one project and the whole org",
           "previous": "v0008_p6_the_packaged_admin_web_ui_is_retired_for_real_vocky_is_deploy-ready_but_not_deployed_launch_is_p12_and_the_cli_is_packaged_but_unpublished_distribution_is_p11"
+        },
+        {
+          "id": "v0010_p11_distribution_is_a_curl_bash_installer_not_pypi_and_vocky_ships_a_published_agent-skill_surface_with_three_capture_paths_behind_two_environment_variables",
+          "path": "docs/versions/product/v0010_p11_distribution_is_a_curl_bash_installer_not_pypi_and_vocky_ships_a_published_agent-skill_surface_with_three_capture_paths_behind_two_environment_variables.md",
+          "created_at": "2026-07-29T05:46:37+09:00",
+          "source": "P11.REVIEW",
+          "summary": "P11: distribution is a curl bash installer not PyPI, and vocky ships a published agent-skill surface with three capture paths behind two environment variables",
+          "previous": "v0009_p10_the_accounts_plane_is_user_org_project_signup_lands_a_ready-to-use_account_with_a_default_project_and_a_key_is_now_a_user_s_choice_between_one_project_and_the_whole_org"
         }
       ]
     },
     "experience": {
-      "latest": "v0010_p10_onboarding_is_two_steps_not_three_signup_provisions_a_default_project_a_key_is_a_scope_choice_between_project_and_org_and_project_names_are_unique_per_org",
+      "latest": "v0011_p11_onboarding_is_real_end_to_end_for_an_agent_a_curl_bash_install_line_vocky_api_token_plus_vocky_capture_as_the_two-variable_contract_and_a_published_vocky-feedback_skill",
       "current_path": "docs/current/experience.md",
       "versions": [
         {
@@ -161,6 +169,14 @@
           "source": "P10.REVIEW",
           "summary": "P10: onboarding is two steps not three (signup provisions a default project), a key is a scope choice between project and org, and project names are unique per org",
           "previous": "v0009_p6_the_install_story_is_packaged_but_unpublished_lean_pip_install_vocky_vs_vocky_server_and_vocky.hi2vi.com_is_not_live_yet"
+        },
+        {
+          "id": "v0011_p11_onboarding_is_real_end_to_end_for_an_agent_a_curl_bash_install_line_vocky_api_token_plus_vocky_capture_as_the_two-variable_contract_and_a_published_vocky-feedback_skill",
+          "path": "docs/versions/experience/v0011_p11_onboarding_is_real_end_to_end_for_an_agent_a_curl_bash_install_line_vocky_api_token_plus_vocky_capture_as_the_two-variable_contract_and_a_published_vocky-feedback_skill.md",
+          "created_at": "2026-07-29T05:45:17+09:00",
+          "source": "P11.REVIEW",
+          "summary": "P11: onboarding is real end to end for an agent — a curl bash install line, VOCKY_API_TOKEN plus vocky capture as the two-variable contract, and a published vocky-feedback skill",
+          "previous": "v0010_p10_onboarding_is_two_steps_not_three_signup_provisions_a_default_project_a_key_is_a_scope_choice_between_project_and_org_and_project_names_are_unique_per_org"
         }
       ]
     },
@@ -243,7 +259,7 @@
       ]
     },
     "frontend": {
-      "latest": "v0006_p10_the_dashboard_gains_an_org-keys_panel_vockycredential.project_id_widens_to_string_null_the_show-once_key_panel_becomes_a_shared_component_and_workspace_becomes_org",
+      "latest": "v0007_p11_the_landing_gains_an_agent_quickstart_and_a_skill_section_the_snippet_and_trap_primitives_mount-gated_copy_islands_over_a_server-rendered_no-js_floor_and_a_request-time_read_of_the_served_skill_file",
       "current_path": "docs/current/frontend.md",
       "versions": [
         {
@@ -293,6 +309,14 @@
           "source": "P10.REVIEW",
           "summary": "P10: the dashboard gains an org-keys panel, VockyCredential.project_id widens to string|null, the show-once key panel becomes a shared component, and Workspace becomes Org",
           "previous": "v0005_p6_the_site_metadata_og_robots_sitemap_manifest_routes_the_next_public_app_url_build-time_origin_the_prod-gated_csp_and_the_standalone_production_image_the_replaced_admin_web_ui_is_now_actually_deleted"
+        },
+        {
+          "id": "v0007_p11_the_landing_gains_an_agent_quickstart_and_a_skill_section_the_snippet_and_trap_primitives_mount-gated_copy_islands_over_a_server-rendered_no-js_floor_and_a_request-time_read_of_the_served_skill_file",
+          "path": "docs/versions/frontend/v0007_p11_the_landing_gains_an_agent_quickstart_and_a_skill_section_the_snippet_and_trap_primitives_mount-gated_copy_islands_over_a_server-rendered_no-js_floor_and_a_request-time_read_of_the_served_skill_file.md",
+          "created_at": "2026-07-29T05:43:07+09:00",
+          "source": "P11.REVIEW",
+          "summary": "P11: the landing gains an agent quickstart and a skill section, the Snippet and Trap primitives, mount-gated copy islands over a server-rendered no-JS floor, and a request-time read of the served skill file",
+          "previous": "v0006_p10_the_dashboard_gains_an_org-keys_panel_vockycredential.project_id_widens_to_string_null_the_show-once_key_panel_becomes_a_shared_component_and_workspace_becomes_org"
         }
       ]
     },
@@ -451,7 +475,7 @@
       ]
     },
     "operations": {
-      "latest": "v0004_p6_the_vocky.hi2vi.com_production_deploy_kit_compose_topology_box_secrets_web_image_edge_vhost_deploy_rollback_runbook_ci_chain_lean-cli_split_authored_statically_validated_not_deployed",
+      "latest": "v0005_p11_the_hosted_install.sh_installer_the_repo_s_first_push_and_pull-request_ci_gate_with_its_two_deliberate_exclusions_and_the_cli_capture_module",
       "current_path": "docs/current/operations.md",
       "versions": [
         {
@@ -485,6 +509,14 @@
           "source": "P6.REVIEW",
           "summary": "P6: the vocky.hi2vi.com production deploy kit — compose topology, box secrets, web image, edge vhost, deploy/rollback runbook, CI chain, lean-CLI split; authored + statically validated, NOT deployed",
           "previous": "v0003_p5_the_vocky-server_server-entry_rename_and_vocky_cli_install_uv_tool_install_uvx_in-repo_uv_run_vocky_pypi_publish_is_p6_with_its_.config_vocky_config.json_0700_0600_vocky_config_dir_session_store"
+        },
+        {
+          "id": "v0005_p11_the_hosted_install.sh_installer_the_repo_s_first_push_and_pull-request_ci_gate_with_its_two_deliberate_exclusions_and_the_cli_capture_module",
+          "path": "docs/versions/operations/v0005_p11_the_hosted_install.sh_installer_the_repo_s_first_push_and_pull-request_ci_gate_with_its_two_deliberate_exclusions_and_the_cli_capture_module.md",
+          "created_at": "2026-07-29T05:46:37+09:00",
+          "source": "P11.REVIEW",
+          "summary": "P11: the hosted install.sh installer, the repo's first push and pull-request CI gate with its two deliberate exclusions, and the CLI capture module",
+          "previous": "v0004_p6_the_vocky.hi2vi.com_production_deploy_kit_compose_topology_box_secrets_web_image_edge_vhost_deploy_rollback_runbook_ci_chain_lean-cli_split_authored_statically_validated_not_deployed"
         }
       ]
     },
@@ -635,5 +667,5 @@
       ]
     }
   },
-  "last_rebuilt_at": "2026-07-28T23:54:47+09:00"
+  "last_rebuilt_at": "2026-07-29T05:48:47+09:00"
 }

@@ -1,10 +1,10 @@
 ---
 doc_id: operations
-version: v0004
-created_at: 2026-07-28T16:31:08+09:00
-source: P6.REVIEW
-summary: P6: the vocky.hi2vi.com production deploy kit — compose topology, box secrets, web image, edge vhost, deploy/rollback runbook, CI chain, lean-CLI split; authored + statically validated, NOT deployed
-previous: v0003_p5_the_vocky-server_server-entry_rename_and_vocky_cli_install_uv_tool_install_uvx_in-repo_uv_run_vocky_pypi_publish_is_p6_with_its_.config_vocky_config.json_0700_0600_vocky_config_dir_session_store
+version: v0005
+created_at: 2026-07-29T05:46:37+09:00
+source: P11.REVIEW
+summary: P11: the hosted install.sh installer, the repo's first push and pull-request CI gate with its two deliberate exclusions, and the CLI capture module
+previous: v0004_p6_the_vocky.hi2vi.com_production_deploy_kit_compose_topology_box_secrets_web_image_edge_vhost_deploy_rollback_runbook_ci_chain_lean-cli_split_authored_statically_validated_not_deployed
 ---
 
 # Operations
@@ -21,7 +21,7 @@ This doc covers running the **web app** (`web/`, the Next.js frontend added in P
 >
 > The **live bring-up is P12** — deliberately sequenced after P10 (Accounts v2, which adds a `UNIQUE(tenant_id, name)` constraint and a three-phase `project_credentials.tenant_id` backfill) so those migrations land against an empty schema instead of becoming a live cutover on production data. Sequence: **P6 → P10 → P11 → P12**.
 >
-> **The `vocky` CLI is also not on PyPI.** P6 made the package publishable; **P11** owns the distribution decision (PyPI vs a `curl | bash` installer) and the actual publish.
+> **The `vocky` CLI is also not on PyPI, and will not be.** P6 made the package publishable; **P11 decided the channel is a `curl | bash` installer instead** (`web/public/install.sh`) and published nothing. `uv publish` stays an unexercised, operator-gated action. The hosted install line `curl -fsSL https://vocky.hi2vi.com/install.sh | bash` **404s until P12 deploys** — it is marked "once the site is live" everywhere it appears, and the landing page that shows it ships in the same bring-up.
 >
 > Read every "production" section below as *the design that will be applied*, not as a description of something running.
 
@@ -110,7 +110,42 @@ uvx --from . vocky --help     # one-off run without installing
 uv run vocky --help           # in-repo (development), no install
 ```
 
-`typer` is a **direct** dependency (promoted from transitive in P5). **The package is not published anywhere yet** — today the install source is this repo (see "CLI Distribution Model" below).
+`typer` is a **direct** dependency (promoted from transitive in P5). **The package is not published anywhere** — today the install source is this repo; once the site is live the supported path is the hosted installer below (see also "CLI Distribution Model").
+
+### The hosted installer — `web/public/install.sh` (P11)
+
+P11 settled distribution as a **`curl | bash` installer**, at zero infra cost: `output: "standalone"` plus `web/Dockerfile`'s `COPY … /app/public ./public` plus the edge's bare `location / { proxy_pass … }` already serve `web/public/*`, and no `location` block shadows a root-level static path — so the file serves at `/install.sh` with **no route, MIME or vhost work**. `web/Dockerfile`, `web/next.config.ts` and `deploy/vocky.conf` were all left untouched.
+
+```sh
+curl -fsSL https://vocky.hi2vi.com/install.sh | bash    # once the site is live
+```
+
+The script is 61 lines and its shape is the contract, not a style choice:
+
+- **`set -euo pipefail`, and every executable statement inside `main()`, with `main "$@"` as the literal last line.** `curl | bash` streams, so bash executes what it has received while the rest is still downloading; a flat script would run whatever prefix arrived. Wrapped in `main()`, a truncated download defines a function and hits EOF. **Verified at two cut points**: a mid-function truncation is a bash *parse error* (exit 2, no output — a truncated function body cannot finish parsing), and a truncation after the closing `}` but before the final line parses clean and exits **0 with no output**.
+- **`uv` is bootstrapped via the official Astral installer only when absent**, and the script says so before doing it. The branch was genuinely exercised in validation (`env -i` with a minimal PATH), not skipped.
+- **`uv tool install --reinstall "$INSTALL_TARGET"`**, so re-running the same line is the upgrade path. **No sudo, nothing system-wide** — everything lands under `$HOME/.local`. vocky's CLI is at the repo root, so there is **no `#subdirectory=` fragment**.
+- Verification is **PATH-tolerant**: it re-exports `$HOME/.local/bin` and *warns* rather than dying if `vocky` is not yet on the current shell's PATH — the tool is installed either way. It closes by printing the next command and the two-export agent line.
+- `VOCKY_INSTALL_TARGET` overrides the install source (used to verify against a local checkout). It is not a new attack surface: anyone who can set your environment before running the script can already run arbitrary commands.
+
+**Two things it does not yet prove, both P12's.** The live `404 → 200` flip (`curl -sS -o /dev/null -w '%{http_code}' https://vocky.hi2vi.com/install.sh` reads `404` today and must read `200` after the first deploy), and the real `git+https://` target: the installer resolves **GitHub `main`**, which is many commits behind local, so installing from it today would silently deliver a pre-P10 CLI with no org keys and no `vocky capture`. **P12 owns the `git push` and must install-and-check, not assert** — run the installer into a clean environment and assert `vocky --version` reads `0.2.0` or newer and `vocky capture --help` renders, which is exactly what P11 proved against the local target.
+
+### `.github/workflows/ci.yml` — the repo's first push/PR gate (P11)
+
+Before P11 the repo had exactly one workflow, `deploy-production.yml`, which is `workflow_dispatch`-only and has never run. `ci.yml` runs on **`push` to `main` and on every `pull_request`**, `permissions: contents: read`, with three jobs:
+
+| Job | What it runs |
+| --- | --- |
+| **Skill Parity** | `python3 scripts/skill_parity.py` — the canonical/served `SKILL.md` byte gate |
+| **Installer Syntax** | `bash -n web/public/install.sh` |
+| **Web** | `pnpm install --frozen-lockfile` then `pnpm lint`, `pnpm typecheck`, `pnpm test` (Node 22, pnpm via corepack) |
+
+**Two exclusions are deliberate and documented in the file itself:**
+
+- **No `prettier --check`.** There are 14 pre-existing failures in files this workflow has no business rewriting (12 P4-era, plus two P11 files that differ only by `prettier-plugin-tailwindcss` class ordering). Gating on it would make the workflow red on its very first run for reasons unrelated to any change under review. Fixing them is a separate, deliberate sweep.
+- **No `pytest`.** The suite needs a live Postgres and a bare GitHub runner has none. **P12 adds a Postgres-service job to this same file** — it was shaped so P12 appends a job rather than starting from nothing.
+
+`scripts/skill_parity.py` is stdlib-only and **exit-code-is-the-contract** (matching `scripts/wait_for_health.py`), with a `make check-skill-parity` target; the gate was proven **red then green** (append a byte to the served copy → exit 1; restore → exit 0). `web/.prettierignore` excludes `public/` — required, since prettier's markdown reflow would otherwise silently break byte parity the first time anyone runs `pnpm format`. **The workflow has never executed on a GitHub runner** (the commits are unpushed); every job's command was verified locally instead.
 
 ### CLI Distribution Model (P6) — lean core + a `server` extra
 
@@ -123,13 +158,15 @@ P6 made `vocky` publishable and split its dependency surface so a CLI user does 
 
 The split works only because the CLI is **import-isolated**: `vocky/__init__.py` is trivial and `vocky.cli.*` imports nothing beyond typer / httpx / stdlib / the httpx-only `vocky.smoke`. Adding a server-side import to a CLI module silently breaks the lean install — a `uvx --from dist/*.whl vocky --version` check is the cheap guard.
 
+**The CLI command modules are** `app.py`, `auth.py`, `client.py`, `config_store.py`, `context.py`, `feedback.py`, `projects.py`, and — new in **P11** — **`capture.py`**. `capture.py` respects the isolation rule the hard way: it **hand-builds the `/api/feedback` request body as a plain `dict`** rather than importing `vocky.capture`'s pydantic models, which would pull the server dependency set into the lean install. The isolation was re-verified for P11 by building a wheel and resolving it fresh: **15 packages**, no pydantic/sqlalchemy/uvicorn/psycopg.
+
 Three packaging facts worth keeping:
 
 - **`[tool.uv] default-extras` does not exist in uv 0.8.x** (it is rejected as an unknown `[tool.uv]` field). The idiom used instead is a **self-referencing dev group**: `"vocky[server]"` inside `[dependency-groups] dev` (a default group), so a plain `uv sync` still installs core + server + dev and the suite stays green. Dependency groups never enter built distribution metadata, so the wheel/sdist stay lean (`server` appears only as an `; extra == "server"` gate).
 - **The sdist include-list is load-bearing — do not remove it.** Hatchling's default sdist selection ignores the nested `web/.gitignore`, so an unconstrained `uv build` sweeps in `web/node_modules` + the `.next` cache and produces a **~680 MB sdist** (unpublishable — PyPI's limit is 100 MB). `[tool.hatch.build.targets.sdist] include = ["/src/vocky", "/README.md", "/LICENSE"]` brings it to **79 KB**. The leading `/` anchoring matters: bare `README.md` / `LICENSE` globs otherwise match thousands of nested `node_modules` files.
 - **The backend `Dockerfile` passes `--extra server` on both `uv sync` layers**, deterministically, rather than relying on any default-extras behavior. The server image's dependency set is unchanged from before the split.
 
-Current artifacts: `dist/vocky-0.1.0-py3-none-any.whl` (95 KB) + `dist/vocky-0.1.0.tar.gz` (79 KB), with SPDX `License-Expression: MIT`, keywords, classifiers, and `[project.urls]` in the wheel `METADATA`. **The PyPI name `vocky` was free (404) when P6 built these; nothing has been uploaded.** **P11** decides whether distribution is PyPI at all (vs a `curl | bash` installer) and performs any publish — and the published version will not be `0.1.0`, since P10 and P11 both change the CLI.
+`dist/` still holds P6's `vocky-0.1.0-py3-none-any.whl` (95 KB) + `vocky-0.1.0.tar.gz` (79 KB), with SPDX `License-Expression: MIT`, keywords, classifiers, and `[project.urls]` in the wheel `METADATA`. **Those artifacts are stale** — `pyproject.toml` is **`0.2.0`** as of P11 — and **nothing has been uploaded**; the PyPI name `vocky` was free (404) when P6 checked. **P11 chose the `curl | bash` installer over PyPI**, so the publish hand-off stays unexercised; if PyPI is ever revisited, rebuild first.
 
 ### Session store and config
 
@@ -139,9 +176,16 @@ The CLI keeps its state in a small JSON file, **not** in env only:
 - **Contents**: the account **session token** (opaque, 30-day TTL — the same token `/auth/*`/`/app/*` mint; *not* a `vk_` key) plus an optional stored **base URL**.
 - **Permissions**: the directory is created `0700` and the file `0600`, so the on-disk session token is owner-only readable (see `security.md`).
 
-### Base-URL resolution
+### Base-URL resolution, and the `vk_` key (P11)
 
 The API base URL resolves in this precedence: `--base-url` flag → `VOCKY_BASE_URL` env → stored `base_url` in the config → `http://127.0.0.1:8000` (local default). A `--password-stdin` flag on `signup`/`login` reads the password from one line of stdin so it never lands on argv — the headless-agent path.
+
+**`VOCKY_API_TOKEN` (P11) resolves in exactly one tier: the env var, or nothing.** It carries the `vk_` ingest key that `vocky capture` sends, and its shape is deliberately unlike the base URL's:
+
+- **No `--token` flag.** argv is world-readable via `ps` and lands in shell history — the same reasoning behind `--password-stdin`.
+- **No config-store persistence.** `config_store` holds only the session `token` and `base_url`, and `clear_token()` pops only `"token"` — a persisted `vk_` key would silently survive `vocky logout`.
+- Unset or blank fails before any HTTP call, with a message naming the variable and pointing at `vocky keys mint`.
+- `capture` builds its client as `make_client(token=…, use_stored_token=False)`, so the session token and the `vk_` key **cannot cross**. `ApiClient.request` grew an `unauthorized_message` override for the same reason: a `401` from a `vk_`-keyed call must not tell the user to run `vocky login`.
 
 ## Production Deploy Kit (P6) — `vocky.hi2vi.com`
 
@@ -261,8 +305,21 @@ Three files, ported from hi2vi_web's proven chain:
 
 **Required GitHub repo secrets** on `leetusik/vocky` — `ORACLE_SSH_PRIVATE_KEY`, `ORACLE_SSH_KNOWN_HOSTS`, `ORACLE_SSH_PASSPHRASE`. It is the **same box** as hi2vi/knowledge, so the existing key material is reused. **None of the three is set yet.**
 
+### Armed flip probes for P12's bring-up smoke (P11)
+
+P11 could verify nothing against a live origin, so it left P12 falsifiable probes instead of assertions. All three flip on the first deploy:
+
+```sh
+curl -sS -o /dev/null -w '%{http_code}' https://vocky.hi2vi.com/install.sh   # 404 today -> must be 200
+curl -sS -o /dev/null -w '%{http_code}' https://vocky.hi2vi.com/SKILL.md     # 404 today -> must be 200
+```
+
+plus the landing page carrying the install line. After `/SKILL.md` flips, the **served bytes must `cmp` clean** against `skills/vocky-feedback/SKILL.md`. Separately, P12 must run the **Cloudflare-not-a-barrier probe** live (it is unrunnable while the site is down — do not design around an unverified blocker), and must **install from the real `git+https://` target into a clean environment after pushing** rather than asserting the installer works.
+
 ### Known operational gaps carried into P12
 
 - **`/auth/*` has no origin rate limit.** The public account-auth surface (`/auth/login`, `/auth/signup` — an unauthenticated password grant plus open signup) reaches `vocky-api` through the edge, but vocky has no server-side per-IP limiter (the sibling `knowledge` does), and the shared edge **forbids** `limit_req_zone`. At launch it relies on Cloudflare in front. Tracked as deferred job **D5**: add a Cloudflare rate rule and/or an in-process limiter in `src/vocky/auth_api.py`. Accepted for launch behind Cloudflare.
 - **`VOCKY_ADMIN_AUTH_TOKEN` is a required box secret for a surface that is unreachable from outside.** The edge 404s `/admin/`, so `/admin/api/*` is internal-only, yet the api still requires the token to be configured. That is intentional defense in depth (a co-tenant on the shared network could otherwise reach `vocky-api:8000` directly), but whether the token stays mandatory is a P12 question.
 - The **first** `deploy.sh` run hits the no-`:previous` branch for both images (expected — there is no rollback point yet), and the one-off migrate creates the schema from empty.
+- **`.github/workflows/ci.yml` has never executed on a GitHub runner** (the commits are unpushed). Its first real run happens on P12's push, alongside the two exclusions it must close: the Postgres-backed `pytest` job, and a decision about the 14 `prettier --check` failures.
+- **A cache policy for `/install.sh` and `/SKILL.md` was deliberately not decided** — round 02 explicitly left it as a bring-up question. Both are served straight off `web/public/` through the edge's `/` catch-all today.

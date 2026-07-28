@@ -1,17 +1,17 @@
 ---
 doc_id: experience
-version: v0010
-created_at: 2026-07-28T23:50:25+09:00
-source: P10.REVIEW
-summary: P10: onboarding is two steps not three (signup provisions a default project), a key is a scope choice between project and org, and project names are unique per org
-previous: v0009_p6_the_install_story_is_packaged_but_unpublished_lean_pip_install_vocky_vs_vocky_server_and_vocky.hi2vi.com_is_not_live_yet
+version: v0011
+created_at: 2026-07-29T05:45:17+09:00
+source: P11.REVIEW
+summary: P11: onboarding is real end to end for an agent — a curl bash install line, VOCKY_API_TOKEN plus vocky capture as the two-variable contract, and a published vocky-feedback skill
+previous: v0010_p10_onboarding_is_two_steps_not_three_signup_provisions_a_default_project_a_key_is_a_scope_choice_between_project_and_org_and_project_names_are_unique_per_org
 ---
 
 # Action Feedback Integration
 
 This guide describes how a product can integrate Vocky for explicit human-triggered user feedback actions over REST.
 
-> **Read this against a self-hosted Vocky.** There is no hosted vocky yet: `https://vocky.hi2vi.com` is not live (the production deploy kit exists but was never executed — bring-up is **P12**), and the `vocky` CLI is not on PyPI (distribution is **P11**). Every base URL below is your own deployment, and the CLI is installed from a checkout of this repo. See `operations.md`.
+> **Read this against a self-hosted Vocky.** There is no hosted vocky yet: `https://vocky.hi2vi.com` is not live (the production deploy kit exists but was never executed — bring-up is **P12**), so every base URL below is your own deployment. **P11 settled distribution: the install path is a `curl | bash` installer served from the site, not PyPI** — so today, before the site is deployed, the CLI still installs from a checkout of this repo, and the hosted one-liner becomes true the moment P12 brings the site up (the landing page and `install.sh` ship in the same deploy). See `operations.md`.
 
 There are two ways to do the account/project/credential setup below: **the web app** (point-and-click — see "The Web App" at the end of this guide) or the **REST calls** shown here. They are the same operations against the same API; use whichever suits you. Everything after setup — capture and reads — is API-only.
 
@@ -312,6 +312,8 @@ It is a signed-in **tenant owner's** surface, not an end-user one: you see your 
 
 As of **P9**, the app's root `/` is a **public marketing landing** for signed-out visitors, not a bare redirect. It explains what Vocky is — a server-to-server feedback layer where your backend sends explicit user reactions (likes, dislikes, comments) over a single `POST /api/feedback` call, and Vocky turns them into structured, Korean- and English-searchable signal — and how to start: create a project, mint a `vk_` key (shown once), send feedback from your backend, then search and review it. Its calls to action are **Start free** (`/signup`) and **Read the docs** (the real `github.com/leetusik/vocky` repo). If you are already signed in, visiting `/` **bounces you straight to `/dashboard`** — the landing is the signed-out front door only, and no session token is ever exposed to it.
 
+As of **P11** the landing also carries the onboarding path itself, so "sees the landing page" → "an agent is capturing feedback" happens without leaving it: a **hero install row** with the one-line `curl | bash` installer, a **`Get started` section** (`#quickstart`) walking the two-variable contract — install, export into `~/.zshenv`, verify, capture — with the Codex sandbox trap called out and the `400`/`401` readings spelled out, and a **skill section** (`#skill`) that shows the real `/SKILL.md`, copies it, and offers it as a download. Every command shown is real and shipped; the hero's request payload was corrected first (nested `source.product`, and no `vk_live_` tier — vocky has never had one) so that copy-pasting it actually works.
+
 ### Sign up, sign in, sign out
 
 Sign up with an email and password and you land straight in the app — signup provisions your account, your tenant (workspace, auto-named from your email), and your session in one step. Logging in later takes you to the same place. Wrong password and unknown email give the **identical** error, so nobody can use the login form to discover which emails are registered.
@@ -358,9 +360,22 @@ The cross-project read surface — everything your projects have captured, newes
 
 As of **P5** there is a third front door alongside the web app and raw curl: a **`vocky` command-line client**. It is vocky's **agent-first onboarding path** — a user working inside Claude Code or Codex (or the coding agent acting on their behalf) can sign up, log in, set up credentials, and read feedback **entirely from the terminal, without ever visiting the website**. The CLI is a **pure client** of the same `/auth/*` + `/app/*` surfaces (it holds the session token; it never becomes a new backend capability). The full self-contained reference — every command, flag, and the equivalent raw HTTP — lives in the hand-written **`docs/cli.md`** (linked from the README); this section is the journey-level map.
 
-### Installing it (P6) — lean CLI vs the `server` extra
+### Installing it — the hosted `curl | bash` line (P11), lean CLI vs the `server` extra (P6)
 
-**The package is not published yet**, so today you install from a checkout (`uv tool install .`, `uvx --from . vocky`, or `uv run vocky` in-repo). P6 nevertheless settled what the install *will* look like, because it changes what a CLI user has to download:
+**P11 settled the install question: a `curl | bash` installer, not PyPI.** Once `https://vocky.hi2vi.com` is live, the whole install is one line:
+
+```sh
+curl -fsSL https://vocky.hi2vi.com/install.sh | bash
+```
+
+It bootstraps `uv` only if it is missing, runs `uv tool install --reinstall`, needs **no sudo** and installs nothing system-wide (everything lands under `$HOME/.local`), and re-running the same line is how you upgrade. The script is short and every step is commented — **read it before piping it into a shell**. Its safety argument is structural: every executable statement lives inside `main()` and `main "$@"` is the last line of the file, so a download that drops mid-transfer defines a function and hits EOF instead of executing a half-written script (proven at two cut points — a mid-function truncation is a bash parse error, a truncation just before the final line exits 0 with no output).
+
+**Today, before the site is deployed, install from a checkout instead** (`uv tool install .`, `uvx --from . vocky`, or `uv run vocky` in-repo). Nothing is published to PyPI and **P11 deliberately did not publish**: `uv publish` stays an unexercised, operator-gated action. Two consequences worth stating plainly:
+
+- The hosted line **404s until P12 brings the site up** — which is why it is marked "once the site is live" everywhere it appears, and why no live landing page ever serves a dead command: the landing and `install.sh` deploy together.
+- The installer's target is `git+https://github.com/leetusik/vocky`, which resolves **whatever is on GitHub `main`**. Local `main` is far ahead of the remote, so until an operator-gated `git push` lands, that target would deliver a pre-P10 CLI with no org keys and no `vocky capture`. **P12 owns the push and the clean-environment install proof.**
+
+P6's packaging split still describes what a CLI user downloads:
 
 | | |
 | --- | --- |
@@ -369,7 +384,7 @@ As of **P5** there is a third front door alongside the web app and raw curl: a *
 
 That split is what makes the agent-first path cheap: a coding agent asked to "set up vocky" pulls a small client, not a server runtime. It holds only because the CLI never imports server code — a stray server-side import in a `vocky.cli.*` module silently breaks the lean install.
 
-**P11** decides whether the published channel is PyPI at all (the alternative under consideration is a `curl | bash` installer) and performs the publish. Whatever P11 ships will not be version `0.1.0` — P10 and P11 both change the CLI's surface.
+The CLI version is **`0.2.0`** as of P11 (it had been a stale `0.1.0` since before P10). Note that `vocky --version` reads *installed* metadata, not the source tree, so it only reflects a bump after a reinstall — the installer reinstalls on every run, so this is a non-issue there.
 
 ### The onboarding journey as commands
 
@@ -389,8 +404,13 @@ vocky keys mint --project <project-id>          # PROJECT key: works for that on
 # 2b. Only if you want more projects — get-or-create, safe to re-run
 vocky projects create marketing-site            # -> Created project "marketing-site" (<project-id>).
 
-# 3. Your product backend captures with that vk_ key over /api/feedback (same as the REST path above).
-#    With an org key, add "project": "<name>" to the body to pick the destination; omit it for "default".
+# 3. Capture with that vk_ key. Your product backend does it over /api/feedback (the REST path above);
+#    from a terminal or a coding agent, `vocky capture` is the same call in one command (P11):
+export VOCKY_API_TOKEN=vk_...                   # the key from step 2 — never the session token
+vocky capture "결제 단계에서 카드가 거절돼요" --product checkout-web --value 2
+#    -> Captured — request_id <uuid>
+#    With an org key, --project <name> (or "project" in the REST body) picks the destination;
+#    omit it for "default". A project-bound key ignores it.
 
 # 4. Manage keys later — same scope rule
 vocky keys list                                 # your org keys
@@ -418,6 +438,33 @@ The CLI is built so an agent can drive the whole flow with no interactive prompt
 - **Generic 401**: an expired or missing session surfaces a friendly `Not signed in — run \`vocky login\`.` rather than a raw HTTP error.
 - **Show-once key**: `keys mint` prints the plaintext `vk_…` exactly once with an explicit "copy it now, it cannot be recovered" warning; it is never shown again. **The key remains the strict last line of the output**, even with P10's added `Scope:` line — that ordering is a parsing contract, not an accident.
 - **Errors go to stderr, success to stdout, with non-zero exit codes** — so an agent can branch on outcome. An invalid feedback id, for example, prints a hint pointing at `vocky feedback list` and exits 1.
+
+## The two-variable agent contract (P11)
+
+Before P11 there was **no environment-variable path for a credential at all**: `VOCKY_BASE_URL` and `VOCKY_CONFIG_DIR` existed, `VOCKY_API_TOKEN` did not exist anywhere in the tree, and the CLI was session-token-only with no capture command — so a `vk_` key had no CLI consumer. Both gaps are closed. **Two exports are now the whole agent contract**, and they give every coding agent on the machine the same access with no plugin installed anywhere:
+
+```sh
+export VOCKY_BASE_URL="https://vocky.hi2vi.com"
+export VOCKY_API_TOKEN="vk_..."
+```
+
+Put them in **`~/.zshenv`, never a repo `.env`.** A repo `.env` is never auto-loaded by Claude Code or Codex, so a resolver would never see it — and a key in a repo file is one commit away from leaking. `~/.zshenv` is sourced by every zsh invocation, so every Bash call, every Codex `exec`, and every repo inherits it. **Codex only:** the `workspace-write` sandbox denies outbound network by default, so the capture POST fails silently until `[sandbox_workspace_write] network_access = true` is set in `~/.codex/config.toml`. Claude Code needs no equivalent change.
+
+**`vocky capture` is `VOCKY_API_TOKEN`'s first-class consumer**, and the shape of the credential split is deliberate:
+
+- `vocky capture MESSAGE --product PRODUCT [--integration] [--value 1|2] [--comment] [--tag …] [--session-id] [--user-id] [--project]`. `--product` is the only required option; `--tag` is repeatable and is omitted from the body entirely when unused (never sent as `[]`); passing `-` as the message reads the whole thing from stdin, which is the right move for multi-line or quote-heavy user text.
+- **There is no `--token` flag and never will be** — argv is world-readable via `ps` and lands in shell history, the same reasoning that gave `signup`/`login` their `--password-stdin`. The env var is the only way to supply the key. Unset or blank exits non-zero with `VOCKY_API_TOKEN is not set — mint a key with \`vocky keys mint\` and export it.` and makes **no HTTP call**.
+- **A `vk_` key is never persisted in the config store.** `config_store` holds only the session `token` and `clear_token()` pops only that key, so a persisted `vk_` key would silently survive `vocky logout` — a leak-shaped bug. The two credentials also cannot cross at the transport: `capture` builds its client as `make_client(token=api_token, use_stored_token=False)`, which is a structural guarantee rather than a convention.
+- Success prints exactly `Captured — request_id <full id>`. A `401` is remapped to `Unauthorized — check VOCKY_API_TOKEN (the key may be wrong or revoked).` — deliberately **not** "run `vocky login`", which is reserved for the session-token commands and would send an agent down the wrong path. Exit code is always `1` on failure; it never encodes the HTTP status.
+- `vocky keys mint` now prints an `export VOCKY_API_TOKEN=<the key below>` hint immediately before the show-once key — and **the plaintext key remains the strict last line**, the parsing contract P10 established.
+
+## The published agent skill (P11)
+
+Vocky publishes an end-user agent skill: **`skills/vocky-feedback/SKILL.md`**, served byte-identically at **`/SKILL.md`** and shown on the landing page's `#skill` section (readable, copyable, downloadable). It is deliberately **not** under `.claude/skills/` or `.agents/skills/` — those hold this repo's own workflow machinery and would load into every session here.
+
+The skill is written to be followed verbatim, not interpreted: the two-variable setup, a **zero-side-effect verify step** (a bare `GET /api/feedback` with the bearer key — `400` means the token authenticated and only the missing filter was rejected, `401` means stop and never retry, anything else is a transport/base-URL problem), then three capture paths — **Path A `vocky capture`** (primary, one command), **Path B raw REST** (no vocky install required; the nested `source` object is the single most important shape, and a top-level `source_product` is rejected outright), and **Path C `/mcp`** as the alternative transport — followed by a branch-by-branch error table and a "report back" rule that forbids claiming a capture succeeded without a `202` or a `Captured —` line. Its frontmatter carries a hard negative trigger (not for general note-taking or drafting tickets elsewhere) and a scoped `allowed-tools` allowlist.
+
+**The served copy can never fork from the canonical**: `scripts/skill_parity.py` holds the two files to a full-file byte match and runs in CI on every push and pull request (see `operations.md`), and the landing's preview pane renders the *served* file read at request time rather than a pasted excerpt.
 
 ## Human Review Boundary
 

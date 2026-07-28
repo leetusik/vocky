@@ -352,3 +352,11 @@
 {"ts": "2026-07-29T05:23:35+09:00", "type": "slice_status_changed", "slice": "P11.S9", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-07-29T05:24:28+09:00", "type": "slice_status_changed", "slice": "P11.S10", "old_status": "todo", "new_status": "in_progress"}
 {"ts": "2026-07-29T05:36:55+09:00", "type": "slice_status_changed", "slice": "P11.S10", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-07-29T05:38:02+09:00", "type": "slice_status_changed", "slice": "P11.REVIEW", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-07-29T05:42:37+09:00", "type": "doc_version_created", "doc": "frontend", "version": "v0007_p11_the_landing_gains_an_agent_quickstart_and_a_skill_section_the_snippet_trap_primitives_mount-gated_copy_islands_with_a_server-rendered_no-js_floor_and_a_request-time_read_of_the_served_skill.md", "source": "P11.REVIEW"}
+{"ts": "2026-07-29T05:43:07+09:00", "type": "doc_version_created", "doc": "frontend", "version": "v0007_p11_the_landing_gains_an_agent_quickstart_and_a_skill_section_the_snippet_and_trap_primitives_mount-gated_copy_islands_over_a_server-rendered_no-js_floor_and_a_request-time_read_of_the_served_skill_file", "source": "P11.REVIEW"}
+{"ts": "2026-07-29T05:45:17+09:00", "type": "doc_version_created", "doc": "experience", "version": "v0011_p11_onboarding_is_real_end_to_end_for_an_agent_a_curl_bash_install_line_vocky_api_token_plus_vocky_capture_as_the_two-variable_contract_and_a_published_vocky-feedback_skill", "source": "P11.REVIEW"}
+{"ts": "2026-07-29T05:46:37+09:00", "type": "doc_version_created", "doc": "product", "version": "v0010_p11_distribution_is_a_curl_bash_installer_not_pypi_and_vocky_ships_a_published_agent-skill_surface_with_three_capture_paths_behind_two_environment_variables", "source": "P11.REVIEW"}
+{"ts": "2026-07-29T05:46:37+09:00", "type": "doc_version_created", "doc": "operations", "version": "v0005_p11_the_hosted_install.sh_installer_the_repo_s_first_push_and_pull-request_ci_gate_with_its_two_deliberate_exclusions_and_the_cli_capture_module", "source": "P11.REVIEW"}
+{"ts": "2026-07-29T05:51:44+09:00", "type": "slice_status_changed", "slice": "P11.REVIEW", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-07-29T05:51:44+09:00", "type": "phase_reviewed", "phase": "P11", "verdict": "pass", "reviewer": "slice-executor-high"}

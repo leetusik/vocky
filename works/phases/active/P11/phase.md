@@ -1201,3 +1201,45 @@ the review:
 **Not proven** (same standing note as every P11 slice): nothing here was checked against a live origin — the
 site is not deployed until P12, and every fetch above was against a local `next start`, never
 `vocky.hi2vi.com`.
+
+### REVIEW done — phase passed, four doc versions consolidated (2026-07-29)
+
+`P11.REVIEW` re-ran the whole phase's validation together (the orchestrator skipped per-slice
+re-validation by design) and judged the six pillars against the objective and `intent.md`. **Verdict:
+`pass`.** Full evidence in the slice's `result.md`; the durable points:
+
+- **Consolidated validation, all green:** `workflow.py validate` passed · `uv run pytest -q` **209 passed,
+  0 errors** · `skill_parity.py` PASS + `cmp` identical (119 lines / 7 975 bytes both files) · `bash -n
+  install.sh` 0 with `main "$@"` last · both CLI helps render · `pnpm lint`/`typecheck` 0 · `pnpm test`
+  **78/78 across 10 files** · `pnpm build` clean, **zero warnings**, `/` still `ƒ`. `ci.yml`'s three jobs
+  run exactly the commands proven above, so it will be green on its first real run.
+- **The no-JS floor was re-proved independently by the review**, not inherited: a real `next start` fetch
+  of `/` (200, 124 018 bytes) contains **exactly one `<button` in the whole document** — P9's disabled
+  Pricing CTA — **zero inside `#skill`**, and every non-blank line of `SKILL.md` inside that section.
+- **Both deliberate departures were judged and ACCEPTED, not merely noted.** (a) The `84px 28px` padding
+  departure stands on the `28px`-is-not-the-gutter argument plus the "identical string on two different
+  sections reads as tool boilerplate" argument — *not* on S8's original "no token lands on 84px" reasoning,
+  which S10 correctly retracted. It is accepted because it costs *more* effort than complying, and because
+  it was applied to both sections identically. (b) `ci.yml`'s two exclusions are sound and are documented
+  in the workflow file itself with a P12 pointer. **Neither should be relitigated in P12** — but P12 owns
+  closing both exclusions.
+- **S4's "REST primary vs Path A primary" ambiguity is resolved in favour of what shipped: CLI-first.**
+  It matches S2's framing and the landing's own install-first quickstart. No change needed; do not
+  reorder the skill later on the strength of that one sentence.
+- **The design record is verifiably read-only**: `git log` over `docs/reference/design/` in this phase
+  returns exactly S5's two commits, and no P11 commit ever touched `globals.css` — the `None` token delta
+  is real, not claimed.
+- **`git push` hand-off — CORRECTED NUMBER.** The hand-off section above says GitHub `main` is "45 commits
+  behind"; as of the review it is **56** (`origin/main` is still `3e1e85a`, last pushed 2026-07-17 — P11's
+  own eleven commits landed after `P11.S3` wrote that line). The substantive claim is unchanged: the
+  installer's `git+https://` target would deliver a **pre-P10** CLI until P12 pushes. **Expect this number
+  to keep drifting — re-derive it with `git rev-list --count origin/main..HEAD` rather than quoting it.**
+- **The live flip probes could not be run from the review's environment** (`Could not resolve host:
+  vocky.hi2vi.com` — no outbound DNS). They remain armed and unexecuted; P12 runs them for real.
+- **Doc consolidation, four versions, one per doc** — `frontend v0007`, `experience v0011`, `product
+  v0010`, `operations v0005`. **`qa` was deliberately NOT versioned**: `docs/current/qa.md` is still the
+  bootstrap placeholder and **P12 owns writing it**; the CI gate is documented in `operations.md`, where it
+  operationally belongs. Writing a partial `qa.md` here would have left P12 patching a stub.
+- **Doc-versioning gotcha for future reviews:** a `--summary` ending in a filename like `SKILL.md` slugs
+  into a `…skill.md.md` version filename. Phrase summaries to avoid a trailing extension ("the served
+  skill file", not "the served SKILL.md").

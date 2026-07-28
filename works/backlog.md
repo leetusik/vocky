@@ -5,12 +5,12 @@
 
 ## Pointer
 
-- Current phase: `P11`
-- Current slice: `P11.REVIEW`
-- Next slice: `none`
+- Current phase: `P12`
+- Current slice: `P12.DECOMP`
+- Next slice: `P12.REVIEW`
 - Waiting on operator: `none`
 - Open deferred jobs: `6`
-- Rebuilt at: `2026-07-29T05:36:55+09:00`
+- Rebuilt at: `2026-07-29T05:51:45+09:00`
 
 ## Active Phases
 
@@ -18,7 +18,7 @@
 |---|---|---|---|---|---|
 | [x] `P6` | `done` | `pass` | Landing Page, Webpage & Production Deploy | `none` | `works/phases/active/P6` |
 | [x] `P10` | `done` | `pass` | Accounts v2: orgs, org-level keys & default project | `none` | `works/phases/active/P10` |
-| [ ] `P11` | `planned` | `pending` | Frictionless onboarding: working install, env-var quickstart, agent skill on the landing | `P11.REVIEW` | `works/phases/active/P11` |
+| [x] `P11` | `done` | `pass` | Frictionless onboarding: working install, env-var quickstart, agent skill on the landing | `none` | `works/phases/active/P11` |
 | [ ] `P12` | `planned` | `pending` | Production launch & hardening: bring-up, rate limits, CI tests, QA doc | `P12.DECOMP` | `works/phases/active/P12` |
 
 ## Phase P6: Landing Page, Webpage & Production Deploy
@@ -65,7 +65,7 @@
 | [x] `P11.S8` | `done` | AgentQuickstart section + ReadingList + page.tsx insertion | `implementation` | `works/phases/active/P11/slices/P11.S8` |
 | [x] `P11.S9` | `done` | SkillSection + SkillPreview server read + page.tsx insertion | `implementation` | `works/phases/active/P11/slices/P11.S9` |
 | [x] `P11.S10` | `done` | Design-fidelity pass: acceptance checks, no-JS, a11y and reduced-motion floors | `implementation` | `works/phases/active/P11/slices/P11.S10` |
-| [ ] `P11.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P11/slices/P11.REVIEW` |
+| [x] `P11.REVIEW` | `done` | phase review | `review` | `works/phases/active/P11/slices/P11.REVIEW` |
 
 ## Phase P12: Production launch & hardening: bring-up, rate limits, CI tests, QA doc
 
