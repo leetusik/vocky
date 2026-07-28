@@ -533,8 +533,213 @@ the designed intent, never a plainer fallback.
 bring-up question), whether the dashboard's key-mint flow links back to `#quickstart`, and Korean copy for
 the three new surfaces (English-only, same as the shipped landing).
 
+### DECOMP2 done — the build cut from the landed design (2026-07-29)
+
+`P11.DECOMP2` read `output/build-prompt.md` and `output/result.md` in full and verified every claim they
+make about the tree before cutting. **The plan's five-slice cut survived verification and was created
+unchanged in shape** (orders 7–11, all `implementation`, all `risk: medium`); what changed is the *content*
+of three of them, from nine corrections recorded below. The design record was **not edited** — every nit is
+catalogued here as an apply-time to-do.
+
+#### RESPECT THE DESIGN — standing instruction for every build slice
+
+**Ship every designed element as designed — layout, density, hierarchy, tokens, states, no-JS behaviour.
+Do not drop, simplify, restyle, or "improve" a designed element to save effort — that is a correctness
+failure, not a shortcut. Where an exact value is unspecified, pick the option closest to the designed
+intent, never a plainer fallback.**
+
+This paragraph **must appear verbatim in every build slice's `plan.md` AND in every executor dispatch
+prompt** for `P11.S6`–`P11.S10`. It is the `design-cowork` requirement, and it exists because a spec this
+precise is easy to quietly round off. `build-prompt.md` opens with the same block.
+
+#### The cut
+
+| Slice | Order | Kind | Risk | Depends on | Covers |
+|---|---|---|---|---|---|
+| `P11.S6` | 7 | implementation | medium | — | `ui/snippet.tsx`, `ui/trap.tsx`, the pure copy helper, `section-ids.ts` (+2), all three `landing.ts` copy blocks, `ui/index.ts` |
+| `P11.S7` | 8 | implementation | medium | `P11.S6` | Hero install row (§4) + `landing-nav.tsx` (§2) |
+| `P11.S8` | 9 | implementation | medium | `P11.S6` | `AgentQuickstart` (§5) + `ReadingList` (§3.3) + the note treatment (§3.2) + `page.tsx` position 4 |
+| `P11.S9` | 10 | implementation | medium | `P11.S6` | `SkillSection` (§6) + `SkillPreview` (§3.4, server read) + `page.tsx` position 5 |
+| `P11.S10` | 11 | implementation | medium | `P11.S9` | Fidelity pass: §11's seven acceptance checks, §8 no-JS, §9 a11y, §7 reduced motion |
+
+**Why this shape.** S6 is the spine: `Snippet` is consumed by the hero row and three of the quickstart's
+four steps, `Trap` and the copy mechanics are shared, and copy-as-data means all three copy blocks are one
+coherent unit rather than three fragments. `SectionId` is typed, so **S8 and S9 cannot compile until S6's
+two entries exist**. S7 is separated because it is the only slice touching shipped above-the-fold code
+(blast radius, not size). S8 and S9 are two different shapes — a numbered procedure vs. a document reader —
+and fusing them would rebuild the monolith the design deliberately split (`result.md` §6.2). S10 is the
+only slice positioned to run the cross-cutting checks, and `design-cowork` treats a fidelity pass as part
+of the normal shape, not a failure.
+
+**S8 and S9 both edit `web/src/app/page.tsx` and `web/src/components/landing/index.ts`.** They run
+sequentially by `order`, so there is no conflict — but neither should treat the other's edit as a surprise,
+and the barrel files are **not** in the §10 change manifest even though both are required.
+
+**Transient dead anchor:** S8's peer line links to `#skill`, whose section lands in S9. `SECTION_IDS.skill`
+exists from S6 so it compiles; between S8 and S9 the anchor resolves to nothing. S10's acceptance check 7
+("`#quickstart` and `#skill` both scroll to their sections") is where it is proven.
+
+#### Corrections found by reading the contract against the tree — apply-time to-dos
+
+The design record is **read-only** and none of these were fixed there. All nine were verified against the
+working tree during this slice.
+
+1. **The nav is a REORDER, not just an insert (S7).** `build-prompt.md` §2 writes the final nav as
+   `How it works · Get started · Features · Pricing · Docs`. Today `landing.ts:35-40` is
+   `Features · How it works · Pricing · Docs` — **`Features` is first, `How it works` second.** Inserting
+   `Get started` at "second position" into today's array yields `Features · Get started · How it works · …`,
+   which contradicts both the written nav string and `result.md` §6.3's rationale (it sits second *because*
+   it follows `How it works`, matching the §6.2b page order). **Ship the design's stated string:
+   `How it works` moves to first, `Get started` second.** Acceptance check 7 only counts to five, so it
+   will not catch this.
+2. **The footer is NOT the nav — do not touch it (S7).** `landing.ts:245-249` has a Product column with the
+   same three anchors. The design says nothing about the footer; adding `Get started` there would be an
+   undesigned change. Leave it.
+3. **The `.eyebrow` / `.note` / `.tag` / `.card` names in the build-prompt are card-kit specimen classes,
+   not repo CSS.** `grep` over `web/src/app/globals.css` finds **zero** of them. Repo equivalents:
+   `.card` → the `Card` primitive; `.tag` → the `Chip` primitive
+   (`inline-flex rounded-sm border px-2 py-0.5 font-mono text-caption`, `border-hairline bg-surface
+   text-slate` — matches the spec's intent); `.eyebrow` → shipped inline, two different ways (see 4);
+   **`.note` does not exist at all** — `grep -rn "border-l-2\|border-l "` over `web/src` is empty. So §3.2's
+   note treatment (13px `steel`, `border-left:2px solid var(--color-green)`, `padding-left:12px`) must be
+   **built**, not reused. It is used only in quickstart step 2 → **S8 builds it inline**; it does not need
+   to be a `ui/` primitive.
+4. **Two shipped eyebrows, and §5 names the one with the dot (S8/S9).** `how-it-works.tsx` uses
+   `text-caption font-semibold tracking-[0.12em] text-green-dark uppercase` (no dot); `hero.tsx` uses a
+   `rounded-full bg-green-soft` pill with a `size-1.5 bg-green` dot. §5 says "existing `.eyebrow` treatment,
+   **green dot** + uppercase" → the hero's dot reading is explicit and wins. §6's `Agent skill` eyebrow is
+   unqualified → use the same treatment for consistency (never the plainer fallback).
+5. **§5.1's step marker contradicts the shipped component it cites (S8).** It says "Step marker = the
+   shipped `HowItWorks` step numeral: 34px circle, `background:var(--color-ink)`, white mono 700 15px."
+   The **actually shipped** numeral is `size-9` (36px) `bg-green-soft` `text-green-dark`. The explicit
+   values are normative, the descriptive label is not: **build the 34px ink circle with white mono 700
+   15px**, and do not restyle `how-it-works.tsx` to match.
+6. **The §3.4 parenthetical is wrong; `22` is the normative number (S9).** "the first 22 lines of the body
+   (through the `Put these in ~/.zshenv, never a repo .env:` line)" — that line is body line **15**. Body
+   line 22 is the blank line after `## 2. Verify before you capture anything`. `22` appears in §3.4, in the
+   §7 state table, in the footer copy ("Showing the first 22 of `<lines>` lines") and in `result.md` §6.5's
+   rationale (whose four criteria — trigger description, section numbering, prose density, a real fenced
+   command — are all satisfied at 22). **Keep 22. Do not "correct" it to 15.** Decide deliberately whether
+   the body's leading blank line (the line immediately after the closing `---`) counts as body line 1; it
+   shifts the window by one.
+7. **The collapsed-vs-no-JS tension, and how it resolves (S9) — the single most misreadable point in the
+   spec.** §3.4 says collapsed "shows the first 22 lines of the body" and expanded's "body text = the whole
+   file", which reads like the collapsed DOM is truncated. §8 says the pane is "server-rendered with the
+   file already in the HTML… so all **119 lines are readable without JS**", and `result.md` §6.5 settles it
+   outright: "**A scroller (rather than a hard clip) means a no-JS visitor can still read all 119 lines.**"
+   → **The full file is always in the server HTML.** "Collapsed" is a *visual* window: a 380px scroller
+   plus the fade overlay. Expanded raises the cap to 640px and drops the fade — it does **not** swap in new
+   text. Truncating the server output to 22 lines would break the no-JS floor and make the no-JS footer
+   ("`<n>` lines · scroll to read") a lie.
+8. **`result.md` §6.4's line-count discrepancy does not exist in the tree.** It worries that `wc -l`
+   reports 120. Both `skills/vocky-feedback/SKILL.md` and `web/public/SKILL.md` measure **119 lines, 7,975
+   bytes** (`wc -l -c`, byte-identical to each other), and §3.4's formula
+   `content.split("\n").length - 1` also yields **119**. Header and footer will read 119 with no special
+   handling. The counts still must be **computed, never hardcoded** (acceptance check 2).
+9. **The two "floors" S10 must check are already global — and that is why the token delta really is None.**
+   `globals.css:276-279` already ships `:focus-visible { outline: 2px solid var(--color-green-deep);
+   outline-offset: 2px }`, satisfying §9's focus ring for every button and anchor with no new CSS — the
+   only work is making **the two scrollers focusable** (`tabIndex={0}`) so they can receive it.
+   `globals.css:282-291` already forces `transition-duration: 0.01ms !important` under
+   `prefers-reduced-motion: reduce`, so §7's "both become instant" needs no new CSS either. **S10's
+   reduced-motion and focus-ring items are verifications, not implementations** — and neither requires the
+   `globals.css` change the manifest forbids.
+
+#### Facts every build slice inherits — all re-verified this slice
+
+- **Token delta: `None`, confirmed.** Every value §3–§6 names resolves to an existing `@theme` token in
+  `web/src/app/globals.css` — including the whole caution family (`--color-caution` `:53`,
+  `--color-caution-deep` `:54`, `--color-surface-caution` `:55`, `--color-hairline-caution` `:56`), which
+  shipped in round 01 with no consumer and now carries the trap. **Do not add a token. Do not rename one.**
+- **No backend change.** `POST /api/feedback` is untouched.
+- **`Section` already provides everything §2 needs**: `tone` has both `default` and `surfaceSoft`, `id` is
+  typed `SectionId` and bakes `scroll-mt-24`, and `reveal` wraps content in the reduced-motion-safe
+  `Reveal` island. `html { scroll-behavior: smooth }` is global. Nothing new is needed for anchoring.
+- **The narrow breakpoint is `app:`, not `md:`.** `--breakpoint-app: 56.25rem` = **900px** — exactly the
+  `< 900px` the design specifies — and Tailwind v4 generates an `app:` variant already used across
+  `src/components/app-shell/*` and the feedback pages. Use `app:`; never hand-roll a media query, and
+  never substitute `md:` (768px). One exception: the nav's mid links are `hidden md:flex` today; the new
+  link inherits that shipped behaviour and must not change it.
+- **Copy-as-data is a hard rule** — zero literal strings in the new components (§11.4 is an acceptance
+  check). Everything goes in `web/src/content/landing.ts` under `heroInstall` / `quickstart` / `skill`.
+- **The web test suite is Node-env vitest** (`web/vitest.config.ts`), `include: ["tests/**/*.test.ts"]` —
+  **`.ts` only, no `.tsx`, no jsdom, no RTL**, 61 tests across 5 files, `@` aliased to `./src`. Component
+  tests are structurally impossible; testable logic must be extracted into pure `.ts` helpers.
+  `landing.ts` imports only `section-ids.ts` (no React), so a byte-lock test on the copy constants is
+  feasible and would be the repo's first. Keep new tests terse per `AGENTS.md`.
+- **CI runs `pnpm lint`, `pnpm typecheck`, `pnpm test`** plus the skill-parity and installer checks
+  (`.github/workflows/ci.yml`, S4). `prettier --check` is **not** in CI (12 pre-existing failures) — do
+  not assume formatting is gated and do not "fix" those 12 files here. `prettier-plugin-tailwindcss` is
+  installed, so class ordering will differ from hand-written order; that is not a CI failure.
+- **`web/.prettierignore` covers `public/`** — that is what keeps `web/public/SKILL.md` byte-identical to
+  the canonical. Do not undo it.
+- **`page.tsx` is already dynamic** (`getSession()` + `redirect`), so `SkillPreview`'s request-time `fs`
+  read is safe; `next.config.ts` is `output: "standalone"` and `Dockerfile:40` copies `public/`.
+- **The site is not deployed.** `/SKILL.md` and `/install.sh` 404 until P12. Verify locally with
+  `next build` / the standalone server, and say plainly in each `result.md` what was **not** behaviorally
+  proven.
+
+#### Slice intents — for the orchestrator to plan at each slice's turn (not plans; no `plan.md` pre-filled)
+
+- **S6 — Primitives + copy.** `web/src/components/ui/snippet.tsx` (§3.1, row + block; **`white-space:pre`
+  + `overflow-x:auto` is a locked floor** — the install command must never wrap or truncate at any width)
+  and `web/src/components/ui/trap.tsx` (§3.2 — an `<aside>`, deliberately **no** `role="alert"` and **no**
+  `aria-live`, because a trap is not an error). The clipboard rule is locked: **copy the DOM node's
+  `textContent`, never a separately-typed string**; reuse the mechanics in
+  `web/src/components/show-once-key.tsx:44-54` (`navigator.clipboard.writeText` + explicit failure branch)
+  but not its alert-box UI. §8 additionally requires the copy button to be a **client island that renders
+  only after mount** — a no-JS visitor sees *no button at all*, never an inert one. Extract the copy logic
+  into a **pure, DOM-free helper** so it is testable in Node-env vitest. Add `quickstart` and `skill` to
+  `section-ids.ts`; add the `heroInstall` / `quickstart` / `skill` copy blocks to `landing.ts` as
+  **byte-locked constants** with a terse vitest that re-spells the copyable payloads so a reflow fails CI.
+  Export both primitives from `ui/index.ts`.
+- **S7 — Hero install row + nav.** §4. Append the row **below** the existing two-column grid, inside the
+  hero container. **Nothing inside the grid changes** — h1, sub, both CTAs, the `EndpointCard` payload and
+  the layered captured-record `Card` all stay exactly as shipped, and the corrected payload (nested
+  `source.product`, no `vk_live_`) **must not be edited**. `Start free` stays the primary CTA; the install
+  row is never a filled button. Then `landing-nav.tsx` per correction 1 (reorder + one new link;
+  `#skill` gets **no** nav link) and correction 2 (footer untouched). §2's active state resolves to
+  **none** — the shipped nav has no active-state mechanism, so do **not** build a scroll-spy island.
+  Honor the `< 900px` behaviour in §4 (label block above the snippet, caption drops its third clause).
+- **S8 — `AgentQuickstart`.** §5, inserted at position 4 per §2. Four numbered steps, the peer line, and
+  the sticky contract aside; also builds `ReadingList` (§3.3, may live inside the component) and the note
+  treatment (correction 3). Two normative details that are easy to get wrong: **`400` is the success
+  reading** on the verify step (the token authenticated; a bare GET was rejected for a missing filter),
+  and **`401` says stop — never retry, never fall back**, because the published skill says so and the page
+  must not contradict it. Every string in §5 is final copy; use it verbatim. Corrections 4 and 5 apply.
+- **S9 — `SkillSection` + `SkillPreview`.** §6 and §3.4, inserted at position 5 per §2. `SkillPreview` is a
+  **server** component reading the served `/SKILL.md` at request time and splitting once at the closing
+  frontmatter `---`. **Line and byte counts are computed from the file just read — hardcoding them is
+  forbidden** (acceptance check 2), and a pasted excerpt forks silently from `scripts/skill_parity.py`
+  even while CI stays green. Corrections 6, 7 and 8 apply — **read correction 7 before writing any code.**
+  No syntax highlighting, no markdown rendering, no library. `Copy the skill` is primary;
+  `Download SKILL.md` is a plain `<a href="/SKILL.md" download>` and is the no-JS survivor.
+- **S10 — Fidelity pass.** Run §11's seven acceptance checks and fix what fails. Also verify the §8 no-JS
+  floor (no copy button renders at all; the preview still shows all 119 lines and scrolls; the no-JS
+  footer + `Open the raw file` anchor are present; Download works), the §9 a11y floor (per correction 9 the
+  focus ring is already global — the work is `tabIndex={0}` on both scrollers), and that motion drops to
+  instant under `prefers-reduced-motion: reduce` (also already global). This slice may close any fidelity
+  gap earlier slices left. **It must not "simplify" anything to make a check pass.**
+
+#### Executor tier — two bump candidates
+
+All five were created `medium` → `slice-executor-mid`. The spec is exact enough that none demands
+architectural judgment, and none is mechanical enough for `low` (every one carries the RESPECT THE DESIGN
+obligation, which is a judgment call by nature). **The orchestrator may bump one tier up at plan time,
+never down** — two concrete candidates, in order:
+
+1. **`P11.S9`** — correction 7 is a genuine internal tension in the spec, and getting it wrong silently
+   breaks the no-JS floor while every CI check stays green. This is the strongest bump case in the phase.
+2. **`P11.S6`** — the copy-failed state (programmatic `Range` + `Selection`, a persisting non-timed state)
+   layered on top of mount-gated client islands is the trickiest client mechanic in the round, and three
+   later slices inherit whatever shape it takes.
+
 ## Doc impact
 
+- **DECOMP2** (`P11.DECOMP2`): no durable-truth change — decomposition wrote only `works/` state and this
+  notebook. The landing's two new sections and three new primitives will change
+  `docs/current/frontend.md`'s landing/section inventory once S6–S10 land; each of those slices appends its
+  own note, and the review consolidates.
 - **S2** (`P11.S2`): `vocky capture` + `VOCKY_API_TOKEN` are now real — `docs/current/experience.md`
   (agent-facing capture/onboarding guidance should mention the CLI path alongside REST/MCP) and
   `docs/current/operations.md` (CLI import-isolation section, if it enumerates command modules, should
