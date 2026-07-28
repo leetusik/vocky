@@ -1,10 +1,10 @@
 ---
 doc_id: experience
-version: v0009
-created_at: 2026-07-28T16:38:55+09:00
-source: P6.REVIEW
-summary: P6: the install story is packaged but unpublished — lean pip install vocky vs vocky[server], and vocky.hi2vi.com is not live yet
-previous: v0008_p5_the_vocky_cli_onboarding_journey_signup_to_project_to_key_to_capture_to_read_from_the_terminal_headless_--password-stdin_--base-url_vocky_config_dir_generic-401_show-once_key_docs_cli.md_is_the_full_reference
+version: v0010
+created_at: 2026-07-28T23:50:25+09:00
+source: P10.REVIEW
+summary: P10: onboarding is two steps not three (signup provisions a default project), a key is a scope choice between project and org, and project names are unique per org
+previous: v0009_p6_the_install_story_is_packaged_but_unpublished_lean_pip_install_vocky_vs_vocky_server_and_vocky.hi2vi.com_is_not_live_yet
 ---
 
 # Action Feedback Integration
@@ -17,48 +17,87 @@ There are two ways to do the account/project/credential setup below: **the web a
 
 ## Onboarding: Get a Project Credential
 
-`/api/*` ingestion is authenticated by a **per-project credential** — there is no unauthenticated or shared-token path (the old optional `VOCKY_API_AUTH_TOKEN` is retired). Before capturing feedback, mint a key once (or do all three steps in the web app):
+`/api/*` ingestion is authenticated by a **`vk_` ingest credential** — there is no unauthenticated or shared-token path (the old optional `VOCKY_API_AUTH_TOKEN` is retired). As of **P10 this is two steps, not three**: signup already gives you a project.
 
-1. **Sign up** (or log in) for a Vocky account. You get a session token and a tenant (workspace):
+1. **Sign up** (or log in) for a Vocky account. You get a session token, an **org**, **and a project named `"default"`** — you do not have to create one:
 
    ```sh
    curl -X POST "https://vocky.example.com/auth/signup" \
      -H "Content-Type: application/json" \
      -d '{"email":"you@example.com","password":"a-strong-password"}'
-   # -> 201 { "token": "<session-token>", "user": {...}, "tenant": {...} }
+   # -> 201 { "token": "<session-token>", "user": {...}, "tenant": {...},
+   #          "project": { "id": "<project-id>", "name": "default", ... } }
    ```
 
-   (Already have an account? `POST /auth/login` with the same body returns a fresh `token` and your `tenants`.)
+   (Already have an account? `POST /auth/login` with the same body returns a fresh `token` and your `tenants`. Note the org keeps a friendly name like `"you's workspace"` — it is the *project* that is called `"default"`.)
 
-2. **Create a project** with the session token:
+2. **Mint a key.** Choose the scope — this is the decision that matters:
 
-   ```sh
-   curl -X POST "https://vocky.example.com/app/projects" \
-     -H "Authorization: Bearer <session-token>" \
-     -H "Content-Type: application/json" \
-     -d '{"name":"marketing-site"}'
-   # -> 201 { "project": { "id": "<project-id>", ... } }
-   ```
-
-3. **Mint a project credential** for that project:
+   **(a) A project key** — the narrow default. Works for exactly one project:
 
    ```sh
    curl -X POST "https://vocky.example.com/app/projects/<project-id>/credentials" \
      -H "Authorization: Bearer <session-token>" \
      -H "Content-Type: application/json" \
      -d '{"name":"web-backend"}'
-   # -> 201 { "credential": {...}, "key": "vk_..." }
+   # -> 201 { "credential": { "project_id": "<project-id>", ... }, "key": "vk_..." }
    ```
 
-   The `vk_…` **`key` is shown exactly once** — store it as a secret in your product backend. Vocky keeps only a hash and cannot show it again. You can list credentials (metadata only) with `GET /app/projects/<project-id>/credentials` and revoke one with `DELETE /app/projects/<project-id>/credentials/<credential-id>` (a revoked key stops working immediately).
+   **(b) An org key (P10)** — one key for **every** project in your org, including ones you create later. Note there is **no project in the path**:
 
-Your product backend then sends this `vk_…` key as `Authorization: Bearer` on every `/api/*` request below. Keep the session token for account/project management; keep the project key for ingestion.
+   ```sh
+   curl -X POST "https://vocky.example.com/app/credentials" \
+     -H "Authorization: Bearer <session-token>" \
+     -H "Content-Type: application/json" \
+     -d '{"name":"all-products"}'
+   # -> 201 { "credential": { "project_id": null, ... }, "key": "vk_..." }
+   ```
+
+   **Which to pick.** Use a **project key** when one backend feeds one project — it is the smaller blast radius, and it is still the recommended default. Use an **org key** when one client captures into several projects, or when you would otherwise be juggling a key per project. The trade is explicit: an org key is more convenient and a **bigger secret** — leaking it exposes every project in the org, and revoking it cuts every project at once.
+
+   **Both kinds start with `vk_`**, deliberately — you cannot tell them apart by looking at the key. The way to tell is `credential.project_id`: a UUID for a project key, **`null`** for an org key. The dashboard and `vocky keys list` both label the scope for you.
+
+   The `vk_…` **`key` is shown exactly once** at either scope — store it as a secret in your product backend. Vocky keeps only a hash and cannot show it again.
+
+3. **Managing keys later.** The two scopes have separate, non-overlapping surfaces:
+
+   | | project keys | org keys |
+   |---|---|---|
+   | list | `GET /app/projects/<project-id>/credentials` | `GET /app/credentials` |
+   | revoke | `DELETE /app/projects/<project-id>/credentials/<id>` | `DELETE /app/credentials/<id>` |
+
+   A revoked key of either kind stops working immediately. The surfaces are strictly separate: trying to revoke a **project** key through `/app/credentials/<id>` answers `404` even though it is your own key — use the per-project route for those.
+
+Your product backend then sends the `vk_…` key as `Authorization: Bearer` on every `/api/*` request below. Keep the session token for account/project management; keep the ingest key for ingestion.
+
+**Creating more projects (optional).** `POST /app/projects` still works, and as of P10 it is **get-or-create**: project names are unique within an org, and re-posting a name you already have returns the existing project instead of creating a duplicate or failing. That makes "ensure this project exists" safe to run repeatedly from a script.
+
+```sh
+curl -X POST "https://vocky.example.com/app/projects" \
+  -H "Authorization: Bearer <session-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"marketing-site"}'
+# -> 201 { "project": { "id": "<project-id>", ... } }   (created, or the one that already existed)
+```
 
 ## Capture Over REST
 
 Use REST capture from a trusted server-side web or product backend when a real user explicitly triggers a feedback action. REST is the ingestion path for page feedback, widget feedback, surveys, ratings, and UI like/dislike controls; capture stays a deliberate server-to-server product action rather than a browser-direct call.
 
 `target_type` is the review discriminator: use `message` for a specific message, `conversation` for a whole thread, and `surface` for a concrete page, widget, screen, or other non-message product UI. Older captures can omit `target_type`; those records remain visible in unfiltered review lists and are excluded only when an exact `target_type` filter is provided. Successful capture means Vocky accepted the job for background persistence; the record becomes queryable after the worker writes it to PostgreSQL.
+
+**Choosing the destination project with an org key (P10).** A **project key** always captures into its own project — nothing you send can change that. With an **org key** you say where the feedback goes by adding an optional `project` **name** to the capture body (or the `project` argument on the MCP tool):
+
+```sh
+curl -X POST "https://vocky.example.com/api/feedback" \
+  -H "Authorization: Bearer vk_<your-org-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"...","source":{"product":"marketing-site"},"project":"marketing-site"}'
+```
+
+- The name is **get-or-created inside your own org** — you never send an id, and you can never reach another org's project.
+- **Omit it and the feedback lands in `"default"`** — which is exactly the project signup already made for you, so an org key works with zero setup.
+- A **project key ignores the field entirely** — it is not compared, not rejected, and does not error. That is deliberate, so a client that starts sending `project` keeps working unchanged against an existing project key.
 
 ## Capture Explicit Actions
 
@@ -205,7 +244,12 @@ Optional filters (`feedback_value`, `channel`, `target_type`, `trigger_type`, `s
 
 ## Read & Manage Your Project's Feedback (Feedback API v2)
 
-Your product's own admin panel / operator page can read **and manage** its project's feedback directly, using the **same `vk_` project key** it captures with — send it as `Authorization: Bearer vk_…` on `/api/project/feedback`. The project is implicit in the key; there is no project id in the path. Every id that belongs to another project answers `404` (never `403`).
+Your product's own admin panel / operator page can read **and manage** feedback directly, using the **same `vk_` key** it captures with — send it as `Authorization: Bearer vk_…` on `/api/project/feedback`. The scope is implicit in the key; there is no project id in the path. Every id outside that scope answers `404` (never `403`).
+
+**With an org key (P10) this surface spans your whole org** — one call reads and manages feedback across every project. Two consequences worth knowing before you wire a client to it:
+
+- **Records carry a `project_id` only when the caller's key is org-level.** A project key's response is unchanged and still omits the field (you already know your project). Decide which shape to expect from the key you hold, not from sampling one response.
+- The verbs are the same at both scopes: an org key can PATCH and DELETE feedback in **any** of your org's projects.
 
 ```sh
 # List this project's feedback (newest-first, keyset paging + the usual filters)
@@ -284,8 +328,9 @@ Your post-login home, and the whole-tenant view:
 
 - **Usage totals** for the window — total records, likes, dislikes, unrated. The window is the last 30 days unless you say otherwise. This is operational visibility, not billing; Vocky has no metering.
 - **A daily trend chart** of capture volume across the window, zero-filled so quiet days read as zero rather than vanishing. A tenant that has never captured anything shows an explicit empty state instead of an empty chart.
-- **Your projects**, with a create-project form. A new project appears in the list immediately. Names are not unique — two projects may share a name and remain distinct records.
-- Each project name **links into its detail page**.
+- **Your projects**, with a create-project form. A new project appears in the list immediately. **Project names are unique within your org (P10)** — submitting a name you already have returns that project rather than creating a second one. (This corrects an earlier statement in these docs that names were not unique; that was true before P10 and is false now.)
+- **Your org keys (P10)** — a panel beside the projects list, since an org key does not belong to any one project. Mint one (optionally named), see the show-once key, and revoke one, exactly like the per-project keys panel. There is no separate route or nav entry; org keys live on the dashboard because that is the org-level page.
+- Each project name **links into its detail page**. **Project detail shows only that project's own keys** — org keys never appear there, by design.
 
 ### Project detail (`/projects/{id}`)
 
@@ -328,25 +373,38 @@ That split is what makes the agent-first path cheap: a coding agent asked to "se
 
 ### The onboarding journey as commands
 
-The signup → project → key → capture → read spine maps one-to-one onto CLI commands (each mirrors the raw-HTTP step documented under "Onboarding" above):
+The signup → key → capture → read spine maps one-to-one onto CLI commands (each mirrors the raw-HTTP step documented under "Onboarding" above). As of **P10** it is shorter, because signup already made you a project:
 
 ```sh
-# 1. Sign up (or `vocky login`) — provisions your account + workspace, stores the session
+# 1. Sign up (or `vocky login`) — provisions your account, your org, AND a "default" project
 printf '%s' "$PASSWORD" | vocky signup --email you@example.com --password-stdin
+#    -> ... A "default" project was created too.
 
-# 2. Create a project
-vocky projects create marketing-site           # -> Created project "marketing-site" (<project-id>).
+# 2. Mint a `vk_` key — shown once. Pick the scope:
+vocky keys mint                                 # ORG key: works across every project in your org
+vocky keys mint --project <project-id>          # PROJECT key: works for that one project
+#    Both print the show-once warning, a `Scope:` line saying which you got, then the vk_… key
+#    (the plaintext key is always the LAST line, so it stays safe to parse)
 
-# 3. Mint a per-project `vk_` key — shown once
-vocky keys mint --project <project-id>          # prints the show-once warning, then the vk_… key
+# 2b. Only if you want more projects — get-or-create, safe to re-run
+vocky projects create marketing-site            # -> Created project "marketing-site" (<project-id>).
 
-# 4. Your product backend captures with that vk_ key over /api/feedback (same as the REST path above)
+# 3. Your product backend captures with that vk_ key over /api/feedback (same as the REST path above).
+#    With an org key, add "project": "<name>" to the body to pick the destination; omit it for "default".
+
+# 4. Manage keys later — same scope rule
+vocky keys list                                 # your org keys
+vocky keys list --project <project-id>          # that project's keys
+vocky keys revoke <credential-id>               # an org key
+vocky keys revoke <credential-id> --project <project-id>
 
 # 5. Read and search what was captured, across all your projects
 vocky feedback list
 vocky feedback search 결제                       # Korean-safe substring search
 vocky feedback show <feedback-id>               # full record + operator comments + attachments
 ```
+
+**One sharp edge, stated plainly (P10).** `--project` used to be **required** on `keys mint|list|revoke`; it is now optional, and omitting it means *org scope*. A script that relied on the old "missing required option" failure to catch a forgotten `--project` will now succeed — with a **broader** key than it intended. The mitigation is announcement, not prevention: `keys mint` always prints the scope it just minted, and `keys list` labels each row's scope. If you script key minting, assert on that scope line.
 
 The command groups mirror the API surfaces: `vocky signup|login|logout|whoami` over `/auth/*`; `vocky projects`, `vocky keys`, and `vocky usage` over the session-authed `/app/*` control plane; and the read-only `vocky feedback list|search|show` over `/app/feedback`. `list`/`search` print each record's **full feedback id** (the copy-pasteable handle `feedback show` consumes) and `projects list` prints the **full project id** (the `--project` / `projects show` handle), so the terminal-only `list → show` and `list → --project` journeys complete without dropping to raw HTTP. Feedback **management** (edit/delete/comment) is deliberately out of the CLI — it stays on the `vk_`-keyed `/api/project/feedback` surface.
 
@@ -358,7 +416,7 @@ The CLI is built so an agent can drive the whole flow with no interactive prompt
 - **`--base-url`** (or the `VOCKY_BASE_URL` env) points the CLI at any vocky instance; the default is `http://127.0.0.1:8000`.
 - **`VOCKY_CONFIG_DIR`** overrides where the session store lives (XDG-aware, defaulting to `~/.config/vocky/`), so an agent can run an isolated, throwaway session per task.
 - **Generic 401**: an expired or missing session surfaces a friendly `Not signed in — run \`vocky login\`.` rather than a raw HTTP error.
-- **Show-once key**: `keys mint` prints the plaintext `vk_…` exactly once with an explicit "copy it now, it cannot be recovered" warning; it is never shown again.
+- **Show-once key**: `keys mint` prints the plaintext `vk_…` exactly once with an explicit "copy it now, it cannot be recovered" warning; it is never shown again. **The key remains the strict last line of the output**, even with P10's added `Scope:` line — that ordering is a parsing contract, not an accident.
 - **Errors go to stderr, success to stdout, with non-zero exit codes** — so an agent can branch on outcome. An invalid feedback id, for example, prints a hint pointing at `vocky feedback list` and exits 1.
 
 ## Human Review Boundary

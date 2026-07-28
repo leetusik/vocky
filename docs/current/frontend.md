@@ -1,10 +1,10 @@
 ---
 doc_id: frontend
-version: v0005
-created_at: 2026-07-28T16:34:12+09:00
-source: P6.REVIEW
-summary: P6: the site metadata/OG/robots/sitemap/manifest routes, the NEXT_PUBLIC_APP_URL build-time origin, the prod-gated CSP, and the standalone production image; the replaced Admin Web UI is now actually deleted
-previous: v0004_p9_apply_the_round-01_vocky_design_across_the_app_and_landing_deep-emerald_value_swap_pretendard_new_component_vocabulary_net-new_states_public_landing_placeholder_retired
+version: v0006
+created_at: 2026-07-28T23:52:12+09:00
+source: P10.REVIEW
+summary: P10: the dashboard gains an org-keys panel, VockyCredential.project_id widens to string|null, the show-once key panel becomes a shared component, and Workspace becomes Org
+previous: v0005_p6_the_site_metadata_og_robots_sitemap_manifest_routes_the_next_public_app_url_build-time_origin_the_prod-gated_csp_and_the_standalone_production_image_the_replaced_admin_web_ui_is_now_actually_deleted
 ---
 
 # Frontend
@@ -14,6 +14,8 @@ previous: v0004_p9_apply_the_round-01_vocky_design_across_the_app_and_landing_de
 Vocky has **exactly one** frontend: the **authenticated web app + public landing** in `web/` (P4 built the app; P9 applied the design and added the landing). It is a Next.js 16 / React 19 / TypeScript app that talks to vocky's `/auth/*` + `/app/*` surfaces through a **server-side BFF proxy**. It replaced the packaged same-origin operator Admin Web UI — and as of **P6 that old UI is physically deleted** (`src/vocky/admin_ui.py`, `admin_assets/*`, and the `/admin` + `/admin/assets/*` routes are gone). There is no longer a second browser surface anywhere in the product.
 
 P4 delivered signup/login/logout, the app shell, the tenant dashboard, project detail (with credential mint/revoke), and cross-project feedback list/search/detail. **P9 applied the round-01 signed-off vocky design** (`docs/reference/design/rounds/01-brand-app-landing/`) across all of it and added the two net-new surfaces: the public `/` landing and the designed `loading`/`error`/`not-found`/`global-error` states. **P6** finished the site's production-facing edges: the metadata/OG/favicon/robots/sitemap/manifest routes, the marketing description, the real production origin, and a production `Content-Security-Policy` — plus `web/Dockerfile`, the standalone production image.
+
+**P10** added the app's first **org-level** surface: an org-keys panel on the dashboard, `VockyCredential.project_id` widened to `string | null`, a shared show-once key component, and the **Workspace → Org** copy rename. It is the first web change since P4 that adds new mutating surface rather than restyling existing ones — see "The dashboard" and "P10: org keys in the web app" below.
 
 **The app is still not deployed.** P6 authored the whole deploy kit and executed none of it; `https://vocky.hi2vi.com` does not answer. The live bring-up is **P12**. See `operations.md`.
 
@@ -130,14 +132,15 @@ JSON-only 415 → assertSameOrigin 403 → per-IP rate limit 429 → parse 400 /
 
 - **`client.ts`** — the seam: `ApiError` / `toError` / `getJson` / `sendJson` / `getRaw`, adapted from hi2vi's `content-agent/api.ts` to server-side. Absolute URL from `VOCKY_API_BASE_URL`, `Authorization: Bearer` injection, `cache: "no-store"`, errors carrying vocky's `{detail}`, 204/empty-body tolerant. `getRaw` is the raw/binary GET added for attachments (`getJson`'s `parseBody` would `JSON.parse` a PNG).
 - **`auth.ts`** — `signup` / `login` / `logout` / `me`, plus `normalizeAuthResponse` / `activeTenant`, which collapse vocky's **tenant asymmetry** (signup returns `tenant` singular; login/me return `tenants[]`) into one `{token, user, tenant}` with `tenants[0]` active — matching vocky's own `require_user`.
-- **`app.ts`** — the `/app/*` functions: `listProjects`, `createProject`, `getUsage`, `getProject`, `createCredential`, `revokeCredential`, `getProjectUsage`, `listFeedback`, `getFeedbackDetail`, plus the `feedbackQueryString` builder. House style: private `Raw*` envelope types, `(token, …pathArgs, signal?)` for reads, `signal`-less writes, `encodeURIComponent`'d ids.
+- **`app.ts`** — the `/app/*` functions: `listProjects`, `createProject`, `getUsage`, `getProject`, `createCredential`, `revokeCredential`, `getProjectUsage`, `listFeedback`, `getFeedbackDetail`, plus (P10) `listOrgCredentials` / `createOrgCredential` / `revokeOrgCredential`, plus the `feedbackQueryString` builder. House style: private `Raw*` envelope types, `(token, …pathArgs, signal?)` for reads, `signal`-less writes, `encodeURIComponent`'d ids. The P10 trio follows it exactly: `createOrgCredential` returns the mint envelope **whole** (never unwrapped, same reason as `createCredential`), an absent name sends `{}` rather than `{name: null}`, and errors are enumerated by status in the JSDoc rather than caught.
 - **`types.ts`** — the `/app/*` wire shapes. Note `VockyUsageProject` is a **separate** type from `VockyProject` (the usage serializer omits `tenant_id`), and `VockyProjectUsage` is separate from `VockyUsage` (no `projects`, has `credentials`).
+  - **`VockyCredential.project_id` is `string | null` as of P10**, and **`null` is the org-key discriminator** — the backend adds no scope field, so this is what a component branches on. The widening broke exactly one site (project detail's `RevokeCredentialButton` cell), which was **narrowed with an explicit guard, not a cast, and not by forking the type**: a credential on the project-detail page is always project-bound because it comes from `/app/projects/{id}/usage`, which never returns org keys. The invariant that narrowing relies on is stated in a comment beside it. `VockyFeedback.project_id` is a different, already-nullable field and was untouched.
 
 ## Mutations: server actions vs BFF routes
 
 The split is a rule, not a preference:
 
-- **Authed mutations are server actions** (`actions.ts`, `"use server"`) — create-project, mint-credential, revoke-credential. Exactly **3** are registered app-wide.
+- **Authed mutations are server actions** (`actions.ts`, `"use server"`) — create-project, mint-credential, revoke-credential, and (P10) mint-org-credential, revoke-org-credential. Exactly **5** are registered app-wide.
 - **BFF route handlers are only the public, rate-limited auth surface** (login/signup/logout) — the one place a caller has no session yet — plus the binary attachment proxy.
 
 Three rules the phase paid for and that any new action must follow:
@@ -173,9 +176,23 @@ The guarded routes are `ƒ (Dynamic)`; the landing `/` is `ƒ` too (it reads the
 
 ### The dashboard
 
-`requireIdentity()` → `Promise.all([listProjects, getUsage])`. It renders the project list from **`/app/projects` (canonical)** and deliberately **ignores `usage.projects`** (a narrower serializer with its own type). Rows are keyed by `p.id`, never `name` — two projects may share a name and do render as distinct rows. The project name is a `<Link>` into `/projects/[id]` (`hover:text-green-dark hover:underline`).
+`requireIdentity()` → `Promise.all([listProjects, getUsage, listOrgCredentials])` — the org-keys fetch is a **third leg of the existing `Promise.all`**, so P10 added a panel without adding a sequential round-trip. It renders the project list from **`/app/projects` (canonical)** and deliberately **ignores `usage.projects`** (a narrower serializer with its own type). Rows are keyed by `p.id`, never `name` — **the keying rule survives P10 unchanged, but its old justification does not**: names are now `UNIQUE (tenant_id, name)` server-side, so vocky can no longer produce two same-named projects. Keying on `id` is still correct (ids are the stable identity); the comment saying "names may collide" was corrected rather than the code. The project name is a `<Link>` into `/projects/[id]` (`hover:text-green-dark hover:underline`).
 
 It does **not** call `GET /app/tenant`: the shell's topbar already has the tenant from the `cache()`d `/auth/me`, so a second call buys a round-trip and nothing else.
+
+### P10: org keys in the web app
+
+**The org-keys panel is a fourth `<section aria-labelledby="org-keys">` on `/dashboard`, after the projects section — no new route, no new nav entry.** That IA is deliberate: an org key belongs to no single project, so the org-level page is the only honest home for it, and the design round is closed (no new design work was commissioned; the panel reuses shipped primitives — `Card`, `DataTable`, `Badge`, the mint form, the show-once panel).
+
+- **The show-once key panel is now a shared component**, `web/src/components/show-once-key.tsx` (`ShowOnceKey`, `"use client"`, taking a `copy: ShowOnceKeyCopy` prop), lifted out of the project mint form where it was module-private. **The dismissal logic was preserved verbatim** — keyed on the action state's `ok` stamp, never a boolean — in both consumers. That rule is a locked floor precisely because a missed render there is unrecoverable.
+- **A dashboard-local `orgCredentialColumns`** (name / key / created / last-used / status / actions) was defined rather than extracting a shared parameterized column factory. The org table has **no project column** and its actions cell renders a different, non-project-scoped revoke island, so a factory would have been parameterized past the point of paying for itself.
+- **The two new server actions live in `dashboard/actions.ts`** and mirror the project actions' shape — `(_prevState, formData) => Promise<State>`, ids as hidden inputs, `requireIdentity()` **outside** the `try`, zod `safeParse` only, failures mapped **by HTTP status** against a status-keyed `ORG_CREDENTIAL_ERRORS` in `content/dashboard.ts`. One error object covers both mint and revoke, because both sit on one panel (unlike `project.ts`'s split pair).
+- **Form initial state lives in the client islands** (`mint-org-credential-form.tsx` / `revoke-org-credential-button.tsx`), never in `actions.ts` — rule 1 above, and the rule green CI cannot prove. It was re-verified by re-reading the file after editing.
+- **`revalidatePath("/dashboard")` takes no second argument** in both new actions — `/dashboard` is a static route, unlike `/projects/[projectId]`, so rule 3's pattern form does not apply here.
+
+**Workspace → Org is complete in the app.** `content/app.ts`'s `workspaceLabel: "Workspace"` became `orgLabel: "Org"` — **key and value both**, since a `workspaceLabel` key holding `"Org"` would mislead the next reader — along with its one consumer in the app shell and the auth copy ("Access your org, projects, and feedback."; the signup sub now says an org and a default project are created for you). **Only label values changed**: `tenant_id`, `tenants[]`, `VockyTenant`, and every route are untouched. Landing copy (`content/landing.ts`) was deliberately left alone — it belongs to P11.
+
+**Near-unreachable empty states were kept, not deleted.** `DASHBOARD.projects.empty`, `DASHBOARD.trend.empty`, and `FEEDBACK.list.emptyNoProjects` became near-unreachable once signup provisions a project, but they cost nothing, the state is still representable, and nothing guarantees an org keeps a project forever. Only their rationale comments were updated.
 
 ### Project detail — and the show-once key
 
@@ -233,18 +250,20 @@ P6 finished the landing's public-facing edges without opening a new design round
 
 ## Testing
 
-`web/tests/` — **56 vitest tests across 5 files**, kept terse per the repo's small-tests rule: `session.test.ts` (seal/open round-trip, IV/ct/tag tamper → null, expiry, rotated secret, fresh IV, cookie attrs, `assertSameOrigin`), `vocky-auth.test.ts` (the tenant-asymmetry normalization), `auth-routes.test.ts` (415/403/400/422/429, 200 + a cookie that opens back to the exact stub token, 401 without leaking detail, pass-through vs 502, per-route throttle buckets, logout never-fail-open), `session-guards.test.ts`, `vocky-app.test.ts` (envelope unwrapping, outgoing path + bearer, the `daily_counts: []` zero-project shape, the query-string builder). P9's visual apply added no test regressions — the suite stays 56/56.
+`web/tests/` — **61 vitest tests across 5 files**, kept terse per the repo's small-tests rule: `session.test.ts` (seal/open round-trip, IV/ct/tag tamper → null, expiry, rotated secret, fresh IV, cookie attrs, `assertSameOrigin`), `vocky-auth.test.ts` (the tenant-asymmetry normalization), `auth-routes.test.ts` (415/403/400/422/429, 200 + a cookie that opens back to the exact stub token, 401 without leaking detail, pass-through vs 502, per-route throttle buckets, logout never-fail-open), `session-guards.test.ts`, `vocky-app.test.ts` (envelope unwrapping, outgoing path + bearer, the `daily_counts: []` zero-project shape, the query-string builder). P9's visual apply added no test regressions. **P10 added 5** — three `describe` blocks for the org-credential trio plus a null-`project_id` `ORG_CREDENTIAL` fixture — and **rewrote** the old "keeps duplicate-named projects distinct" case, which asserted a scenario the backend can no longer produce; it now asserts what is still true (the client keys on `id`, not `name`). That test had been passing either way, so the rewrite fixed its name and rationale, not a behavior.
 
 `vitest.config.ts` aliases `@` → `src` and stubs `server-only` (the real package throws by design). That alias affects **only** the test run — `next build` resolves the real package, so the client-bundle guarantee stands.
 
-**The gate is `pnpm install --frozen-lockfile && pnpm typecheck && pnpm lint && pnpm test && pnpm build`.** It is necessary but **not sufficient**: the phase's two sharpest bugs (the `"use server"` object export; the `Secure`-cookie dev/prod split) both passed the full gate and were caught only by a live run. Verify user-visible behavior against a running vocky on `pnpm dev` (P9's DoD sweep did exactly that — a broad live-backend smoke across every surface). **Known pre-existing debt:** `pnpm format:check` fails on **13 P4-era backend/lib/test files** (README, `actions.ts`, `lib/*`, `lib/vocky/*`, `tests/*`); P9 introduced none and all P9-touched files are prettier-clean — reformatting those 13 is a deferred-job candidate, out of P9's charter.
+**The gate is `pnpm install --frozen-lockfile && pnpm typecheck && pnpm lint && pnpm test && pnpm build`.** It is necessary but **not sufficient**: the phase's two sharpest bugs (the `"use server"` object export; the `Secure`-cookie dev/prod split) both passed the full gate and were caught only by a live run. Verify user-visible behavior against a running vocky on `pnpm dev` (P9's DoD sweep did exactly that — a broad live-backend smoke across every surface). **Known pre-existing debt:** `pnpm format:check` still exits 1 at the repo level, now on **12 P4-era backend/lib/test files** (`README.md`, `projects/[projectId]/actions.ts`, `apple-icon.tsx`, `opengraph-image.tsx`, `lib/bff.ts`, `lib/env.ts`, `lib/session.ts`, `lib/vocky/auth.ts`, and four test files). Neither P9 nor P10 introduced any of it, and every file either phase touched is prettier-clean — re-verified at the P10 review, where the intersection of "files P10 changed" and "files that fail format:check" was **empty**. Reformatting those 12 remains a deferred-job candidate, deliberately not folded into a feature slice.
 
 ## Frontend Constraints
 
 - **Session-token client only** — `/auth/*` + `/app/*`. Never the `vk_`-keyed `/api/*` surface. (`web/src/app/api/**` are the app's *own* BFF routes on the Next origin; do not confuse them with vocky's `/api/*`.)
 - The vocky token **never** reaches browser JS; the browser talks only to the Next origin. No CORS change to vocky; no web-side DB.
 - Both env keys are **server-only** — `VOCKY_API_BASE_URL` and `SESSION_SECRET`, neither `NEXT_PUBLIC_`, both read lazily through `src/lib/env.ts` (`import "server-only"`).
-- The `vk_` plaintext key is shown **exactly once**, never re-rendered, never logged; revoked keys stay listed.
+- The `vk_` plaintext key is shown **exactly once**, never re-rendered, never logged; revoked keys stay listed. This holds at **both** scopes and is enforced by one shared `ShowOnceKey` component — do not re-privatize it or fork the dismissal logic.
+- **`VockyCredential.project_id === null` means "org key"**, and it is the only signal the backend gives. Narrow it at the consumer with an explicit guard; never cast, and never fork the shared credential type to dodge the null.
+- **Org keys belong on the dashboard, project keys on project detail**, and the two never cross: `/app/projects/{id}/usage` does not return org keys, and `/app/credentials` does not return project keys. A panel that shows both would be showing something the API deliberately keeps disjoint.
 - **404-never-403** on foreign/cross-tenant ids, mirroring the backend; the not-found copy never confirms existence.
 - Cross-project feedback is **read + search only**; `?q` must stay Korean-safe (substring, never tokenized).
 - **No dark-mode toggle** (light-only, confirmed). **The token *names* stay stable** — the vocky brand is a names-kept value swap; a future rebrand swaps values, and any name-retirement pass is its own mechanical slice (`build-prompt.md §2.4`), never mixed into a visual change.

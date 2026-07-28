@@ -2,7 +2,7 @@
 
 Human-triggered feedback capture and review. Turn product and customer feedback moments into structured voice-of-customer signals.
 
-Vocky is a **free, multi-tenant feedback SaaS** (still pre-MVP). You sign up for an account, get a workspace (tenant) with projects, and mint a per-project `vk_` key that your product backend uses to capture feedback. There are several ways in: the **web app**, the **`vocky` CLI**, server-to-server **`/api/*` REST capture**, and a write-only **`/mcp`** endpoint for AI agents.
+Vocky is a **free, multi-tenant feedback SaaS** (still pre-MVP). You sign up for an account, immediately get an **org** with a `"default"` project, and mint a `vk_` key — scoped to one project or to the whole org — that your product backend uses to capture feedback. There are several ways in: the **web app**, the **`vocky` CLI**, server-to-server **`/api/*` REST capture**, and a write-only **`/mcp`** endpoint for AI agents.
 
 The name comes from VoC, short for voice of customer.
 
@@ -14,18 +14,20 @@ Vocky is a feedback layer for products and the surfaces around them. When users 
 
 Vocky is delivered as a **free, multi-tenant SaaS** with a simple identity model:
 
-- A **user** signs up with an email and password and gets a **tenant** (workspace) automatically.
-- A tenant owns **projects**.
-- Each project mints **per-project credentials** — `vk_`-prefixed keys shown exactly once at creation.
-- A product backend sends a project's `vk_` key as `Authorization: Bearer` to capture feedback for that project.
+- A **user** signs up with an email and password and immediately gets an **org** *and* a project named `"default"` — no setup step.
+- An **org** owns **projects**, whose names are unique within the org (creating one by an existing name returns it).
+- You mint `vk_`-prefixed **ingest keys**, shown exactly once at creation, at **either scope**: a **project key** for one project, or an **org key** that works across every project in the org.
+- A product backend sends the `vk_` key as `Authorization: Bearer` to capture feedback. With an org key it names the destination project in the request (defaulting to `"default"`); a project key always captures into its own.
+
+> "Org" is the product-facing word; the table and every API field are still `tenant` / `tenant_id`. They mean the same thing.
 
 The service is free — there are no paid plans, billing, or usage metering.
 
 ### Surfaces
 
-- **Web app** — vocky's primary user-facing browser surface. Sign up, see your tenant dashboard (projects + usage), drill into a project to mint/revoke keys, and read/search feedback across your projects. It runs locally today; the public deployment is P6.
+- **Web app** — vocky's primary user-facing browser surface. Sign up, see your org dashboard (projects, usage, and your org keys), drill into a project to mint/revoke its keys, and read/search feedback across your projects. It runs locally today; the public deployment is P6.
 - **`vocky` CLI** — the same account/project/credential setup and cross-project feedback read from your terminal, so you (or a coding agent acting for you) can onboard and use vocky **without visiting the website**. See [Quickstart](#quickstart--the-vocky-cli) and the [CLI & agent guide](docs/cli.md).
-- **`/api/*` REST capture** — trusted server-to-server capture and reads, authenticated by a per-project `vk_` key.
+- **`/api/*` REST capture** — trusted server-to-server capture and reads, authenticated by a `vk_` key (project- or org-scoped).
 - **`/mcp` write-only capture** — an AI agent linked to a project's MCP endpoint saves feedback at its own judgement through a single `capture_feedback` tool, authenticated by the same `vk_` key.
 - **Admin REST (`/admin/api/*`)** — the self-hosted operator review API, guarded by its own separate `VOCKY_ADMIN_AUTH_TOKEN` bearer.
 
@@ -62,30 +64,37 @@ Once published to PyPI, `pip install vocky` / `uvx vocky` install the **lean CLI
 
 ### The onboarding spine
 
-Sign up → create a project → mint a key → capture feedback → read it back. Each account command prompts for anything you omit; nothing is destructive.
+Sign up → mint a key → capture feedback → read it back. Each account command prompts for anything you omit; nothing is destructive.
 
 ```sh
-# 1. Sign up (creates your account + workspace and stores a 30-day session token)
+# 1. Sign up (creates your account, your org, AND a "default" project; stores a 30-day session token)
 vocky signup --email you@example.com
 #    -> Signed up and signed in as you@example.com.
-#    -> A workspace "you's workspace" was created for you automatically.
+#    -> An org "you's workspace" was created for you automatically.
+#    -> A "default" project was created too.
 
-# 2. Create a project
+# 2. Mint a vk_ key — SHOWN ONCE, copy it now. Pick the scope:
+vocky keys mint                              # ORG key: every project in your org
+vocky keys mint --project <project-id>       # PROJECT key: just that one
+#    -> Copy this key now — it is shown only once and cannot be recovered.
+#    -> Scope: org (all projects)
+#    -> vk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+#    (the key is always the LAST line, at either scope)
+
+# 2b. Only if you want more projects — idempotent on name, safe to re-run
 vocky projects create "marketing-site"
 #    -> Created project "marketing-site" (<project-id>).
 
-# 3. Mint a per-project vk_ key — SHOWN ONCE, copy it now
-vocky keys mint --project <project-id>
-#    -> Copy this key now — it is shown only once and cannot be recovered.
-#    -> vk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-# 4. Capture a feedback event from your backend with that vk_ key
+# 3. Capture a feedback event from your backend with that vk_ key
+#    ("project" is honored ONLY by an org key — get-or-created, defaults to "default";
+#     a project key ignores it entirely, so sending it never breaks an existing client)
 curl -X POST "http://127.0.0.1:8000/api/feedback" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer vk_<your-project-key>" \
+  -H "Authorization: Bearer vk_<your-key>" \
   -d '{
     "message": "Pricing page feedback button was hard to find",
     "source": {"product": "marketing-site", "integration": "web-backend"},
+    "project": "marketing-site",
     "feedback_value": 2,
     "channel": "web",
     "user_id": "user_123",
@@ -94,10 +103,15 @@ curl -X POST "http://127.0.0.1:8000/api/feedback" \
   }'
 #    -> 202 {"request_id": "...", "accepted_at": "...", "status": "accepted"}
 
-# 5. Read it back once the worker has persisted it (Korean- and English-safe search)
+# 4. Read it back once the worker has persisted it (Korean- and English-safe search)
 vocky feedback search "pricing"
 vocky feedback list
 vocky usage
+
+# 5. Manage keys later — same scope rule as minting
+vocky keys list                              # your org keys
+vocky keys list --project <project-id>       # that project's keys
+vocky keys revoke <credential-id>            # an org key (add --project for a project key)
 ```
 
 `vocky` authenticates to the account control-plane (`/auth/*`, `/app/*`) with your **session token**; the `vk_` key you mint is what your *product backend* (or an agent) later sends to `/api/*` + `/mcp` to capture feedback. The session token lives in `~/.config/vocky/config.json` (see below). Full command reference and the equivalent raw HTTP for every step are in [docs/cli.md](docs/cli.md).
@@ -128,10 +142,10 @@ The complete agent contract — every command, its output shape, the equivalent 
 
 ## What The Current Pre-MVP Does
 
-- Real user accounts (email + password signup/login) over a multi-tenant core: each account owns a tenant (workspace) with projects and per-project ingest credentials
+- Real user accounts (email + password signup/login) over a multi-tenant core: each account owns an **org** with projects (one, `"default"`, provisioned at signup) and ingest credentials at **project or org** scope
 - Free service — no paid plans, billing, usage metering, or plan tiers
-- Server-to-server REST capture (`POST /api/feedback`) for explicit product/UI-triggered feedback, authenticated by a mandatory per-project `vk_` credential, accepted without blocking on database writes and persisted asynchronously through a Redis-backed background worker
-- A write-only MCP `capture_feedback` tool at `/mcp` for agent-decided capture, gated by the same per-project credential and feeding the same store as REST
+- Server-to-server REST capture (`POST /api/feedback`) for explicit product/UI-triggered feedback, authenticated by a mandatory `vk_` credential, accepted without blocking on database writes and persisted asynchronously through a Redis-backed background worker
+- A write-only MCP `capture_feedback` tool at `/mcp` for agent-decided capture, gated by the same `vk_` credential and feeding the same store as REST
 - A `vocky` CLI and an authenticated web app that both drive the same account/project/credential control-plane and cross-project feedback read
 - Store like/dislike values, optional comments, caller-owned user identity, trigger context, exact target context, conversation context, and metadata for later review
 - A scoped end-user read (`GET /api/feedback`) that returns a product user's own records plus operator comments and attachment links
@@ -157,9 +171,9 @@ Vocky follows a light open-core direction: a community, self-hostable base plus 
 ## Current Status
 
 - Account signup/login/logout/identity are implemented over `/auth/*`, minting an opaque, 30-day session bearer token.
-- The account control-plane (`/app/*`) manages the caller's tenant, projects, per-project `vk_` credentials, usage, and cross-project feedback read/search — driven by the web app and the `vocky` CLI.
-- `/api/*` capture and reads are authenticated by a mandatory per-project credential (the old optional static `VOCKY_API_AUTH_TOKEN` is retired).
-- `/mcp` exposes a single write-only `capture_feedback` tool for agents, authenticated by the same per-project credential.
+- The account control-plane (`/app/*`) manages the caller's org, projects, `vk_` credentials at project **or** org scope, usage, and cross-project feedback read/search — driven by the web app and the `vocky` CLI.
+- `/api/*` capture and reads are authenticated by a mandatory `vk_` credential, scoped to one project or to the whole org (the old optional static `VOCKY_API_AUTH_TOKEN` is retired).
+- `/mcp` exposes a single write-only `capture_feedback` tool for agents, authenticated by the same `vk_` credential.
 - Accepted capture events are queued and persisted by a dedicated background worker rather than written on the request path; completed events persist to PostgreSQL with Alembic migrations.
 - Self-hosted runtime includes PostgreSQL, Redis, the app process, and a dedicated worker process.
 - The project is still pre-MVP and the contracts should be treated as early-stage.
@@ -196,7 +210,7 @@ Public custom-domain access has these additional settings:
 - `VOCKY_ADMIN_AUTH_TOKEN`: bearer token required for `/admin/api/*` when set. Set this before exposing Admin REST endpoints.
 - `VOCKY_MCP_ALLOWED_HOSTS`: comma-separated extra `Host` values allowed by the `/mcp` DNS-rebinding protection. A public `/mcp` deployment must add its public host (with port) here.
 
-`/api/*` needs no extra env gating before exposure — it is always authenticated by per-project `vk_` credentials.
+`/api/*` needs no extra env gating before exposure — it is always authenticated by `vk_` credentials.
 
 Granular fallback commands remain available:
 
@@ -224,11 +238,11 @@ The Starlette host app exposes:
 
 - `GET /healthz`
 - Account auth under `/auth/*` (signup, login, logout, me)
-- Session-authed account control-plane under `/app/*` (tenant, projects, per-project credentials, usage, cross-project feedback read/search)
-- Public REST capture at `POST /api/feedback` (per-project `vk_` credential)
+- Session-authed account control-plane under `/app/*` (org, projects, ingest credentials at project **or** org scope, usage, cross-project feedback read/search)
+- Public REST capture at `POST /api/feedback` (`vk_` credential, project- or org-scoped)
 - Scoped end-user read at `GET /api/feedback`
 - Project-scoped read+manage at `/api/project/feedback` and per-project usage at `/api/project/usage`
-- Write-only agent capture at `/mcp` (single `capture_feedback` tool, per-project `vk_` credential)
+- Write-only agent capture at `/mcp` (single `capture_feedback` tool, `vk_` credential)
 - Admin REST under `/admin/api/*`
 - The packaged (superseded, P6-removal) Admin Web UI under `/admin`
 
@@ -247,7 +261,7 @@ Vocky supports two clean operator modes for self-hosting:
 - Internal self-hosting: keep the default `*_PUBLISH_HOST=127.0.0.1` values, use `VOCKY_BASE_URL` for host-side smoke and verification, and connect from the same machine or trusted private network.
 - Public custom-domain deploy: publish vocky through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL`, set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*`, add the public host to `VOCKY_MCP_ALLOWED_HOSTS` if you expose `/mcp`, and use `make external-verify` for public readiness and smoke checks.
 
-`/api/*` and `/mcp` are always authenticated by per-project `vk_` credentials, so they need no extra env gating before exposure. For public custom-domain access, set `VOCKY_EXTERNAL_BASE_URL` to the external HTTPS origin after DNS and proxying are active.
+`/api/*` and `/mcp` are always authenticated by `vk_` credentials, so they need no extra env gating before exposure. For public custom-domain access, set `VOCKY_EXTERNAL_BASE_URL` to the external HTTPS origin after DNS and proxying are active.
 
 ## Public Custom Domain With Cloudflare
 
@@ -322,7 +336,7 @@ Implemented endpoint:
 
 - `POST /api/feedback`
 
-**Authentication is mandatory.** Every `/api/*` request must send a valid, non-revoked per-project credential as `Authorization: Bearer vk_<token>`; a missing, malformed, unknown, or revoked key returns `401`. Mint the key with the web app, the `vocky` CLI (`vocky keys mint --project <id>`), or `POST /app/projects/{id}/credentials`. The old optional static `VOCKY_API_AUTH_TOKEN` is retired; there is no unauthenticated or shared-token path.
+**Authentication is mandatory.** Every `/api/*` request must send a valid, non-revoked per-project credential as `Authorization: Bearer vk_<token>`; a missing, malformed, unknown, or revoked key returns `401`. Mint the key with the web app, the `vocky` CLI (`vocky keys mint` for an org key, `vocky keys mint --project <id>` for a project key), or `POST /app/credentials` / `POST /app/projects/{id}/credentials`. A key's scope is reported by `credential.project_id` — a UUID for project-bound, `null` for org-level; both use the same `vk_` prefix. The old optional static `VOCKY_API_AUTH_TOKEN` is retired; there is no unauthenticated or shared-token path.
 
 A successful capture returns `202` with `{request_id, accepted_at, status: "accepted"}`; the worker persists the record asynchronously.
 
@@ -416,7 +430,7 @@ Implemented endpoints:
 - `PATCH /admin/api/feedback/{feedback_id}`
 - `DELETE /admin/api/feedback/{feedback_id}`
 
-Set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*` outside a trusted local/private environment; Admin REST requests then send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`. This is a **separate** boundary from the per-project `vk_` credential that guards `/api/*`.
+Set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*` outside a trusted local/private environment; Admin REST requests then send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`. This is a **separate** boundary from the `vk_` ingest credential that guards `/api/*`.
 
 Admin REST patch writes apply the same channel category rule as capture: blank clears to `null`, and non-null values must be `web`, `mobile`, or `support`. Admin list filters exact-match stored channel text, `user_id`, `target_type`, and `trigger_type`.
 

@@ -1,17 +1,17 @@
 ---
 doc_id: decisions
-version: v0006
-created_at: 2026-07-18T01:41:02+09:00
-source: P8.REVIEW
-summary: P8: add D-P8-1 (round 01 design gate closed) superseding D-P4-3; the landing design+build moves to P8+P9
-previous: v0005_p4_web-app_decisions_app_in_a_repo_subdir_web_server-side_bff_sealed_httponly_cookie_no_cors_no_web-side_db_port_the_design_system_and_defer_the_heavy_design_gate_to_p6
+version: v0007
+created_at: 2026-07-28T23:53:46+09:00
+source: P10.REVIEW
+summary: P10: add D-P10-1..5 — no tenants-to-orgs rename, a default project but a friendly org name, one vk_ prefix for both scopes, omitting --project mints an org key, and no design round for the org-key surface
+previous: v0006_p8_add_d-p8-1_round_01_design_gate_closed_superseding_d-p4-3_the_landing_design_build_moves_to_p8_p9
 ---
 
 # Decisions
 
 ## Status
 
-Records the durable design decisions made in phases P2 (accounts, tenancy, projects core), P3 (feedback API v2, cross-project search, usage monitoring), P7 (agent-capture revival — the write-only MCP surface), P4 (the authenticated web app), and P8 (the design gate — brand, app UI & landing). Each was operator-approved during decomposition and should not be re-litigated without a new decision superseding it. **D-P8-1 supersedes D-P4-3** (the design gate D-P4-3 deferred is now held and closed).
+Records the durable design decisions made in phases P2 (accounts, tenancy, projects core), P3 (feedback API v2, cross-project search, usage monitoring), P7 (agent-capture revival — the write-only MCP surface), P4 (the authenticated web app), P8 (the design gate — brand, app UI & landing), and P10 (accounts v2 — orgs, org-level keys, default project). Each was operator-approved during decomposition and should not be re-litigated without a new decision superseding it. **D-P8-1 supersedes D-P4-3** (the design gate D-P4-3 deferred is now held and closed). **D-P10-3 narrows D-P3-2** (a key's "both, full" authority now spans a *chosen* scope rather than always exactly one project).
 
 ## D-P2-1 — Account auth: email + password + opaque DB-backed bearer tokens
 
@@ -147,3 +147,37 @@ Records the durable design decisions made in phases P2 (accounts, tenancy, proje
   - **Backend/data contracts:** **no change required** (`build-prompt.md §9`) — everything maps to existing serializers; no `src/vocky/**` or P2/P3 contract reopening. Two web-tier-only behaviors: `/` gains a public landing behind the existing signed-in→dashboard bounce, and a project-detail breadcrumb from already-fetched data.
 - **Why:** A big design change gets a design phase then an apply phase (P8 then P9); the phase's true size stays unknown until signoff, which is exactly why the apply is a separate phase whose `DECOMP` runs only after this gate closed. All brand decisions were concluded by the operator in the Claude Design session (zero brand decisions by Claude Code — the load-bearing constraint); Claude Code authored only the handoff.
 - **Consequences:** P9 decomposes and sizes every apply slice from `build-prompt.md` (its executors have no DesignSync, so `build-prompt.md` is the complete on-disk source of truth; the 30-card set + `tokens.css` stay in the design project, not copied down). Until P9 lands, `frontend.md` still describes the live **placeholder** palette. D-P4-3's "until P6" / "a P6 question" clauses now read as **P8/P9** per this supersession.
+
+## D-P10-1 — "Org" is product-facing naming only; the `tenants` table is not renamed
+
+- **Decision:** P10 makes the accounts model explicitly **user → org → project**, but performs **no `tenants` → `orgs` rename**. The tenant row *is* the org. "Org" is adopted in web copy, CLI output, and docs; `tenant_id`, `tenants[]`, `VockyTenant`, `tenant_members`, and every route path stay exactly as they are.
+- **Why:** The tenant id threads through the schema, the auth resolver, the whole `/app/*` surface, `feedback_events.project_id`'s owner chain, and the web BFF. A rename is a large mechanical diff with real regression risk and **zero behavior change** — a bad trade, and the same call the reference implementation made. Product-facing language is what users actually see, and that can move without touching a wire identifier.
+- **Consequences:** `tenant` and `org` are synonyms in this codebase and the docs say so explicitly. Anyone reading the schema must translate; anyone writing user-facing text must say "org". A future rename remains possible but is its own mechanical slice, never folded into a feature phase.
+
+## D-P10-2 — Signup provisions a `"default"` **project**; the org keeps its friendly auto-name
+
+- **Decision:** Signup provisions the org, the owner membership, **and a project named `"default"`** in one transaction. **Only the project is named `"default"`.** The org keeps `"<email-local-part>'s workspace"`. There is deliberately **no `DEFAULT_ORG_NAME` constant**, and a test asserts its *absence*.
+- **Why:** Before P10 a new account had zero projects and zero keys, so the product's own depicted flow began with manual setup — provisioning a project removes that. But adopting the reference implementation's literal `"default"` **org** name would buy nothing (nothing resolves an org by name) and would actively regress the app shell, which renders the org name to the user. This is a **recorded, deliberate divergence** from both the reference implementation and from an earlier phrasing of P10's own objective, which said signup provisions "a `default` org and a `default` project" — only the project half is true, and **the docs follow the code, not that sentence**.
+- **Consequences:** `DEFAULT_PROJECT_NAME = "default"` is the only such constant. A later slice adopting a literal `"default"` org fails a test rather than drifting silently. Existing orgs are never renamed and acquire `"default"` lazily via get-or-create. Onboarding is documented as two steps, not three.
+
+## D-P10-3 — Org-level keys are a real trust-boundary widening, landed additively and enforcement-first
+
+- **Narrows:** **D-P3-2** ("both, full" project-credential scope). A `vk_` key still does capture **and** full read+manage with no per-credential permission scopes; what changed is that the *reach* is now a user-chosen scope — one project, or the whole org — rather than always exactly one project.
+- **Decision:** `project_credentials.project_id` becomes **nullable**, where `IS NULL` means org-level, and `tenant_id` becomes `NOT NULL` at both scopes. A **nullable column, not a scope enum**. Critically, the phase was ordered so that **every credential-derived project filter became org-aware and set-based *before* any org key was mintable** — the enforcement slice landed **dark**, with no mint surface, and its acceptance criterion was that the entire existing suite passed **byte-for-byte with zero assertion edits** (191/191).
+- **Why:** Unlike the reference implementation — where "org-level" was only a *wording* change, because its resolver already authorized by tenant — **vocky's keys were project-bound at both binding and enforcement**, and `security.md` published that as a guarantee. Relaxing the column without first rewriting enforcement would not have made org keys read *nothing*; a `None` single-project filter meant *"no filter"*, so a NULL-project credential would have **failed open to a global, cross-tenant read**. The ordering is therefore not a preference but the safety property, and the dark landing is the only moment at which additivity can be *proved* rather than asserted — a proof that disappears the instant minting is on.
+- **Consequences:** Project scoping is expressible only as a set (`FeedbackQueryFilters.project_id` was deleted), a credential's scope is resolved once in the middleware into a tuple that can never be `None`, an empty scope short-circuits to an empty result and is never collapsed to `None`, and scope resolution fails **closed**. `security.md`'s schema-anchored guarantee is **retired and rewritten**, not reworded: the guarantee is now tenancy isolation plus an explicitly user-chosen key scope. An org key is a bigger secret — leaking it exposes every project in the org, present and future; revoking it cuts them all at once.
+
+## D-P10-4 — One `vk_` prefix for both key scopes (counter-argument recorded)
+
+- **Decision:** Org keys use the **same `vk_` prefix** as project keys. No distinct prefix. Scope is surfaced by `credential.project_id` (a UUID vs `null`) and by the product's own UI/CLI labelling.
+- **Why:** The prefix is **never validated** — auth resolves purely by `sha256_hex` — so a second prefix buys **no** cheap pre-database branch, which was the only mechanical argument for one. `vk_` is published as *the* key shape across the docs and the landing page, and forking it mid-phase fragments that story for a distinction the product already surfaces explicitly.
+- **Counter-argument, recorded honestly:** a distinct prefix would let a human, a log scrubber, or a secret-scanning rule tell a broad key from a narrow one **at a glance**, which has real incident-response value. Nothing here forecloses it: it would be a **mint-side-only, purely additive** change (nothing reads the prefix for auth), so only newly minted keys would carry it and every old key would keep working.
+- **Consequences:** You cannot tell a key's blast radius by looking at it. Any tooling that needs to must read `project_id` from the credential payload, not parse the key.
+
+## D-P10-5 — Omitting `--project` mints an **org** key; no design round for the org-key surface
+
+- **Decision (CLI):** `vocky keys mint|list|revoke` relax `--project` from **required** to optional; omitting it selects the org-level route. The CLI derives the printed scope from *which route it called*, not from the server's echoed `project_id`.
+- **Decision (design):** the org-key surface ships as a **panel on `/dashboard`** — no new route, no new nav entry — with **no Claude Design co-work round**. The phase decomposed in a single pass.
+- **Why (CLI):** Org and project scope map 1:1 onto two route families, so one optional flag is the smallest honest surface; inventing a separate `--org` flag or a subcommand would encode the same bit twice. Deriving the scope line from the call site rather than the response sidesteps the absent-vs-`null` ambiguity entirely.
+- **Why (design):** Design round 01 is closed and vocky already had every primitive the surface needs (`Card`, `DataTable`, `Badge`, the mint form, the show-once panel). The only open question was information architecture, and it has one honest answer: an org key belongs to no project, so it belongs on the org-level page.
+- **Consequences (and the accepted cost):** `--project` **no longer has Typer's exit-2 "missing required option" path.** A script that relied on that failure to catch a forgotten `--project` now silently succeeds — **with a broader key than intended**. The mitigation is announcement, not prevention: `keys mint` always prints a `Scope:` line and `keys list` labels each row. This is recorded rather than softened; scripted minting should assert on the scope line. On the design side, the show-once key panel became a **shared component** rather than a second copy, and the org table deliberately keeps its own column set rather than being folded into a parameterized factory.

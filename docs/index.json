@@ -1,7 +1,7 @@
 {
   "docs": {
     "product": {
-      "latest": "v0008_p6_the_packaged_admin_web_ui_is_retired_for_real_vocky_is_deploy-ready_but_not_deployed_launch_is_p12_and_the_cli_is_packaged_but_unpublished_distribution_is_p11",
+      "latest": "v0009_p10_the_accounts_plane_is_user_org_project_signup_lands_a_ready-to-use_account_with_a_default_project_and_a_key_is_now_a_user_s_choice_between_one_project_and_the_whole_org",
       "current_path": "docs/current/product.md",
       "versions": [
         {
@@ -67,11 +67,19 @@
           "source": "P6.REVIEW",
           "summary": "P6: the packaged Admin Web UI is retired for real; vocky is deploy-ready but not deployed (launch is P12) and the CLI is packaged but unpublished (distribution is P11)",
           "previous": "v0007_p5_the_vocky_cli_is_a_first-class_user_surface_alongside_the_web_app_the_whole_accounts_to_key_to_capture_to_read_spine_is_completable_from_the_terminal_without_visiting_the_website"
+        },
+        {
+          "id": "v0009_p10_the_accounts_plane_is_user_org_project_signup_lands_a_ready-to-use_account_with_a_default_project_and_a_key_is_now_a_user_s_choice_between_one_project_and_the_whole_org",
+          "path": "docs/versions/product/v0009_p10_the_accounts_plane_is_user_org_project_signup_lands_a_ready-to-use_account_with_a_default_project_and_a_key_is_now_a_user_s_choice_between_one_project_and_the_whole_org.md",
+          "created_at": "2026-07-28T23:49:02+09:00",
+          "source": "P10.REVIEW",
+          "summary": "P10: the accounts plane is user/org/project — signup lands a ready-to-use account with a default project, and a key is now a user's choice between one project and the whole org",
+          "previous": "v0008_p6_the_packaged_admin_web_ui_is_retired_for_real_vocky_is_deploy-ready_but_not_deployed_launch_is_p12_and_the_cli_is_packaged_but_unpublished_distribution_is_p11"
         }
       ]
     },
     "experience": {
-      "latest": "v0009_p6_the_install_story_is_packaged_but_unpublished_lean_pip_install_vocky_vs_vocky_server_and_vocky.hi2vi.com_is_not_live_yet",
+      "latest": "v0010_p10_onboarding_is_two_steps_not_three_signup_provisions_a_default_project_a_key_is_a_scope_choice_between_project_and_org_and_project_names_are_unique_per_org",
       "current_path": "docs/current/experience.md",
       "versions": [
         {
@@ -145,11 +153,19 @@
           "source": "P6.REVIEW",
           "summary": "P6: the install story is packaged but unpublished — lean pip install vocky vs vocky[server], and vocky.hi2vi.com is not live yet",
           "previous": "v0008_p5_the_vocky_cli_onboarding_journey_signup_to_project_to_key_to_capture_to_read_from_the_terminal_headless_--password-stdin_--base-url_vocky_config_dir_generic-401_show-once_key_docs_cli.md_is_the_full_reference"
+        },
+        {
+          "id": "v0010_p10_onboarding_is_two_steps_not_three_signup_provisions_a_default_project_a_key_is_a_scope_choice_between_project_and_org_and_project_names_are_unique_per_org",
+          "path": "docs/versions/experience/v0010_p10_onboarding_is_two_steps_not_three_signup_provisions_a_default_project_a_key_is_a_scope_choice_between_project_and_org_and_project_names_are_unique_per_org.md",
+          "created_at": "2026-07-28T23:50:25+09:00",
+          "source": "P10.REVIEW",
+          "summary": "P10: onboarding is two steps not three (signup provisions a default project), a key is a scope choice between project and org, and project names are unique per org",
+          "previous": "v0009_p6_the_install_story_is_packaged_but_unpublished_lean_pip_install_vocky_vs_vocky_server_and_vocky.hi2vi.com_is_not_live_yet"
         }
       ]
     },
     "architecture": {
-      "latest": "v0008_p6_the_packaged_admin_web_ui_is_physically_removed_only_admin_api_survives_and_the_production_deployment_topology_lands_five_containers_on_the_shared_edge_network_worker_reusing_the_api_image",
+      "latest": "v0009_p10_user_org_project_accounts_plane_the_ingest_middleware_resolves_a_credential_s_project_scope_once_per_request_as_a_non-null_tuple_and_enqueue_is_the_write_path_s_last_enforcement_point",
       "current_path": "docs/current/architecture.md",
       "versions": [
         {
@@ -215,11 +231,19 @@
           "source": "P6.REVIEW",
           "summary": "P6: the packaged Admin Web UI is physically removed (only /admin/api/* survives) and the production deployment topology lands — five containers on the shared edge network, worker reusing the api image",
           "previous": "v0007_p5_the_vocky_cli_as_a_new_pure-client_surface_over_auth_app_typer_app_in_src_vocky_cli_no_backend_change_mirroring_the_web-app_client_framing_server_console_entry_renamed_to_vocky-server"
+        },
+        {
+          "id": "v0009_p10_user_org_project_accounts_plane_the_ingest_middleware_resolves_a_credential_s_project_scope_once_per_request_as_a_non-null_tuple_and_enqueue_is_the_write_path_s_last_enforcement_point",
+          "path": "docs/versions/architecture/v0009_p10_user_org_project_accounts_plane_the_ingest_middleware_resolves_a_credential_s_project_scope_once_per_request_as_a_non-null_tuple_and_enqueue_is_the_write_path_s_last_enforcement_point.md",
+          "created_at": "2026-07-28T23:46:09+09:00",
+          "source": "P10.REVIEW",
+          "summary": "P10: user/org/project accounts plane — the ingest middleware resolves a credential's project scope once per request as a non-null tuple, and enqueue is the write path's last enforcement point",
+          "previous": "v0008_p6_the_packaged_admin_web_ui_is_physically_removed_only_admin_api_survives_and_the_production_deployment_topology_lands_five_containers_on_the_shared_edge_network_worker_reusing_the_api_image"
         }
       ]
     },
     "frontend": {
-      "latest": "v0005_p6_the_site_metadata_og_robots_sitemap_manifest_routes_the_next_public_app_url_build-time_origin_the_prod-gated_csp_and_the_standalone_production_image_the_replaced_admin_web_ui_is_now_actually_deleted",
+      "latest": "v0006_p10_the_dashboard_gains_an_org-keys_panel_vockycredential.project_id_widens_to_string_null_the_show-once_key_panel_becomes_a_shared_component_and_workspace_becomes_org",
       "current_path": "docs/current/frontend.md",
       "versions": [
         {
@@ -261,11 +285,19 @@
           "source": "P6.REVIEW",
           "summary": "P6: the site metadata/OG/robots/sitemap/manifest routes, the NEXT_PUBLIC_APP_URL build-time origin, the prod-gated CSP, and the standalone production image; the replaced Admin Web UI is now actually deleted",
           "previous": "v0004_p9_apply_the_round-01_vocky_design_across_the_app_and_landing_deep-emerald_value_swap_pretendard_new_component_vocabulary_net-new_states_public_landing_placeholder_retired"
+        },
+        {
+          "id": "v0006_p10_the_dashboard_gains_an_org-keys_panel_vockycredential.project_id_widens_to_string_null_the_show-once_key_panel_becomes_a_shared_component_and_workspace_becomes_org",
+          "path": "docs/versions/frontend/v0006_p10_the_dashboard_gains_an_org-keys_panel_vockycredential.project_id_widens_to_string_null_the_show-once_key_panel_becomes_a_shared_component_and_workspace_becomes_org.md",
+          "created_at": "2026-07-28T23:52:12+09:00",
+          "source": "P10.REVIEW",
+          "summary": "P10: the dashboard gains an org-keys panel, VockyCredential.project_id widens to string|null, the show-once key panel becomes a shared component, and Workspace becomes Org",
+          "previous": "v0005_p6_the_site_metadata_og_robots_sitemap_manifest_routes_the_next_public_app_url_build-time_origin_the_prod-gated_csp_and_the_standalone_production_image_the_replaced_admin_web_ui_is_now_actually_deleted"
         }
       ]
     },
     "backend": {
-      "latest": "v0004_p6_create_app_no_longer_registers_admin_ui_routes_the_admin_web_ui_module_and_its_assets_are_deleted_middleware_and_the_admin_api_routes_are_unchanged",
+      "latest": "v0005_p10_accounts_gains_provision_signup_get_or_create_project_get_project_by_name_list_org_credentials_and_get_credential_auth_gains_the_credential_project-scope_resolver_capture_gains_resolve_capture_project",
       "current_path": "docs/current/backend.md",
       "versions": [
         {
@@ -299,11 +331,19 @@
           "source": "P6.REVIEW",
           "summary": "P6: create_app no longer registers admin_ui_routes — the Admin Web UI module and its assets are deleted; middleware and the /admin/api routes are unchanged",
           "previous": "v0003_p7_mcp_server.py_fastmcp_bootstrap_capture_feedback_tool_module_is_mcp_path_broadened_ingest_guard_mcpcapturefeedbackinput"
+        },
+        {
+          "id": "v0005_p10_accounts_gains_provision_signup_get_or_create_project_get_project_by_name_list_org_credentials_and_get_credential_auth_gains_the_credential_project-scope_resolver_capture_gains_resolve_capture_project",
+          "path": "docs/versions/backend/v0005_p10_accounts_gains_provision_signup_get_or_create_project_get_project_by_name_list_org_credentials_and_get_credential_auth_gains_the_credential_project-scope_resolver_capture_gains_resolve_capture_project.md",
+          "created_at": "2026-07-28T23:47:56+09:00",
+          "source": "P10.REVIEW",
+          "summary": "P10: accounts gains provision_signup, get_or_create_project, get_project_by_name, list_org_credentials and get_credential; auth gains the credential project-scope resolver; capture gains resolve_capture_project",
+          "previous": "v0004_p6_create_app_no_longer_registers_admin_ui_routes_the_admin_web_ui_module_and_its_assets_are_deleted_middleware_and_the_admin_api_routes_are_unchanged"
         }
       ]
     },
     "data": {
-      "latest": "v0003_p3_feedback_events.project_id_fk_index_migration_20260716_1500_pg_trgm_trigram_gin_search_index_20260716_1600_head_credential_auth-token_last_used_at_now_stamped",
+      "latest": "v0004_p10_migration_20260728_1200_projects_unique_tenant_id_name_with_an_oldest-wins_de-dupe_project_credentials.tenant_id_not_null_and_project_id_nullable_is_null_org-level",
       "current_path": "docs/current/data.md",
       "versions": [
         {
@@ -329,11 +369,19 @@
           "source": "P3.REVIEW",
           "summary": "P3: feedback_events.project_id FK+index (migration 20260716_1500), pg_trgm trigram GIN search index (20260716_1600, head); credential/auth-token last_used_at now stamped",
           "previous": "v0002_accounts_and_tenancy_schema_users_tenants_tenant_members_projects_project_credentials_auth_tokens_migration_20260715_1200"
+        },
+        {
+          "id": "v0004_p10_migration_20260728_1200_projects_unique_tenant_id_name_with_an_oldest-wins_de-dupe_project_credentials.tenant_id_not_null_and_project_id_nullable_is_null_org-level",
+          "path": "docs/versions/data/v0004_p10_migration_20260728_1200_projects_unique_tenant_id_name_with_an_oldest-wins_de-dupe_project_credentials.tenant_id_not_null_and_project_id_nullable_is_null_org-level.md",
+          "created_at": "2026-07-28T23:41:58+09:00",
+          "source": "P10.REVIEW",
+          "summary": "P10: migration 20260728_1200 — projects UNIQUE(tenant_id,name) with an oldest-wins de-dupe, project_credentials.tenant_id NOT NULL, and project_id nullable (IS NULL = org-level)",
+          "previous": "v0003_p3_feedback_events.project_id_fk_index_migration_20260716_1500_pg_trgm_trigram_gin_search_index_20260716_1600_head_credential_auth-token_last_used_at_now_stamped"
         }
       ]
     },
     "api": {
-      "latest": "v0007_p6_the_packaged_admin_web_ui_routes_are_deleted_admin_and_admin_assets_no_longer_exist_only_the_bearer-guarded_admin_api_rest_surface_remains_and_it_is_404d_at_the_production_edge",
+      "latest": "v0008_p10_signup_returns_an_additive_project_post_app_projects_is_get-or-create_three_new_org-level_app_credentials_routes_credential_project_id_is_nullable_and_capture_takes_an_optional_project_name_honored_only_for_org_keys",
       "current_path": "docs/current/api.md",
       "versions": [
         {
@@ -391,6 +439,14 @@
           "source": "P6.REVIEW",
           "summary": "P6: the packaged Admin Web UI routes are deleted — /admin and /admin/assets/* no longer exist, only the bearer-guarded /admin/api/* REST surface remains, and it is 404d at the production edge",
           "previous": "v0006_p4_correct_the_stale_admin-docs-try-it_forward_reference_p4_superseded_the_packaged_operator_ui_with_the_web_app_rather_than_updating_its_docs_removal_moves_to_p6_no_api_contract_change"
+        },
+        {
+          "id": "v0008_p10_signup_returns_an_additive_project_post_app_projects_is_get-or-create_three_new_org-level_app_credentials_routes_credential_project_id_is_nullable_and_capture_takes_an_optional_project_name_honored_only_for_org_keys",
+          "path": "docs/versions/api/v0008_p10_signup_returns_an_additive_project_post_app_projects_is_get-or-create_three_new_org-level_app_credentials_routes_credential_project_id_is_nullable_and_capture_takes_an_optional_project_name_honored_only_for_org_keys.md",
+          "created_at": "2026-07-28T23:43:22+09:00",
+          "source": "P10.REVIEW",
+          "summary": "P10: signup returns an additive project, POST /app/projects is get-or-create, three new org-level /app/credentials routes, credential project_id is nullable, and capture takes an optional project name honored only for org keys",
+          "previous": "v0007_p6_the_packaged_admin_web_ui_routes_are_deleted_admin_and_admin_assets_no_longer_exist_only_the_bearer-guarded_admin_api_rest_surface_remains_and_it_is_404d_at_the_production_edge"
         }
       ]
     },
@@ -433,7 +489,7 @@
       ]
     },
     "security": {
-      "latest": "v0007_p6_the_production_edge_app_security_split_prod-gated_app_csp_edge_hsts_additive_upgrade-insecure-requests_cloudflare_real-ip_restore_admin_404_internal-only_at_the_edge_and_the_unthrottled_auth_origin_gap_d5",
+      "latest": "v0008_p10_org-level_vk__keys_are_a_real_trust-boundary_widening_key_scope_is_now_user-chosen_project-bound_or_org-level_and_the_guarantee_is_anchored_on_tenancy_plus_a_middleware-resolved_non-null_project-id_tuple",
       "current_path": "docs/current/security.md",
       "versions": [
         {
@@ -491,6 +547,14 @@
           "source": "P6.REVIEW",
           "summary": "P6: the production edge/app security split — prod-gated app CSP, edge HSTS + additive upgrade-insecure-requests, Cloudflare real-IP restore, /admin 404 internal-only at the edge, and the unthrottled /auth/* origin gap (D5)",
           "previous": "v0006_p5_the_cli_s_on-disk_30-day_session_token_at_.config_vocky_config.json_0600_the_first_filesystem-resident_vocky_session_credential_the_cli_holds_the_session_token_and_mints_vk__keys_for_api"
+        },
+        {
+          "id": "v0008_p10_org-level_vk__keys_are_a_real_trust-boundary_widening_key_scope_is_now_user-chosen_project-bound_or_org-level_and_the_guarantee_is_anchored_on_tenancy_plus_a_middleware-resolved_non-null_project-id_tuple",
+          "path": "docs/versions/security/v0008_p10_org-level_vk__keys_are_a_real_trust-boundary_widening_key_scope_is_now_user-chosen_project-bound_or_org-level_and_the_guarantee_is_anchored_on_tenancy_plus_a_middleware-resolved_non-null_project-id_tuple.md",
+          "created_at": "2026-07-28T23:38:52+09:00",
+          "source": "P10.REVIEW",
+          "summary": "P10: org-level vk_ keys are a real trust-boundary widening — key scope is now user-chosen (project-bound or org-level) and the guarantee is anchored on tenancy plus a middleware-resolved non-null project-id tuple",
+          "previous": "v0007_p6_the_production_edge_app_security_split_prod-gated_app_csp_edge_hsts_additive_upgrade-insecure-requests_cloudflare_real-ip_restore_admin_404_internal-only_at_the_edge_and_the_unthrottled_auth_origin_gap_d5"
         }
       ]
     },
@@ -509,7 +573,7 @@
       ]
     },
     "decisions": {
-      "latest": "v0006_p8_add_d-p8-1_round_01_design_gate_closed_superseding_d-p4-3_the_landing_design_build_moves_to_p8_p9",
+      "latest": "v0007_p10_add_d-p10-1..5_no_tenants-to-orgs_rename_a_default_project_but_a_friendly_org_name_one_vk__prefix_for_both_scopes_omitting_--project_mints_an_org_key_and_no_design_round_for_the_org-key_surface",
       "current_path": "docs/current/decisions.md",
       "versions": [
         {
@@ -559,9 +623,17 @@
           "source": "P8.REVIEW",
           "summary": "P8: add D-P8-1 (round 01 design gate closed) superseding D-P4-3; the landing design+build moves to P8+P9",
           "previous": "v0005_p4_web-app_decisions_app_in_a_repo_subdir_web_server-side_bff_sealed_httponly_cookie_no_cors_no_web-side_db_port_the_design_system_and_defer_the_heavy_design_gate_to_p6"
+        },
+        {
+          "id": "v0007_p10_add_d-p10-1..5_no_tenants-to-orgs_rename_a_default_project_but_a_friendly_org_name_one_vk__prefix_for_both_scopes_omitting_--project_mints_an_org_key_and_no_design_round_for_the_org-key_surface",
+          "path": "docs/versions/decisions/v0007_p10_add_d-p10-1..5_no_tenants-to-orgs_rename_a_default_project_but_a_friendly_org_name_one_vk__prefix_for_both_scopes_omitting_--project_mints_an_org_key_and_no_design_round_for_the_org-key_surface.md",
+          "created_at": "2026-07-28T23:53:46+09:00",
+          "source": "P10.REVIEW",
+          "summary": "P10: add D-P10-1..5 — no tenants-to-orgs rename, a default project but a friendly org name, one vk_ prefix for both scopes, omitting --project mints an org key, and no design round for the org-key surface",
+          "previous": "v0006_p8_add_d-p8-1_round_01_design_gate_closed_superseding_d-p4-3_the_landing_design_build_moves_to_p8_p9"
         }
       ]
     }
   },
-  "last_rebuilt_at": "2026-07-28T17:07:16+09:00"
+  "last_rebuilt_at": "2026-07-28T23:54:47+09:00"
 }

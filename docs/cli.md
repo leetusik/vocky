@@ -2,7 +2,7 @@
 
 This is the complete, self-contained guide to the **`vocky` command-line client** — enough to sign up, set up a project, mint a capture key, capture feedback, and read it back **without ever visiting the website**. It is written to be driven either by a human at a terminal or by a coding agent (Claude Code, Codex, or any runtime) acting on a user's behalf. Every step shows both the `vocky` command and the **equivalent raw HTTP**, so an agent can drive whichever it prefers.
 
-The `vocky` CLI is a pure client of vocky's existing HTTP API. It authenticates to the account control-plane (`/auth/*`, `/app/*`) with a **session token**; it mints the per-project `vk_` **credential** that a product backend (or an agent's MCP client) later uses to capture feedback on `/api/*` + `/mcp`.
+The `vocky` CLI is a pure client of vocky's existing HTTP API. It authenticates to the account control-plane (`/auth/*`, `/app/*`) with a **session token**; it mints the `vk_` **credential** — scoped to one project or to the whole org (P10) — that a product backend (or an agent's MCP client) later uses to capture feedback on `/api/*` + `/mcp`.
 
 > Server vs. client: the `vocky` command is the **user/agent CLI**. The **server** console script is the separate `vocky-server` (with `vocky-worker`). Don't confuse the two.
 
@@ -75,10 +75,10 @@ Auth summary: `signup` and `login` are unauthenticated; `logout`, `whoami`, and 
 
 | Command | HTTP | Notes |
 | --- | --- | --- |
-| `vocky signup [--email E] [--password-stdin]` | `POST /auth/signup {email,password}` → `201 {token,user,tenant}` | Creates the account + an auto-named workspace, stores the token. Password must be ≥ 8 chars. Duplicate email → the CLI says an account exists; run `login`. |
+| `vocky signup [--email E] [--password-stdin]` | `POST /auth/signup {email,password}` → `201 {token,user,tenant,project}` | Creates the account, an auto-named **org**, **and a `"default"` project** (P10), then stores the token. Password must be ≥ 8 chars. Duplicate email → the CLI says an account exists; run `login`. |
 | `vocky login [--email E] [--password-stdin]` | `POST /auth/login {email,password}` → `200 {token,user,tenants}` | Stores a fresh token. Wrong email/password → generic `Incorrect email or password.` |
 | `vocky logout` | `POST /auth/logout` (session bearer) → `204` | Best-effort server revoke, then clears the local token. Idempotent. |
-| `vocky whoami` | `GET /auth/me` (session bearer) → `{user,tenants}` | Prints the signed-in email and workspace name(s). |
+| `vocky whoami` | `GET /auth/me` (session bearer) → `{user,tenants}` | Prints the signed-in email and org name(s). |
 
 ### Projects (`/app/*`)
 
@@ -88,13 +88,26 @@ Auth summary: `signup` and `login` are unauthenticated; `logout`, `whoami`, and 
 | `vocky projects create <NAME>` | `POST /app/projects {name}` → `201 {project}` | Name is 1–200 chars. Prints the full project id. |
 | `vocky projects show <PROJECT_ID>` | `GET /app/projects/{id}` → `{project}` | Prints id / name / created_at. Unknown or cross-tenant id → `404` (never `403`). |
 
-### Keys — per-project `vk_` credentials (`/app/*`)
+### Keys — `vk_` ingest credentials at project **or** org scope (`/app/*`)
+
+**`--project` is optional (P10), and omitting it means org scope.** All three commands take the same flag and branch on it:
 
 | Command | HTTP | Notes |
 | --- | --- | --- |
-| `vocky keys mint --project <PROJECT_ID> [--name LABEL]` | `POST /app/projects/{id}/credentials {name?}` → `201 {credential, key:"vk_…"}` | Prints a show-once warning, then the plaintext `vk_…` key on its own line. Only a hash + 12-char prefix are stored. |
-| `vocky keys list --project <PROJECT_ID>` | `GET /app/projects/{id}/credentials` → `{credentials:[…]}` | Metadata only (`<id>  <prefix>…  <label>  (created …, last used …, active|revoked)`). Never the full key. |
-| `vocky keys revoke --project <PROJECT_ID> <CREDENTIAL_ID>` | `DELETE /app/projects/{id}/credentials/{cid}` → `204` | Soft-revoke; the key stops working immediately and stays listed as revoked. |
+| `vocky keys mint [--name LABEL]` | `POST /app/credentials {name?}` → `201 {credential, key:"vk_…"}` | **Org key** — works across every project in your org, including ones created later. Prints a show-once warning, a `Scope:` line, then the plaintext `vk_…` key **on the last line**. |
+| `vocky keys mint --project <PROJECT_ID> [--name LABEL]` | `POST /app/projects/{id}/credentials {name?}` → `201 {credential, key:"vk_…"}` | **Project key** — works for that one project. Same output contract. Only a hash + 12-char prefix are stored, at either scope. |
+| `vocky keys list` | `GET /app/credentials` → `{credentials:[…]}` | Your **org** keys, metadata only (`<id>  <prefix>…  <label>  (created …, last used …, active\|revoked)`), each row labelled with its scope. Never the full key. |
+| `vocky keys list --project <PROJECT_ID>` | `GET /app/projects/{id}/credentials` → `{credentials:[…]}` | That **project's** keys, same format. |
+| `vocky keys revoke <CREDENTIAL_ID>` | `DELETE /app/credentials/{cid}` → `204` | Revokes an **org** key. A **project** key's id answers `404` here even though it is yours — use the `--project` form for those. A malformed id → `400` with a hint. |
+| `vocky keys revoke --project <PROJECT_ID> <CREDENTIAL_ID>` | `DELETE /app/projects/{id}/credentials/{cid}` → `204` | Revokes a **project** key. |
+
+Soft-revoke at either scope: the key stops working immediately and stays listed as revoked.
+
+**Which scope to mint.** A **project key** is the narrower default — use it when one backend feeds one project. An **org key** is for a client that captures into several projects (with capture naming its destination, get-or-created, defaulting to `"default"`), or when you would otherwise juggle a key per project. The cost is real: an org key exposes every project in the org if it leaks, and revoking it cuts them all at once.
+
+**Both kinds start with `vk_`** — you cannot tell them apart from the key text. The scope is in `credential.project_id` (a UUID vs `null`), and the CLI labels it for you in `mint`'s `Scope:` line and each `list` row.
+
+> **Watch out (P10).** `--project` used to be **required**, so forgetting it failed with Typer's exit-2 "missing option". It no longer does — a forgotten `--project` now **succeeds and mints a broader key**. If you script key minting, assert on `mint`'s `Scope:` line rather than relying on the old failure.
 
 ### Usage (`/app/*`)
 
@@ -128,12 +141,58 @@ Equivalent raw HTTP:
 curl -X POST "http://127.0.0.1:8000/auth/signup" \
   -H "Content-Type: application/json" \
   -d '{"email":"you@example.com","password":"a-strong-password"}'
-# -> 201 { "token": "<session-token>", "user": {...}, "tenant": {...} }
+# -> 201 { "token": "<session-token>", "user": {...}, "tenant": {...},
+#          "project": { "id": "<project-id>", "name": "default", ... } }
 ```
+
+**Signup already gives you a project (P10)** — one named `"default"`, in the additive `project` field of the response, and the CLI prints `A "default" project was created too.` So the old "create a project" step is now optional. (Your **org** keeps a friendly name like `"you's workspace"`; it is the *project* that is called `"default"`.)
 
 The CLI stores `<session-token>` in the config file; a raw-HTTP driver keeps it and sends it as `Authorization: Bearer <session-token>` on every `/app/*` call below. (Already have an account? Use `vocky login` / `POST /auth/login`, which returns a fresh token and your `tenants`.)
 
-### 2. Create a project
+### 2. Mint a `vk_` key (shown once) — pick the scope
+
+**Org key** — one key for every project in your org, including ones created later:
+
+```sh
+vocky keys mint
+# -> Copy this key now — it is shown only once and cannot be recovered. ...
+# -> Scope: org (all projects)
+# -> vk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+**Project key** — the narrower default, bound to one project:
+
+```sh
+vocky keys mint --project <project-id>
+# -> ... Scope: project <project-id>
+# -> vk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+The plaintext key is always the **last line** of the output, at either scope — parse it that way.
+
+Equivalent raw HTTP (note the org route has **no project in the path**):
+
+```sh
+# org-level
+curl -X POST "http://127.0.0.1:8000/app/credentials" \
+  -H "Authorization: Bearer <session-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"all-products"}'
+# -> 201 { "credential": { "project_id": null, ... }, "key": "vk_..." }
+
+# project-bound
+curl -X POST "http://127.0.0.1:8000/app/projects/<project-id>/credentials" \
+  -H "Authorization: Bearer <session-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"web-backend"}'
+# -> 201 { "credential": { "project_id": "<project-id>", ... }, "key": "vk_..." }
+```
+
+Store the `vk_…` key as a secret in the product backend. It is the credential for `/api/*` capture/read and `/mcp` — **not** the session token.
+
+### 2b. (Optional) More projects — get-or-create
+
+Only needed if you want projects beyond `"default"`. As of P10 this is **idempotent on name**, so it is safe to re-run:
 
 ```sh
 vocky projects create "marketing-site"
@@ -148,27 +207,8 @@ curl -X POST "http://127.0.0.1:8000/app/projects" \
   -H "Content-Type: application/json" \
   -d '{"name":"marketing-site"}'
 # -> 201 { "project": { "id": "<project-id>", "name": "marketing-site", ... } }
+#    Returns the existing project if that name is already taken in your org.
 ```
-
-### 3. Mint a per-project `vk_` key (shown once)
-
-```sh
-vocky keys mint --project <project-id>
-# -> Copy this key now — it is shown only once and cannot be recovered. ...
-# -> vk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-```
-
-Equivalent raw HTTP:
-
-```sh
-curl -X POST "http://127.0.0.1:8000/app/projects/<project-id>/credentials" \
-  -H "Authorization: Bearer <session-token>" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"web-backend"}'
-# -> 201 { "credential": {...}, "key": "vk_..." }
-```
-
-Store the `vk_…` key as a secret in the product backend. It is the credential for `/api/*` capture/read and `/mcp` — **not** the session token.
 
 ### 4. Capture feedback with the `vk_` key
 
@@ -192,13 +232,24 @@ curl -X POST "http://127.0.0.1:8000/api/feedback" \
 
 `202` means the job was accepted for background persistence; the record becomes queryable once the worker writes it. `message` and `source.product` are required; every other field is optional (see `docs/current/experience.md` for the full field set). A missing/invalid/revoked key → `401`.
 
+**Choosing the destination project with an org key (P10).** A project key always captures into its own project. With an **org key**, add an optional `project` **name** to the body — get-or-created under your own org, defaulting to `"default"` (the project signup already made you) when omitted:
+
+```sh
+curl -X POST "http://127.0.0.1:8000/api/feedback" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer vk_<your-org-key>" \
+  -d '{"message":"...","source":{"product":"marketing-site"},"project":"marketing-site"}'
+```
+
+A **project-bound** key ignores the field entirely — not compared, not rejected — so adding it never breaks an existing integration.
+
 ### 5. Read it back
 
 ```sh
 vocky feedback search "pricing"       # Korean-safe substring across all your projects
 vocky feedback list                   # newest-first, all projects
 vocky feedback show <feedback-id>     # one record in full (+ operator comments, attachments)
-vocky usage                           # capture volume for the workspace
+vocky usage                           # capture volume for the whole org
 ```
 
 Equivalent raw HTTP (session token):
@@ -213,10 +264,10 @@ A product's own admin panel can instead read+manage its project's feedback with 
 
 ## Agent-decided write-only capture over MCP
 
-When the product is an **AI agent**, the agent can decide at its own judgement to capture feedback through vocky's **write-only** MCP endpoint instead of calling `/api/*` directly. Point the agent's MCP client at `<base-url>/mcp` and authenticate with the **same project `vk_` key** you minted above — the whole endpoint (including the `initialize` handshake) requires it.
+When the product is an **AI agent**, the agent can decide at its own judgement to capture feedback through vocky's **write-only** MCP endpoint instead of calling `/api/*` directly. Point the agent's MCP client at `<base-url>/mcp` and authenticate with the **same `vk_` key** you minted above (either scope works) — the whole endpoint (including the `initialize` handshake) requires it.
 
 - There is exactly **one** tool: `capture_feedback` (write-only; there are no read/query tools).
-- Its inputs are the same capture fields as REST **minus** `attachment_ids`, with `source` the only nested object; the project is implicit in the key (no `project_id` parameter).
+- Its inputs are the same capture fields as REST **minus** `attachment_ids`, with `source` the only nested object. There is no `project_id` parameter — a **project key** captures into its own project, and an **org key** may name a destination with the optional `project` argument (get-or-created under its org, defaulting to `"default"`).
 - A successful call returns the same capture receipt as REST (`{request_id, accepted_at, status: "accepted"}`) — the record becomes queryable after the worker persists it.
 
 Use MCP capture only when an agent runtime is intentionally deciding to record voice-of-customer feedback; explicit human UI actions (like/dislike buttons, page/widget feedback) should still go through `/api/*` REST capture. The full MCP client shape and tool inputs are documented in `docs/current/experience.md` ("Agent Capture Over MCP").

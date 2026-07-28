@@ -930,3 +930,86 @@ Appended by **`P10.S5`** (2026-07-28) — the durable truth this slice actually 
   reads `"{project name}"` verbatim from the additive `project` field (`"default"`), never
   constructing an org name — the CLI has no `DEFAULT_ORG_NAME` concept to reach for, consistent
   with `P10.S1`'s pinning test.
+
+### P10.REVIEW landed (2026-07-28) — verdict `pass`; the phase is green all at once
+
+**Everything was re-run on the current tree; no per-slice result was trusted.** Migration round-trip
+(`head → 20260716_1600 → head`) clean; `make test` **206 passed**; `docker compose up --build` (both
+images genuinely rebuilt, not cached) then `make smoke` exit 0; web `install/typecheck/lint/test/build`
+all green with **61/61** tests; the lean-CLI invariant re-proved in a throwaway venv holding only
+httpx + typer; `workflow.py validate` passing before **and** after doc consolidation.
+
+**Plus a live 25-assertion end-to-end run of this slice's own** (an addition to the plan, not a
+deviation from it) against the freshly rebuilt stack — because the narrower 404 rule, decision 3's
+naming, capture-project resolution, and the usage union are behavioral claims a green unit suite does
+not by itself demonstrate. **25/25.** It confirmed, among others: signup yields `"<localpart>'s
+workspace"` + a `"default"` **project**; `POST /app/projects` is idempotent and returns the same id;
+an org row serializes `project_id` as JSON `null`; a project-bound key's payload key set is unchanged;
+`DELETE /app/credentials/{id}` 404s for the caller's **own project-bound key byte-identically** to a
+nonexistent id; a project-bound key **ignores** a bogus `project` name and creates no project from it;
+an org key reads its whole org and **never** another tenant's rows; the usage union lists the org key
+itself while the per-project drill-down still does not.
+
+**Fail-opens: none, and this was established by grep + reading every hit, not from these notes.**
+`grep -rn "credential.project_id\|get_request_credential" src/vocky/` shows **zero** filter sites
+deriving scope from `credential.project_id`; the four surviving reads are the scope resolver, the
+capture resolver, `usage_api`'s explicitly-commented *shape* test, and `project_feedback_api`'s
+serializer fork. Every scope path terminates in an explicit early return or in set membership that
+fails closed on an empty tuple. `FeedbackQueryFilters.project_id` is confirmed **absent from the type**,
+so an unscoped project read is not expressible.
+
+**Scope discipline held.** No `vocky init` anywhere in `src/vocky/cli/`; `web/src/content/landing.ts`
+appears **0 times** in P10's diff; **0** deploy/CI/compose files touched. `grep -rn -i workspace
+src/vocky/cli/ web/src/` returns nothing — the Workspace→Org rename is complete in both client surfaces.
+
+**Nine durable-doc versions consolidated** (`--source P10.REVIEW`, then `rebuild-docs`): `security`
+v0008, `api` v0008, `architecture` v0009, `backend` v0005, `data` v0004, `product` v0009, `experience`
+v0010, **`frontend` v0006**, **`decisions` v0007**. The last two were the plan's judgment calls and both
+were **added**:
+
+- **`frontend`** — an oversight in the running list, not a decision. Unversioned it would have kept
+  asserting four now-false things: `VockyCredential.project_id: string`, "exactly **3** server actions"
+  (it is **5**, counted), "56 vitest tests" (61), and "13" format-check files (12).
+- **`decisions`** — the phase settled five precedent-setting questions, added as **D-P10-1..5**
+  (no table rename · `"default"` project but a friendly org name · the widening landed
+  additively-and-enforcement-first, recorded as **narrowing D-P3-2** · one `vk_` prefix with its
+  counter-argument · omitting `--project` mints an org key, plus the no-design-round call).
+
+**The security rewrite, since it was the phase's centre of gravity.** The old sentence is retired, not
+reworded — it now survives only as a **quotation inside a section that explicitly retires it**
+(silently deleting a published guarantee would be worse). The replacement anchors on (a) unconditional
+tenancy isolation and (b) an explicitly user-chosen key scope, and every claim was checked against
+source rather than against these notes. Two things were deliberately **not** claimed: signup is **not**
+called atomic (the `create_user` window is narrowed, not closed — said in three docs), and there are
+still **no per-credential permission scopes** (an org key has the same full verb set, which is exactly
+why it is the bigger secret).
+
+**The objective sentence is wrong and the docs deliberately do not inherit it.** `phase.json` says
+signup provisions "a `default` org and a `default` project"; only the project half is true. The
+divergence is now called out **by name** in `api.md`, `product.md`, `decisions.md` (D-P10-2),
+`data.md`, and `experience.md`. **`phase.json`'s objective string itself was left untouched** — it is
+phase state, not a doc, and a review slice does not rewrite it. The orchestrator may correct it or keep
+it as a historical record.
+
+**`docs/cli.md` and `README.md` updated directly** (plain files, not versioned docs): every stale site
+S5 flagged, including the load-bearing note that the plaintext key stays the **strict last line** of
+`keys mint` output despite the new scope line, the relaxed-`--project` hazard call-out, and eight
+"per-project `vk_` credential" phrasings that read as if that were the only kind of key.
+
+**Findings recorded, none blocking** (full detail in `P10.REVIEW/result.md`):
+1. `pnpm format:check` fails on **12 pre-existing P4-era files** — intersection with P10's changed-file
+   set is **empty**, verified against the commit range. A standalone/deferred job; do not fold it into
+   a feature slice.
+2. **`vocky keys --help`'s group docstring still says "a project's `vk_` ingest keys."** All three
+   sub-command docstrings are correct; only the group line is narrow. One-line CLI copy fix — natural
+   for **P11**, which owns CLI onboarding ergonomics. (Source, so out of a review slice's reach.)
+3. `phase.json`'s objective wording (above).
+4. `README.md:34` still claims the packaged Admin Web UI "still ships … scheduled for removal in P6" —
+   P6 deleted it. Pre-existing P6-era staleness, left alone rather than reaching into another phase's
+   territory from this review.
+5. `alembic check`'s spurious `remove_index ix_feedback_events_search_trgm` (pre-existing since
+   `20260716_1600`; the trigram index is deliberately unmodelled). Any future `alembic check` CI gate
+   must whitelist it — now recorded in `data.md`.
+
+**No source file was touched, no state transitioned, no commit made, and no explainer written**
+(`explain: not written — run /explain for this phase`).

@@ -1,10 +1,10 @@
 ---
 doc_id: api
-version: v0007
-created_at: 2026-07-28T16:37:48+09:00
-source: P6.REVIEW
-summary: P6: the packaged Admin Web UI routes are deleted — /admin and /admin/assets/* no longer exist, only the bearer-guarded /admin/api/* REST surface remains, and it is 404d at the production edge
-previous: v0006_p4_correct_the_stale_admin-docs-try-it_forward_reference_p4_superseded_the_packaged_operator_ui_with_the_web_app_rather_than_updating_its_docs_removal_moves_to_p6_no_api_contract_change
+version: v0008
+created_at: 2026-07-28T23:43:22+09:00
+source: P10.REVIEW
+summary: P10: signup returns an additive project, POST /app/projects is get-or-create, three new org-level /app/credentials routes, credential project_id is nullable, and capture takes an optional project name honored only for org keys
+previous: v0007_p6_the_packaged_admin_web_ui_routes_are_deleted_admin_and_admin_assets_no_longer_exist_only_the_bearer-guarded_admin_api_rest_surface_remains_and_it_is_404d_at_the_production_edge
 ---
 
 # API
@@ -19,6 +19,20 @@ The account and tenancy surfaces are also implemented: a public **Account Auth A
 
 **P6 changed no endpoint contract.** It removed the packaged Admin Web UI, which deleted the non-API routes `/admin` and `/admin/assets/*`; the nine `/admin/api/*` endpoints, their auth boundary, and every request/response shape in this doc are untouched. P6 also authored (but did not deploy) the production edge, which **404s the `/admin` prefix** — see the Admin REST notes below.
 
+**P10 changed contracts, all additively.** Summarized here because it touches five surfaces at once:
+
+| change | shape |
+|---|---|
+| `POST /auth/signup` | response gains an **additive `project`** object beside `token` / `user` / `tenant` |
+| `POST /app/projects` | now **get-or-create, idempotent on name** — returns the existing project with the same `201` shape instead of a duplicate-name failure |
+| `POST` / `GET` / `DELETE` `/app/credentials` | **three new routes** minting, listing, and revoking **org-level** keys |
+| credential payload | `project_id` is now `string \| null`; **`null` means the key is org-level.** No new field, no scope discriminator — the nullability *is* the signal |
+| `POST /api/feedback` and the MCP `capture_feedback` tool | gain an optional **`project` name**, honored only for an org-level key and **ignored entirely** by a project-bound one |
+| `GET /api/project/feedback` | records carry `project_id` **only** when the caller's key is org-level; a project-bound response is byte-for-byte unchanged |
+| `GET /api/project/usage` | under an org key, reports the caller's whole project scope and additionally lists the **org-level** keys themselves |
+
+**No existing client breaks.** Every project-bound key keeps its exact previous request and response shapes; the widening is opt-in at mint time. See `security.md` for the trust-boundary consequences.
+
 These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
 
 ## Purpose
@@ -28,7 +42,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 ## MVP Surfaces
 
 - Account Auth API contract for user signup, login, logout, and identity (`/auth/*`)
-- Account Control-Plane API contract for a user's tenant, projects, and per-project credentials (`/app/*`)
+- Account Control-Plane API contract for a user's org, projects, and ingest credentials at **either** project or org scope (`/app/*`)
 - Web Feedback Capture REST API contract for server-to-server website and product feedback ingestion (the operator-only Admin Docs try-it flow against the same endpoint was removed with the Admin Web UI in P6)
 - MCP Capture Tool contract for agent-decided, write-only feedback capture at the `/mcp` endpoint (`capture_feedback`)
 - Feedback Attachment Upload REST API contract for uploading an image and receiving an `attachment_id` to reference from a later capture call
@@ -72,8 +86,9 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Endpoints:
   - `POST /auth/signup`
     - Body: `{ "email": string, "password": string }`. Email is trimmed + lowercased and must contain `@`; password must be at least 8 characters.
-    - Provisions a user, a tenant (auto-named `"<email-local-part>'s workspace"`), and the caller's `owner` membership, then mints a session token.
-    - `201` with `{ "token": string, "user": {id, email, created_at}, "tenant": {id, name, created_at} }`
+    - Provisions a user, a tenant/org (auto-named `"<email-local-part>'s workspace"`), the caller's `owner` membership, **and (P10) a project named `"default"`**, then mints a session token. The org, membership, and project land in **one** transaction; `create_user` still commits ahead of them.
+    - **Only the project is named `"default"`; the org keeps its friendly auto-name.** vocky deliberately does *not* name the org `"default"` — nothing resolves an org by name, so the literal would buy nothing and would regress the app shell, which renders the org name to the user. This is pinned by a test that also asserts no `DEFAULT_ORG_NAME` constant exists.
+    - `201` with `{ "token": string, "user": {id, email, created_at}, "tenant": {id, name, created_at}, "project": {id, name, tenant_id, created_at} }` — **`project` is additive (P10)**; a client that ignores it is unaffected
     - `409 {"detail":"a user with this email already exists"}` on a duplicate email
     - `400 {"detail":"..."}` on a malformed body, a blank/invalid email, or a short password
   - `POST /auth/login`
@@ -107,6 +122,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - `GET /app/projects` → `200 { "projects": [<project>, ...] }` (tenant-scoped, oldest-first)
   - `POST /app/projects`
     - Body: `{ "name": string }`. Name is trimmed, `min_length=1`, `max_length=200`; stored trimmed.
+    - **Get-or-create as of P10, idempotent on name.** Project names are `UNIQUE (tenant_id, name)`, so re-posting an existing name returns the **existing** project rather than creating a duplicate or failing. It answers `201` either way — a caller **cannot** distinguish created from already-existed, deliberately. (Before P10 the same call created a duplicate; after the UNIQUE constraint it would have been a `500`, so folding in get-or-create was part of the same change.)
     - `201 { "project": <project> }`; `400 {"detail":"..."}` on a bad/blank/oversized name or malformed body
   - `GET /app/projects/{project_id}`
     - `200 { "project": <project> }`
@@ -114,12 +130,24 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `404 {"detail":"project not found"}` when the project is missing **or** belongs to another tenant (cross-tenant existence is never leaked — 404, never 403)
 - Project shape: `{ "id": string, "name": string, "tenant_id": string, "created_at": string }` (ISO-8601)
 
-### Account Control-Plane API — Project Credentials
+### Account Control-Plane API — Ingest Credentials (project-bound and org-level)
 
 - Status: implemented
-- Consumers: The Vocky web app (P4) and CLI (P5); a user minting the per-project keys their product backend uses on `/api/*`
-- Purpose: Mint, list, and revoke a project's ingest credentials
+- Consumers: The Vocky web app (P4) and CLI (P5); a user minting the keys their product backend uses on `/api*`
+- Purpose: Mint, list, and revoke ingest credentials at **either** of two scopes
 - Base path: `/app` (session-token authed; same tenant scoping and cross-tenant-404 rule as projects)
+
+**Two parallel, mutually disjoint surfaces (P10).** Which one you mint on decides the key's scope forever; nothing converts one into the other.
+
+| | project-bound (pre-P10, unchanged) | org-level (P10) |
+|---|---|---|
+| mint | `POST /app/projects/{project_id}/credentials` | `POST /app/credentials` |
+| list | `GET /app/projects/{project_id}/credentials` | `GET /app/credentials` |
+| revoke | `DELETE /app/projects/{project_id}/credentials/{credential_id}` | `DELETE /app/credentials/{credential_id}` |
+| `project_id` in payload | the project's UUID | **`null`** |
+| the key reaches | that one project | every project in the org, **including ones created later** |
+
+The two listings are **disjoint in both directions** (`project_id IS NULL` vs `project_id = :id`), so a tenant's keys enumerate exactly once across the two surfaces. Neither surface can revoke or even probe the other's rows.
 - Auth or permissions:
   - Session bearer token required (same `401` behavior as above)
   - Every credential endpoint resolves the project scoped to the caller's tenant **first**: `400` on a malformed `project_id`, `404` when the project is missing or cross-tenant — so a caller cannot probe or mutate another tenant's projects/credentials
@@ -133,10 +161,20 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - `DELETE /app/projects/{project_id}/credentials/{credential_id}`
     - Soft-revokes the credential (sets `revoked_at`; idempotent). `204` on success.
     - `400` on a malformed `credential_id`; `404 {"detail":"credential not found"}` when the credential is not in that project
-- Credential shape: `{ "id": string, "project_id": string, "name": string | null, "token_prefix": string, "created_at": string, "last_used_at": string | null, "revoked_at": string | null }` — never `token_hash` or the raw key
+  - **`POST /app/credentials`** (P10, org-level)
+    - Optional body: `{ "name"?: string }` (trimmed, `max_length=200`; blank → `null`). An **empty body** is allowed and means "no name".
+    - `201 { "credential": <credential>, "key": "vk_<token>" }` — the **identical envelope** to the per-project mint, with `credential.project_id === null`. The plaintext `key` is emitted **once**.
+  - **`GET /app/credentials`** (P10, org-level)
+    - `200 { "credentials": [<credential>, ...] }` — **org-level rows only** (`project_id IS NULL`), oldest-first, metadata only, **including revoked**
+  - **`DELETE /app/credentials/{credential_id}`** (P10, org-level)
+    - Soft-revokes an org-level credential. `204` on success.
+    - `400 {"detail":"credential_id must be a valid UUID"}` on a malformed id
+    - `404 {"detail":"credential not found"}` for anything that is not **both** the caller's tenant **and** org-level — **explicitly including the caller's own project-bound keys.** This is narrower than plain tenant scoping and is deliberate: the org surface can neither revoke nor probe a project-bound key, so the per-project route stays the only way to revoke one. The 404 is byte-identical to the one for an id that does not exist.
+- Credential shape: `{ "id": string, "project_id": string | null, "name": string | null, "token_prefix": string, "created_at": string, "last_used_at": string | null, "revoked_at": string | null }` — never `token_hash` or the raw key
 - Notes:
-  - A credential is minted as `key = "vk_" + <opaque token>`. Send it as `Authorization: Bearer vk_…` on `/api/*` (see the Public `/api/*` Credential Auth Model below).
-  - Revoking a credential fails `/api/*` auth immediately (the ingest lookup filters `revoked_at IS NULL`).
+  - **`project_id` is nullable as of P10, and `project_id === null` is the org-key discriminator.** There is no separate scope field and no new key in the payload; a client branching on scope must branch on this. Serialization is NULL-safe on every surface that emits a credential (including both usage endpoints).
+  - A credential is minted as `key = "vk_" + <opaque token>` at **both** scopes — **the prefix is the same `vk_`, deliberately.** The prefix is never validated (auth resolves purely by hash), so a second prefix would buy no cheap pre-auth branch; scope is surfaced by the product and by `project_id` instead. Send it as `Authorization: Bearer vk_…` on `/api/*` (see the Public `/api/*` Credential Auth Model below).
+  - Revoking a credential of either scope fails `/api/*` auth immediately (the ingest lookup filters `revoked_at IS NULL`).
   - `last_used_at` is stamped best-effort on each successful `/api/*` ingest auth (P3) and surfaced by the usage endpoints; it stays `null` until the credential is first used.
 
 ### Public `/api/*` Credential Auth Model
@@ -149,8 +187,9 @@ Use this file to record public-facing contracts as they are implemented. The cur
   - `ProjectCredentialAuthMiddleware` extracts the bearer, hashes it (sha256), and requires an active credential (`revoked_at IS NULL`) to match.
   - Missing, malformed, unknown, and revoked keys **all** return an identical `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer`.
 - Notes:
-  - As of P3 the guard threads project scope: on success it stashes the resolved credential (carrying its `project_id`) on the ASGI scope, so `/api/*` handlers scope capture and reads to the credential's project with no path/query project parameter. Capture stamps the record's `project_id` from it, and the guard best-effort stamps the credential's `last_used_at` (a stamping failure never fails the request).
-  - The credential's project is a single project; there are no per-credential scopes — one `vk_` key does capture **and** project read+manage (`/api/project/feedback`) for its project.
+  - As of P3 the guard threads project scope: on success it stashes the resolved credential on the ASGI scope, so `/api/*` handlers scope capture and reads to the credential with no path/query project parameter. The guard best-effort stamps the credential's `last_used_at` (a stamping failure never fails the request).
+  - **As of P10 the guard also resolves the credential's project *set* once per request** and stashes it beside the credential — one project for a project-bound key, the org's whole project set for an org-level key. Handlers scope off that set, never off `credential.project_id`. A scope-resolution failure **fails closed** with `500 {"detail": "credential scope unavailable"}` rather than falling through to an unscoped read.
+  - There are still **no per-credential permission scopes** — one `vk_` key does capture **and** read+manage (`/api/project/feedback`) across its whole scope. P10 widened what "its scope" can be (one project, or the org), not what a key may do within it.
 
 ### MCP Capture Tool (`capture_feedback`)
 
@@ -161,12 +200,13 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Auth or permissions (the `/mcp` Per-Project `vk_` Auth Model):
   - The **whole** `/mcp` endpoint (the `initialize` handshake included) requires a valid, non-revoked per-project credential as `Authorization: Bearer vk_<token>` — the **same** `ProjectCredentialAuthMiddleware` boundary as `/api/*` (its predicate is `is_api_path(p) or is_mcp_path(p)`).
   - Missing, malformed, unknown, and revoked keys **all** return `401 {"detail":"Unauthorized"}` with `WWW-Authenticate: Bearer` before the MCP transport runs.
-  - The retired static `VOCKY_MCP_AUTH_TOKEN` bearer is **not** revived. The captured event is scoped to the **authenticating credential's project** — there is no project parameter in the tool inputs; the credential resolved by the middleware supplies `project_id`.
+  - The retired static `VOCKY_MCP_AUTH_TOKEN` bearer is **not** revived. The captured event is scoped to the **authenticating credential** — a project-bound key lands in its bound project. As of **P10** an org-level key may name its destination project via the optional `project` argument (below); the destination is always resolved under the credential's own org, never from an id the caller supplies.
   - Transport security: DNS-rebinding protection is on by default with a localhost `Host`/`Origin` allowlist, extendable via `VOCKY_MCP_ALLOWED_HOSTS` / `VOCKY_MCP_ALLOWED_ORIGINS` (a public host must be added there, with its port).
 - Inputs (flat tool parameters — the same capture field set as REST **minus** `attachment_ids`; agents have no upload flow):
   - `message: string` required; `source: { product: string, integration?: string }` required (the only nested input).
   - Optional: `feedback_value` (`1` like / `2` dislike), `comment`, `channel` (`web` / `mobile` / `support` / null), `conversation_id`, `session_id`, `user_id`, `trigger_type` (`like`/`dislike`/`comment`/`rating`/`survey`/`manual`/`other`), `trigger_message`, `trigger_metadata` (object), `target_type` (`message`/`conversation`/`surface`), `target_id`, `target_role` (`user`/`assistant`/`system`/`tool`), `target_text`, `event_at` (timezone-aware ISO 8601), `tags` (string[]), `messages` (array), `used_context` (array), `source_metadata` (object), `attributes` (object).
-  - Normalization/validation is identical to REST capture (shared `normalize_*_payload` seam). There is **no** `attachment_ids` parameter, and no `project_id` parameter (it comes from the credential).
+  - **`project: string | null` (P10, optional).** Names the destination project for an **org-level** key: get-or-created under that key's own org, defaulting to `"default"` when absent or blank, capped at 200 characters (over-long → an error result). A **project-bound** key ignores it entirely — not compared, not rejected — which is what keeps existing agents byte-for-byte unchanged.
+  - Normalization/validation is identical to REST capture (shared `normalize_*_payload` seam). There is **no** `attachment_ids` parameter, and no `project_id` parameter — the destination is always resolved server-side from the credential (plus, for an org key, the `project` **name**). The project is stamped onto the normalized payload *after* normalization, outside caller control.
 - Outputs: an MCP `CallToolResult`:
   - Success: `isError=false` with a `structuredContent` capture receipt `{ request_id, accepted_at, status: "accepted" }` plus a text block `Accepted feedback capture <request_id>`. As with REST, success means the job was accepted for background persistence, not that the record is already queryable.
 - Errors (returned as `isError=true` tool results, not transport errors):
@@ -297,6 +337,10 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `source_metadata: object` optional. Arbitrary JSON object for source context such as URL, path, referrer, browser, page, widget, or backend integration detail.
     - `attributes: object` optional. Arbitrary JSON object for product-specific dimensions such as account plan, environment, locale, or rollout cohort.
     - `attachment_ids: string[]` optional. UUIDs returned by earlier `POST /api/feedback/attachments` uploads to attach to this feedback. Each must be a valid UUID; duplicates are dropped; the count must not exceed `VOCKY_ATTACHMENTS_MAX_COUNT`. The worker links only attachments whose upload-time `user_id` + `source_product` match this event's; non-matching, missing, or already-linked ids are skipped without failing capture.
+    - `project: string` optional **(P10)**. The **name** of the destination project — never an id.
+      - For an **org-level** key (`credential.project_id IS NULL`) the project is **get-or-created under that key's own org**, defaulting to `"default"` when the field is absent, blank, or whitespace-only. Over 200 characters → `400`. Because it is a name resolved inside the caller's own tenant, it can never reach or create a project in another org.
+      - For a **project-bound** key it is **ignored entirely** — not compared against the bound project, not rejected, not `400`'d. That is deliberate: it is what keeps every pre-P10 client byte-for-byte unchanged.
+      - Purely additive for existing clients either way: the input model ignores unknown fields, so callers that never send it are unaffected.
 - Outputs:
   - Success status: `202 Accepted`
   - Response body:
@@ -412,16 +456,17 @@ Use this file to record public-facing contracts as they are implemented. The cur
 
 - Status: implemented
 - Consumers: An external service's own admin panel / operator page (for example the operator's changple5 projects) reading and managing its project's feedback directly by API
-- Purpose: Let a project's `vk_` credential read **and manage** its own project's feedback — the external-admin-panel path (D-P3-2). Ports the operator verbs from Admin REST, scoped to one project.
+- Purpose: Let a `vk_` credential read **and manage** the feedback in its own scope — the external-admin-panel path (D-P3-2). Ports the operator verbs from Admin REST, scoped to the credential.
 - Base path: `/api/project/feedback`
 - Auth or permissions:
-  - Mandatory per-project credential auth (`Authorization: Bearer vk_<token>`), the same `/api/*` boundary as capture; missing/invalid/revoked → `401`.
-  - The project is **implicit in the credential** — there is no project path or query parameter. Every operation is scoped to `credential.project_id`. There are no per-credential scopes: one `vk_` key does capture and full read+manage for its project.
-  - Any feedback id belonging to another project answers **404 (never 403)** so cross-project existence is never leaked (mirrors D-P2-5); mutating ops verify ownership before the mutation.
+  - Mandatory credential auth (`Authorization: Bearer vk_<token>`), the same `/api/*` boundary as capture; missing/invalid/revoked → `401`.
+  - The scope is **implicit in the credential** — there is no project path or query parameter. Every operation is scoped to the project **set** the middleware resolved: **one** project for a project-bound key (unchanged from P3), **every project in the org** for an org-level key (P10). There are still no per-credential permission scopes: one `vk_` key does capture and full read+manage across its whole scope.
+  - Any feedback id outside that set answers **404 (never 403)** so out-of-scope existence is never leaked (mirrors D-P2-5); mutating ops verify scope membership before the mutation.
 - Endpoints:
   - `GET /api/project/feedback`
-    - Lists the credential's own project's feedback, newest-first, with keyset pagination. Supports the same optional filters as the Admin list (`start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `feedback_value`, exact `channel`, exact `target_type`, exact `trigger_type`, `tag`, `limit`, `cursor`). The project filter is **forced** to the credential's project and overrides any caller-supplied value.
-    - `200 { "records": [<record>, ...], "next_cursor"?: string }`. Records use the Admin record shape **without** a `project_id` field (the caller knows its own project).
+    - Lists the credential's scope's feedback, newest-first, with keyset pagination. Supports the same optional filters as the Admin list (`start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `feedback_value`, exact `channel`, exact `target_type`, exact `trigger_type`, `tag`, `limit`, `cursor`). The project filter is **forced** to the credential's resolved project set and overrides any caller-supplied value; there is no `?project_id` narrowing on this surface (a recorded future option for org keys).
+    - `200 { "records": [<record>, ...], "next_cursor"?: string }`. An org that owns no projects returns `{ "records": [] }` rather than an unfiltered read.
+    - **Record shape depends on the caller's key scope (P10).** A **project-bound** caller gets the Admin record shape **without** `project_id` — byte-for-byte as before, on the premise that the caller knows its own project. An **org-level** caller gets the same shape **plus `project_id`**, because that premise breaks when one key spans many projects. A client must decide which to expect from the credential's scope, not from sampling one response.
   - `GET /api/project/feedback/{feedback_id}`
     - `200 { "record": <record + comments[] + attachments[]> }`; attachment `url` = `/api/project/feedback/{feedback_id}/attachments/{id}`.
     - `404 {"detail":"feedback not found"}` when missing or in another project; `400` on a malformed id.
@@ -434,9 +479,10 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `GET` lists the record's operator comments oldest-first (`200 { "comments": [...] }`). `POST` adds one (`body` required non-blank, optional `author`) → `201 { "comment": <comment> }`. `404` cross-project/missing; `400` on a blank/missing `body`.
   - `GET /api/project/feedback/{feedback_id}/attachments/{attachment_id}`
     - Streams one attachment linked to the project's feedback (`X-Content-Type-Options: nosniff`). `404` cross-project, unlinked, or missing object; `503` on storage failure.
-- Errors: `401` (auth), `400` (malformed id/body/filters), `404` (cross-project or missing — never 403), `500 {"detail":"storage read failed"}` / `503` (attachment storage) on storage errors.
+- Errors: `401` (auth), `400` (malformed id/body/filters), `404` (out of scope or missing — never 403), `500 {"detail":"storage read failed"}` / `503` (attachment storage) on storage errors, plus `500 {"detail":"credential scope unavailable"}` if the credential's project scope cannot be resolved (fails closed rather than reading unscoped).
 - Notes:
-  - Record / comment / attachment shapes match the Admin Feedback REST API below, except the record omits `project_id`. `serialize_record` is shared with Admin REST (`tools/query_feedback_common.py`); Admin REST output is unchanged.
+  - Record / comment / attachment shapes match the Admin Feedback REST API below; the record omits `project_id` for a project-bound caller and includes it for an org-level one (above). `serialize_record` is shared with Admin REST (`tools/query_feedback_common.py`); Admin REST output is unchanged.
+  - Legacy feedback rows with a `NULL` `project_id` remain unreachable on this surface at **both** scopes. Scope matching is set membership, and `None` is never a member — an equality check against a NULL-project *credential* would instead have matched them, which is one of the reasons the rewrite was set-based.
 
 ### App Feedback API (cross-project read + search)
 
@@ -471,8 +517,11 @@ Use this file to record public-facing contracts as they are implemented. The cur
     - `200 { "window": {...}, "totals": {...}, "daily_counts": [...], "projects": [{ "id", "name", "created_at" }, ...] }`. A tenant with no projects returns zeroed metrics and an empty `projects` list.
   - `GET /app/projects/{project_id}/usage` (session): one owned project's capture volume plus that project's credentials (each carrying `last_used_at`).
     - `200 { "window": {...}, "totals": {...}, "daily_counts": [...], "credentials": [<credential>, ...] }`. `400` malformed id; `404` cross-tenant/unknown project.
-  - `GET /api/project/usage` (project `vk_` credential): the credential's own project's capture volume plus its credentials.
+    - **Unchanged by P10, deliberately: this drill-down lists only that project's own keys and never org-level ones.** An org key is not one project's key, so it must not appear in a project's view. The place to see org keys is the dashboard's org-keys panel (or `GET /app/credentials`).
+  - `GET /api/project/usage` (`vk_` credential): the credential's **whole scope's** capture volume plus the credentials in that scope.
     - `200 { "window": {...}, "totals": {...}, "daily_counts": [...], "credentials": [<credential>, ...] }`. `401` on missing/invalid/revoked key.
+    - For a **project-bound** key this is unchanged. For an **org-level** key (P10) the metrics cover every project in the org, and the `credentials` array is the union of every project's keys **plus the org-level keys themselves** — otherwise an org key's own usage view would omit the very key it authenticated with. The union cannot double-count, because the two listings are disjoint, and it is re-sorted so the array stays globally oldest-first.
+    - An org that owns no projects still gets its org-level keys listed here; only the *metrics* short-circuit to zeros.
 - Window:
   - Optional `start_ingested_at` / `end_ingested_at` (timezone-aware ISO 8601). With **both omitted** the window defaults to the **last 30 days** ending now; with only one given the other is filled (`end` = now, or `start` = `end` − 30d). A malformed bound or an inverted window → `400`.
 - Response shape:
