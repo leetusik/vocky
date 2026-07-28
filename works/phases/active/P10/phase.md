@@ -372,6 +372,108 @@ asserts the org name is `"alice's workspace"`, that `DEFAULT_PROJECT_NAME == "de
 `vocky.accounts.service` has **no** `DEFAULT_ORG_NAME` attribute. A later slice adopting knowledge's
 `"default"` org would fail that assertion rather than pass silently.
 
+### P10.S2 landed (2026-07-28) — what S3/S4/S5 inherit
+
+**The gate held: the entire pre-existing suite passes byte-for-byte, 191/191, with *zero* edits to
+any existing test or assertion.** `tests/test_project_feedback_api.py:177`'s
+`"project_id" not in records[0]` pin is still green. That is the proof the org-key widening is purely
+additive, and it is a proof that disappears the moment S3 turns minting on — so do not re-derive it,
+cite it.
+
+**The structural decision: the scope is resolved once, in the middleware.**
+`ProjectCredentialAuthMiddleware` now stashes a second, sibling ASGI scope key alongside the
+credential:
+
+- `vocky.auth.CREDENTIAL_PROJECT_IDS_SCOPE_KEY = "vocky.credential_project_ids"`
+- resolved by `vocky.auth.resolve_credential_project_ids(credential) -> tuple[UUID, ...]`:
+  project-bound ⇒ `(credential.project_id,)` with **no DB call**; org-level ⇒
+  `tuple(p.id for p in list_projects_for_tenant(credential.tenant_id))`.
+- read back with **`vocky.auth.get_request_project_ids(request) -> tuple[UUID, ...]`**.
+
+**`get_request_project_ids` is the only correct way to scope a credential-authenticated read or
+write. `credential.project_id` is nullable and a `None` project filter reads every project in every
+tenant.** The non-`None` return type *is* the enforcement — no handler can accidentally produce an
+unfiltered read — and it memoizes the lookup per request (the six `_load_project_feedback` sites in
+one handler chain would otherwise re-resolve). There is deliberately **no cross-request cache**
+(revocation staleness; the repo has no cache layer to reuse).
+
+Scope resolution **fails closed**: an `AccountsReadError` there answers
+`500 {"detail": "credential scope unavailable"}` and never falls through to a handler. This is
+deliberately *unlike* the neighbouring best-effort `touch_credential_last_used`, which still swallows
+its failure — do not "make them consistent".
+
+**Every credential-derived project filter is now set-based.** Verified by grep, not by memory
+(`grep -rn "credential.project_id\|get_request_credential" src/vocky/`). After this slice **zero**
+filter sites read `credential.project_id`; the only remaining reads are three deliberate ones:
+`auth.py:135-136` (the scope resolver), `capture.py:350-351` (the capture resolver), and
+`project_feedback_api.py:105` (a *serializer shape* fork, not a filter). `get_request_credential`
+survives only where the handler needs the credential's **shape** (the serializer fork) or passes it
+to the capture resolver.
+
+**Facts S3/S4/S5 must build on:**
+- **`resolve_capture_project(credential, project_name) -> UUID`** lives in `src/vocky/capture.py`
+  (importable by both writers with no cycle; `app_api` is deliberately not reached into). Project-bound
+  ⇒ the bound project, **`project_name` ignored entirely** — not compared, not 400'd, which is what
+  keeps existing clients byte-for-byte. Org-level ⇒ `get_or_create_project(tenant_id, name or
+  DEFAULT_PROJECT_NAME)`. It **never returns `None`**, which matters because
+  `capture_queue.py:62,97-100` round-trips `project_id` nullably and `worker.py` never re-derives it:
+  **enqueue is the last enforcement point.**
+- `RestCaptureFeedbackInput` gained `project: str | None = None`; the MCP `capture_feedback` tool
+  gained a `project: str | None = None` argument (placed after `channel`, **`ctx` still last**).
+  It is deliberately **not** routed through `McpCaptureFeedbackInput` — the project is stamped onto
+  the normalized payload after `normalize_mcp_payload`, outside caller control.
+- **`/api/project/feedback` serializes `project_id` only for an org key.** `serialize_record`
+  (`tools/query_feedback_common.py`) omits `project_id` on the premise that "the project-scoped caller
+  knows its own project from its credential"; an org key breaks that premise, so
+  `project_feedback_api._serialize_scoped_record` adds `project_id` **when and only when**
+  `credential.project_id is None`. A project-bound response is unchanged. **S4/S5 clients reading
+  `/api/project/feedback` must treat `project_id` as present-only-for-org-keys.**
+- `serialize_credential` (`app_api.py`) is now NULL-safe (`str(x) if x is not None else None`), so an
+  org row renders `project_id: null` rather than the string `"None"`. Footgun 2 is **closed**. It is
+  still shared with both `usage_api` surfaces. **S4: `web/src/lib/vocky/types.ts:145` must widen to
+  `string | null` for this reason, not merely for the new panel.**
+- `_project_usage_response` is now scope-taking (`project_ids: tuple[UUID, ...]`) and both callers pass
+  a tuple; the session drill-down passes `(project.id,)`.
+
+**A real pre-existing bug was defused, not refactored.** `usage_api.py`'s
+`FeedbackQueryFilters(..., project_ids=project_ids or None)` turned an **empty tuple into no project
+filter at all** — a global cross-tenant read. It was safe only because the `if not project_ids`
+short-circuit happened to run first. The `or None` is gone; the explicit short-circuit stays. The
+convention across the whole phase is now: **an empty scope short-circuits to an empty result; a scope
+is never collapsed to `None`.**
+
+**S3 handoff — the one thing S3 must not forget.** `/api/project/usage` aggregates its `credentials`
+array by looping `list_project_credentials(project_id)` over the scope. **A per-project listing cannot
+return org-level rows (`project_id IS NULL`).** So the moment S3 adds `list_org_credentials`, it must
+union those rows into `_project_usage_response` — otherwise **an org key's own usage view omits the
+very keys it was minted as.** There is a `NOTE for P10.S3` comment at the exact line in
+`src/vocky/usage_api.py`, and `tests/test_org_credential_scope.py` pins the current (incomplete)
+behavior so S3's change is a visible test edit rather than a silent one.
+
+**Gotchas found while landing S2:**
+- **`FeedbackQueryFilters.project_id` is now dead in `src/`** — nothing sets it anywhere in production
+  code (verified by grep); only `_apply_query_filters` still honors it, and `tests/test_persistence.py`
+  still constructs it. It is the exact field whose `None`-means-no-filter semantics is footgun 1.
+  Deleting it is an **option** for S3 or the review, deliberately not taken here (S2 must change no
+  observable behavior).
+- **Per-project credential listings concatenate out of order.** Each `list_project_credentials` is
+  ordered `(created_at, id)`, but concatenating several is not, so `_project_usage_response` re-sorts
+  on the same key. That key is chosen to match the repository's `ORDER BY` exactly, which is why the
+  single-project payload stays byte-identical.
+- **A capture-supplied `project` name is length-capped at 200** (`MAX_CAPTURE_PROJECT_NAME_LENGTH`),
+  mirroring `app_api.CreateProjectInput`, because `projects.name` is an unbounded `Text` column and the
+  name becomes a get-or-create key. Over-long ⇒ 400 (REST) / tool error (MCP). Blank/whitespace-only
+  normalizes to the `"default"` fallback rather than creating a project named `"  "`.
+- **The MCP org branch has no transport-level test.** `tests/test_mcp_transport.py` is the suite's sole
+  caller of `mcp.session_manager.run()` on the module-level singleton and is deliberately kept to one
+  case; the org path is covered through the shared `resolve_capture_project` on the REST surface
+  instead. If S3+ wants MCP org coverage, extend that single test rather than adding a second
+  session-manager run.
+- **The dark-path tests mint org credentials directly at the service layer**
+  (`CreateProjectCredential(tenant_id=…, project_id=None, …)`), because there is no mint route until S3
+  and S2 must not add one. **S3 should re-point `tests/test_org_credential_scope.py::_mint_credential`
+  at the real mint route** so the tests stop reaching under the API.
+
 ### P12 handoff (deploy)
 
 P10's migration lands against an **empty** schema — P6 authored the deploy kit but deployed nothing;
@@ -447,6 +549,43 @@ Appended by **`P10.S1`** (2026-07-28) — the durable truth this slice actually 
   as of `20260728_1200`. It is still true as a statement about *behavior*, because S1 writes no NULL
   rows and adds no org-level mint path. The trust boundary itself is widened by S2/S3; the review must
   rewrite `:58` rather than reword it.
+
+Appended by **`P10.S2`** (2026-07-28) — the durable truth this slice actually changed:
+
+- **`security.md`** — **the enforcement half of the trust-boundary change is now real code.** Every
+  credential-derived project filter is **set-based and can never be `None`**: the ingest middleware
+  resolves the credential's project scope once (`get_request_project_ids`, a `tuple[UUID, ...]` — one
+  project for a project-bound key, the org's whole project set for an org-level key) and every
+  `/api/*` + `/mcp` handler scopes off that, fails **closed** on a resolution error, and short-circuits
+  an empty scope to an empty result rather than an unfiltered read. The guarantee at `:58` must be
+  **rewritten** to anchor on this (the enforcement) rather than on `project_credentials.project_id`
+  being `NOT NULL` (the schema), which is no longer true. **Behaviorally the boundary is still
+  project-bound until S3** — no org key is mintable — but the mechanism that will hold it open is now
+  the middleware-resolved scope, not the column's nullability. A pre-existing latent fail-open in
+  `/app/usage` (an empty project set collapsing to *no project filter*) was **defused** in the same
+  slice.
+- **`api.md`** — `POST /api/feedback` accepts an **additive optional `project`** name, honored only for
+  an org-level key (get-or-created under its org, defaulting to `"default"`) and **ignored entirely**
+  by a project-bound key; `:171` the MCP `capture_feedback` tool gains the same optional `project`
+  argument with identical semantics. `GET /api/project/feedback` (list and get-one) includes a
+  `project_id` on each record **only** when the caller's key is org-level — a project-bound response is
+  unchanged. `GET /api/project/usage` reports the caller's whole scope and aggregates credentials
+  across it. `:125-139` credential payloads render `project_id: null` (not `"None"`) for an org-level
+  row, on both `/app/*` and usage surfaces.
+- **`architecture.md`** — a new request-scoped concept: the ingest middleware resolves and stashes the
+  **credential project scope** on the ASGI scope beside the credential, and it is the single chokepoint
+  every credential-authenticated read/write scopes off. Ingest project resolution is likewise a single
+  shared function (`vocky.capture.resolve_capture_project`) used by both the REST and MCP writers;
+  because the capture queue round-trips `project_id` nullably and the worker never re-derives it,
+  **enqueue is the last enforcement point** in the write path.
+- **`backend.md`** — new primitives: `vocky.auth.resolve_credential_project_ids` /
+  `get_request_project_ids` / `CREDENTIAL_PROJECT_IDS_SCOPE_KEY`, and
+  `vocky.capture.resolve_capture_project` (+ `MAX_CAPTURE_PROJECT_NAME_LENGTH`).
+  `project_feedback_api._load_project_feedback` is now set-membership rather than equality (which also
+  excludes legacy NULL-`project_id` rows for free), and `usage_api._project_usage_response` is
+  scope-taking rather than single-project.
+- **`product.md`** — no user-visible change yet by design: this slice is **dark**. Worth stating that
+  the org-key capability is enforced before it is offered.
 
 ## Open Questions
 

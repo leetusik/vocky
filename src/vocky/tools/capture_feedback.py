@@ -8,12 +8,14 @@ from typing import Any
 from mcp.server.fastmcp import Context
 from mcp.types import CallToolResult, TextContent
 
+from vocky.accounts import AccountsPersistenceError, AccountsReadError
 from vocky.auth import get_request_credential
 from vocky.capture import (
     CaptureFeedbackSourceInput,
     CaptureFeedbackValidationError,
     McpCaptureFeedbackInput,
     normalize_mcp_payload,
+    resolve_capture_project,
     serialize_capture_receipt,
 )
 from vocky.capture_queue import CaptureQueueError, get_capture_queue
@@ -38,6 +40,7 @@ async def capture_feedback(
     feedback_value: int | None = None,
     comment: str | None = None,
     channel: str | None = None,
+    project: str | None = None,
     conversation_id: str | None = None,
     session_id: str | None = None,
     user_id: str | None = None,
@@ -58,10 +61,17 @@ async def capture_feedback(
 ) -> CallToolResult:
     """Capture a single feedback event for later review.
 
-    The event is scoped to the project of the per-project ``vk_`` credential the
-    MCP transport authenticated: the credential the ingest middleware stashed on
-    the ASGI scope is read back off ``ctx.request_context.request`` and its
-    ``project_id`` is stamped onto the payload before enqueue.
+    The event is scoped to the ``vk_`` credential the MCP transport
+    authenticated: the credential the ingest middleware stashed on the ASGI
+    scope is read back off ``ctx.request_context.request`` and its destination
+    project is stamped onto the payload before enqueue.
+
+    ``project`` names the destination project and is honored **only** for an
+    org-level key (get-or-created under its org, defaulting to ``"default"``); a
+    project-bound key always lands in its bound project and ignores the argument
+    entirely. It is deliberately not routed through ``McpCaptureFeedbackInput``:
+    the project is stamped onto the normalized payload after
+    ``normalize_mcp_payload``, outside caller control.
     """
 
     raw_payload = McpCaptureFeedbackInput(
@@ -100,7 +110,15 @@ async def capture_feedback(
     if request is None:
         return error_result("capture feedback is not available for this request")
 
-    normalized.payload.project_id = get_request_credential(request).project_id
+    try:
+        normalized.payload.project_id = await resolve_capture_project(
+            get_request_credential(request), project
+        )
+    except CaptureFeedbackValidationError as exc:
+        return error_result(str(exc))
+    except (AccountsPersistenceError, AccountsReadError):
+        logger.exception("Failed to resolve the capture's destination project")
+        return error_result("capture project resolution failed")
 
     try:
         receipt = await get_capture_queue().enqueue_feedback(normalized.payload)

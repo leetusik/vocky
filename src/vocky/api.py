@@ -12,13 +12,16 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from vocky.accounts import AccountsPersistenceError, AccountsReadError
+
 from vocky.capture import (
     CaptureFeedbackValidationError,
     RestCaptureFeedbackInput,
     normalize_rest_payload,
+    resolve_capture_project,
     serialize_capture_receipt,
 )
-from vocky.auth import get_request_credential
+from vocky.auth import get_request_credential, get_request_project_ids
 from vocky.capture_queue import CaptureQueueError, get_capture_queue
 from vocky.feedback import (
     FeedbackAttachmentRecord,
@@ -96,7 +99,19 @@ async def capture_feedback(request: Request) -> JSONResponse:
     except (CaptureAPIValidationError, CaptureFeedbackValidationError) as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
-    normalized.payload.project_id = get_request_credential(request).project_id
+    # A project-bound key lands in its bound project and ignores ``project``
+    # entirely; an org-level key get-or-creates the named project (else
+    # ``"default"``) under its org. Never ``None`` — enqueue is the last
+    # enforcement point before the worker.
+    try:
+        normalized.payload.project_id = await resolve_capture_project(
+            get_request_credential(request), raw_payload.project
+        )
+    except CaptureFeedbackValidationError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+    except (AccountsPersistenceError, AccountsReadError):
+        logger.exception("Failed to resolve the capture's destination project")
+        return JSONResponse({"detail": "project resolution failed"}, status_code=500)
 
     try:
         receipt = await get_capture_queue().enqueue_feedback(normalized.payload)
@@ -221,9 +236,9 @@ async def list_user_feedback(request: Request) -> JSONResponse:
     """Return one end user's own feedback plus operator comments.
 
     Scoped strictly by required `user_id` + `source_product` and, defense in
-    depth, by the authenticating credential's project; never returns cross-user,
-    cross-product, or cross-project data. Legacy rows with a NULL `project_id`
-    fall out of the scoped read (acceptable pre-MVP).
+    depth, by the authenticating credential's project scope; never returns
+    cross-user, cross-product, or cross-project data. Legacy rows with a NULL
+    `project_id` fall out of the scoped read (acceptable pre-MVP).
     """
 
     try:
@@ -232,8 +247,16 @@ async def list_user_feedback(request: Request) -> JSONResponse:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
     # Defense in depth (D-P3-6): the self-read is additionally scoped to the
-    # authenticating credential's project, on top of user_id + source_product.
-    query.filters.project_id = get_request_credential(request).project_id
+    # authenticating credential's project scope, on top of user_id +
+    # source_product. One project for a project-bound key (a 1-element ``IN`` is
+    # equivalent to the old equality, NULL-row exclusion included); the org's
+    # whole project set for an org-level key.
+    scope = get_request_project_ids(request)
+    if not scope:
+        # An org that owns no projects: an empty page, never an unfiltered read.
+        return JSONResponse({"records": []})
+
+    query.filters.project_ids = scope
 
     try:
         (

@@ -9,6 +9,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from vocky.accounts import DEFAULT_PROJECT_NAME, get_accounts_service
+from vocky.accounts.types import ProjectCredentialRecord
 from vocky.channel import ChannelValidationError, normalize_channel_write
 from vocky.config import get_settings
 from vocky.feedback import CreateFeedbackEvent
@@ -67,9 +69,16 @@ class RestCaptureFeedbackInput(BaseCaptureFeedbackInput):
     """Raw feedback capture input received through public REST.
 
     REST capture may reference previously uploaded attachments by id.
+
+    ``project`` names the destination project for an **org-level** ``vk_`` key
+    (get-or-created under the key's org, defaulting to ``"default"``). A
+    project-bound key ignores it entirely — see :func:`resolve_capture_project`.
+    Purely additive: pydantic defaults to ``extra="ignore"``, so clients that
+    never send it are unaffected.
     """
 
     attachment_ids: list[str] | None = None
+    project: str | None = None
 
 
 class CaptureFeedbackResponse(BaseModel):
@@ -305,6 +314,52 @@ def normalize_rest_payload(raw: RestCaptureFeedbackInput) -> NormalizedCaptureFe
     """Normalize and validate a raw REST capture payload."""
 
     return _normalize_capture_payload(raw)
+
+
+#: Upper bound on a capture-supplied project name, mirroring the ``/app/projects``
+#: create body (``vocky.app_api.CreateProjectInput``). ``projects.name`` is an
+#: unbounded ``Text`` column, and this value becomes a get-or-create key.
+MAX_CAPTURE_PROJECT_NAME_LENGTH = 200
+
+
+async def resolve_capture_project(
+    credential: ProjectCredentialRecord,
+    project_name: str | None,
+) -> UUID:
+    """Resolve the project a capture lands in, for either credential shape.
+
+    The **single** ingest-side project resolver, shared by REST
+    (:func:`vocky.api.capture_feedback`) and MCP
+    (:func:`vocky.tools.capture_feedback.capture_feedback`):
+
+    - a **project-bound** credential lands in its bound project and
+      ``project_name`` is **ignored entirely** — not compared, not rejected. That
+      is what keeps every existing client byte-for-byte unchanged;
+    - an **org-level** credential (``project_id IS NULL``) lands in the named
+      project under its org, get-or-created, defaulting to
+      ``DEFAULT_PROJECT_NAME`` when no name is given.
+
+    Never returns ``None``, so an org-level key can never enqueue an orphan row:
+    ``vocky.capture_queue`` round-trips ``project_id`` nullably and the worker
+    never re-derives it, which makes enqueue the **last** enforcement point.
+
+    Raises :class:`CaptureFeedbackValidationError` on an over-long name;
+    ``AccountsPersistenceError`` / ``AccountsReadError`` propagate.
+    """
+
+    if credential.project_id is not None:
+        return credential.project_id
+
+    name = normalize_optional_text(project_name) or DEFAULT_PROJECT_NAME
+    if len(name) > MAX_CAPTURE_PROJECT_NAME_LENGTH:
+        raise CaptureFeedbackValidationError(
+            f"project must not exceed {MAX_CAPTURE_PROJECT_NAME_LENGTH} characters"
+        )
+
+    project = await get_accounts_service().get_or_create_project(
+        credential.tenant_id, name
+    )
+    return project.id
 
 
 def serialize_datetime(value: datetime) -> str:

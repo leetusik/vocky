@@ -12,13 +12,15 @@ operational visibility, not billing):
 - ``GET /app/projects/{project_id}/usage`` (session): one project's capture
   volume plus that project's credentials, surfacing each key's ``last_used_at``
   (the stamp wired in P3.S1). Cross-tenant project ids answer 404.
-- ``GET /api/project/usage`` (project ``vk_`` key, guarded by the
-  ``ProjectCredentialAuthMiddleware``): the credential's own project's capture
-  volume plus its credentials.
+- ``GET /api/project/usage`` (ingest ``vk_`` key, guarded by the
+  ``ProjectCredentialAuthMiddleware``): the credential's own **scope's** capture
+  volume plus its credentials — one project for a project-bound key, the org's
+  whole project set for an org-level key (P10).
 
-Scoping reuses the shared ``_apply_query_filters`` chokepoint: the whole-tenant
-call sets :attr:`FeedbackQueryFilters.project_ids` to the tenant's project set,
-the per-project calls set :attr:`FeedbackQueryFilters.project_id`. The window
+Scoping reuses the shared ``_apply_query_filters`` chokepoint: every call sets
+:attr:`FeedbackQueryFilters.project_ids` to a concrete id tuple, and an **empty**
+tuple always short-circuits to zeroed metrics rather than reaching the query —
+``project_ids=None`` would mean *"no filter"*, i.e. an unscoped read. The window
 defaults to the last 30 days when both bounds are omitted so a dashboard can call
 with no parameters.
 """
@@ -32,11 +34,15 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from vocky.accounts import ProjectRecord, get_accounts_service
+from vocky.accounts import (
+    ProjectCredentialRecord,
+    ProjectRecord,
+    get_accounts_service,
+)
 from vocky.accounts.auth import require_user
 from vocky.admin_api import serialize_metrics
 from vocky.app_api import _load_scoped_project, serialize_credential
-from vocky.auth import get_request_credential
+from vocky.auth import get_request_project_ids
 from vocky.feedback import (
     FeedbackMetricCounts,
     FeedbackMetrics,
@@ -105,33 +111,53 @@ def _serialize_usage_project(project: ProjectRecord) -> dict[str, object]:
 
 
 async def _project_usage_response(
-    project_id: UUID,
+    project_ids: tuple[UUID, ...],
     start: datetime,
     end: datetime,
 ) -> JSONResponse:
-    """Build a per-project usage payload: metrics + the project's credentials.
+    """Build a scoped usage payload: metrics + the scope's credentials.
 
-    Shared by the session ``/app/projects/{id}/usage`` drill-down and the
-    ``/api/project/usage`` external-panel surface — both report one project's
-    derived capture volume plus its credentials (surfacing ``last_used_at``).
+    Shared by the session ``/app/projects/{id}/usage`` drill-down (always a
+    one-project scope) and the ``/api/project/usage`` external-panel surface
+    (one project for a project-bound key, the org's whole project set for an
+    org-level key) — both report derived capture volume plus the credentials
+    behind it, surfacing each key's ``last_used_at``.
+
+    An empty scope short-circuits to zeroed metrics and no credentials; the
+    query is never issued with an empty id set.
     """
 
     query = FeedbackMetricsQuery(
         filters=FeedbackQueryFilters(
             start_ingested_at=start,
             end_ingested_at=end,
-            project_id=project_id,
+            project_ids=project_ids,
         )
     )
 
-    try:
-        metrics = await get_feedback_service().get_feedback_metrics(query)
-    except FeedbackReadError:
-        return JSONResponse({"detail": "storage read failed"}, status_code=500)
+    if not project_ids:
+        payload = serialize_metrics(_zeroed_metrics(), query)
+    else:
+        try:
+            metrics = await get_feedback_service().get_feedback_metrics(query)
+        except FeedbackReadError:
+            return JSONResponse({"detail": "storage read failed"}, status_code=500)
+        payload = serialize_metrics(metrics, query)
 
-    credentials = await get_accounts_service().list_project_credentials(project_id)
+    credentials: list[ProjectCredentialRecord] = []
+    for project_id in project_ids:
+        credentials.extend(
+            await get_accounts_service().list_project_credentials(project_id)
+        )
+    # Each per-project listing is already ordered ``(created_at, id)``;
+    # concatenating several loses that order, so re-sort on the same key to keep
+    # the payload globally oldest-first. (A single-project scope is unchanged.)
+    credentials.sort(key=lambda record: (record.created_at, record.id))
 
-    payload = serialize_metrics(metrics, query)
+    # NOTE for P10.S3: a per-project listing cannot return **org-level** rows
+    # (``project_id IS NULL``), so once ``list_org_credentials`` exists it must
+    # be unioned in here — otherwise an org key's own usage view omits the very
+    # keys it was minted as.
     payload["credentials"] = [serialize_credential(record) for record in credentials]
     return JSONResponse(payload)
 
@@ -153,13 +179,16 @@ async def get_app_usage(request: Request) -> JSONResponse:
         filters=FeedbackQueryFilters(
             start_ingested_at=start,
             end_ingested_at=end,
-            project_ids=project_ids or None,
+            # Deliberately **not** ``project_ids or None``: collapsing an empty
+            # tuple to ``None`` means "no project filter at all", i.e. a global
+            # cross-tenant read if the short-circuit below were ever removed.
+            project_ids=project_ids,
         )
     )
 
     if not project_ids:
         # No projects → zeroed metrics; never query with an empty id set
-        # (the S3 empty-scope convention).
+        # (the P3.S3 empty-scope convention).
         payload = serialize_metrics(_zeroed_metrics(), query)
     else:
         try:
@@ -186,20 +215,20 @@ async def get_project_usage(request: Request) -> JSONResponse:
     except FeedbackQueryValidationError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
-    return await _project_usage_response(project.id, start, end)
+    return await _project_usage_response((project.id,), start, end)
 
 
 async def get_api_project_usage(request: Request) -> JSONResponse:
-    """Return the authenticating credential's project usage + its credentials."""
+    """Return the authenticating credential's scoped usage + its credentials."""
 
-    credential = get_request_credential(request)
+    scope = get_request_project_ids(request)
 
     try:
         start, end = _resolve_usage_window(request)
     except FeedbackQueryValidationError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
-    return await _project_usage_response(credential.project_id, start, end)
+    return await _project_usage_response(scope, start, end)
 
 
 routes = [

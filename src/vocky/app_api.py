@@ -65,11 +65,18 @@ class CreateCredentialInput(BaseModel):
 
 
 def serialize_credential(record: ProjectCredentialRecord) -> dict[str, object]:
-    """Serialize a project credential's metadata (never exposes ``token_hash``)."""
+    """Serialize an ingest credential's metadata (never exposes ``token_hash``).
+
+    ``project_id`` is ``null`` for an **org-level** credential (P10) — the guard
+    matters because ``str(None)`` is the literal string ``"None"``, not JSON
+    null. Reused by :mod:`vocky.usage_api` for both usage surfaces.
+    """
 
     return {
         "id": str(record.id),
-        "project_id": str(record.project_id),
+        "project_id": (
+            str(record.project_id) if record.project_id is not None else None
+        ),
         "name": record.name,
         "token_prefix": record.token_prefix,
         "created_at": record.created_at.isoformat(),

@@ -1,18 +1,20 @@
 """Project-scoped feedback review + manage REST routes (``/api/project/*``).
 
-These routes let a project's ``vk_`` credential read and manage **its own
-project's** feedback: list / get-one (+comments+attachments) / patch review
+These routes let an ingest ``vk_`` credential read and manage the feedback
+**inside its own scope**: list / get-one (+comments+attachments) / patch review
 fields / delete / operator comments (add + list) / attachment download. They
 port the operator verbs from :mod:`vocky.admin_api`; the only new logic is
 project scoping.
 
-The authenticating project comes from the credential the
+The authenticating scope comes from the credential the
 ``ProjectCredentialAuthMiddleware`` resolved onto the ASGI scope (via
-:func:`vocky.auth.get_request_credential`) — never a path or query parameter.
-Every per-feedback op loads through :func:`_load_project_feedback`, which
-answers **404 (never 403)** on any feedback id belonging to another project, so
-cross-project existence is never leaked (mirrors the D-P2-5 cross-tenant
-isolation stance).
+:func:`vocky.auth.get_request_project_ids`) — never a path or query parameter.
+It is one project for today's project-bound key and the org's whole project set
+for an org-level key (P10); it is a ``tuple``, never ``None``, because a ``None``
+project filter reads every project in every tenant. Every per-feedback op loads
+through :func:`_load_project_feedback`, which answers **404 (never 403)** on any
+feedback id outside that scope, so cross-project existence is never leaked
+(mirrors the D-P2-5 cross-tenant isolation stance).
 """
 
 from __future__ import annotations
@@ -35,7 +37,8 @@ from vocky.admin_api import (
     parse_attachment_id,
     parse_feedback_id,
 )
-from vocky.auth import get_request_credential
+from vocky.accounts import ProjectCredentialRecord
+from vocky.auth import get_request_credential, get_request_project_ids
 from vocky.feedback import (
     CreateFeedbackComment,
     FeedbackEventRecord,
@@ -63,24 +66,51 @@ logger = logging.getLogger(__name__)
 
 async def _load_project_feedback(
     feedback_id: UUID,
-    project_id: UUID | None,
+    project_ids: tuple[UUID, ...],
 ) -> FeedbackEventRecord | None:
-    """Load a feedback record only when it belongs to ``project_id``.
+    """Load a feedback record only when its project is in ``project_ids``.
 
     Returns ``None`` both when the record is missing and when it belongs to a
-    different project — callers turn ``None`` into a 404 so cross-project
-    existence never leaks. May raise :class:`FeedbackReadError`; callers map that
-    to a 500.
+    project outside the caller's scope — callers turn ``None`` into a 404 so
+    cross-project existence never leaks. May raise :class:`FeedbackReadError`;
+    callers map that to a 500.
+
+    Set membership rather than equality (mirroring
+    :func:`vocky.app_feedback_api._load_scoped_feedback`) also excludes legacy
+    NULL-``project_id`` rows for free: ``None not in (...)`` is always true,
+    where an equality check would let a NULL-project credential *match* them.
     """
 
     record = await get_feedback_service().get_feedback_event(feedback_id)
-    if record is None or record.project_id != project_id:
+    if record is None or record.project_id not in project_ids:
         return None
     return record
 
 
+def _serialize_scoped_record(
+    record: FeedbackEventRecord,
+    credential: ProjectCredentialRecord,
+) -> dict[str, object]:
+    """Serialize a feedback record for the credential's scope shape.
+
+    A **project-bound** credential gets the shared serializer verbatim, which
+    deliberately omits ``project_id`` because "the project-scoped caller knows
+    its own project from its credential" — that premise still holds, and the
+    payload stays byte-for-byte identical. An **org-level** credential spans
+    many projects, so that premise breaks and the record must say which project
+    it belongs to (following :func:`vocky.app_feedback_api._serialize_app_record`).
+    """
+
+    payload = serialize_record(record)
+    if credential.project_id is None:
+        payload["project_id"] = (
+            str(record.project_id) if record.project_id is not None else None
+        )
+    return payload
+
+
 async def list_project_feedback(request: Request) -> JSONResponse:
-    """List the credential's own project's feedback (filters + keyset paging)."""
+    """List the credential's own scope's feedback (filters + keyset paging)."""
 
     credential = get_request_credential(request)
 
@@ -89,9 +119,18 @@ async def list_project_feedback(request: Request) -> JSONResponse:
     except FeedbackQueryValidationError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
-    # The credential's project is authoritative: force it over anything the
-    # caller passed, so a project can only ever read its own feedback.
-    query.filters.project_id = credential.project_id
+    # The credential's scope is authoritative and is the *only* source of the
+    # project filter (``normalize_admin_list_query`` does not parse
+    # ``project_id``, so there is nothing to override and no caller narrowing to
+    # preserve — narrowing an org key by ``?project_id`` is a recorded option,
+    # not this slice's work).
+    scope = get_request_project_ids(request)
+    if not scope:
+        # An org that owns no projects: an empty page, never an unfiltered
+        # ``IN ()`` read (the ``/app/feedback`` empty-scope convention).
+        return JSONResponse({"records": []})
+
+    query.filters.project_ids = scope
 
     try:
         page = await get_feedback_service().list_feedback(query)
@@ -99,7 +138,9 @@ async def list_project_feedback(request: Request) -> JSONResponse:
         return JSONResponse({"detail": "storage read failed"}, status_code=500)
 
     payload: dict[str, object] = {
-        "records": [serialize_record(record) for record in page.records],
+        "records": [
+            _serialize_scoped_record(record, credential) for record in page.records
+        ],
     }
     if page.next_cursor is not None:
         payload["next_cursor"] = encode_cursor(page.next_cursor)
@@ -108,7 +149,7 @@ async def list_project_feedback(request: Request) -> JSONResponse:
 
 
 async def get_project_feedback(request: Request) -> Response:
-    """Return one of the project's feedback records with comments + attachments."""
+    """Return one of the scope's feedback records with comments + attachments."""
 
     credential = get_request_credential(request)
 
@@ -118,7 +159,9 @@ async def get_project_feedback(request: Request) -> Response:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
     try:
-        record = await _load_project_feedback(feedback_id, credential.project_id)
+        record = await _load_project_feedback(
+            feedback_id, get_request_project_ids(request)
+        )
     except FeedbackReadError:
         return JSONResponse({"detail": "storage read failed"}, status_code=500)
 
@@ -131,7 +174,7 @@ async def get_project_feedback(request: Request) -> Response:
     except FeedbackReadError:
         return JSONResponse({"detail": "storage read failed"}, status_code=500)
 
-    payload = serialize_record(record)
+    payload = _serialize_scoped_record(record, credential)
     payload["comments"] = [serialize_comment(comment) for comment in comments]
     payload["attachments"] = [
         serialize_attachment(
@@ -144,7 +187,7 @@ async def get_project_feedback(request: Request) -> Response:
 
 
 async def patch_project_feedback(request: Request) -> Response:
-    """Patch review-oriented fields on one of the project's feedback records."""
+    """Patch review-oriented fields on one of the scope's feedback records."""
 
     credential = get_request_credential(request)
 
@@ -184,9 +227,11 @@ async def patch_project_feedback(request: Request) -> Response:
             status_code=400,
         )
 
-    # Verify project ownership before mutating so a cross-project id 404s.
+    # Verify scope ownership before mutating so an out-of-scope id 404s.
     try:
-        record = await _load_project_feedback(feedback_id, credential.project_id)
+        record = await _load_project_feedback(
+            feedback_id, get_request_project_ids(request)
+        )
     except FeedbackReadError:
         return JSONResponse({"detail": "storage read failed"}, status_code=500)
 
@@ -201,13 +246,11 @@ async def patch_project_feedback(request: Request) -> Response:
     if record is None:
         return JSONResponse({"detail": "feedback not found"}, status_code=404)
 
-    return JSONResponse({"record": serialize_record(record)})
+    return JSONResponse({"record": _serialize_scoped_record(record, credential)})
 
 
 async def delete_project_feedback(request: Request) -> Response:
-    """Delete one of the project's feedback records (+ best-effort file cleanup)."""
-
-    credential = get_request_credential(request)
+    """Delete one of the scope's feedback records (+ best-effort file cleanup)."""
 
     try:
         feedback_id = parse_feedback_id(request)
@@ -215,7 +258,9 @@ async def delete_project_feedback(request: Request) -> Response:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
     try:
-        record = await _load_project_feedback(feedback_id, credential.project_id)
+        record = await _load_project_feedback(
+            feedback_id, get_request_project_ids(request)
+        )
     except FeedbackReadError:
         return JSONResponse({"detail": "storage read failed"}, status_code=500)
 
@@ -248,9 +293,7 @@ async def delete_project_feedback(request: Request) -> Response:
 
 
 async def post_project_feedback_comment(request: Request) -> Response:
-    """Add one operator-authored comment to one of the project's feedback records."""
-
-    credential = get_request_credential(request)
+    """Add one operator-authored comment to one of the scope's feedback records."""
 
     try:
         feedback_id = parse_feedback_id(request)
@@ -271,7 +314,9 @@ async def post_project_feedback_comment(request: Request) -> Response:
     author = normalize_optional_text(payload.author)
 
     try:
-        record = await _load_project_feedback(feedback_id, credential.project_id)
+        record = await _load_project_feedback(
+            feedback_id, get_request_project_ids(request)
+        )
     except FeedbackReadError:
         return JSONResponse({"detail": "storage read failed"}, status_code=500)
 
@@ -289,9 +334,7 @@ async def post_project_feedback_comment(request: Request) -> Response:
 
 
 async def list_project_feedback_comments(request: Request) -> Response:
-    """List one of the project's feedback records' operator comments, oldest-first."""
-
-    credential = get_request_credential(request)
+    """List one of the scope's feedback records' operator comments, oldest-first."""
 
     try:
         feedback_id = parse_feedback_id(request)
@@ -299,7 +342,9 @@ async def list_project_feedback_comments(request: Request) -> Response:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
     try:
-        record = await _load_project_feedback(feedback_id, credential.project_id)
+        record = await _load_project_feedback(
+            feedback_id, get_request_project_ids(request)
+        )
     except FeedbackReadError:
         return JSONResponse({"detail": "storage read failed"}, status_code=500)
 
@@ -317,13 +362,11 @@ async def list_project_feedback_comments(request: Request) -> Response:
 
 
 async def download_project_feedback_attachment(request: Request) -> Response:
-    """Stream one attachment linked to one of the project's feedback records.
+    """Stream one attachment linked to one of the scope's feedback records.
 
-    The parent feedback is project-verified first (404 on cross-project); the
+    The parent feedback is scope-verified first (404 on out-of-scope); the
     attachment must be linked to that feedback, else 404.
     """
-
-    credential = get_request_credential(request)
 
     try:
         feedback_id = parse_feedback_id(request)
@@ -332,7 +375,9 @@ async def download_project_feedback_attachment(request: Request) -> Response:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
     try:
-        record = await _load_project_feedback(feedback_id, credential.project_id)
+        record = await _load_project_feedback(
+            feedback_id, get_request_project_ids(request)
+        )
     except FeedbackReadError:
         return JSONResponse({"detail": "storage read failed"}, status_code=500)
 
