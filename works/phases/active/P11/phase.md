@@ -967,6 +967,109 @@ verbatim output in the slice's `result.md`.
   anchor exists (`SECTION_IDS.skill`, from S6), but resolves to nothing until S9 lands the section,
   exactly as the phase's DECOMP2 notes anticipated ("transient dead anchor").
 
+### S9 done — `SkillSection` + `SkillPreview` landed at page position 5 (2026-07-29)
+
+`P11.S9` built `skill-section.tsx` (server), `skill-preview.tsx` (server, reads the served file),
+`skill-preview-body.tsx` + `skill-copy-button.tsx` (client islands), `skill-shared.ts`, and inserted
+`<SkillSection />` between `<AgentQuickstart />` and `<Showcase />`. **S8's peer link to `#skill` now
+resolves** (the transient dead anchor is closed). All eleven validation steps passed (`typecheck` 0,
+`lint` 0, `test` **73 → 78**, `build` 0 with `ƒ /` unchanged and zero warnings, the three greps clean,
+`skill_parity.py` PASS, `workflow.py validate` passed); full verbatim output in the slice's `result.md`.
+
+#### Correction 7 is closed, and now closed *in CI*
+
+The full file is in the server HTML in both states — "collapsed" is a **visual window only** (300/380px
+scroller + fade; expanded 480/640px, fade to `opacity-0`; **the body DOM is identical**). Proven three
+ways, two permanent: `web/tests/skill-preview-ssr.test.ts` asserts on **`## 7. Report back`** (the file's
+LAST section) plus `not.toContain("<button")`; and against a real `next start` server, **all 119 non-blank
+lines were found inside the `#skill` section** with **0 `<button>`** in it. The only `<button` on the whole
+page is P9's pre-existing disabled Pricing CTA. **S10 should re-run that page-level check rather than
+re-deriving it.**
+
+#### The 22-line window — decided, and why S10 need not change code either way
+
+`collapsedLines: 22` is kept verbatim (correction 6), and the body is rendered **verbatim including the
+blank line after the closing `---`**. The body-line-1 question resolves as follows:
+
+- **The rendering half is forced, not chosen.** The pane's `textContent` IS the clipboard payload, and the
+  split is lossless (`frontmatter + body === content`, asserted). Stripping that blank line would make the
+  copied bytes differ by one byte from what `/SKILL.md` serves and `skill_parity.py` gates.
+- **The counting half: `22` counts the PANE from file line 1** (band included) — the only reading under
+  which `result.md` §6.5's inventory ("the first 22 lines — **frontmatter band** plus the lede, `## 1`, and
+  the two-export block", closing at file line 18), the footer's shared denominator ("first 22 of **119**"),
+  and §3.4's parenthetical (file line 20 — off by 2 here, off by 7 under the body reading) all agree. The
+  measured collapsed window (5-line band + ~18 body lines at 12.5px/1.62 in 380px) lands there too.
+- **Nothing is truncated, so `collapsedLines` fills exactly one template slot.** If S10 prefers DECOMP2's
+  body-line reading, **no code changes** — only the prose.
+
+#### `<pre>` + leading newline: a byte-parity trap for anyone editing the pane
+
+HTML drops a newline immediately after a `<pre>` start tag, and React's server renderer emits a
+**compensating extra `\n`** for exactly that reason (verified with `renderToStaticMarkup`). So the raw HTML
+carries one more newline than the file while the parsed `textContent` carries exactly the file's. **Do not
+"clean up" that leading newline** — it is what keeps the copy byte-identical to `/SKILL.md`.
+
+#### Two build/RSC facts every later slice inherits
+
+1. **A request-time `fs` path must be statically analyzable at the call site.** The first build warned
+   *"Encountered unexpected file in NFT list … the whole project was traced unintentionally"* because the
+   path came from a spread array constant; `path.join(process.cwd(), "public", "SKILL.md")` with literal
+   segments cleared it. `pnpm build` is warning-free — **a new warning there is a regression, not noise.**
+2. **Every export of a `"use client"` module becomes a client reference in RSC**, so a server component
+   cannot import a bare string/const from one. That is why `SKILL_FILE_DOM_ID` and the shared control class
+   live in the plain `skill-shared.ts`, not in the island.
+
+#### The section-padding question S8 left open — decided the same way, with the argument
+
+**Both new sections keep `Section`'s default `py-section` / `md:py-section-lg` (72/104px); §5/§6's literal
+`84px 28px` is not applied.** The full argument is in `result.md` §5; the load-bearing points for S10:
+correction 5 governs a spec value vs a *mislabelled component*, whereas 84px contradicts the **locked
+spacing scale** §1 forbids extending; **`28px` is not the landing's gutter** (`px-5 md:px-14` = 20/56px),
+so honouring it would misalign this section's edge from the hero/quickstart/showcase — a *visible* failure
+where the vertical delta is invisible; `84px 28px` reads as a card-kit specimen frame, the same artifact
+class as correction 3's `.eyebrow`/`.note`/`.tag`/`.card`; and §6's "container 1180px" **is** honoured
+exactly (`max-w-page`). **If S10 overturns this it must flip BOTH sections together**, never one.
+
+#### Fidelity calls S10 should verify but not silently revert
+
+- **The fade's containing block is a non-scrolling wrapper, not the scroller.** §3.4's literal
+  `position:relative` on the body would anchor the fade to the scrolled *content* (i.e. 119 lines down,
+  never visible collapsed). The wrapper reproduces the painted result the design specifies.
+- The fade uses `opacity-0` on expand (both 150ms transitions run together) instead of unmounting.
+- The gradient is the exact spec value as an arbitrary class; **verified compiled** in
+  `.next/static/chunks/*.css` along with `max-height:380px/640px/300px/480px`, `height:110px`,
+  `transition-property:max-height` and `grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr)` (the `app:`
+  ones nested under `@media (min-width:56.25rem)`).
+- The pane frame (`rounded-xl border border-hairline bg-canvas`, no shadow) is **unspecified** in §3.4.
+- Filename = `text-caption` (exact 12px/500 token); meta = `text-[11px]` because `text-micro` bundles
+  0.8px tracking + 700 (S8's composite-token warning).
+- `SkillCopyButton` carries §7's three states in its own CVA (colour only in compound variants, never
+  stacked over a base `bg-*`) rather than exporting `Snippet`'s private `copyButtonVariants` — it also has
+  to dress the **primary filled** button, which that CVA does not cover.
+- §7's failure hint renders under the **primary** button only, not in the 9px-padded pane header; both
+  buttons still swap to `Copy failed` and select the file via `Range`+`Selection`.
+- Bytes render raw (`7975`), not `7,975` — §3.4 gives `Buffer.byteLength` with no formatting, and
+  `toLocaleString()` would be locale-dependent in server HTML.
+- `aria-expanded` on the toggle and `tabIndex={0}` on the scroller (correction 9) are the only a11y
+  additions; **no `globals.css` change, no new token**.
+
+#### `withInlineCode` is now shared
+
+S8 left it file-private and deferred the call. It moved **unchanged** to
+`web/src/components/landing/inline-code.tsx` (with `INLINE_CODE_CLASS`) and `agent-quickstart.tsx` now
+imports it — two consumers is where two copies drift, and the design wants both sentences to read as one
+treatment. `agent-quickstart-ssr.test.ts` passes untouched and the quickstart's server HTML is unchanged.
+
+#### Still uncovered by any test (S10's fidelity pass owns them)
+
+The expand/collapse toggle, the copy click, the 2000ms revert, the `Range`+`Selection` failure path, the
+polite announcement, the `:focus-visible` ring on the focusable scroller, and everything below 900px — the
+Node-env suite cannot reach any of them. Also: the clipboard payload's byte parity is proven
+*structurally* (lossless split + a subtree containing only those two nodes), never by driving a browser
+and `cmp`-ing the result — worth one manual check in S10. **Not proven, standing note:** nothing was
+checked against a live origin (`/SKILL.md` 404s until P12), and no container was built, though the
+standalone path is correct by construction (`WORKDIR /app` + `COPY … /app/public` + `node server.js`).
+
 ## Doc impact
 
 - **S6** (`P11.S6`): `docs/current/frontend.md` is now stale in two specific places — its primitive
@@ -1009,3 +1112,14 @@ verbatim output in the slice's `result.md`.
   Features / Pricing / ClosingCTA`) must gain **`AgentQuickstart`** at position 4 (`#quickstart`,
   the CLI + `VOCKY_API_TOKEN` agent onboarding path). No API/architecture change — the review
   consolidates this with S6/S7/S9/S10's inventory notes into one `frontend` version.
+
+- **S9** (`P11.S9`): `docs/current/frontend.md`'s landing-section inventory must also gain
+  **`SkillSection`** at position 5 (`#skill`, no nav link), and its component/architecture notes should
+  record that the landing now **reads a served static file at request time** —
+  `landing/skill-preview.tsx` does `fs.readFile("public/SKILL.md")` on every render of `/` and computes
+  the displayed line/byte counts from it (never hardcoded, never a pasted excerpt), which is what keeps
+  the pane from forking from the `scripts/skill_parity.py` gate; plus the new landing modules
+  (`skill-section`, `skill-preview`, `skill-preview-body`, `skill-copy-button`, `skill-shared`,
+  `inline-code`) and the fact that the no-JS floor is now regression-tested in
+  `web/tests/skill-preview-ssr.test.ts`. No API/architecture/backend contract changed — the review
+  consolidates this with S6/S7/S8/S10's notes into one `frontend` version.

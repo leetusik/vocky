@@ -10,6 +10,7 @@ import {
   LandingNav,
   Pricing,
   Showcase,
+  SkillSection,
   TrustStrip,
 } from "@/components/landing";
 import { getSession } from "@/lib/session";
@@ -27,9 +28,11 @@ import { getSession } from "@/lib/session";
 // Server component throughout; the only client island is the `<Reveal>` inside
 // the `<Section reveal>` bands (progressive-enhancement, reduced-motion-safe).
 //
-// P11.S8 inserts `AgentQuickstart` at position 4, between `HowItWorks` and
-// `Showcase` (round 02 build-prompt §2). `SkillSection` lands at position 5,
-// P11.S9's job — not added here.
+// P11.S8/S9 insert round 02's two new sections between `HowItWorks` and
+// `Showcase` (build-prompt §2): `AgentQuickstart` at position 4 and
+// `SkillSection` at position 5. `SkillSection` renders `SkillPreview`, which
+// reads `public/SKILL.md` at REQUEST time — safe precisely because this route is
+// already dynamic (the cookie read above), so `/` stays `ƒ`, never prerendered.
 export default async function LandingPage() {
   const token = await getSession();
   if (token) redirect("/dashboard");
@@ -42,6 +45,7 @@ export default async function LandingPage() {
         <TrustStrip />
         <HowItWorks />
         <AgentQuickstart />
+        <SkillSection />
         <Showcase />
         <Features />
         <Pricing />

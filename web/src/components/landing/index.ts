@@ -9,6 +9,9 @@ export { TrustStrip } from "./trust-strip";
 export { HowItWorks } from "./how-it-works";
 // P11.S8 — round 02's agent quickstart, page position 4, anchored `#quickstart`.
 export { AgentQuickstart } from "./agent-quickstart";
+// P11.S9 — round 02's agent-skill section, page position 5, anchored `#skill`.
+// Its `SkillPreview` child reads the SERVED `public/SKILL.md` at request time.
+export { SkillSection } from "./skill-section";
 export { Showcase } from "./showcase";
 export { Features } from "./features";
 export { Pricing } from "./pricing";

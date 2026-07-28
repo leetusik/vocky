@@ -5,6 +5,8 @@ import { Card, Chip, Section, Snippet, Trap } from "@/components/ui";
 import { LANDING } from "@/content";
 import { cn } from "@/lib/utils";
 
+import { INLINE_CODE_CLASS, withInlineCode } from "./inline-code";
+
 /**
  * AgentQuickstart (round 02, build-prompt §5) — page position 4, id `quickstart`.
  * The biggest of round 02's three surfaces: a header, four numbered steps (each a
@@ -43,30 +45,11 @@ const { quickstart } = LANDING;
 const { steps, peer, aside } = quickstart;
 
 /**
- * §5.1 / §6's "rich strings": one verbatim sentence plus a list of substrings
- * that must render as inline `<code>`. Keyed off the same `code[]` array the
- * copy already carries — rather than hand-splitting the sentence at authoring
- * time, which would hide a transcription slip at a segment boundary. Longest
- * token first so a token that happens to prefix another can never win the
- * wrong match (not the case in this round's copy, but cheap insurance).
+ * §5.1 / §6's "rich strings" (one verbatim sentence + the substrings that render
+ * as inline `<code>`) moved to `./inline-code` at P11.S9, unchanged: `§6`'s
+ * `skill.lede` is the same `{ text, code[] }` shape, and one splitter shared by
+ * both sections cannot drift the way two copies can.
  */
-function withInlineCode(text: string, code: readonly string[]): ReactNode {
-  if (code.length === 0) return text;
-  const tokens = [...code].sort((a, b) => b.length - a.length);
-  const pattern = new RegExp(
-    `(${tokens.map((token) => token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
-    "g",
-  );
-  return text
-    .split(pattern)
-    .filter((part) => part.length > 0)
-    .map((part, index) => (code.includes(part) ? <code key={index}>{part}</code> : part));
-}
-
-/** §3.2's inline-code recipe (mono 12.5px on a faint ink wash), reused verbatim
- * by the note below so the page's two rich-text treatments read as one system. */
-const INLINE_CODE_CLASS =
-  "[&_code]:rounded-xs [&_code]:bg-[rgba(14,26,22,0.055)] [&_code]:px-[5px] [&_code]:py-px [&_code]:font-mono [&_code]:text-[12.5px]";
 
 /** §3.3 — colour by code; the chip always repeats the literal code too, so
  * colour is never the sole signal. Anything other than 400/401 (here, "else")
