@@ -369,3 +369,4 @@
 {"ts": "2026-07-29T16:03:30+09:00", "type": "slice_created", "phase": "P12", "slice": "P12.S6"}
 {"ts": "2026-07-29T16:03:30+09:00", "type": "slice_created", "phase": "P12", "slice": "P12.S7"}
 {"ts": "2026-07-29T16:08:34+09:00", "type": "slice_status_changed", "slice": "P12.DECOMP", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-08-04T10:10:20+09:00", "type": "slice_status_changed", "slice": "P12.S1", "old_status": "todo", "new_status": "in_progress"}

@@ -3,11 +3,11 @@
   "phase_id": "P12",
   "name": "Decide the fate of /admin/api/* and VOCKY_ADMIN_AUTH_TOKEN",
   "kind": "implementation",
-  "status": "todo",
+  "status": "in_progress",
   "order": 1,
   "depends_on": [],
   "created_at": "2026-07-29T16:03:16+09:00",
-  "started_at": null,
+  "started_at": "2026-08-04T10:10:20+09:00",
   "completed_at": null,
   "risk": "medium",
   "source": {

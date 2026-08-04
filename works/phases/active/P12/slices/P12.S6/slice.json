@@ -4,7 +4,7 @@
   "name": "Extend ci.yml with a Postgres-backed pytest job",
   "kind": "implementation",
   "status": "todo",
-  "order": 6,
+  "order": 3.5,
   "depends_on": [
     "P12.S2"
   ],

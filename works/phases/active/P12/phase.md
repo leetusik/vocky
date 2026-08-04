@@ -165,6 +165,24 @@ _Running list — `P12.REVIEW` consolidates these into durable-doc versions. One
 
 - **P12.DECOMP** (no source change): two corrections `P12.REVIEW` should fold in regardless of what the middle slices do — (a) `operations.md` § "Box secrets" claims *"None has a `:-` default: a missing value must fail loudly on the box"*, which is **false as written** (Compose substitutes an empty string with a warning for a plain `${VAR}`; only `POSTGRES_PASSWORD` fails loudly, and only because the `postgres:17` image refuses to initialize without it); (b) `operations.md` § "`.github/workflows/ci.yml`" records **14** prettier failures while `intent.md` says 12–13 — 14 is the measured number.
 
+## Operator decisions (2026-08-04, taken by the orchestrator at the start of the `auto` run)
+
+Two of `DECOMP`'s open questions were put to the operator before `P12.S1` was planned, because both change
+what gets built. Both are settled; the corresponding entries below are marked **RESOLVED**.
+
+1. **Open Question 2 — `/admin/api/*` fate: KEEP, FAIL CLOSED.** The nine routes stay. The middleware must
+   refuse `/admin/api/*` whenever no token is configured (the fail-open `if self.token` branch does not
+   survive), and `compose.prod.yml` must interpolate `${VOCKY_ADMIN_AUTH_TOKEN:?...}` so a missing `.env`
+   line fails the deploy loudly instead of shipping an open surface. **`VOCKY_ADMIN_AUTH_TOKEN` therefore
+   remains a required box secret** and stays on `P12.S4`'s operator gate list. Nothing is deleted, so
+   `P12.S1` stays at `medium` (no tier bump). The operator explicitly kept the retire option open for later.
+2. **Open Question 1 — CI ordering: MOVE `P12.S6` BEFORE THE BRING-UP.** `P12.S6.order` was changed from
+   `6` to **`3.5`** (fractional orders exist for exactly this; nothing renumbered). The 108 DB-backed tests
+   and P10's accounts-v2 migration now get a real GitHub-runner signal **before** production, instead of
+   `P12.S4`'s `alembic upgrade head` being the first execution of the full migration chain anywhere.
+   New execution order: **S1 → S2 → S3 → S6 → S4 (launch) → S5 → S7**. `depends_on` needed no change
+   (S6 ← S2 is still satisfied; S7 ← S6 is satisfied a fortiori).
+
 ## Open Questions
 
 1. **Should `P12.S6` (the CI pytest job) move *before* the bring-up?** `intent.md` groups it with the post-launch items as "a statement about a running system", and this decomposition follows that. But a CI test job is a statement about the *repo*, not the running system, and the 108 DB-backed tests have **never run anywhere** — so as ordered, S4's `alembic upgrade head` is the first execution of the full migration chain (including P10's accounts-v2 work) against a real Postgres, and a migration or model defect would surface **on production** instead of on a GitHub runner. The push S4 needs would trigger `ci.yml` anyway. Moving S6 to order ~3.5 costs nothing and buys a real pre-launch signal. **Operator decides at S4's plan gate** (or earlier); `--order` accepts fractions, so no renumbering is required either way.
