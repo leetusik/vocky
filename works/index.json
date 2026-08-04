@@ -47,10 +47,22 @@
       "current_slice": null,
       "slice_count": 9,
       "done_slice_count": 9
+    },
+    {
+      "id": "P13",
+      "name": "Feedback email alerts over SMTP",
+      "objective": "When the worker persists a captured feedback event, send one plain-text email alert via SMTP to the account email of the owning org's owner (feedback -> project -> tenant -> owner member). SMTP transport is configured entirely from env (VOCKY_SMTP_*), reusing the SMTP account changple5 already uses in production; unconfigured SMTP means alerts are cleanly disabled, and a send failure is never allowed to duplicate or requeue an already-persisted feedback event. Recipient/preferences configurability is deliberately out of scope — this phase lands the default-on, owner-addressed alert only.",
+      "status": "planned",
+      "order": 10,
+      "path": "works/phases/active/P13",
+      "review_status": "pending",
+      "current_slice": "P13.DECOMP",
+      "slice_count": 2,
+      "done_slice_count": 0
     }
   ],
   "deferred_open_count": 6,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 1,
-  "last_rebuilt_at": "2026-08-04T12:55:54+09:00"
+  "last_rebuilt_at": "2026-08-04T16:38:57+09:00"
 }

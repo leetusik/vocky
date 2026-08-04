@@ -5,12 +5,12 @@
 
 ## Pointer
 
-- Current phase: `none`
-- Current slice: `none`
-- Next slice: `none`
+- Current phase: `P13`
+- Current slice: `P13.DECOMP`
+- Next slice: `P13.REVIEW`
 - Waiting on operator: `none`
 - Open deferred jobs: `6`
-- Rebuilt at: `2026-08-04T12:55:54+09:00`
+- Rebuilt at: `2026-08-04T16:38:57+09:00`
 
 ## Active Phases
 
@@ -20,6 +20,7 @@
 | [x] `P10` | `done` | `pass` | Accounts v2: orgs, org-level keys & default project | `none` | `works/phases/active/P10` |
 | [x] `P11` | `done` | `pass` | Frictionless onboarding: working install, env-var quickstart, agent skill on the landing | `none` | `works/phases/active/P11` |
 | [x] `P12` | `done` | `pass` | Production launch & hardening: bring-up, rate limits, CI tests, QA doc | `none` | `works/phases/active/P12` |
+| [ ] `P13` | `planned` | `pending` | Feedback email alerts over SMTP | `P13.DECOMP` | `works/phases/active/P13` |
 
 ## Phase P6: Landing Page, Webpage & Production Deploy
 
@@ -80,3 +81,10 @@
 | [x] `P12.S5` | `done` | Postgres backups, log rotation and basic metrics | `implementation` | `works/phases/active/P12/slices/P12.S5` |
 | [x] `P12.S7` | `done` | Author docs/current/qa.md | `implementation` | `works/phases/active/P12/slices/P12.S7` |
 | [x] `P12.REVIEW` | `done` | phase review | `review` | `works/phases/active/P12/slices/P12.REVIEW` |
+
+## Phase P13: Feedback email alerts over SMTP
+
+| Slice | Status | Name | Kind | Path |
+|---|---|---|---|---|
+| [ ] `P13.DECOMP` | `todo` | decompose phase | `decomposition` | `works/phases/active/P13/slices/P13.DECOMP` |
+| [ ] `P13.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P13/slices/P13.REVIEW` |

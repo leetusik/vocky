@@ -399,3 +399,4 @@
 {"ts": "2026-08-04T12:53:07+09:00", "type": "doc_version_created", "doc": "frontend", "version": "v0008_p12_the_web_app_is_deployed_and_serving_at_vocky.hi2vi.com_and_the_vestigial_hi2vi_design_tokens_are_renamed_to_role_names", "source": "P12.REVIEW"}
 {"ts": "2026-08-04T12:55:54+09:00", "type": "slice_status_changed", "slice": "P12.REVIEW", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-08-04T12:55:54+09:00", "type": "phase_reviewed", "phase": "P12", "verdict": "pass", "reviewer": "slice-executor-high"}
+{"ts": "2026-08-04T16:38:57+09:00", "type": "phase_created", "phase": "P13"}
