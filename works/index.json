@@ -56,13 +56,13 @@
       "order": 10,
       "path": "works/phases/active/P13",
       "review_status": "pending",
-      "current_slice": "P13.S1",
+      "current_slice": "P13.S2",
       "slice_count": 7,
-      "done_slice_count": 1
+      "done_slice_count": 2
     }
   ],
   "deferred_open_count": 6,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 1,
-  "last_rebuilt_at": "2026-08-04T16:46:09+09:00"
+  "last_rebuilt_at": "2026-08-04T16:49:48+09:00"
 }

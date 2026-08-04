@@ -167,6 +167,39 @@ class AccountsRepository:
         model = (await self._session.execute(statement)).scalars().first()
         return self._to_project_record(model) if model is not None else None
 
+    async def get_owner_email_for_project(self, project_id: UUID) -> str | None:
+        """Return the owning org's owner email for a project, or None.
+
+        Walks ``projects.tenant_id -> tenant_members(role='owner') -> users.email``
+        in one query. **Multi-tenant guarantee**: the join is anchored on
+        ``project_id`` so a project can never resolve to another tenant's owner —
+        a wrong join or a missing ``role == "owner"`` filter here would leak one
+        org's feedback to another org's owner. Returns ``None`` when the project
+        doesn't exist or its tenant has no owner member.
+
+        Oldest-wins by ``(created_at, id)`` — the same tie-break
+        ``get_project_by_name`` uses — because nothing forbids two
+        ``role='owner'`` rows per tenant; ``.first()`` on an ordered, limited
+        query stays deterministic where ``.one()`` / ``scalar_one_or_none()``
+        would raise.
+        """
+
+        statement = (
+            select(UserModel.email)
+            .join(TenantMemberModel, TenantMemberModel.user_id == UserModel.id)
+            .join(
+                ProjectModel,
+                ProjectModel.tenant_id == TenantMemberModel.tenant_id,
+            )
+            .where(
+                ProjectModel.id == project_id,
+                TenantMemberModel.role == "owner",
+            )
+            .order_by(TenantMemberModel.created_at, TenantMemberModel.id)
+            .limit(1)
+        )
+        return (await self._session.execute(statement)).scalars().first()
+
     # -- credentials ------------------------------------------------------
 
     async def create_project_credential(

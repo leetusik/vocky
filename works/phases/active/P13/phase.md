@@ -99,6 +99,16 @@ S4 owns the final call, but any deviation must be recorded — the "exactly thre
 _One-liners appended by each slice; `P13.REVIEW` consolidates them into doc versions._
 
 - (P13.DECOMP) None yet — decomposition changed no durable truth. Expected areas for the phase: `backend.md` (SMTP settings + notifier module + the accounts owner-email primitive), `architecture.md` (the worker's post-persist alert hook and its containment rule), `operations.md` (the fourth box secret and the SMTP bring-up runbook), and possibly `qa.md` (how a live alert is verified).
+- (P13.S1) `backend.md` gains `AccountsRepository.get_owner_email_for_project(project_id) -> str | None` and the matching `AccountsService` passthrough — a single 3-join read (`projects.tenant_id -> tenant_members(role='owner') -> users.email`), oldest-wins tie-break, `None` on missing project/no owner.
+
+## P13.S1 notes (owner-email recipient resolution)
+
+- Landed `AccountsRepository.get_owner_email_for_project(project_id: UUID) -> str | None` (right after `get_project_by_name` in `repository.py`) and the thin `AccountsService.get_owner_email_for_project` passthrough (right before `get_or_create_project` in `service.py`). No caller yet — inert until S2.
+- **S2 should call**: `AccountsService.get_owner_email_for_project(project_id)` via the existing `get_accounts_service()` factory. Returns `None` for "nothing to notify" (missing project or tenant with no owner) — not an exception. `AccountsReadError` is the only exception it can raise (genuine DB failure); S3's containment rule (never let an alert-path exception escape into the persistence job's requeue/dead-letter path) applies to this call too.
+- `role="owner"` stayed a bare string literal, matching the two existing write sites (`service.py` — now around lines 135/175 after the insertion) — no shared constant added, per plan's "do not refactor the write sites."
+- Selecting `UserModel.email` directly (not the whole `UserModel`) let the repository method return `str | None` straight from `.scalars().first()` with no new `_to_*_record` mapper.
+- Ruff is **not configured in this repo at all** (no `ruff` in `dependencies`/dev group, no `[tool.ruff]`, no lint Makefile target, `ruff` binary not installed) — later slices' plans should treat "run ruff if configured" as a no-op here rather than expect a house lint command to exist.
+- Test-DB reachability confirmed working via the already-running dev compose stack (`vocky-postgres-1` on `127.0.0.1:55432`); `uv run pytest tests/test_accounts_persistence.py -q` and the full `uv run pytest -q` (218 tests) both passed clean before and after this slice.
 
 ## Open Questions
 

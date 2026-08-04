@@ -254,6 +254,17 @@ class AccountsService:
                 await session.rollback()
                 raise AccountsReadError("failed to read project") from exc
 
+    async def get_owner_email_for_project(self, project_id: UUID) -> str | None:
+        """Return the owning org's owner email for a project, or None."""
+
+        async with self._session_maker() as session:
+            repository = AccountsRepository(session)
+            try:
+                return await repository.get_owner_email_for_project(project_id)
+            except SQLAlchemyError as exc:
+                await session.rollback()
+                raise AccountsReadError("failed to read project owner email") from exc
+
     async def get_or_create_project(
         self,
         tenant_id: UUID,

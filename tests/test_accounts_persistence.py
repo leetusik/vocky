@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 import pytest
 
 from vocky.accounts import (
@@ -13,6 +15,7 @@ from vocky.accounts import (
     DuplicateEmailError,
     get_accounts_service,
 )
+from vocky.accounts.repository import AccountsRepository
 from vocky.db import get_session_maker
 
 
@@ -79,6 +82,60 @@ async def test_project_under_tenant(configured_database: str) -> None:
     listed = await service.list_projects_for_tenant(tenant.id)
     assert [p.id for p in listed] == [project.id]
     assert (await service.get_project(project.id)).name == "Website"
+
+
+@pytest.mark.asyncio
+async def test_get_owner_email_for_project_resolves_owner(
+    configured_database: str,
+) -> None:
+    service = _service()
+    user = await service.create_user(
+        CreateUser(email="owner-lookup@example.com", password_hash="h")
+    )
+    tenant, _ = await service.create_tenant_with_owner(user.id, "OwnerLookup")
+    project = await service.create_project(
+        CreateProject(tenant_id=tenant.id, name="Site")
+    )
+
+    email = await service.get_owner_email_for_project(project.id)
+
+    assert email == "owner-lookup@example.com"
+
+
+@pytest.mark.asyncio
+async def test_get_owner_email_for_project_unknown_project_is_none(
+    configured_database: str,
+) -> None:
+    service = _service()
+
+    assert await service.get_owner_email_for_project(uuid4()) is None
+
+
+@pytest.mark.asyncio
+async def test_get_owner_email_for_project_picks_oldest_owner(
+    configured_database: str,
+) -> None:
+    service = _service()
+    first_owner = await service.create_user(
+        CreateUser(email="first-owner@example.com", password_hash="h")
+    )
+    tenant, _ = await service.create_tenant_with_owner(first_owner.id, "TwoOwners")
+    project = await service.create_project(
+        CreateProject(tenant_id=tenant.id, name="Site")
+    )
+    second_owner = await service.create_user(
+        CreateUser(email="second-owner@example.com", password_hash="h")
+    )
+    async with get_session_maker()() as session:
+        repository = AccountsRepository(session)
+        await repository.add_tenant_member(
+            tenant_id=tenant.id, user_id=second_owner.id, role="owner"
+        )
+        await session.commit()
+
+    email = await service.get_owner_email_for_project(project.id)
+
+    assert email == "first-owner@example.com"
 
 
 @pytest.mark.asyncio
