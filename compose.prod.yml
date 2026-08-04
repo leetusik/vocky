@@ -13,7 +13,8 @@
 #   - Reached by the box's dedicated edge (compose project `edge` at /home/opc/edge,
 #     container `edge-nginx`) over the EXTERNAL `changple_shared_network`, BY CONTAINER
 #     NAME (vocky-api:8000 / vocky-web:3000) — NO public host-port publish. Every
-#     service is `expose:`-only; the edge vhost (deploy/vocky.conf, S6) routes traffic.
+#     service is `expose:`-only; the edge vhost routes traffic. That vhost now lives in
+#     the EDGE REPO (`edge/conf.d/vocky.conf`), not here — see deploy/vocky.conf.md.
 #   - Fixed `container_name`s so peers + the edge address each other by name, and so a
 #     re-created container keeps its DNS name on the shared net.
 #   - `restart: unless-stopped`, container healthchecks, and `depends_on: service_healthy`

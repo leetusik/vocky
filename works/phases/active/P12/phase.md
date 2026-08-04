@@ -405,3 +405,13 @@ box-only `knowledge.conf`, and add the production deploy workflow (the repo has 
 
 `P12.S4` stays `pending`. Its other three operator gates (Cloudflare DNS, the on-box `.env`, the two
 GitHub secrets) are unaffected and can proceed in parallel — none of them touches the edge.
+
+- **P12.S4 / edge-repo P6.S2** (`deploy/vocky.conf` moved out of this repo): two `docs/current` files still
+  cite the retired path and must be corrected at `P12.REVIEW` — `architecture.md:150` and `api.md:637`
+  both say *"`deploy/vocky.conf` deliberately 404s the whole `/admin` prefix"* / *"answers
+  `location /admin/ { return 404; }`"*. The behaviour is unchanged and still true; only the path is wrong.
+  The vhost's canonical home is now `edge/conf.d/vocky.conf` in the `leetusik/edge` repo, and this repo
+  keeps `deploy/vocky.conf.md` as a pointer. `operations.md` also documents the apply path as
+  *"`scp deploy/vocky.conf` into `/home/opc/edge/conf.d/`"* — that whole procedure is superseded by the
+  edge repo's `validate.sh` → `stage.sh` → `deploy.sh` loop (and its new GitHub Actions workflow).
+  `compose.prod.yml:16`'s comment was corrected in place (source file, not a generated doc).
