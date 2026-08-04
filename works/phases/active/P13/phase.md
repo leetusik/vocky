@@ -238,3 +238,11 @@ _One-liners appended by each slice; `P13.REVIEW` consolidates them into doc vers
 
 - None blocking. Two things are deliberately left to their slice: the notifier module's exact file/package shape (single module vs `src/vocky/notifications/` package — S2's call, following the `accounts`/`feedback` house style), and the final interpolation form for the SMTP secret in compose (S4's call, with Decision 3's recommendation as the default).
 - For `P13.REVIEW` to consider: whether the lost-alert-on-failure tradeoff (Decision 2) warrants a `defer-job` for a retry/outbox path.
+
+### P13.S5 acceptance (operator-confirmed, 2026-08-04)
+
+The operator ran the runbook live: SMTP values were copied from the `changple5-celery_beat-1`
+container's env onto the box `.env` (host `mail.privateemail.com`, port `587`/STARTTLS, user
+`hi@hi2vi.com`, from `창플 <hi@hi2vi.com>`), the stack was deployed, a real feedback event was
+captured, and the operator confirmed the plain-text alert email arrived — the slice's acceptance
+evidence. Non-secret SMTP endpoint facts above are durable ops truth for `operations.md`.
