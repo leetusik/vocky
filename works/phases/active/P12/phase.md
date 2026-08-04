@@ -149,6 +149,41 @@ The bring-up is expected to fail at least once. The rule for this phase:
 - `shellcheck` and `actionlint` are **not installed** in this sandbox; neither is a Docker daemon. Do not plan validation around them.
 - The repo is public (`https://github.com/leetusik/vocky.git`) and `works/` is tracked, so the push at S4 publishes this notebook — already true of the previous 9 phases; it contains the box IP and paths, which are already public, and no secrets.
 
+### `P12.S1` — `/admin/api/*` kept, fail-closed (done)
+
+- The operator's KEEP/FAIL-CLOSED decision is landed in code: `src/vocky/auth.py`'s
+  `AdminBearerAuthMiddleware` now refuses **every** `/admin/api/*` request with `503`
+  (`{"detail": "Admin API is not configured"}`, no `WWW-Authenticate`) when `self.token` is blank, and
+  keeps the existing `401` + `WWW-Authenticate: Bearer` behaviour once a token is configured. Nothing was
+  deleted — `src/vocky/admin_api.py`, its nine routes, `tests/test_admin_api.py`, and `config.py`'s
+  `admin_auth_token` field are all unchanged.
+- **`VOCKY_ADMIN_AUTH_TOKEN` is confirmed mandatory for a production `up`** — relevant to `P12.S4`'s
+  secret-generation gate, which needs no change (it was already on the list).
+- **All three prod secrets now abort `docker compose` when unset**, not just when `VOCKY_ADMIN_AUTH_TOKEN`
+  is missing: `compose.prod.yml` gives `POSTGRES_PASSWORD` (all 3 interpolation sites — the `postgres`
+  service env var and the `DATABASE_URL` built in both `api` and `worker`) and `SESSION_SECRET` (the `web`
+  service) the same `${VAR:?err}` treatment as `VOCKY_ADMIN_AUTH_TOKEN`. `POSTGRES_PASSWORD` previously
+  only failed by the `postgres:17` image's own refusal to start blank (not by Compose itself);
+  `SESSION_SECRET` previously only failed at a real user's first login, long after `deploy.sh`'s health
+  gate (a fetch of `/`, which never reads it) went green. **This closes Finding 2** as well as Finding 1.
+- Verified with `docker compose --env-file <empty> -f compose.prod.yml config -q`: all three dummy-valued
+  → exit 0; any one of the three unset → exit 1 with an actionable `VAR is required — set it in the box
+  .env` message. Had to pass `--env-file` pointed at an empty scratch file to defeat the repo's real dev
+  `.env` (which docker compose auto-loads and which already carries all three secrets) — **worth knowing
+  for `P12.S4`/anyone re-testing this locally**: an unqualified `docker compose -f compose.prod.yml config`
+  from this repo root will silently pick up the dev `.env`'s values and look like it "worked" even with a
+  var unset in the shell.
+- **Correction to Findings § "shellcheck and actionlint are not installed... neither is a Docker daemon"**:
+  the Docker CLI + `docker compose` (v2.37.1) *are* present in at least this executor's sandbox — only
+  `shellcheck`/`actionlint` and (unverified) a *running* daemon for `up`/build were the actual gap. Worth
+  re-checking before assuming `config -q`-style static checks are unavailable in a future slice's sandbox.
+- `README.md`'s three stale-model lines (`:222`, `:273`, `:444`, using the slice's re-measured current line
+  numbers — see `result.md` for the byte-for-byte diff) and three stale-existence lines (`:34` "scheduled
+  for removal in P6", `:210` "Admin UI token field", `:258`/`:259` dead "packaged … Admin Web UI" bullet)
+  are all corrected. Nine `VOCKY_ADMIN_AUTH_TOKEN` mentions remain in `README.md`, all now consistent with
+  fail-closed.
+- Full detail, exact validation output, and the file-by-file diff rationale: `P12.S1/result.md`.
+
 ## Constraints
 
 - **Shared-edge house rules** (violating any breaks *every* co-tenant site): never `default_server`; no `listen [::]` (IPv6); **no `limit_req_zone`** and globally-unique zone/location names; always restore Cloudflare real IPs (`set_real_ip_from` + `real_ip_header CF-Connecting-IP`); always use `resolver 127.0.0.11 valid=30s ipv6=off` with variable `proxy_pass` upstreams.
@@ -164,6 +199,17 @@ The bring-up is expected to fail at least once. The rule for this phase:
 _Running list — `P12.REVIEW` consolidates these into durable-doc versions. One line per durable-truth change; do not version docs from a middle slice._
 
 - **P12.DECOMP** (no source change): two corrections `P12.REVIEW` should fold in regardless of what the middle slices do — (a) `operations.md` § "Box secrets" claims *"None has a `:-` default: a missing value must fail loudly on the box"*, which is **false as written** (Compose substitutes an empty string with a warning for a plain `${VAR}`; only `POSTGRES_PASSWORD` fails loudly, and only because the `postgres:17` image refuses to initialize without it); (b) `operations.md` § "`.github/workflows/ci.yml`" records **14** prettier failures while `intent.md` says 12–13 — 14 is the measured number.
+- **P12.S1**: (a) **`architecture.md`'s open question "whether Admin REST outlives the UI it served"** is
+  now **resolved — kept, fail-closed, `VOCKY_ADMIN_AUTH_TOKEN` mandatory.** Nothing was deleted; the nine
+  `/admin/api/*` routes stay, and `AdminBearerAuthMiddleware` refuses every admin request with `503` when
+  no token is configured (was fail-open). (b) **`security.md`'s "defense in depth" claim about
+  `/admin/api/*`** is now actually true in code — it previously rested on a token that was optional
+  (`if self.token`); the fail-open branch is gone. (c) **`operations.md`'s "a missing box secret must fail
+  loudly on the box" claim is now true for all three secrets**, not just `POSTGRES_PASSWORD` — this
+  **supersedes** the `P12.DECOMP` correction directly above (that correction described the pre-S1 state;
+  `compose.prod.yml` now gives `POSTGRES_PASSWORD`, `SESSION_SECRET`, and `VOCKY_ADMIN_AUTH_TOKEN` the
+  identical `${VAR:?err}` treatment, so the claim as originally written in `operations.md` is correct again
+  and needs no softening — just confirmation that it's now actually implemented that way).
 
 ## Operator decisions (2026-08-04, taken by the orchestrator at the start of the `auto` run)
 

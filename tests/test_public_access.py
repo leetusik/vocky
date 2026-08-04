@@ -91,6 +91,37 @@ def test_admin_bearer_auth_middleware_requires_configured_token() -> None:
     assert allowed_response.text == "ok"
 
 
+def test_admin_bearer_auth_middleware_fails_closed_without_a_configured_token() -> None:
+    async def endpoint(_) -> Response:
+        return Response("ok")
+
+    app = Starlette(
+        routes=[
+            Route("/healthz", endpoint, methods=["GET"]),
+            Route("/admin/api/healthz", endpoint, methods=["GET"]),
+            Route("/admin/api/feedback/metrics", endpoint, methods=["GET"]),
+        ]
+    )
+    app.add_middleware(AdminBearerAuthMiddleware, token="")
+    client = TestClient(app)
+
+    health_response = client.get("/healthz")
+    unconfigured_response = client.get("/admin/api/healthz")
+    unconfigured_metrics_response = client.get("/admin/api/feedback/metrics")
+
+    # Non-admin paths pass through untouched even when no token is configured.
+    assert health_response.status_code == 200
+    assert health_response.text == "ok"
+    # No token configured -> every admin request is refused as a server
+    # misconfiguration (503), never left open, and never invites a retry with
+    # credentials (no WWW-Authenticate).
+    assert unconfigured_response.status_code == 503
+    assert unconfigured_response.json() == {"detail": "Admin API is not configured"}
+    assert "www-authenticate" not in unconfigured_response.headers
+    assert unconfigured_metrics_response.status_code == 503
+    assert "www-authenticate" not in unconfigured_metrics_response.headers
+
+
 @pytest.mark.anyio
 async def test_project_credential_auth_middleware_enforces_mandatory_ingest_auth(
     configured_project_credential,

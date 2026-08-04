@@ -31,7 +31,7 @@ The service is free — there are no paid plans, billing, or usage metering.
 - **`/mcp` write-only capture** — an AI agent linked to a project's MCP endpoint saves feedback at its own judgement through a single `capture_feedback` tool, authenticated by the same `vk_` key.
 - **Admin REST (`/admin/api/*`)** — the self-hosted operator review API, guarded by its own separate `VOCKY_ADMIN_AUTH_TOKEN` bearer.
 
-A packaged self-hosted operator Admin Web UI still ships under `/admin`, but it is **superseded by the web app** and is scheduled for removal in P6. Its packaged in-app docs still describe the retired static-token model and are not current guidance.
+The packaged self-hosted operator Admin Web UI that used to ship under `/admin` was **removed in P6** — only the bearer-guarded Admin REST API (`/admin/api/*`) survives, and it now **fails closed**: without a configured `VOCKY_ADMIN_AUTH_TOKEN` every Admin REST request answers `503`.
 
 ## Why It Exists
 
@@ -207,7 +207,7 @@ The supported local workflow is Compose-first and uses the copied repo-root `.en
 
 The default `.env` values publish the app at `http://127.0.0.1:8000`, PostgreSQL at `127.0.0.1:55432`, and Redis at `127.0.0.1:56379`. Those loopback-only defaults come from `VOCKY_PUBLISH_HOST`, `POSTGRES_PUBLISH_HOST`, and `REDIS_PUBLISH_HOST`, which all default to `127.0.0.1`.
 
-Open the web app locally with the `web/` Next.js dev server (see `web/README.md`), or use the `vocky` CLI above. The packaged Admin Web UI at `http://127.0.0.1:8000/admin` still loads for self-hosted operators but is superseded by the web app; if `VOCKY_ADMIN_AUTH_TOKEN` is set, paste that token into the Admin UI token field before checking protected Admin REST data.
+Open the web app locally with the `web/` Next.js dev server (see `web/README.md`), or use the `vocky` CLI above. The packaged Admin Web UI is gone (removed in P6); check protected Admin REST data with `curl`/an HTTP client, sending `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>` — without a configured token, `/admin/api/*` answers `503` rather than accepting requests.
 
 `make bootstrap` runs `make sync`, `make compose-up`, the explicit migration step `make migrate`, and a final readiness check. The Compose stack includes `redis`, `postgres`, `app`, and `worker`. The app and worker images install dependencies during the Docker build and run with `uv run --no-sync` at container startup.
 
@@ -219,7 +219,7 @@ If you need different host ports or interfaces, edit `.env` before you run the w
 
 Public custom-domain access has these additional settings:
 
-- `VOCKY_ADMIN_AUTH_TOKEN`: bearer token required for `/admin/api/*` when set. Set this before exposing Admin REST endpoints.
+- `VOCKY_ADMIN_AUTH_TOKEN`: bearer token required for `/admin/api/*`. **Mandatory to expose Admin REST at all** — without it every `/admin/api/*` request answers `503` (the middleware fails closed, it does not fall back to an open surface).
 - `VOCKY_MCP_ALLOWED_HOSTS`: comma-separated extra `Host` values allowed by the `/mcp` DNS-rebinding protection. A public `/mcp` deployment must add its public host (with port) here.
 
 `/api/*` needs no extra env gating before exposure — it is always authenticated by `vk_` credentials.
@@ -255,8 +255,7 @@ The Starlette host app exposes:
 - Scoped end-user read at `GET /api/feedback`
 - Project-scoped read+manage at `/api/project/feedback` and per-project usage at `/api/project/usage`
 - Write-only agent capture at `/mcp` (single `capture_feedback` tool, `vk_` credential)
-- Admin REST under `/admin/api/*`
-- The packaged (superseded, P6-removal) Admin Web UI under `/admin`
+- Admin REST under `/admin/api/*` (bearer-guarded, fails closed with `503` when `VOCKY_ADMIN_AUTH_TOKEN` is unset)
 
 `channel` is optional and defaults to no category when omitted or blank. New capture and Admin edit writes accept only `web`, `mobile`, `support`, or `null`; older stored channel values remain visible and exact-filterable for review.
 
@@ -271,7 +270,7 @@ For conversation or process context, send review-safe summaries, retrieved snipp
 Vocky supports two clean operator modes for self-hosting:
 
 - Internal self-hosting: keep the default `*_PUBLISH_HOST=127.0.0.1` values, use `VOCKY_BASE_URL` for host-side smoke and verification, and connect from the same machine or trusted private network.
-- Public custom-domain deploy: publish vocky through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL`, set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*`, add the public host to `VOCKY_MCP_ALLOWED_HOSTS` if you expose `/mcp`, and use `make external-verify` for public readiness and smoke checks.
+- Public custom-domain deploy: publish vocky through Cloudflare Tunnel or another HTTPS reverse proxy, set `VOCKY_EXTERNAL_BASE_URL`, set `VOCKY_ADMIN_AUTH_TOKEN` (required — `/admin/api/*` answers `503` until it is set, it is never openly reachable), add the public host to `VOCKY_MCP_ALLOWED_HOSTS` if you expose `/mcp`, and use `make external-verify` for public readiness and smoke checks.
 
 `/api/*` and `/mcp` are always authenticated by `vk_` credentials, so they need no extra env gating before exposure. For public custom-domain access, set `VOCKY_EXTERNAL_BASE_URL` to the external HTTPS origin after DNS and proxying are active.
 
@@ -442,7 +441,7 @@ Implemented endpoints:
 - `PATCH /admin/api/feedback/{feedback_id}`
 - `DELETE /admin/api/feedback/{feedback_id}`
 
-Set `VOCKY_ADMIN_AUTH_TOKEN` before exposing `/admin/api/*` outside a trusted local/private environment; Admin REST requests then send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`. This is a **separate** boundary from the `vk_` ingest credential that guards `/api/*`.
+`VOCKY_ADMIN_AUTH_TOKEN` is **required**: without it, every `/admin/api/*` request answers `503` (fails closed — the surface is never openly reachable). Once configured, Admin REST requests send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`. This is a **separate** boundary from the `vk_` ingest credential that guards `/api/*`.
 
 Admin REST patch writes apply the same channel category rule as capture: blank clears to `null`, and non-null values must be `web`, `mobile`, or `support`. Admin list filters exact-match stored channel text, `user_id`, `target_type`, and `trigger_type`.
 

@@ -20,11 +20,14 @@
 #     gates so boot order is correct and the deploy health-gate (S7) can assert readiness.
 #
 # NO SECRETS live in this file: POSTGRES_PASSWORD, SESSION_SECRET, and
-# VOCKY_ADMIN_AUTH_TOKEN are `${...}` interpolations Compose reads from the box's
-# gitignored project `.env` (see .env.prod.example). There is deliberately NO
-# `env_file:` anywhere — each container receives ONLY the vars listed under its own
+# VOCKY_ADMIN_AUTH_TOKEN are `${VAR:?err}` interpolations Compose reads from the box's
+# gitignored project `.env` (see .env.prod.example). All three use the `:?` form, so
+# `docker compose` REFUSES to run when any is unset or blank — a missing box secret
+# fails the deploy loudly instead of silently degrading (e.g. an unauthenticated
+# /admin/api or a weak Postgres password). There is deliberately NO `env_file:`
+# anywhere — each container receives ONLY the vars listed under its own
 # `environment:`, so the api's secrets never leak into the web container and vice
-# versa. `docker compose config` still validates with dummy values for the three.
+# versa. `docker compose config` still validates once dummy values are exported.
 
 services:
   postgres:
@@ -35,11 +38,12 @@ services:
     container_name: vocky-postgres  # fixed name — DATABASE_URL targets it by name
     environment:
       # user/db are non-secret literals; the PASSWORD is the SECRET, supplied by the
-      # box's gitignored `.env` (POSTGRES_PASSWORD=...). No `:-` default — a missing
-      # value must fail loud on the box, never silently fall back to a weak password.
+      # box's gitignored `.env` (POSTGRES_PASSWORD=...). `:?` (not `:-`) — a missing
+      # value aborts `docker compose` itself, never silently falls back to a weak
+      # password or relies on the postgres:17 image's own refusal to start blank.
       POSTGRES_DB: vocky
       POSTGRES_USER: vocky
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — set it in the box .env}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
@@ -94,14 +98,17 @@ services:
       # is the SECRET POSTGRES_PASSWORD interpolated from the box's gitignored `.env`
       # (user/db are the literals `vocky`). Migrations run explicitly on deploy
       # (S7: `docker compose exec vocky-api uv run --no-sync alembic upgrade head`).
-      DATABASE_URL: postgresql+psycopg://vocky:${POSTGRES_PASSWORD}@vocky-postgres:5432/vocky
+      DATABASE_URL: postgresql+psycopg://vocky:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — set it in the box .env}@vocky-postgres:5432/vocky
       REDIS_URL: redis://vocky-redis:6379/0
       VOCKY_HOST: 0.0.0.0
       VOCKY_PORT: "8000"
       VOCKY_LOG_LEVEL: INFO
       # Bearer that guards the surviving /admin/api REST surface (the packaged Admin
       # Web UI was removed in P6.S1). SECRET — generated on the box into `.env`.
-      VOCKY_ADMIN_AUTH_TOKEN: ${VOCKY_ADMIN_AUTH_TOKEN}
+      # `:?` — a missing value aborts `docker compose` instead of shipping a
+      # fail-open Admin REST surface (AdminBearerAuthMiddleware refuses everything
+      # with 503 when unconfigured, but Compose must never let this ship blank).
+      VOCKY_ADMIN_AUTH_TOKEN: ${VOCKY_ADMIN_AUTH_TOKEN:?VOCKY_ADMIN_AUTH_TOKEN is required — set it in the box .env}
       # Public /mcp DNS-rebinding allowlist (config.py VOCKY_MCP_ALLOWED_HOSTS). The
       # in-app MCP server only accepts requests whose Host matches the public origin.
       VOCKY_MCP_ALLOWED_HOSTS: vocky.hi2vi.com
@@ -155,7 +162,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg://vocky:${POSTGRES_PASSWORD}@vocky-postgres:5432/vocky
+      DATABASE_URL: postgresql+psycopg://vocky:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — set it in the box .env}@vocky-postgres:5432/vocky
       REDIS_URL: redis://vocky-redis:6379/0
       VOCKY_LOG_LEVEL: INFO
       VOCKY_ATTACHMENTS_DIR: /var/lib/vocky/attachments
@@ -194,7 +201,10 @@ services:
       # box secret the OPERATOR generates into the gitignored `.env`. Interpolated here
       # (NOT `env_file: .env`) so the api's POSTGRES_PASSWORD / VOCKY_ADMIN_AUTH_TOKEN
       # are NOT injected into the web container. Rotating it logs every user out.
-      SESSION_SECRET: ${SESSION_SECRET}
+      # `:?` — a missing value aborts `docker compose` at deploy time instead of
+      # passing the health gate (a fetch of `/`, which never reads this) and only
+      # failing later, at a real user's first login.
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required — set it in the box .env}
     expose:
       - "3000"
     networks:

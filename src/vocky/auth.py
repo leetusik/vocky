@@ -82,29 +82,40 @@ def extract_bearer_credential(authorization: str | None) -> str | None:
 
 
 class AdminBearerAuthMiddleware:
-    """Require bearer auth for Admin REST traffic when a token is configured."""
+    """Require bearer auth for Admin REST traffic; fail closed with no token.
+
+    A missing ``VOCKY_ADMIN_AUTH_TOKEN`` is a server misconfiguration, not an
+    "open" state: every ``/admin/api/*`` request is refused with ``503`` until
+    an operator configures a token. This is deliberate defense in depth — the
+    Admin REST surface must never be reachable purely because a deploy forgot
+    to set a box secret.
+    """
 
     def __init__(self, app: ASGIApp, token: str = "") -> None:
         self.app = app
         self.token = token.strip()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if (
-            self.token
-            and scope["type"] == "http"
-            and is_admin_api_path(str(scope.get("path", "")))
-            and not is_authorized_bearer(
+        if scope["type"] == "http" and is_admin_api_path(str(scope.get("path", ""))):
+            if not self.token:
+                response = JSONResponse(
+                    {"detail": "Admin API is not configured"},
+                    status_code=503,
+                )
+                await response(scope, receive, send)
+                return
+
+            if not is_authorized_bearer(
                 dict(scope.get("headers", [])).get(b"authorization", b"").decode("latin1"),
                 self.token,
-            )
-        ):
-            response = JSONResponse(
-                {"detail": "Unauthorized"},
-                status_code=401,
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-            await response(scope, receive, send)
-            return
+            ):
+                response = JSONResponse(
+                    {"detail": "Unauthorized"},
+                    status_code=401,
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+                await response(scope, receive, send)
+                return
 
         await self.app(scope, receive, send)
 
