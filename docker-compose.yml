@@ -77,6 +77,14 @@ services:
       REDIS_URL: redis://redis:6379/0
       VOCKY_LOG_LEVEL: ${VOCKY_LOG_LEVEL:-INFO}
       VOCKY_ATTACHMENTS_DIR: /var/lib/vocky/attachments
+      # Optional SMTP transport for feedback email alerts. Unset by default so a
+      # local stack with no SMTP configured starts fine and runs with alerts
+      # disabled.
+      VOCKY_SMTP_HOST: ${VOCKY_SMTP_HOST:-}
+      VOCKY_SMTP_PORT: ${VOCKY_SMTP_PORT:-587}
+      VOCKY_SMTP_USER: ${VOCKY_SMTP_USER:-}
+      VOCKY_SMTP_PASSWORD: ${VOCKY_SMTP_PASSWORD:-}
+      VOCKY_SMTP_FROM: ${VOCKY_SMTP_FROM:-}
     command: ["uv", "run", "--no-sync", "vocky-worker"]
     volumes:
       - attachments-data:/var/lib/vocky/attachments

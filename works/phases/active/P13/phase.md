@@ -102,6 +102,7 @@ _One-liners appended by each slice; `P13.REVIEW` consolidates them into doc vers
 - (P13.S1) `backend.md` gains `AccountsRepository.get_owner_email_for_project(project_id) -> str | None` and the matching `AccountsService` passthrough — a single 3-join read (`projects.tenant_id -> tenant_members(role='owner') -> users.email`), oldest-wins tie-break, `None` on missing project/no owner.
 - (P13.S2) `backend.md` gains: `Settings.smtp_host/port/user/password/from` (`VOCKY_SMTP_*`, all optional, all default-disabled) plus `smtp_from_value` (effective From, falling back to `smtp_user`) and `smtp_configured` (the single "unconfigured ⇒ cleanly disabled" gate); and the new `src/vocky/notifications.py` module — `FeedbackAlertNotifier.notify_feedback_persisted(record)` (renders one plain-text `EmailMessage` and sends it via stdlib `smtplib` in `asyncio.to_thread`) plus `get_feedback_alert_notifier()` factory — inert until S3 wires it into the worker.
 - (P13.S3) `architecture.md` gains the worker's post-persist alert hook: `CaptureWorker.__init__` takes a defaulted `notifier: FeedbackAlertNotifier | None = None`; `_process_job` captures the `FeedbackEventRecord | None` returned by persistence and, after the persistence `try/except` has already returned successfully, calls `await self._notifier.notify_feedback_persisted(record)` inside its own `try/except Exception: logger.exception(...)` that sits structurally outside the persistence `try:` block and never touches `requeue_job`/`dead_letter_job` — a failed alert is logged and lost, never re-enqueued, so it can never duplicate a feedback row. `run_worker()` wires `notifier=get_feedback_alert_notifier()`.
+- (P13.S4) `operations.md` gains: the fourth box secret `VOCKY_SMTP_PASSWORD` (alongside `POSTGRES_PASSWORD`/`SESSION_SECRET`/`VOCKY_ADMIN_AUTH_TOKEN`), the required-vs-optional interpolation forms for all five `VOCKY_SMTP_*` vars (`HOST`/`USER`/`PASSWORD` are `${VAR:?err}`, `PORT`/`FROM` are `${VAR:-default}`), and that they live on the `worker` service's `environment:` block only (`compose.prod.yml`) — `api`/`web` never receive them, matching the existing per-service secret-isolation invariant.
 
 ## P13.S1 notes (owner-email recipient resolution)
 
@@ -173,6 +174,38 @@ _One-liners appended by each slice; `P13.REVIEW` consolidates them into doc vers
 - **S4 should note**: no application code changes remain in this phase after S3 — S4/S5 are purely
   env/compose/box plumbing and operator bring-up against the notifier module and worker hook that
   now exist and are fully wired.
+
+## P13.S4 notes (SMTP env/compose/deploy plumbing)
+
+- Chose the interpolation forms exactly per Decision 3's recommendation, no
+  deviation: prod worker `environment:` — `VOCKY_SMTP_HOST`/`VOCKY_SMTP_USER`/
+  `VOCKY_SMTP_PASSWORD` all `${VAR:?...}` (production intends alerts on), `PORT`
+  `${VAR:-587}`, `FROM` `${VAR:-}`. Dev worker `environment:` mirrors all five in the
+  `:-` empty-default form so the local stack always starts, alerts off unless
+  configured.
+- All five vars added **only** to the `worker` service's `environment:` block in both
+  `compose.prod.yml` and `docker-compose.yml` — `api`/`web` untouched in both files,
+  preserving the per-service secret-isolation invariant the compose header already
+  states.
+- Kept `compose.prod.yml`'s header and `.env.prod.example`'s header worded coherently:
+  both now say "four secrets... VOCKY_SMTP_PASSWORD... all four use `:?`" plus a note
+  that `VOCKY_SMTP_HOST`/`VOCKY_SMTP_USER` are also `:?` (required but not secret) and
+  `VOCKY_SMTP_PORT`/`VOCKY_SMTP_FROM` are optional `:-` config — the counts do not
+  drift between the two files.
+- **S5 should fill these exact box-`.env` var names** (read out of changple5's own env
+  on the box): `VOCKY_SMTP_HOST=`, `VOCKY_SMTP_USER=`, `VOCKY_SMTP_PASSWORD=`
+  (required, secret), `VOCKY_SMTP_PORT=` (optional, default 587), `VOCKY_SMTP_FROM=`
+  (optional, defaults to `VOCKY_SMTP_USER`). `deploy/deploy.sh` needed no change — the
+  `:?` guard is the single enforcement point, confirmed by the negative-test
+  validation below.
+- Validation: `docker compose -f compose.prod.yml config --quiet` passes with all
+  seven required vars (`POSTGRES_PASSWORD`, `SESSION_SECRET`,
+  `VOCKY_ADMIN_AUTH_TOKEN`, `VOCKY_SMTP_HOST`, `VOCKY_SMTP_USER`,
+  `VOCKY_SMTP_PASSWORD`, plus nothing else) exported as dummies; the same command with
+  `VOCKY_SMTP_PASSWORD` unset fails with the exact `:?` error message, proving the
+  guard fires; `docker compose -f docker-compose.yml config --quiet` with no SMTP vars
+  set passes (dev stays optional). No code changed, so `uv run pytest -q` was skipped
+  (per plan).
 
 ## Open Questions
 

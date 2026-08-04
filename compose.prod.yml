@@ -20,13 +20,17 @@
 #   - `restart: unless-stopped`, container healthchecks, and `depends_on: service_healthy`
 #     gates so boot order is correct and the deploy health-gate (S7) can assert readiness.
 #
-# NO SECRETS live in this file: POSTGRES_PASSWORD, SESSION_SECRET, and
-# VOCKY_ADMIN_AUTH_TOKEN are `${VAR:?err}` interpolations Compose reads from the box's
-# gitignored project `.env` (see .env.prod.example). All three use the `:?` form, so
-# `docker compose` REFUSES to run when any is unset or blank — a missing box secret
-# fails the deploy loudly instead of silently degrading (e.g. an unauthenticated
-# /admin/api or a weak Postgres password). There is deliberately NO `env_file:`
-# anywhere — each container receives ONLY the vars listed under its own
+# NO SECRETS live in this file: POSTGRES_PASSWORD, SESSION_SECRET,
+# VOCKY_ADMIN_AUTH_TOKEN, and VOCKY_SMTP_PASSWORD are `${VAR:?err}` interpolations
+# Compose reads from the box's gitignored project `.env` (see .env.prod.example). All
+# four use the `:?` form, so `docker compose` REFUSES to run when any is unset or
+# blank — a missing box secret fails the deploy loudly instead of silently degrading
+# (e.g. an unauthenticated /admin/api, a weak Postgres password, or feedback alerts
+# quietly going nowhere). VOCKY_SMTP_PASSWORD's non-secret companions
+# VOCKY_SMTP_HOST/VOCKY_SMTP_USER also use `:?` (production intends alerts on);
+# VOCKY_SMTP_PORT/VOCKY_SMTP_FROM are optional `${VAR:-default}` config (P13,
+# worker service only — see the worker block below). There is deliberately NO
+# `env_file:` anywhere — each container receives ONLY the vars listed under its own
 # `environment:`, so the api's secrets never leak into the web container and vice
 # versa. `docker compose config` still validates once dummy values are exported.
 #
@@ -192,6 +196,19 @@ services:
       REDIS_URL: redis://vocky-redis:6379/0
       VOCKY_LOG_LEVEL: INFO
       VOCKY_ATTACHMENTS_DIR: /var/lib/vocky/attachments
+      # SMTP transport for feedback email alerts (P13). The worker is the SOLE
+      # sender — the api never sends, so these vars live ONLY on this service's
+      # environment block. Unconfigured SMTP disables alerts cleanly, but
+      # production INTENDS alerts on, so HOST/USER/PASSWORD use the same `:?`
+      # box-secret pattern as POSTGRES_PASSWORD/VOCKY_ADMIN_AUTH_TOKEN above — a
+      # missing value aborts the deploy loudly instead of silently shipping a
+      # stack whose alerts are quietly off. PORT/FROM are non-secret config with
+      # sane defaults (FROM falls back to VOCKY_SMTP_USER in config.py when blank).
+      VOCKY_SMTP_HOST: ${VOCKY_SMTP_HOST:?VOCKY_SMTP_HOST is required — set it in the box .env}
+      VOCKY_SMTP_PORT: ${VOCKY_SMTP_PORT:-587}
+      VOCKY_SMTP_USER: ${VOCKY_SMTP_USER:?VOCKY_SMTP_USER is required — set it in the box .env}
+      VOCKY_SMTP_PASSWORD: ${VOCKY_SMTP_PASSWORD:?VOCKY_SMTP_PASSWORD is required — set it in the box .env}
+      VOCKY_SMTP_FROM: ${VOCKY_SMTP_FROM:-}
     volumes:
       # SAME named volume as the api (attachment bytes written here, served there).
       - attachments-data:/var/lib/vocky/attachments
