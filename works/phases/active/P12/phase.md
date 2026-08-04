@@ -415,3 +415,69 @@ GitHub secrets) are unaffected and can proceed in parallel — none of them touc
   *"`scp deploy/vocky.conf` into `/home/opc/edge/conf.d/`"* — that whole procedure is superseded by the
   edge repo's `validate.sh` → `stage.sh` → `deploy.sh` loop (and its new GitHub Actions workflow).
   `compose.prod.yml:16`'s comment was corrected in place (source file, not a generated doc).
+
+## P12.S4 Gate 4 executed (2026-08-04) — and the box was NOT virgin
+
+The bring-up plan assumed an empty box. It was not. **An abandoned vocky stack from May was running
+there**, and the plan's Gate 4 as written would have damaged it (`git clone` into an existing directory,
+then `> .env` over the live stack's environment — including the `POSTGRES_PASSWORD` its Postgres volume
+had been initialized with).
+
+**What was found:**
+
+- `/home/opc/vocky` — a git checkout on `main` at `7f32a34` ("feat(feedback): add identity trigger
+  context"), months behind, plus an untracked `docker-compose.override.yml` adding
+  `restart: unless-stopped` to the four dev services.
+- Four containers up ~2 months, from the **dev** compose (`docker-compose.yml` + that override), NOT
+  `compose.prod.yml`: `vocky-app-1` (`172.17.0.1:8000`), `vocky-postgres-1` (`127.0.0.1:55432`),
+  `vocky-redis-1` (`127.0.0.1:56379`), `vocky-worker-1`. Default compose naming, not the pinned
+  `container_name: vocky-*` of the prod file.
+- Volumes `vocky_postgres-data`, `vocky_redis-data` — **the exact names `compose.prod.yml` would use**,
+  because the Compose project name derives from the directory basename (`vocky`) in both cases.
+- Database: two tables only (`alembic_version`, `feedback_events`), alembic head `20260429_1620`, **4
+  rows** — 3 `changple5` (newest 2026-05-23), 1 `vocky-smoke` (2026-05-09). No accounts plane at all.
+- Traffic: healthchecks every 10s and nothing else. **No real request since 2026-05-23.** Abandoned.
+
+**Why it mattered:** same project name + same service keys + same volumes meant `deploy.sh` would have
+recreated the live containers and run P10's accounts-v2 migration against the **May database** rather than
+an empty schema — precisely the live-cutover scenario this phase's P10 → P11 → P12 ordering exists to
+avoid.
+
+**Operator decision (2026-08-04): dump the rows, then wipe.** Executed in order:
+
+1. `pg_dump` → **`/home/opc/vocky-preP12-db-2026-08-04.sql`** (8087 bytes; verified to contain the
+   `COPY public.feedback_events` block with all 4 rows and its `\.` terminator).
+2. Old dev env → **`/home/opc/vocky-preP12-env-2026-08-04.bak`** (1839 bytes, mode 600). It was dev-shaped
+   (15 vars incl. `TEST_DATABASE_URL`, `POSTGRES_PUBLISH_HOST`) and **had no `SESSION_SECRET`**, so it
+   could never have satisfied `compose.prod.yml` anyway.
+3. `docker compose down` (**not** `down -v`) — containers + `vocky_default` network removed.
+4. `docker volume rm vocky_postgres-data vocky_redis-data` — both gone; no vocky volume remains.
+5. `git pull --ff-only` → checkout now at `6c16ac5` == `origin/main`; `compose.prod.yml`, `deploy/deploy.sh`
+   and `.env.prod.example` are present (the old checkout predated all of them).
+6. `docker-compose.override.yml` moved (not deleted) to
+   **`/home/opc/vocky-preP12-docker-compose.override.yml.bak`**, so a stray `docker compose up` in that
+   directory cannot resurrect a dev stack under the same project name and collide with prod.
+7. New `/home/opc/vocky/.env` written with three freshly generated `openssl rand -base64 32` secrets
+   (`POSTGRES_PASSWORD`, `SESSION_SECRET`, `VOCKY_ADMIN_AUTH_TOKEN`), mode 600, 191 bytes.
+
+**Verification, and one corrected test.** `docker compose -f compose.prod.yml config -q` → OK. The
+fail-loud check first appeared to FAIL (exit 0 with `POSTGRES_PASSWORD` unset) — but that was a **bad
+test**, not bad hardening: `docker compose` auto-reads the project directory's `.env`, so `env -u VAR`
+proves nothing. This is the same trap already recorded above. Re-run correctly with
+`--env-file /tmp/partial.env`, `P12.S1`'s `${VAR:?}` hardening works: **exit 1** with
+*"POSTGRES_PASSWORD is required — set it in the box .env"*, and exit 0 with all three present.
+
+**Box facts worth not re-deriving:** `docker compose version` on the box is **v5.1.4** (so the
+`MIGRATE_VIA_DOCKER_RUN=1` fallback is unlikely to be needed); `git` and `openssl` are at `/usr/bin/`. The
+old `vocky-app` / `vocky-worker` images still exist locally on the box and are unrelated to the prod image
+names (`vocky-api:latest`, `vocky-web:latest`), so `deploy.sh`'s first run still takes its documented
+no-`:previous` first-deploy branch.
+
+**Gate status: all four cleared.** G1 Cloudflare DNS (verified: `vocky.hi2vi.com` → the same Cloudflare
+pair as `knowledge.hi2vi.com`; `https://` returns **526**, the correct pre-vhost state — Cloudflare reached
+the origin but `00-default.conf` presents no `*.hi2vi.com` cert). G2 the two GitHub secrets
+(`ORACLE_SSH_PASSPHRASE` deliberately not created — the key is unencrypted and the script does not require
+it). G3 the push (`origin/main` == `6c16ac5`). G4 as above.
+
+**`P12.S4` remains `pending`**: Part B (containers + P10's first real migration) is ready to run, but the
+edge vhost step is blocked on edge-repo P6.
