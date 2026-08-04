@@ -1,19 +1,19 @@
 ---
 doc_id: security
-version: v0008
-created_at: 2026-07-28T23:38:52+09:00
-source: P10.REVIEW
-summary: P10: org-level vk_ keys are a real trust-boundary widening — key scope is now user-chosen (project-bound or org-level) and the guarantee is anchored on tenancy plus a middleware-resolved non-null project-id tuple
-previous: v0007_p6_the_production_edge_app_security_split_prod-gated_app_csp_edge_hsts_additive_upgrade-insecure-requests_cloudflare_real-ip_restore_admin_404_internal-only_at_the_edge_and_the_unthrottled_auth_origin_gap_d5
+version: v0009
+created_at: 2026-08-04T12:50:15+09:00
+source: P12.REVIEW
+summary: P12: admin auth is fail-closed (503 when unconfigured), all three box secrets abort a blank deploy, and the /auth/* rate-limit gap is closed by an in-process limiter
+previous: v0008_p10_org-level_vk__keys_are_a_real_trust-boundary_widening_key_scope_is_now_user-chosen_project-bound_or_org-level_and_the_guarantee_is_anchored_on_tenancy_plus_a_middleware-resolved_non-null_project-id_tuple
 ---
 
 # Security
 
 ## Status
 
-Covers the authentication and secret-handling posture landed in P2 (password hashing, account session tokens, per-project ingest credentials, the mandatory `/api/*` ingest boundary) plus the P3 authorization posture for the new feedback surfaces: read/manage authorization that answers 404-never-403 on out-of-scope ids, the single-key read/manage surface, best-effort `last_used_at` stamping, and the tightened self-read. As of **P7** it also covers the MCP capture endpoint: `/mcp` is guarded by the same mandatory `vk_` credential auth as `/api/*`, and its Streamable-HTTP transport carries DNS-rebinding protection. As of **P4** it also covers the **browser** — the web app in `web/` introduced vocky's first browser-held credential (a sealed httpOnly session cookie), its first public rate-limited auth surface, and the first place a plaintext `vk_` key is displayed to a human. As of **P5** it also covers the **`vocky` CLI**, which introduced vocky's first credential resident on the local **filesystem** — a 30-day session token written `0600` under `~/.config/vocky/` (see "The CLI's On-Disk Session Token" below). As of **P6** it also covers the **production browser-transport posture** — the app/edge Content-Security-Policy split, HSTS, Cloudflare real-IP restore, and the decision to keep `/admin` unreachable from the internet (see "Production Transport Security" below). As of **P10** it covers a **genuine widening of the ingest trust boundary**: a `vk_` key may now be minted at **org** level, spanning every project in its org (see "Ingest Key Scope" below — read that section before anything else in this doc). Attachment-download authorization and admin-token handling are covered in `architecture.md` / `api.md`.
+Covers the authentication and secret-handling posture landed in P2 (password hashing, account session tokens, per-project ingest credentials, the mandatory `/api/*` ingest boundary) plus the P3 authorization posture for the new feedback surfaces: read/manage authorization that answers 404-never-403 on out-of-scope ids, the single-key read/manage surface, best-effort `last_used_at` stamping, and the tightened self-read. As of **P7** it also covers the MCP capture endpoint: `/mcp` is guarded by the same mandatory `vk_` credential auth as `/api/*`, and its Streamable-HTTP transport carries DNS-rebinding protection. As of **P4** it also covers the **browser** — the web app in `web/` introduced vocky's first browser-held credential (a sealed httpOnly session cookie), its first public rate-limited auth surface, and the first place a plaintext `vk_` key is displayed to a human. As of **P5** it also covers the **`vocky` CLI**, which introduced vocky's first credential resident on the local **filesystem** — a 30-day session token written `0600` under `~/.config/vocky/` (see "The CLI's On-Disk Session Token" below). As of **P6** it also covers the **production browser-transport posture** — the app/edge Content-Security-Policy split, HSTS, Cloudflare real-IP restore, and the decision to keep `/admin` unreachable from the internet (see "Production Transport Security" below). As of **P10** it covers a **genuine widening of the ingest trust boundary**: a `vk_` key may now be minted at **org** level, spanning every project in its org (see "Ingest Key Scope" below — read that section before anything else in this doc). As of **P12** the posture is **live, not authored**, and two long-standing gaps are closed: `/admin/api/*` auth now **fails closed** and the public `/auth/*` surface has a real origin rate limit (see both sections below). Attachment-download authorization and admin-token handling are covered in `architecture.md` / `api.md`.
 
-> **P6's production security posture is authored, not live.** The vhost, headers, and TLS choices below describe `deploy/vocky.conf` and `web/next.config.ts` as they sit in the repo. **Nothing is deployed** — `https://vocky.hi2vi.com` does not answer, and none of the edge-side controls has ever been exercised by a real request. The live bring-up is **P12**.
+> **P6's production security posture is now live (P12, 2026-08-04).** The vhost, headers, and TLS choices below are serving real requests at `https://vocky.hi2vi.com`. Two structural changes came with the launch: the vhost's canonical home moved to the **`leetusik/edge` repo** (`edge/conf.d/vocky.conf`; this repo keeps `deploy/vocky.conf.md` as a pointer — the *behaviour* below is unchanged, only the file's location), and **P12 closed the two security gaps this doc previously recorded as accepted** — fail-open admin auth (P12.S1) and the missing `/auth/*` origin rate limit (P12.S3, deferred job **D5**, now resolved). Both sections below are rewritten accordingly.
 
 ## Ingest Key Scope — the P10 trust-boundary change (read this first)
 
@@ -187,10 +187,19 @@ The `vocky` CLI is the **first place a vocky credential lives at rest on the loc
 
 What is **unchanged**: `AdminBearerAuthMiddleware`, `VOCKY_ADMIN_AUTH_TOKEN`, and the nine `/admin/api/*` endpoints. The Admin REST bearer boundary is exactly as it was; only the browser shell that consumed it is gone. After the removal, the **only** routes under the `/admin` prefix are `/admin/api/*` — there is no unauthenticated `/admin` shell left to load.
 
-**`/admin` is internal-only in production, by edge policy.** `deploy/vocky.conf` answers `location /admin/ { return 404; }`, so `/admin/api/*` is not reachable through `https://vocky.hi2vi.com` at all — an operator uses it over the shared Docker network or an SSH tunnel. Two consequences worth stating plainly:
+**`/admin` is internal-only in production, by edge policy.** The vhost (`edge/conf.d/vocky.conf`, in the edge repo) answers `location /admin/ { return 404; }`, so `/admin/api/*` is not reachable through `https://vocky.hi2vi.com` at all — an operator uses it over the shared Docker network or an SSH tunnel. Two consequences worth stating plainly:
 
 - The bearer token is **still required** on the api service, and `.env.prod.example` still lists `VOCKY_ADMIN_AUTH_TOKEN` as a box secret. That is deliberate defense in depth rather than redundancy: the edge is not the only thing that can reach `vocky-api:8000` — every co-tenant container on `changple_shared_network` can too, so the app-level bearer is the actual boundary and the edge 404 is a second, outer layer.
-- Whether the token stays mandatory once `/admin` is edge-unreachable is a **P12** question, not settled here.
+- **The fate question is settled (P12.S1): KEEP, FAIL CLOSED.** The nine routes stay, nothing was deleted, and `VOCKY_ADMIN_AUTH_TOKEN` remains a **mandatory** box secret.
+
+### The defense-in-depth claim is true in code only since P12.S1
+
+**It previously rested on a token that was optional.** `AdminBearerAuthMiddleware` guarded `/admin/api/*` **only `if self.token`**, and `config.py` defaults `VOCKY_ADMIN_AUTH_TOKEN` to `""`. Compose interpolated it as a plain `${VOCKY_ADMIN_AUTH_TOKEN}`, which substitutes an **empty string with a warning** for an unset variable rather than failing. A missing or typo'd `.env` line therefore yielded **nine unauthenticated `/admin/api/*` routes — including `PATCH` and `DELETE` on any feedback record — reachable by every co-tenant container on the shared network.** The edge 404 kept it off the internet; nothing kept it off the shared network. That is the exact shape of an "inner layer" that silently is not there.
+
+Both halves are fixed:
+
+- **The middleware fails closed.** With no token configured, **every** `/admin/api/*` request is refused with **`503`** and `{"detail": "Admin API is not configured"}` — deliberately *not* a `401` with a `WWW-Authenticate: Bearer` challenge, because there is no credential that could succeed. Once a token *is* configured, the pre-existing `401` + `WWW-Authenticate: Bearer` behaviour is unchanged.
+- **All three box secrets abort the deploy when blank.** `compose.prod.yml` now uses `${VAR:?message}` at every interpolation site for `POSTGRES_PASSWORD` (three sites), `SESSION_SECRET`, and `VOCKY_ADMIN_AUTH_TOKEN`. This also closed a quieter hole: a blank `SESSION_SECRET` used to pass `deploy.sh`'s health gate completely — the web healthcheck fetches `/`, the static landing, which never reads it — and failed only when a real user tried to log in. (Testing this needs an explicit `--env-file`; `env -u VAR` false-passes because Compose auto-reads the project `.env`. See `operations.md`.)
 
 ## Production Transport Security (P6) — the app/edge split
 
@@ -216,7 +225,7 @@ Three deliberate choices behind that string:
 
 **The app sets no HSTS.** Under `pnpm dev` the CSP is absent by design, so local development is not fighting it.
 
-### The edge half — `deploy/vocky.conf`
+### The edge half — `edge/conf.d/vocky.conf` (in the `leetusik/edge` repo)
 
 - **HSTS: `Strict-Transport-Security: max-age=300`, with no `includeSubDomains` and no `preload`.** The short max-age is the shared-edge house style: `hi2vi.com` hosts several co-tenant sites off one wildcard, and a long-lived or subdomain-wide HSTS pin taken by mistake is effectively irreversible for all of them. Lengthening it is a conscious later decision, not a default.
 - **An *additive* `Content-Security-Policy: upgrade-insecure-requests`.** Multiple CSP headers **intersect** rather than override, so this composes with the app's policy instead of replacing it — that is why the edge may add this one directive and nothing else.
@@ -224,10 +233,19 @@ Three deliberate choices behind that string:
 - **Cloudflare real-IP restore** — the full v4+v6 `set_real_ip_from` range list plus `real_ip_header CF-Connecting-IP`. Without it every request would appear to originate from a Cloudflare edge address, which would break any IP-based logging or throttling and make abuse untraceable.
 - `client_max_body_size 12m` bounds request bodies at the edge, ahead of the app's own attachment limits.
 
-### The `/auth/*` origin rate-limit gap (D5)
+### The `/auth/*` origin rate limit — gap closed (D5, P12.S3)
 
-**`/auth/login` and `/auth/signup` reach the api through the edge with no server-side per-IP limiter.** vocky's only rate limiting lives in the **web BFF** (`/api/auth/*`, 5/15min login and 10/15min signup, per-IP and per-route-namespaced) — that protects the browser path but **not** a direct HTTP client hitting `/auth/*`, which is an unauthenticated password grant plus open signup.
+**Previously:** `/auth/login` and `/auth/signup` reached the api through the edge with **no** server-side per-IP limiter. vocky's only rate limiting lived in the **web BFF** (`/api/auth/*`, 5/15min login and 10/15min signup, per-IP and per-route-namespaced), which protects the browser path but **not** a direct HTTP client hitting `/auth/*` — an unauthenticated password grant plus open signup. It was accepted "for launch behind Cloudflare" and tracked as **D5**.
 
-The obvious fix is unavailable at this edge: `limit_req_zone` names are **global across the whole `conf.d/` tree**, so declaring one would risk an `nginx -t` failure for every co-tenant site — a house-rule violation.
+**Now:** an **in-process per-`(client IP, route)` fixed-window limiter** in `src/vocky/rate_limit.py`, wired into `signup` and `login` as the **first statement in each handler** — before body parsing and before any database or password work. `logout` and `me` are untouched: only the two unauthenticated routes are in scope. Defaults **20 requests / 900 s**, tunable via `VOCKY_AUTH_RATE_LIMIT` / `VOCKY_AUTH_RATE_WINDOW_S` (`<= 0` disables). A throttled call returns **`429`** with `{"detail": "too many requests — please retry later"}` and a `Retry-After` header; no `X-RateLimit-*` headers, keeping the response surface minimal.
 
-**Status: accepted for launch behind Cloudflare**, and tracked as deferred job **D5** — add a Cloudflare rate-limiting rule for `/auth/*` and/or an in-process per-IP limiter in `src/vocky/auth_api.py`. It is folded into the P12 bring-up. This is a known, deliberate gap, not an oversight.
+The nginx option remains unavailable and is not a regression to revisit: `limit_req_zone` names are **global across the whole `conf.d/` tree**, so declaring one risks an `nginx -t` failure for **every** co-tenant site.
+
+Four security properties worth keeping in mind before changing anything here:
+
+- **Client IP precedence is `X-Real-IP` → first `X-Forwarded-For` segment → `request.client.host` → `"unknown"`.** This is load-bearing, not cosmetic: behind Cloudflare plus the shared edge, the socket peer is the **edge container**, so a naive peer-address limiter would put the entire internet in one bucket and throttle all users as a single client. The edge restores the real Cloudflare IP and forwards it at the server level. The flip side is that these headers are **client-controllable when a request does not arrive through the edge** — the limiter is an anti-abuse speed bump, not an authentication boundary, and must never be treated as one.
+- **Keyed on IP and route only — never on the email.** `login`'s generic 401 (which does not distinguish unknown-email from wrong-password) therefore stays byte-identical, and the 429 check runs before any credential work, so the limiter leaks no account-existence signal.
+- **It is per-process memory.** State is a module-global dict with a `20_000`-key prune cap (expired entries first, then the oldest half — worst case it *under*-counts, never over-counts). It resets on restart, and its correctness depends on `vocky-api` staying a **single uvicorn worker**: adding `workers=N` would silently divide the effective limit. That invariant is documented in the module docstring and beside `uvicorn.run(...)` in `src/vocky/main.py`.
+- **A Cloudflare rate-limiting rule remains available as an outer layer**, at operator discretion. It was deliberately not made the primary mechanism: it is console-only, unversioned, and invisible to the test suite, whereas the in-process limiter is versioned, reviewable, and covered by tests — including one that proves two clients sharing a fixed ASGI peer address land in different buckets once one sends `X-Real-IP`, i.e. the exact trap above.
+
+**Known follow-up, deliberately out of scope:** the BFF's separate, weaker JS limiter (`web/src/lib/rate-limit.ts`, 5/15min and 10/15min) is not aligned with the origin limiter's 20/900s. Two independent limiters on two paths to the same endpoints is defensible, but it is not a designed pair.

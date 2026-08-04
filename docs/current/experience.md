@@ -1,10 +1,10 @@
 ---
 doc_id: experience
-version: v0011
-created_at: 2026-07-29T05:45:17+09:00
-source: P11.REVIEW
-summary: P11: onboarding is real end to end for an agent — a curl bash install line, VOCKY_API_TOKEN plus vocky capture as the two-variable contract, and a published vocky-feedback skill
-previous: v0010_p10_onboarding_is_two_steps_not_three_signup_provisions_a_default_project_a_key_is_a_scope_choice_between_project_and_org_and_project_names_are_unique_per_org
+version: v0012
+created_at: 2026-08-04T12:53:07+09:00
+source: P12.REVIEW
+summary: P12: the hosted install line is live, not a promise — curl | bash from vocky.hi2vi.com works today
+previous: v0011_p11_onboarding_is_real_end_to_end_for_an_agent_a_curl_bash_install_line_vocky_api_token_plus_vocky_capture_as_the_two-variable_contract_and_a_published_vocky-feedback_skill
 ---
 
 # Action Feedback Integration
@@ -372,7 +372,7 @@ It bootstraps `uv` only if it is missing, runs `uv tool install --reinstall`, ne
 
 **Today, before the site is deployed, install from a checkout instead** (`uv tool install .`, `uvx --from . vocky`, or `uv run vocky` in-repo). Nothing is published to PyPI and **P11 deliberately did not publish**: `uv publish` stays an unexercised, operator-gated action. Two consequences worth stating plainly:
 
-- The hosted line **404s until P12 brings the site up** — which is why it is marked "once the site is live" everywhere it appears, and why no live landing page ever serves a dead command: the landing and `install.sh` deploy together.
+- The hosted line **is live as of P12** (2026-08-04): `https://vocky.hi2vi.com/install.sh` serves 200, and the installer was proven end to end into a clean container — uv bootstrapped, `vocky 0.2.0` built from the real `git+https://` target, `vocky --version` and `vocky capture --help` both rendering. The landing and `install.sh` deployed together, exactly as designed, so no landing page ever served a dead command. Any "once the site is live" hedging in older copy is now historical. **One standing caveat:** the installer resolves GitHub `main`, so what it delivers is the **pushed** commit — a local commit that has not been pushed is not installable.
 - The installer's target is `git+https://github.com/leetusik/vocky`, which resolves **whatever is on GitHub `main`**. Local `main` is far ahead of the remote, so until an operator-gated `git push` lands, that target would deliver a pre-P10 CLI with no org keys and no `vocky capture`. **P12 owns the push and the clean-environment install proof.**
 
 P6's packaging split still describes what a CLI user downloads:

@@ -388,3 +388,14 @@
 {"ts": "2026-08-04T12:38:32+09:00", "type": "slice_status_changed", "slice": "P12.S7", "old_status": "todo", "new_status": "in_progress"}
 {"ts": "2026-08-04T12:43:08+09:00", "type": "slice_status_changed", "slice": "P12.S7", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-08-04T12:43:08+09:00", "type": "deferred_created", "deferred": "D7", "source": "P12.S7"}
+{"ts": "2026-08-04T12:44:19+09:00", "type": "slice_status_changed", "slice": "P12.REVIEW", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-08-04T12:46:30+09:00", "type": "doc_version_created", "doc": "qa", "version": "v0002_p12_vocky_s_first_real_qa_doc_the_python_and_web_suites_how_to_run_them_the_four_ci_gates_now_proven_green_the_smoke_layers_and_the_qa-check_driver_gap", "source": "P12.REVIEW"}
+{"ts": "2026-08-04T12:46:55+09:00", "type": "doc_version_created", "doc": "operations", "version": "v0006_p12_vocky_is_live_at_vocky.hi2vi.com_first_deploy_green_edge_vhost_owned_by_the_edge_repo_fail-loud_box_secrets_auth_rate_limits_backups_log_caps_and_a_proven_ci_gate", "source": "P12.REVIEW"}
+{"ts": "2026-08-04T12:50:15+09:00", "type": "doc_version_created", "doc": "security", "version": "v0009_p12_admin_auth_is_fail-closed_503_when_unconfigured_all_three_box_secrets_abort_a_blank_deploy_and_the_auth_rate-limit_gap_is_closed_by_an_in-process_limiter", "source": "P12.REVIEW"}
+{"ts": "2026-08-04T12:51:19+09:00", "type": "doc_version_created", "doc": "architecture", "version": "v0010_p12_the_app_is_deployed_admin_rest_is_kept_and_fail-closed_an_in-process_auth_limiter_joins_the_request_path_and_the_edge_vhost_now_lives_in_the_edge_repo", "source": "P12.REVIEW"}
+{"ts": "2026-08-04T12:52:30+09:00", "type": "doc_version_created", "doc": "api", "version": "v0009_p12_the_edge_vhost_that_404s_admin_moved_to_the_edge_repo_admin_auth_answers_503_when_unconfigured_and_auth_signup_auth_login_can_now_answer_429", "source": "P12.REVIEW"}
+{"ts": "2026-08-04T12:53:07+09:00", "type": "doc_version_created", "doc": "product", "version": "v0011_p12_vocky_is_live_at_vocky.hi2vi.com_the_deploy_kit_p6_authored_has_been_executed", "source": "P12.REVIEW"}
+{"ts": "2026-08-04T12:53:07+09:00", "type": "doc_version_created", "doc": "experience", "version": "v0012_p12_the_hosted_install_line_is_live_not_a_promise_curl_bash_from_vocky.hi2vi.com_works_today", "source": "P12.REVIEW"}
+{"ts": "2026-08-04T12:53:07+09:00", "type": "doc_version_created", "doc": "frontend", "version": "v0008_p12_the_web_app_is_deployed_and_serving_at_vocky.hi2vi.com_and_the_vestigial_hi2vi_design_tokens_are_renamed_to_role_names", "source": "P12.REVIEW"}
+{"ts": "2026-08-04T12:55:54+09:00", "type": "slice_status_changed", "slice": "P12.REVIEW", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-08-04T12:55:54+09:00", "type": "phase_reviewed", "phase": "P12", "verdict": "pass", "reviewer": "slice-executor-high"}

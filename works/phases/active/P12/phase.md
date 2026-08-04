@@ -591,3 +591,35 @@ First-ever execution of the whole deploy chain, green end to end. Facts later sl
   artifact-directory convention) without proposing to build it — that remains a deferred-job candidate for
   the orchestrator to open, not something this slice did.
 - Full validation output (every grep/measurement command and its exact result): `P12.S7/result.md`.
+
+## `P12.REVIEW` — phase review: PASS (2026-08-04)
+
+**Verdict `pass`.** All seven middle slices `done`; validation green across the board; the objective and
+every `intent.md` item met; eight durable-doc versions landed. No fix slices proposed.
+
+- **Validation re-run together**: `workflow.py validate` PASS · full Python suite **215 passed** against
+  `vocky-postgres-1` · `web/` **lint + typecheck + 78 tests + format:check** all clean ·
+  `make check-skill-parity` PASS · `bash -n` on both S5 scripts clean · `compose.prod.yml` renders exit 0
+  with **5/5 services** carrying the `10m`/`3` log cap · live read-only probes
+  `/healthz`, `/`, `/install.sh`, `/SKILL.md` all **200** with served `SKILL.md` **`cmp`-clean** ·
+  `gh run list` confirms CI run `30873072664` **success** (53s).
+- **Bookkeeping confirmed closed**: **D5** is `dropped` with a "Resolved by P12.S3 … not abandoned"
+  reason (the DECOMP caveat's required workaround, since `promote-deferred` cannot target an existing
+  slice folder); **D7** ("Define the project QA driver `/qa-check` requires") is open, source `P12.S7`.
+  D1–D4 and D6 remain deferred and untouched, as `intent.md` required.
+- **Doc versions created** (all `--source P12.REVIEW`): `operations v0006` (the big one — S4+S3+S5+S6 plus
+  both DECOMP corrections), `qa v0002` (S7's body pasted **verbatim**), `security v0009` (S1+S3),
+  `architecture v0010` (S1+S3+vhost path), `api v0009` (vhost path + the new `503`/`429` statuses),
+  `product v0011`, `experience v0012`, `frontend v0008` (echoes + S2's token rename). Every *Doc impact*
+  entry is dispositioned in `P12.REVIEW/result.md`.
+- **The one deliberate gap, recorded rather than fixed**: S5's artifacts landed in commits *after* the
+  deployed SHA (`origin/main` == `6c16ac5`, four local commits unpushed), so production currently has **no
+  scheduled backup and uncapped datastore logs**. That matches S5's authored-only plan; `operations.md`
+  now says so in place, with the apply runbook beside it. **Operator action, not a fix slice.**
+- **Lesson worth carrying forward**: `docker compose config` must be tested with an explicit
+  `--env-file`, never a bare invocation or `env -u VAR` — the project `.env` auto-load false-passes every
+  fail-loud check. This phase hit it three times (S1, S4 Gate 4, and this review's own validation step).
+- Remaining forward-looking operator items, all documented in `operations.md` § *Remaining operational
+  gaps*: the restore drill is unrehearsed, backups do not survive box loss, `deploy-production.yml` has
+  never been dispatched, the BFF's JS limiter is not aligned with S3's origin limiter, and P12's smoke
+  account + Gate-4 keepsakes can be cleaned up at leisure.

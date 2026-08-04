@@ -1,10 +1,10 @@
 ---
 doc_id: product
-version: v0010
-created_at: 2026-07-29T05:46:37+09:00
-source: P11.REVIEW
-summary: P11: distribution is a curl bash installer not PyPI, and vocky ships a published agent-skill surface with three capture paths behind two environment variables
-previous: v0009_p10_the_accounts_plane_is_user_org_project_signup_lands_a_ready-to-use_account_with_a_default_project_and_a_key_is_now_a_user_s_choice_between_one_project_and_the_whole_org
+version: v0011
+created_at: 2026-08-04T12:53:07+09:00
+source: P12.REVIEW
+summary: P12: vocky is live at vocky.hi2vi.com — the deploy kit P6 authored has been executed
+previous: v0010_p11_distribution_is_a_curl_bash_installer_not_pypi_and_vocky_ships_a_published_agent-skill_surface_with_three_capture_paths_behind_two_environment_variables
 ---
 
 # Product
@@ -93,7 +93,7 @@ The MVP does not need automated classification, managed-cloud capabilities, or a
 
 Two facts about how a real user would get vocky, both currently **not yet true in the world**:
 
-- **vocky is not deployed.** The complete production deploy kit for `vocky.hi2vi.com` — container images, compose topology, edge nginx vhost, deploy/rollback scripts, and a manual GitHub Actions chain — was authored in P6 and statically validated, but never executed. The live bring-up is **P12**, deliberately sequenced after P10's schema changes so they land on an empty database rather than production data.
+- **vocky is live at `https://vocky.hi2vi.com`** (since 2026-08-04, P12). The production deploy kit P6 authored — container images, compose topology, edge nginx vhost, deploy/rollback scripts, and the GitHub Actions chain — has now been executed against real infrastructure, green on its first run. Sequencing the bring-up after P10 paid off exactly as intended: the accounts-v2 schema changes landed on an **empty** database rather than as a live cutover on production data. The hosted `curl … | bash` install line works today; a signup → session round-trip was proven live at the bring-up.
 - **The install channel is decided, and it is not PyPI.** **P11 chose a `curl | bash` installer** — `web/public/install.sh`, served at `https://vocky.hi2vi.com/install.sh` — at zero infra cost: the site already serves `web/public/*`, so there is no route, MIME or packaging work, and no irreversible publish. Nothing was uploaded to PyPI and `uv publish` remains an unexercised, operator-gated action; P6's lean-CLI/`server`-extra split still describes the dependency surface either way (`pip install vocky` would be httpx + typer only; `pip install "vocky[server]"` the full self-hosted stack). Today the only install path is from a checkout of this repo, and the hosted line becomes true the moment P12 deploys — the landing page and the installer ship together, so no live page ever serves a dead command.
 
 Until both land, vocky's audience is this repo. Nothing in the product should be described to users as available.

@@ -1,10 +1,10 @@
 ---
 doc_id: api
-version: v0008
-created_at: 2026-07-28T23:43:22+09:00
-source: P10.REVIEW
-summary: P10: signup returns an additive project, POST /app/projects is get-or-create, three new org-level /app/credentials routes, credential project_id is nullable, and capture takes an optional project name honored only for org keys
-previous: v0007_p6_the_packaged_admin_web_ui_routes_are_deleted_admin_and_admin_assets_no_longer_exist_only_the_bearer-guarded_admin_api_rest_surface_remains_and_it_is_404d_at_the_production_edge
+version: v0009
+created_at: 2026-08-04T12:52:30+09:00
+source: P12.REVIEW
+summary: P12: the edge vhost that 404s /admin moved to the edge repo, admin auth answers 503 when unconfigured, and /auth/signup + /auth/login can now answer 429
+previous: v0008_p10_signup_returns_an_additive_project_post_app_projects_is_get-or-create_three_new_org-level_app_credentials_routes_credential_project_id_is_nullable_and_capture_takes_an_optional_project_name_honored_only_for_org_keys
 ---
 
 # API
@@ -17,7 +17,9 @@ The account and tenancy surfaces are also implemented: a public **Account Auth A
 
 **Feedback API v2 (P3)** is also implemented: feedback is now project-scoped, and three new surfaces sit over it — the project-credential-authed **Project Feedback API** (`/api/project/feedback`: an external service's own admin panel reads and manages **its own project's** feedback), the session-authed **App Feedback API** (`/app/feedback`: a signed-in user reads and searches feedback across **all their projects**, Korean-safe), and **Usage Monitoring** (`/app/usage`, `/app/projects/{id}/usage`, `/api/project/usage`: derived capture volume + credential last-used, operational-only, no metering). All project/tenant-scoped reads answer **404 (never 403)** on a foreign id.
 
-**P6 changed no endpoint contract.** It removed the packaged Admin Web UI, which deleted the non-API routes `/admin` and `/admin/assets/*`; the nine `/admin/api/*` endpoints, their auth boundary, and every request/response shape in this doc are untouched. P6 also authored (but did not deploy) the production edge, which **404s the `/admin` prefix** — see the Admin REST notes below.
+**P6 changed no endpoint contract.** It removed the packaged Admin Web UI, which deleted the non-API routes `/admin` and `/admin/assets/*`; the nine `/admin/api/*` endpoints, their auth boundary, and every request/response shape in this doc are untouched. P6 also authored the production edge, which **404s the `/admin` prefix**; **P12 deployed it** — see the Admin REST notes below.
+
+**P12 changed two request-level behaviours** without changing any request/response *shape*: `/auth/signup` and `/auth/login` are now rate-limited and can answer **`429`**, and `/admin/api/*` answers **`503`** when `VOCKY_ADMIN_AUTH_TOKEN` is unset (it was silently unguarded before). Both are documented in place below.
 
 **P10 changed contracts, all additively.** Summarized here because it touches five surfaces at once:
 
@@ -83,6 +85,7 @@ Use this file to record public-facing contracts as they are implemented. The cur
 - Auth or permissions:
   - `signup` and `login` are unauthenticated (they establish a session)
   - `logout` and `me` take the session bearer token: `Authorization: Bearer <token>`
+  - **Rate-limited (P12): `signup` and `login` only.** A per-`(client IP, route)` fixed window — default **20 requests / 900 s**, configurable via `VOCKY_AUTH_RATE_LIMIT` / `VOCKY_AUTH_RATE_WINDOW_S` (`<= 0` disables) — is checked **before** the body is parsed and before any credential work. Exhausting it answers **`429 {"detail": "too many requests — please retry later"}` with a `Retry-After: <seconds>` header** (no `X-RateLimit-*` headers). The client IP is read from `X-Real-IP`, then the first `X-Forwarded-For` segment, then the socket peer. **Every endpoint below can therefore return `429` in addition to its documented statuses.** `logout` and `me` are not limited.
 - Endpoints:
   - `POST /auth/signup`
     - Body: `{ "email": string, "password": string }`. Email is trimmed + lowercased and must contain `@`; password must be at least 8 characters.
@@ -535,8 +538,9 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
 - Purpose: Query, inspect, manage, and summarize feedback records through REST endpoints for human/operator review
 - Base path: `/admin/api`
 - Auth or permissions:
-  - Deployment-specific for the self-hosted MVP
-  - When `VOCKY_ADMIN_AUTH_TOKEN` is set, Admin REST requests must include `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`
+  - When `VOCKY_ADMIN_AUTH_TOKEN` is set, Admin REST requests must include `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`; a missing or wrong bearer answers `401` with `WWW-Authenticate: Bearer`
+  - **Fail-closed when the token is NOT set (P12.S1 — this is a behaviour change).** Every `/admin/api/*` request then answers **`503 {"detail": "Admin API is not configured"}`**, with no `WWW-Authenticate` header, because no credential could succeed. Previously an unset token left the whole surface **unauthenticated** — including `PATCH` and `DELETE` on any feedback record — to anything that could reach the api container.
+  - P12 settled the surface's fate: **kept** as a deliberate internal operator API, with `VOCKY_ADMIN_AUTH_TOKEN` a **mandatory** production box secret
   - Public deployments should protect or avoid exposing `/admin/api`
 - Endpoints:
   - `GET /admin/api/healthz`
@@ -634,7 +638,7 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
   - The Admin REST API and the public REST surfaces share the same `feedback_events` schema and service/repository layer.
   - **Admin REST has no first-party client as of P6.** The packaged Admin Web UI that consumed it (dashboard metrics, list/filter/detail review, review-field editing, guarded delete) was physically removed; consumers are now operator scripts, curl, or a self-hosted operator's own dashboard. The endpoint contracts below are unchanged.
   - **`/admin` and `/admin/assets/*` no longer exist.** They were static Web UI routes, not Admin REST endpoints, and were deleted in P6. After the removal the **only** routes under the `/admin` prefix are the nine `/admin/api/*` endpoints, and every one of them is bearer-guarded — there is no unauthenticated `/admin` path left.
-  - **The production edge does not expose `/admin` at all.** `deploy/vocky.conf` answers `location /admin/ { return 404; }`, so Admin REST is reachable only from inside the deployment's Docker network (or an SSH tunnel), never from `https://vocky.hi2vi.com`. The Admin bearer remains required regardless — see `security.md`.
+  - **The production edge does not expose `/admin` at all**, and as of P12 this is live rather than authored. The vhost answers `location /admin/ { return 404; }`, so Admin REST is reachable only from inside the deployment's Docker network (or an SSH tunnel), never from `https://vocky.hi2vi.com`. **The vhost file now lives in the `leetusik/edge` repo** as `edge/conf.d/vocky.conf` — this repo's `deploy/vocky.conf` was retired to the pointer `deploy/vocky.conf.md`; the routing behaviour is unchanged. The Admin bearer remains required regardless, and is now enforced fail-closed — see `security.md`.
   - Browser editing (in the packaged UI, while it existed) intentionally exposed only `feedback_value`, `comment`, `channel`, and `tags`, even though Admin REST can also patch `source_metadata` and `attributes`.
   - Exact `target_type` filtering is implemented for Admin list review, but target fields remain immutable and are not editable review fields in this phase.
 </content>

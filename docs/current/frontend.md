@@ -1,10 +1,10 @@
 ---
 doc_id: frontend
-version: v0007
-created_at: 2026-07-29T05:43:07+09:00
-source: P11.REVIEW
-summary: P11: the landing gains an agent quickstart and a skill section, the Snippet and Trap primitives, mount-gated copy islands over a server-rendered no-JS floor, and a request-time read of the served skill file
-previous: v0006_p10_the_dashboard_gains_an_org-keys_panel_vockycredential.project_id_widens_to_string_null_the_show-once_key_panel_becomes_a_shared_component_and_workspace_becomes_org
+version: v0008
+created_at: 2026-08-04T12:53:07+09:00
+source: P12.REVIEW
+summary: P12: the web app is deployed and serving at vocky.hi2vi.com, and the vestigial hi2vi design tokens are renamed to role names
+previous: v0007_p11_the_landing_gains_an_agent_quickstart_and_a_skill_section_the_snippet_and_trap_primitives_mount-gated_copy_islands_over_a_server-rendered_no-js_floor_and_a_request-time_read_of_the_served_skill_file
 ---
 
 # Frontend
@@ -19,7 +19,7 @@ P4 delivered signup/login/logout, the app shell, the tenant dashboard, project d
 
 **P11** grew the public landing for the first time since P9, through **design round 02** (`docs/reference/design/rounds/02-onboarding/`, token delta **None**): two net-new sections (`AgentQuickstart` at `#quickstart`, `SkillSection` at `#skill`), two net-new `ui/` primitives (`Snippet`, `Trap`), the landing's **first client islands that render only after hydration**, and the landing's **first request-time filesystem read** (the skill pane reads the served `public/SKILL.md` on every render of `/`). See "P11: the onboarding surfaces on the landing" below. It touched no backend contract, no `globals.css`, and no token.
 
-**The app is still not deployed.** P6 authored the whole deploy kit and executed none of it; `https://vocky.hi2vi.com` does not answer. The live bring-up is **P12**. See `operations.md`.
+**The app is deployed and serving (P12, 2026-08-04).** `https://vocky.hi2vi.com` answers: `/` 200, a signup → session round-trip proven live, and the landing's `/install.sh` + `/SKILL.md` both serving. See `operations.md`.
 
 The app is a **session-token client only** (the guarded `(app)` surfaces + the public `(auth)` and landing). It calls `/auth/*` and `/app/*`; it never touches the `vk_`-keyed `/api/*` surface, which is the external-service credential path. There is no web-side database. **No backend/contract change was needed to apply the design** (`build-prompt.md §9`): everything maps to existing serializers, and the only new behavior is web-tier (the `/` landing behind the existing signed-in→dashboard bounce, and a project-detail breadcrumb from already-fetched data).
 
@@ -90,7 +90,19 @@ web/
 P4 ported hi2vi_web's design-system *skeleton* at a placeholder palette; the intensive operator design session that D-P4-3 deferred was **held and closed at P8** (round 01 — `docs/reference/design/rounds/01-brand-app-landing/`) and **applied by P9**. The doc set now describes the **live, applied vocky brand** — the deep-emerald names-kept value swap, Pretendard, the compact scale, the new component vocabulary, the `/` landing, and the loading/error/404 states are all shipped. The **`build-prompt.md`** in that round folder is the read-only implementation contract P9 built from (its §10 is the definition-of-done the review checked against).
 
 - **Tokens** — `src/app/globals.css` keeps the 4-part skeleton: `@theme` tokens → `:root` shadcn aliases → `@theme inline` bridge → `@layer base`. **There is no dark-mode toggle and no `.dark` block** — surfaces are explicit tokens (the closed gate confirmed light-only). Kept: the `[data-reveal]`/`.is-visible` scroll-reveal rules, the focus ring, the reduced-motion block, and `h1–h6 { word-break: keep-all }` (Korean line-breaking).
-- **Palette is the applied vocky brand** — a **deep-emerald** green (`--color-green #0C7A52`, hover `--color-green-deep #095E40`, links `--color-green-dark #064A33`) on a **green-cool neutral ramp** (ink `#0E1A16`, forest/surface/hairline families all green-tinted), with `danger #C93B2B` / `caution #C6820E` signals. The swap kept **all 41 hi2vi token *names*** and swapped only values, so the re-theme property (Tailwind utilities compile to `var(--color-*)`) re-themed every surface at once with **zero call-site churn**; the handful of hardcoded literals a value swap can't reach (`button.tsx` primary shadows, `card.tsx` feature/pricing shadows + `pricingFeatured` border) were fixed by hand. `on-primary` stays **`#ffffff`** (the deep-emerald passes AA 5.36:1 with white). Two intentional token equalities hold (`ink == canvas-dark`, `archive-olive == muted`); every other placeholder collision is broken. **Token *renames* (retiring the vestigial hi2vi names `victory-lime`/`archive-*`/`security-*`) were deferred** — cost named in `build-prompt.md §2.4`, out of scope this round.
+- **Palette is the applied vocky brand** — a **deep-emerald** green (`--color-green #0C7A52`, hover `--color-green-deep #095E40`, links `--color-green-dark #064A33`) on a **green-cool neutral ramp** (ink `#0E1A16`, forest/surface/hairline families all green-tinted), with `danger #C93B2B` / `caution #C6820E` signals. The swap kept **all 41 hi2vi token *names*** and swapped only values, so the re-theme property (Tailwind utilities compile to `var(--color-*)`) re-themed every surface at once with **zero call-site churn**; the handful of hardcoded literals a value swap can't reach (`button.tsx` primary shadows, `card.tsx` feature/pricing shadows + `pricingFeatured` border) were fixed by hand. `on-primary` stays **`#ffffff`** (the deep-emerald passes AA 5.36:1 with white). One intentional token equality holds (`ink == canvas-dark`); every other placeholder collision is broken.
+
+  **The vestigial hi2vi names are retired as of P12.S2** — a mechanical, **byte-identical-hex, zero-visual-change** rename, deliberately kept out of any design round because it decided nothing visual. Three were renamed to the role their own comments already stated, and **two unused exact duplicates were deleted outright**:
+
+  | Was | Now | Hex |
+  | --- | --- | --- |
+  | `--color-security-mint` | **`--color-mint`** | `#bee9d5` (mint tint — chip borders, key panel) |
+  | `--color-security-teal` | **`--color-teal`** | `#2fa477` (brighter data accent — endpoint label) |
+  | `--color-victory-lime` | **`--color-lime`** | `#9ad4a8` (soft positive tint, rare) |
+  | `--color-archive-olive` | *deleted* | `#8a968f` — exact duplicate of `--color-muted`, unused |
+  | `--color-archive-cream` | *deleted* | `#f1f4f0` — exact duplicate of `--color-surface-soft`, unused |
+
+  All six usage sites were updated in the same pass. The retired names survive **only** as deliberate history in `globals.css`'s header comment — no declaration and no Tailwind utility class references them anywhere in `web/src`. The rest of the token set is unchanged: **do not rename the remaining tokens.**
 - **Type / radius / spacing are the compact vocky scale** — all 14 `--text-*` steps retuned to the §3.2 sizes (hero-display 60px … micro 11px), radius base `10px`, `--spacing-hero 120px`, app density via utilities (`space-y-6` page blocks, `p-5` cards, `px-4 py-2` table cells, `p-4` stat tiles). `--breakpoint-xs` (zero consumers) was **dropped** for `--breakpoint-app: 56.25rem` (900px); all 11 `min-[900px]:` literals were migrated to the `app:` variant (zero remain).
 - **`cn()`** (`src/lib/utils.ts`) — `clsx` + `extendTailwindMerge`, with the `font-size` group registering the custom `text-*` scale so `text-body-sm`-style tokens merge correctly.
 - **Fonts** (`src/lib/fonts.ts`) — **Pretendard** (`--font-sans` and `--font-en`, Korean-capable) loaded via `next/font/local` from the **vendored** `src/lib/fonts/PretendardVariable.woff2` (variable weight `400 800`, CSS var `--font-pretendard`), plus **JetBrains Mono** (`--font-mono`, `next/font/google`, unchanged). The fallback chain retains **Noto Sans KR** as the Korean-capable face (locked floor). `--font-en` is no longer a bare system stack — it points at Pretendard, so buttons (`font-en`) render in the brand face.
@@ -211,7 +223,7 @@ The page now leads with a **breadcrumb** (`<nav>`: a `Dashboard` link + `/ {proj
 
 - `createCredential` returns the **whole envelope** (`VockyMintedCredential`) — unwrapping to `VockyCredential` would discard the only copy of the key that will ever exist.
 - The key crosses to the client in the **action state**, not the server-rendered tree. That placement is what makes the panel **survive `revalidatePath`'s re-render** yet **vanish on the next submit or navigation**. It is never logged, never in a URL, never persisted.
-- The show-once panel is a **green-tinted card** (`border-security-mint bg-surface-green`) with the full warning string verbatim (`PROJECT.keyPanel.warning`, a locked floor) and Copy/Dismiss controls.
+- The show-once panel is a **green-tinted card** (`border-mint bg-surface-green` — `border-security-mint` before the P12.S2 rename) with the full warning string verbatim (`PROJECT.keyPanel.warning`, a locked floor) and Copy/Dismiss controls.
 - Dismissal is keyed by the action state's `ok` stamp, not a boolean flag — a sticky `dismissed` flag would silently swallow the *next* minted key, the one case where a missed render is unrecoverable.
 - After a reload only the 12-char `token_prefix` stub remains. Credential status derives from `revoked_at === null` (vocky has no `status` field): Active → **`Badge variant="active"`**, Revoked → **`Badge variant="revoked"`** (was the placeholder `softGreen`/`archive`). **Revoked keys stay listed** (auditable history) — a locked floor. The per-row **Revoke** control is `Button variant="destructiveOutline" size="sm"` behind a two-step confirm.
 
@@ -320,4 +332,4 @@ P6 finished the landing's public-facing edges without opening a new design round
 - **`NEXT_PUBLIC_APP_URL` is build-time.** Never treat it as a runtime setting; changing the public origin means rebuilding the web image. It is the only `NEXT_PUBLIC_` var the app has, and it carries no secret.
 - **The production CSP is all-`'self'`.** Introducing any third-party script, font, image, or fetch origin requires editing the directive string in `next.config.ts` — and self-hosting remains the default answer. Never set HSTS in the app; that is the edge's.
 - **Adding a public route means updating `robots.ts` and `sitemap.ts`.** Neither is generated from the route table.
-- **The app is authored for deployment but not deployed.** The image + compose + vhost exist (P6); the live bring-up is **P12**.
+- **The app is deployed.** The image + compose + vhost (P6) all ran for real at **P12**; `vocky-web` is healthy in production behind the shared edge.

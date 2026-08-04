@@ -1,29 +1,31 @@
 ---
 doc_id: operations
-version: v0005
-created_at: 2026-07-29T05:46:37+09:00
-source: P11.REVIEW
-summary: P11: the hosted install.sh installer, the repo's first push and pull-request CI gate with its two deliberate exclusions, and the CLI capture module
-previous: v0004_p6_the_vocky.hi2vi.com_production_deploy_kit_compose_topology_box_secrets_web_image_edge_vhost_deploy_rollback_runbook_ci_chain_lean-cli_split_authored_statically_validated_not_deployed
+version: v0006
+created_at: 2026-08-04T12:46:55+09:00
+source: P12.REVIEW
+summary: P12: vocky is live at vocky.hi2vi.com — first deploy green, edge vhost owned by the edge repo, fail-loud box secrets, auth rate limits, backups/log caps, and a proven CI gate
+previous: v0005_p11_the_hosted_install.sh_installer_the_repo_s_first_push_and_pull-request_ci_gate_with_its_two_deliberate_exclusions_and_the_cli_capture_module
 ---
 
 # Operations
 
 ## Status
 
-This doc covers running the **web app** (`web/`, the Next.js frontend added in P4), installing/running the **`vocky` CLI** (added in P5), and — as of **P6** — the complete **production deploy kit** for `vocky.hi2vi.com`. It is deliberately scoped: the **backend/service** local operational surface — the Compose-first self-hosted workflow, `make bootstrap` / `verify` / `compose-down`, and the full `DATABASE_URL` / `REDIS_URL` / `VOCKY_*` configuration surface — is documented in **`architecture.md` § Configuration Surface** and is not duplicated here.
+This doc covers running the **web app** (`web/`, the Next.js frontend added in P4), installing/running the **`vocky` CLI** (added in P5), and — authored in **P6**, **executed and extended in P12** — the **production deployment** at `vocky.hi2vi.com`, which is **live**. P12 added the proven CI gate, the `/auth/*` rate-limit tunables, and the backup/log-cap/status artifacts. It is deliberately scoped: the **backend/service** local operational surface — the Compose-first self-hosted workflow, `make bootstrap` / `verify` / `compose-down`, and the full `DATABASE_URL` / `REDIS_URL` / `VOCKY_*` configuration surface — is documented in **`architecture.md` § Configuration Surface** and is not duplicated here.
 
 **Server console-entry rename (P5).** The server's console script is now **`vocky-server`** (`vocky.main:main`) — the bare `vocky` name is the new user-facing CLI. Every self-host/run reference moved off `vocky` to `vocky-server`: the `Dockerfile` `CMD`, the `docker-compose.yml` app service `command`, and the README "Running The App Directly". (The `Makefile` was untouched — it starts the server via Compose, not a direct `uv run vocky`.) The worker entry (`vocky-worker`) and smoke entry (`vocky-smoke`) are unchanged.
 
-> ### ⚠ vocky is NOT deployed
+> ### ✅ vocky is LIVE — `https://vocky.hi2vi.com`, since 2026-08-04 (P12)
 >
-> **P6 authored the entire production deploy kit and deployed none of it.** Every artifact below — `compose.prod.yml`, `.env.prod.example`, `web/Dockerfile`, `deploy/vocky.conf`, `deploy/deploy.sh`, `deploy/rollback.sh`, and the three-file GitHub Actions chain — exists in the repo and was **statically validated only** (compose parser, `bash -n`, YAML parse, `pnpm build`, house-rule greps). **Nothing has ever run against real infrastructure.** There is no `vocky` DNS record, no box clone, no box `.env`, no `ORACLE_SSH_*` GitHub secrets, and no running container. `https://vocky.hi2vi.com` does not answer.
+> **P12 executed the bring-up P6 authored and never ran.** The entire deploy chain ran for the first time on 2026-08-04 and was **green end to end**: both images built on the box, **P10's 11-revision accounts-v2 migration chain applied cleanly on its first execution anywhere**, and the five-service health gate passed (`vocky-api` on poll 1, `vocky-web` on poll 8, `vocky-worker` stable-running). First deployed commit: **`6c16ac5`**.
 >
-> The **live bring-up is P12** — deliberately sequenced after P10 (Accounts v2, which adds a `UNIQUE(tenant_id, name)` constraint and a three-phase `project_credentials.tenant_id` backfill) so those migrations land against an empty schema instead of becoming a live cutover on production data. Sequence: **P6 → P10 → P11 → P12**.
+> Verified live at bring-up: `/healthz` and `/` both 200; a **signup → session round-trip** (not just the two health probes); `/install.sh` and `/SKILL.md` both 200 with the served `SKILL.md` **byte-identical** (`cmp` clean) to `skills/vocky-feedback/SKILL.md`; a clean-container `curl … | bash` install delivering **vocky 0.2.0** from the real `git+https://` target; and every co-tenant vhost (`hi2vi.com`, `knowledge.hi2vi.com`, `changple.ai`, `miracle.changple.ai`) still 200 after the edge reload.
 >
-> **The `vocky` CLI is also not on PyPI, and will not be.** P6 made the package publishable; **P11 decided the channel is a `curl | bash` installer instead** (`web/public/install.sh`) and published nothing. `uv publish` stays an unexercised, operator-gated action. The hosted install line `curl -fsSL https://vocky.hi2vi.com/install.sh | bash` **404s until P12 deploys** — it is marked "once the site is live" everywhere it appears, and the landing page that shows it ships in the same bring-up.
+> The ordering **P6 → P10 → P11 → P12** paid off exactly as designed: P10's `UNIQUE(tenant_id, name)` constraint and three-phase `project_credentials.tenant_id` backfill landed against an **empty schema**, never as a live cutover on production data.
 >
-> Read every "production" section below as *the design that will be applied*, not as a description of something running.
+> **The `vocky` CLI is still not on PyPI, and will not be.** P6 made the package publishable; **P11 decided the channel is a `curl | bash` installer** (`web/public/install.sh`) and published nothing. `uv publish` stays an unexercised, operator-gated action. The hosted line `curl -fsSL https://vocky.hi2vi.com/install.sh | bash` **now works** — it was proven end to end into a clean container at the bring-up.
+>
+> Read the "production" sections below as a description of something **running**. Two things below are still authored-not-applied and say so in place: the **backup/log/status artifacts** (`P12.S5` — authored and committed, not yet installed on the box) and the **restore drill** (documented, never rehearsed).
 
 ## Running the Web App Locally
 
@@ -45,7 +47,7 @@ Requires **node >= 22.13.0** (`.nvmrc` pins `22`). All three server scripts bind
 pnpm install --frozen-lockfile && pnpm typecheck && pnpm lint && pnpm test && pnpm build
 ```
 
-Expect **56/56 tests** and every real route reported as `ƒ (Dynamic)`. `next build` needs **no env** — env reads are lazy, never at module top level.
+Expect **78/78 tests across 10 files** (the count as of P12; it was 56 at P4) and every real route reported as `ƒ (Dynamic)`. `next build` needs **no env** — env reads are lazy, never at module top level. As of **P12.S6** `pnpm format:check` is part of the CI gate too, so run it before pushing.
 
 > **This gate is necessary but not sufficient.** Two of P4's sharpest bugs passed the *entire* gate and surfaced only in a live run: a `"use server"` file exporting a plain object (registered as a second server action → every submit 500s), and the `Secure`-cookie dev/prod split below. Verify user-visible behavior against a running vocky.
 
@@ -110,14 +112,14 @@ uvx --from . vocky --help     # one-off run without installing
 uv run vocky --help           # in-repo (development), no install
 ```
 
-`typer` is a **direct** dependency (promoted from transitive in P5). **The package is not published anywhere** — today the install source is this repo; once the site is live the supported path is the hosted installer below (see also "CLI Distribution Model").
+`typer` is a **direct** dependency (promoted from transitive in P5). **The package is not published anywhere** — the install source is this repo, and the supported end-user path is the hosted installer below, **live since P12** (see also "CLI Distribution Model").
 
 ### The hosted installer — `web/public/install.sh` (P11)
 
-P11 settled distribution as a **`curl | bash` installer**, at zero infra cost: `output: "standalone"` plus `web/Dockerfile`'s `COPY … /app/public ./public` plus the edge's bare `location / { proxy_pass … }` already serve `web/public/*`, and no `location` block shadows a root-level static path — so the file serves at `/install.sh` with **no route, MIME or vhost work**. `web/Dockerfile`, `web/next.config.ts` and `deploy/vocky.conf` were all left untouched.
+P11 settled distribution as a **`curl | bash` installer**, at zero infra cost: `output: "standalone"` plus `web/Dockerfile`'s `COPY … /app/public ./public` plus the edge's bare `location / { proxy_pass … }` already serve `web/public/*`, and no `location` block shadows a root-level static path — so the file serves at `/install.sh` with **no route, MIME or vhost work**. `web/Dockerfile`, `web/next.config.ts` and the edge vhost were all left untouched. **P12's bring-up confirmed this empirically** — the file served 200 on the first deploy with zero serving work.
 
 ```sh
-curl -fsSL https://vocky.hi2vi.com/install.sh | bash    # once the site is live
+curl -fsSL https://vocky.hi2vi.com/install.sh | bash    # live since 2026-08-04
 ```
 
 The script is 61 lines and its shape is the contract, not a style choice:
@@ -128,24 +130,35 @@ The script is 61 lines and its shape is the contract, not a style choice:
 - Verification is **PATH-tolerant**: it re-exports `$HOME/.local/bin` and *warns* rather than dying if `vocky` is not yet on the current shell's PATH — the tool is installed either way. It closes by printing the next command and the two-export agent line.
 - `VOCKY_INSTALL_TARGET` overrides the install source (used to verify against a local checkout). It is not a new attack surface: anyone who can set your environment before running the script can already run arbitrary commands.
 
-**Two things it does not yet prove, both P12's.** The live `404 → 200` flip (`curl -sS -o /dev/null -w '%{http_code}' https://vocky.hi2vi.com/install.sh` reads `404` today and must read `200` after the first deploy), and the real `git+https://` target: the installer resolves **GitHub `main`**, which is many commits behind local, so installing from it today would silently deliver a pre-P10 CLI with no org keys and no `vocky capture`. **P12 owns the `git push` and must install-and-check, not assert** — run the installer into a clean environment and assert `vocky --version` reads `0.2.0` or newer and `vocky capture --help` renders, which is exactly what P11 proved against the local target.
+**Both things P11 could not prove are now proven (P12).** `/install.sh` flipped `404 → 200` on the first deploy, and the real `git+https://` target was exercised **install-and-check, not asserted**: in a clean `buildpack-deps:bookworm-scm` container, `curl -fsSL … | bash` bootstrapped uv, built **vocky 0.2.0** from `git+https://github.com/leetusik/vocky@6c16ac5` (exactly `origin/main`), installed 4 executables, and both `vocky --version` and `vocky capture --help` rendered.
 
-### `.github/workflows/ci.yml` — the repo's first push/PR gate (P11)
+**The installer resolves GitHub `main`, so the pushed SHA is the product.** A local commit that has not been pushed is not installable — the pre-launch hazard (installing a pre-P10 CLI with no org keys and no `vocky capture`) recurs any time `main` is ahead of `origin/main`. Push before telling anyone to install.
 
-Before P11 the repo had exactly one workflow, `deploy-production.yml`, which is `workflow_dispatch`-only and has never run. `ci.yml` runs on **`push` to `main` and on every `pull_request`**, `permissions: contents: read`, with three jobs:
+### `.github/workflows/ci.yml` — the push/PR gate (P11, completed by P12.S6)
+
+Before P11 the repo had exactly one workflow, `deploy-production.yml`, which is `workflow_dispatch`-only. `ci.yml` runs on **`push` to `main` and on every `pull_request`**, `permissions: contents: read`. **P12.S6 closed both of P11's deliberate exclusions by extending this same file** (never a second workflow), so it now has **four** jobs:
 
 | Job | What it runs |
 | --- | --- |
 | **Skill Parity** | `python3 scripts/skill_parity.py` — the canonical/served `SKILL.md` byte gate |
 | **Installer Syntax** | `bash -n web/public/install.sh` |
-| **Web** | `pnpm install --frozen-lockfile` then `pnpm lint`, `pnpm typecheck`, `pnpm test` (Node 22, pnpm via corepack) |
+| **Web** | `pnpm install --frozen-lockfile` then `pnpm lint`, `pnpm typecheck`, `pnpm test`, and — new in P12 — **`pnpm format:check`** (Node 22, pnpm via corepack). Appended as a step to the existing job, so there is no second install. |
+| **Python Tests (Postgres)** *(new in P12)* | a `postgres:17` **service container** (`POSTGRES_DB`/`USER`/`PASSWORD` all `vocky`), health-gated on `pg_isready` (`10s`/`5s`/`5`); `uv sync --frozen` via `astral-sh/setup-uv@v7`, then `uv run --no-sync pytest`; `timeout-minutes: 20` |
 
-**Two exclusions are deliberate and documented in the file itself:**
+**The pytest job's env contract is explicit, not derived** — get it wrong and it fails as a pydantic `ValidationError` at import, not as a clean test failure (`config.py` gives `DATABASE_URL` no default):
 
-- **No `prettier --check`.** There are 14 pre-existing failures in files this workflow has no business rewriting (12 P4-era, plus two P11 files that differ only by `prettier-plugin-tailwindcss` class ordering). Gating on it would make the workflow red on its very first run for reasons unrelated to any change under review. Fixing them is a separate, deliberate sweep.
-- **No `pytest`.** The suite needs a live Postgres and a bare GitHub runner has none. **P12 adds a Postgres-service job to this same file** — it was shaped so P12 appends a job rather than starting from nothing.
+```yaml
+DATABASE_URL:      postgresql+psycopg://vocky:vocky@localhost:5432/vocky
+TEST_DATABASE_URL: postgresql+psycopg://vocky:vocky@localhost:5432/vocky_test
+```
 
-`scripts/skill_parity.py` is stdlib-only and **exit-code-is-the-contract** (matching `scripts/wait_for_health.py`), with a `make check-skill-parity` target; the gate was proven **red then green** (append a byte to the served copy → exit 1; restore → exit 0). `web/.prettierignore` excludes `public/` — required, since prettier's markdown reflow would otherwise silently break byte parity the first time anyone runs `pnpm format`. **The workflow has never executed on a GitHub runner** (the commits are unpushed); every job's command was verified locally instead.
+Port **5432**, not this workspace's local `55432` publish port — a GitHub-hosted service container maps differently. The job sets **no `working-directory`**: `conftest.py` runs `alembic upgrade head` through a relative `alembic.ini` and must start from the repo root. Redis is **not** needed (`fakeredis` is a dev dependency), and a plain `uv sync` gives the full server dependency set because the dev group self-references `vocky[server]` — no `--extra server` flag.
+
+**Neither exclusion survives.** The 14 pre-existing `prettier --check` failures were swept to zero by **P12.S2** *before* the gate was turned on, which is the only order that works. `web/.prettierignore` still excludes `public/` — required, since prettier's markdown reflow would otherwise silently break the served `SKILL.md` byte parity the first time anyone runs `pnpm format`.
+
+**This gate has actually executed.** Its first-ever runner run (push `6c16ac5`, run `30873072664`, triggered by P12's production push) went **green in 53 seconds** — including the new Postgres-backed suite and the format check — with zero iteration needed. `scripts/skill_parity.py` is stdlib-only and **exit-code-is-the-contract** (matching `scripts/wait_for_health.py`), with a `make check-skill-parity` target; the gate was proven **red then green** (append a byte to the served copy → exit 1; restore → exit 0).
+
+**No Python lint step runs in CI.** `ruff check` is clean on the files recent slices touched, but ~34 pre-existing findings in unrelated files mean it is not gated — turning it on needs its own sweep first, exactly as prettier did.
 
 ### CLI Distribution Model (P6) — lean core + a `server` extra
 
@@ -187,17 +200,19 @@ The API base URL resolves in this precedence: `--base-url` flag → `VOCKY_BASE_
 - Unset or blank fails before any HTTP call, with a message naming the variable and pointing at `vocky keys mint`.
 - `capture` builds its client as `make_client(token=…, use_stored_token=False)`, so the session token and the `vk_` key **cannot cross**. `ApiClient.request` grew an `unauthorized_message` override for the same reason: a `401` from a `vk_`-keyed call must not tell the user to run `vocky login`.
 
-## Production Deploy Kit (P6) — `vocky.hi2vi.com`
+## Production Deploy Kit (P6, executed by P12) — `vocky.hi2vi.com`
 
-Everything in this section is **authored and unexecuted**. It mirrors the two sibling deployments on the same box: `~/projects/personal/knowledge` (`knowledge.hi2vi.com`, the same app shape) for the serving contract and edge vhost, and `~/projects/personal/hi2vi_web` for the image-tag rollback model and the CI chain.
+Everything in this section **has now run in production** (first deploy `6c16ac5`, 2026-08-04). It mirrors the two sibling deployments on the same box: `~/projects/personal/knowledge` (`knowledge.hi2vi.com`, the same app shape) for the serving contract and edge vhost, and `~/projects/personal/hi2vi_web` for the image-tag rollback model and the CI chain.
+
+> **The box was not empty when P12 arrived, and that nearly cost data.** An abandoned **dev**-compose vocky stack from May was still running at `/home/opc/vocky` — same directory basename, therefore the **same Compose project name and the same `vocky_postgres-data` / `vocky_redis-data` volume names** the prod file would use. A naive first deploy would have run P10's accounts-v2 migration against that May database instead of an empty schema. The operator chose dump-then-wipe: `pg_dump` → `/home/opc/vocky-preP12-db-2026-08-04.sql` (4 feedback rows), the old env → `…-env-2026-08-04.bak`, `docker compose down` (**never `down -v`**), then an explicit `docker volume rm` of both volumes, and the stray `docker-compose.override.yml` moved aside so no stray `docker compose up` can resurrect a dev stack under the prod project name. **Check what is already running under that project name before any first deploy on a shared box.**
 
 ### The box and the shared edge
 
 - **Box:** `ssh oracle-cloud` = `opc@140.245.64.173`. vocky is a **co-tenant**, not the only thing on it.
-- **Edge:** a standalone Compose project at `/home/opc/edge` (container `edge-nginx`, `nginx:1.27-alpine`) on the external `changple_shared_network`, with `conf.d/` and `certs/` bound read-only from the host. Co-tenant vhosts that must never be disturbed: `00-default.conf`, `changple5.conf`, `changple-web.conf`, `hi2vi.conf`, `knowledge.conf`.
-- **Apply path for a vhost:** `scp deploy/vocky.conf` into `/home/opc/edge/conf.d/`, then `cd /home/opc/edge && ./validate.sh && ./deploy.sh` — an `nginx -t` gate plus a **graceful reload**. Never recreate the edge container.
-- **TLS:** the wildcard `/home/opc/edge/certs/hi2vi.crt` (+ `.key`) already carries SANs `*.hi2vi.com, hi2vi.com`, so `vocky.hi2vi.com` needs **nothing provisioned**. Cloudflare is Full (Strict).
-- **DNS:** an operator-added **proxied `vocky`** record on the `hi2vi.com` Cloudflare zone. Not yet created.
+- **Edge:** a standalone Compose project at `/home/opc/edge` (container `edge-nginx`, `nginx:1.27-alpine`) on the external `changple_shared_network`, with `conf.d/` and `certs/` bound read-only from the host. Co-tenant vhosts that must never be disturbed: `00-default.conf`, `changple5.conf`, `changple-web.conf`, `hi2vi.conf`, `knowledge.conf`. (The changple vhosts serve **`changple.ai` / `miracle.changple.ai`** — not `changple5.com`, which is not a served hostname.)
+- **Apply path for a vhost — dispatch the edge repo's `edge-deploy` workflow. Never `scp`.** `/home/opc/edge/` is a plain rsync target, **not** the source of truth: the **`leetusik/edge` repo** is (`~/projects/personal/edge`), and it tracks the whole `conf.d/` tree plus `compose.yml`, `validate.sh`, `stage.sh`, `deploy.sh`, `cutover.sh`. Its workflow runs validate (dummy certs + `compose config -q` + a throwaway-container `nginx -t` over the **whole tree**) → stage (rsync, deliberately **without `--delete`**) → deploy (graceful reload). Copying a file onto the box by hand bypasses that repo and leaves an untracked vhost on the VM. **Never recreate the edge container.**
+- **TLS:** the wildcard `/home/opc/edge/certs/hi2vi.crt` (+ `.key`) already carries SANs `*.hi2vi.com, hi2vi.com`, so `vocky.hi2vi.com` needed **nothing provisioned**. Cloudflare is Full (Strict).
+- **DNS:** a **proxied `vocky`** record on the `hi2vi.com` Cloudflare zone — **created at the P12 bring-up**. Useful intermediate state to recognise: before the vhost existed, `https://vocky.hi2vi.com` returned **526** (Cloudflare reached the origin, but `00-default.conf` presents no `*.hi2vi.com` cert). That is the correct pre-vhost reading, not a DNS fault.
 
 ### Serving contract
 
@@ -229,16 +244,33 @@ All five carry `restart: unless-stopped`; `depends_on: service_healthy` gates ap
 | --- | --- |
 | `POSTGRES_PASSWORD` | the postgres service, and baked into the api/worker `DATABASE_URL` |
 | `SESSION_SECRET` | **web only** — rotating it logs every user out |
-| `VOCKY_ADMIN_AUTH_TOKEN` | **api only** — guards `/admin/api/*` |
+| `VOCKY_ADMIN_AUTH_TOKEN` | **api only** — guards `/admin/api/*`, and **still mandatory** (P12.S1 kept `/admin/api/*`, fail-closed) |
 
-None has a `:-` default: a missing value must fail loudly on the box rather than silently fall back to something weak. `DATABASE_URL`, `REDIS_URL`, and `VOCKY_API_BASE_URL` are **committed literal container-name URLs**, not secrets, and do not belong in `.env`; `NEXT_PUBLIC_APP_URL` is a build arg, not an env var.
+**All three now fail loudly, and only since P12.S1** — every interpolation site uses the `${VAR:?message}` form (`POSTGRES_PASSWORD` at all three sites: the postgres service plus the `DATABASE_URL` built in both api and worker), so `docker compose` **aborts** with an actionable message rather than substituting a blank. Before P12 this doc's "a missing value must fail loudly" claim was aspirational: a plain `${VAR}` makes Compose substitute an **empty string with a warning**. `POSTGRES_PASSWORD` failed only by the `postgres:17` image's own refusal to initialize blank, and **a blank `SESSION_SECRET` passed `deploy.sh`'s health gate entirely** — the web healthcheck fetches `/`, the static landing, which never reads it — surfacing only when a real user tried to log in.
+
+> **Testing the fail-loud behaviour: `env -u VAR` proves nothing.** `docker compose` auto-reads the project directory's `.env`, so unsetting a shell variable silently false-passes (exit 0) while the file supplies the value. This trap bit twice in P12 — once locally, once on the box. Test with an explicit `--env-file` pointing at a partial or empty file instead: `docker compose --env-file /tmp/partial.env -f compose.prod.yml config -q` → **exit 1**, *"POSTGRES_PASSWORD is required — set it in the box .env"*.
+
+`DATABASE_URL`, `REDIS_URL`, and `VOCKY_API_BASE_URL` are **committed literal container-name URLs**, not secrets, and do not belong in `.env`; `NEXT_PUBLIC_APP_URL` is a build arg, not an env var.
+
+### Optional non-secret tunables (P12.S3)
+
+The `/auth/*` rate limiter reads two settings, both with safe defaults, both documented (commented out) in `.env.example` and **deliberately not in `.env.prod.example`** — the box `.env` needs no entry for either:
+
+| Var | Default | Meaning |
+| --- | --- | --- |
+| `VOCKY_AUTH_RATE_LIMIT` | `20` | requests per window, per `(client IP, route)`. **`<= 0` disables the limiter entirely.** |
+| `VOCKY_AUTH_RATE_WINDOW_S` | `900` | window length in seconds (15 min) |
+
+**Operational invariant: `vocky-api` must stay a single uvicorn worker.** The limiter's state is a module-global dict in one process. `vocky.main` runs a single uvicorn process today (no `workers=N`, no gunicorn, and `compose.prod.yml` sets no `command:` or `deploy.replicas` override for `api`); adding a second worker would silently **divide** the effective rate limit and give each process its own buckets. Setting `VOCKY_AUTH_RATE_LIMIT=0` temporarily is the supported escape hatch for a deliberate stress or smoke pass — restore it afterwards.
 
 ### The images
 
 - **`web/Dockerfile`** — multi-stage `node:22-slim`. Build stage: `corepack prepare pnpm@10.28.2`, `pnpm install --frozen-lockfile`, the `NEXT_PUBLIC_APP_URL` assert, `pnpm build`. **It deliberately does not set `NODE_ENV=production` in the build stage** — pnpm would prune `typescript` / `tailwindcss` / `@tailwindcss/postcss` / `eslint-config-next` and the build would fail. Runtime stage: `NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0`, copies `.next/standalone` + `.next/static` + `public/`, `USER node`, `EXPOSE 3000`, a fetch-based `HEALTHCHECK`, `CMD ["node","server.js"]`. `web/public/` exists (holding only `.gitkeep`) purely so the runtime `COPY /app/public ./public` resolves — real assets are served by the `app/` file-convention routes. There is no `sharp` closure because the app uses no `next/image`.
 - **Backend root `Dockerfile`** — unchanged by P6 apart from `--extra server`. Standard uv two-layer build, `CMD ["uv","run","--no-sync","vocky-server"]`. It runs as **root on purpose** (it writes the shared attachments volume; non-root would need volume-ownership plumbing). It bakes **no migration and no worker command** — the migration is run externally by `deploy.sh`, and the worker overrides the command in compose. Do not bake either into the image.
 
-### Edge vhost — `deploy/vocky.conf`
+### Edge vhost — `edge/conf.d/vocky.conf`, **in the `leetusik/edge` repo**
+
+> **The vhost no longer lives in this repo (P12.S4).** `deploy/vocky.conf` is retired; this repo keeps **`deploy/vocky.conf.md`** as a pointer. The canonical file is `edge/conf.d/vocky.conf` in the **`leetusik/edge`** repo, which owns the whole shared-edge tree and reached the box through its own `edge-deploy` workflow (first run green, 2026-08-04). **Vhost changes are made there, not here** — and the behaviour described below is unchanged, only the file's home moved.
 
 The routing map, longest-prefix over the two container-name upstreams:
 
@@ -273,6 +305,8 @@ Other load-bearing properties: `:80` returns a server-level `301` to https; TLS 
 
 On a migration or gate failure it captures diagnostics and, if a `:previous` exists, flips both image tags back, `up -d --no-build`, and re-gates — distinguishing "rolled back and healthy" from "the rollback is also unhealthy". The **first** deploy has no `:previous`, leaves the stack up for inspection, and exits non-zero.
 
+**That first-deploy branch has now been exercised** (2026-08-04): with no prior `vocky-api:latest` / `vocky-web:latest` on the box, the script took the no-`:previous` path exactly as designed and completed green. **Every deploy from here on has real `:previous` rollback points**, so `deploy/rollback.sh` is armed for the first time.
+
 Two absolutes:
 
 - **`COMPOSE_BAKE=false` is exported** — this host's Compose version panics on the bake build path (a CLI bug).
@@ -303,23 +337,49 @@ Three files, ported from hi2vi_web's proven chain:
 
 **External smoke:** two endpoints through the edge, `https://vocky.hi2vi.com/healthz` (proves the api) **and** `https://vocky.hi2vi.com/` (proves the web), each retried 5×6s; the step fails if **either** never returns 200.
 
-**Required GitHub repo secrets** on `leetusik/vocky` — `ORACLE_SSH_PRIVATE_KEY`, `ORACLE_SSH_KNOWN_HOSTS`, `ORACLE_SSH_PASSPHRASE`. It is the **same box** as hi2vi/knowledge, so the existing key material is reused. **None of the three is set yet.**
+**GitHub repo secrets** on `leetusik/vocky` — `ORACLE_SSH_PRIVATE_KEY` and `ORACLE_SSH_KNOWN_HOSTS` are **set** (P12, reusing the hi2vi/knowledge key material for the same box). **`ORACLE_SSH_PASSPHRASE` was deliberately not created** — the key is unencrypted and the transport script does not require it.
 
-### Armed flip probes for P12's bring-up smoke (P11)
+**`deploy-production.yml` itself has still never run.** P12's first deploy was executed manually on the box (`deploy/deploy.sh`), which exercises the same underlying script the workflow hands off to, but not the runner transport. Its first `workflow_dispatch` is a natural follow-up, not a P12 requirement.
 
-P11 could verify nothing against a live origin, so it left P12 falsifiable probes instead of assertions. All three flip on the first deploy:
+### The bring-up probes — all flipped (P11 armed them, P12 ran them)
+
+P11 could verify nothing against a live origin, so it left falsifiable probes instead of assertions. Every one of them flipped on the first deploy, and they remain the standing liveness check:
 
 ```sh
-curl -sS -o /dev/null -w '%{http_code}' https://vocky.hi2vi.com/install.sh   # 404 today -> must be 200
-curl -sS -o /dev/null -w '%{http_code}' https://vocky.hi2vi.com/SKILL.md     # 404 today -> must be 200
+curl -sS -o /dev/null -w '%{http_code}' https://vocky.hi2vi.com/healthz     # 200
+curl -sS -o /dev/null -w '%{http_code}' https://vocky.hi2vi.com/            # 200
+curl -sS -o /dev/null -w '%{http_code}' https://vocky.hi2vi.com/install.sh  # 404 -> 200
+curl -sS -o /dev/null -w '%{http_code}' https://vocky.hi2vi.com/SKILL.md    # 404 -> 200
 ```
 
-plus the landing page carrying the install line. After `/SKILL.md` flips, the **served bytes must `cmp` clean** against `skills/vocky-feedback/SKILL.md`. Separately, P12 must run the **Cloudflare-not-a-barrier probe** live (it is unrunnable while the site is down — do not design around an unverified blocker), and must **install from the real `git+https://` target into a clean environment after pushing** rather than asserting the installer works.
+The served `/SKILL.md` is **byte-identical** (`cmp` clean) to `skills/vocky-feedback/SKILL.md`, re-verified at this review.
 
-### Known operational gaps carried into P12
+- **Cloudflare is not a barrier — proven live, three ways in one pass**: it served a shell script to `curl` with the correct `application/x-sh` and no challenge, passed a non-browser JSON POST to the auth surface, and did not interfere with `uv`'s git fetches. The same empirical result the sibling `knowledge` got. Stop designing around it.
+- **Cache policy for `/install.sh` and `/SKILL.md`: answered — deliberately uncached.** Measured live: `cache-control: public, max-age=0`, `cf-cache-status: DYNAMIC`. Every install gets fresh bytes, so there is no stale-installer window after a push. That is the right default at current traffic; revisit only if these paths ever see real volume.
+- **The BFF origin gate is a trap for every future probe.** Origin-less non-browser POSTs to `/api/auth/*` return **403 by design** — `web/src/lib/session.ts`'s CSRF second layer rejects a request with no `Origin`/`Sec-Fetch-Site`. Real browsers always send them. When curling that surface, pass `Origin: https://vocky.hi2vi.com` explicitly or you will read a false failure.
 
-- **`/auth/*` has no origin rate limit.** The public account-auth surface (`/auth/login`, `/auth/signup` — an unauthenticated password grant plus open signup) reaches `vocky-api` through the edge, but vocky has no server-side per-IP limiter (the sibling `knowledge` does), and the shared edge **forbids** `limit_req_zone`. At launch it relies on Cloudflare in front. Tracked as deferred job **D5**: add a Cloudflare rate rule and/or an in-process limiter in `src/vocky/auth_api.py`. Accepted for launch behind Cloudflare.
-- **`VOCKY_ADMIN_AUTH_TOKEN` is a required box secret for a surface that is unreachable from outside.** The edge 404s `/admin/`, so `/admin/api/*` is internal-only, yet the api still requires the token to be configured. That is intentional defense in depth (a co-tenant on the shared network could otherwise reach `vocky-api:8000` directly), but whether the token stays mandatory is a P12 question.
-- The **first** `deploy.sh` run hits the no-`:previous` branch for both images (expected — there is no rollback point yet), and the one-off migrate creates the schema from empty.
-- **`.github/workflows/ci.yml` has never executed on a GitHub runner** (the commits are unpushed). Its first real run happens on P12's push, alongside the two exclusions it must close: the Postgres-backed `pytest` job, and a decision about the 14 `prettier --check` failures.
-- **A cache policy for `/install.sh` and `/SKILL.md` was deliberately not decided** — round 02 explicitly left it as a bring-up question. Both are served straight off `web/public/` through the edge's `/` catch-all today.
+### Backups, log caps and on-box status (P12.S5)
+
+> **Authored and committed, not yet applied on the box.** The artifacts below landed in the repo *after* the deployed commit `6c16ac5`. Until the box pulls a newer commit and the runbook below is run, production has **no scheduled backup and uncapped container logs**. This is the phase's one deliberate authored-not-applied item.
+
+- **`deploy/backup.sh`** — nightly `pg_dump` + gzip of the `vocky` database into `/home/opc/backups/vocky/db/`, plus an `alpine`-throwaway-container tar of the `vocky_attachments-data` volume into `/home/opc/backups/vocky/attachments/`. **Redis is deliberately not backed up** (it is a queue, not a source of truth). **14-day retention** on both directories, and it prints what it pruned; the prune paths are hard-coded under `$BACKUP_ROOT` and cannot delete outside `/home/opc/backups/vocky/`.
+- **Cron line** (daily 04:10 box time):
+  ```
+  10 4 * * * /home/opc/vocky/deploy/backup.sh >> /home/opc/backups/vocky/backup.log 2>&1
+  ```
+- **`deploy/restore.md`** — the restore drill: verify a `.sql.gz` in a **scratch database first**, then the real database cutover (stop `api`/`worker`, drop/recreate, restore, `alembic upgrade head` sanity check, bring the stack back and re-gate), then the attachments-volume cutover, which is independent of the database restore. It also states what it does **not** protect against. **It has never been rehearsed** and says so in its own header — treat it as a starting draft to be corrected by the first real run, ideally in a quiet window rather than during an incident.
+- **`deploy/status.sh`** — the basic on-box read: `compose ps` + health + `df -h` + `docker system df -v` + per-volume sizes + the last 20 api/worker log lines. Read-only, and explicitly *basic metrics*, not monitoring infrastructure.
+- **Log caps** — `compose.prod.yml` carries an `x-logging: &default-logging` anchor (`json-file`, `max-size: 10m`, `max-file: 3`) referenced by **all five** services; unbounded `json-file` logs were the box's real disk risk.
+
+> **The log-cap gotcha, worth reading twice.** App services (`api`, `web`, `worker`) pick the cap up on the next ordinary `deploy.sh` run, because that recreates them. **The datastores (`postgres`, `redis`) are NOT recreated by an ordinary app deploy**, so they keep running uncapped until someone deliberately runs `docker compose -f compose.prod.yml up -d postgres redis --force-recreate`. "The caps apply at the next deploy" is false for exactly the two containers that run longest.
+
+**Applying it (operator, on the box):** push → `cd /home/opc/vocky && git pull` → `./deploy/deploy.sh` → the datastore `--force-recreate` above → install the cron line → optionally run `deploy/backup.sh` once by hand and check `deploy/status.sh`.
+
+### Remaining operational gaps (post-P12)
+
+- **The restore drill is unrehearsed** (above) — the single largest remaining operational risk, and it is an operator action.
+- **Backups do not survive box loss.** They are on-box dated files with 14-day retention. Off-box (object-storage) replication needs a credential the operator must provision, and was deliberately not decided in P12.
+- **The `/auth/*` limiter is in-process only.** It is versioned and tested (P12.S3), but it is per-process memory: it resets on restart and depends on the single-worker invariant above. A Cloudflare rate-limiting rule as an outer, unversioned layer remains available at operator discretion — nothing depends on it.
+- **No metrics or log export off the box.** `deploy/status.sh` is a manual read, not monitoring; nothing alerts.
+- **`deploy-production.yml` has never been dispatched** (above).
+- **P12 loose ends the operator may clear at leisure**: the throwaway production account `p12-smoke-20260804@example.com` created by the launch smoke, and the Gate-4 keepsakes `/home/opc/vocky-preP12-*.{sql,bak}` plus the quarantined `docker-compose.override.yml.bak`.

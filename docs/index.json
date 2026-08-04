@@ -1,7 +1,7 @@
 {
   "docs": {
     "product": {
-      "latest": "v0010_p11_distribution_is_a_curl_bash_installer_not_pypi_and_vocky_ships_a_published_agent-skill_surface_with_three_capture_paths_behind_two_environment_variables",
+      "latest": "v0011_p12_vocky_is_live_at_vocky.hi2vi.com_the_deploy_kit_p6_authored_has_been_executed",
       "current_path": "docs/current/product.md",
       "versions": [
         {
@@ -83,11 +83,19 @@
           "source": "P11.REVIEW",
           "summary": "P11: distribution is a curl bash installer not PyPI, and vocky ships a published agent-skill surface with three capture paths behind two environment variables",
           "previous": "v0009_p10_the_accounts_plane_is_user_org_project_signup_lands_a_ready-to-use_account_with_a_default_project_and_a_key_is_now_a_user_s_choice_between_one_project_and_the_whole_org"
+        },
+        {
+          "id": "v0011_p12_vocky_is_live_at_vocky.hi2vi.com_the_deploy_kit_p6_authored_has_been_executed",
+          "path": "docs/versions/product/v0011_p12_vocky_is_live_at_vocky.hi2vi.com_the_deploy_kit_p6_authored_has_been_executed.md",
+          "created_at": "2026-08-04T12:53:07+09:00",
+          "source": "P12.REVIEW",
+          "summary": "P12: vocky is live at vocky.hi2vi.com — the deploy kit P6 authored has been executed",
+          "previous": "v0010_p11_distribution_is_a_curl_bash_installer_not_pypi_and_vocky_ships_a_published_agent-skill_surface_with_three_capture_paths_behind_two_environment_variables"
         }
       ]
     },
     "experience": {
-      "latest": "v0011_p11_onboarding_is_real_end_to_end_for_an_agent_a_curl_bash_install_line_vocky_api_token_plus_vocky_capture_as_the_two-variable_contract_and_a_published_vocky-feedback_skill",
+      "latest": "v0012_p12_the_hosted_install_line_is_live_not_a_promise_curl_bash_from_vocky.hi2vi.com_works_today",
       "current_path": "docs/current/experience.md",
       "versions": [
         {
@@ -177,11 +185,19 @@
           "source": "P11.REVIEW",
           "summary": "P11: onboarding is real end to end for an agent — a curl bash install line, VOCKY_API_TOKEN plus vocky capture as the two-variable contract, and a published vocky-feedback skill",
           "previous": "v0010_p10_onboarding_is_two_steps_not_three_signup_provisions_a_default_project_a_key_is_a_scope_choice_between_project_and_org_and_project_names_are_unique_per_org"
+        },
+        {
+          "id": "v0012_p12_the_hosted_install_line_is_live_not_a_promise_curl_bash_from_vocky.hi2vi.com_works_today",
+          "path": "docs/versions/experience/v0012_p12_the_hosted_install_line_is_live_not_a_promise_curl_bash_from_vocky.hi2vi.com_works_today.md",
+          "created_at": "2026-08-04T12:53:07+09:00",
+          "source": "P12.REVIEW",
+          "summary": "P12: the hosted install line is live, not a promise — curl | bash from vocky.hi2vi.com works today",
+          "previous": "v0011_p11_onboarding_is_real_end_to_end_for_an_agent_a_curl_bash_install_line_vocky_api_token_plus_vocky_capture_as_the_two-variable_contract_and_a_published_vocky-feedback_skill"
         }
       ]
     },
     "architecture": {
-      "latest": "v0009_p10_user_org_project_accounts_plane_the_ingest_middleware_resolves_a_credential_s_project_scope_once_per_request_as_a_non-null_tuple_and_enqueue_is_the_write_path_s_last_enforcement_point",
+      "latest": "v0010_p12_the_app_is_deployed_admin_rest_is_kept_and_fail-closed_an_in-process_auth_limiter_joins_the_request_path_and_the_edge_vhost_now_lives_in_the_edge_repo",
       "current_path": "docs/current/architecture.md",
       "versions": [
         {
@@ -255,11 +271,19 @@
           "source": "P10.REVIEW",
           "summary": "P10: user/org/project accounts plane — the ingest middleware resolves a credential's project scope once per request as a non-null tuple, and enqueue is the write path's last enforcement point",
           "previous": "v0008_p6_the_packaged_admin_web_ui_is_physically_removed_only_admin_api_survives_and_the_production_deployment_topology_lands_five_containers_on_the_shared_edge_network_worker_reusing_the_api_image"
+        },
+        {
+          "id": "v0010_p12_the_app_is_deployed_admin_rest_is_kept_and_fail-closed_an_in-process_auth_limiter_joins_the_request_path_and_the_edge_vhost_now_lives_in_the_edge_repo",
+          "path": "docs/versions/architecture/v0010_p12_the_app_is_deployed_admin_rest_is_kept_and_fail-closed_an_in-process_auth_limiter_joins_the_request_path_and_the_edge_vhost_now_lives_in_the_edge_repo.md",
+          "created_at": "2026-08-04T12:51:19+09:00",
+          "source": "P12.REVIEW",
+          "summary": "P12: the app is deployed — Admin REST is kept and fail-closed, an in-process /auth/* limiter joins the request path, and the edge vhost now lives in the edge repo",
+          "previous": "v0009_p10_user_org_project_accounts_plane_the_ingest_middleware_resolves_a_credential_s_project_scope_once_per_request_as_a_non-null_tuple_and_enqueue_is_the_write_path_s_last_enforcement_point"
         }
       ]
     },
     "frontend": {
-      "latest": "v0007_p11_the_landing_gains_an_agent_quickstart_and_a_skill_section_the_snippet_and_trap_primitives_mount-gated_copy_islands_over_a_server-rendered_no-js_floor_and_a_request-time_read_of_the_served_skill_file",
+      "latest": "v0008_p12_the_web_app_is_deployed_and_serving_at_vocky.hi2vi.com_and_the_vestigial_hi2vi_design_tokens_are_renamed_to_role_names",
       "current_path": "docs/current/frontend.md",
       "versions": [
         {
@@ -317,6 +341,14 @@
           "source": "P11.REVIEW",
           "summary": "P11: the landing gains an agent quickstart and a skill section, the Snippet and Trap primitives, mount-gated copy islands over a server-rendered no-JS floor, and a request-time read of the served skill file",
           "previous": "v0006_p10_the_dashboard_gains_an_org-keys_panel_vockycredential.project_id_widens_to_string_null_the_show-once_key_panel_becomes_a_shared_component_and_workspace_becomes_org"
+        },
+        {
+          "id": "v0008_p12_the_web_app_is_deployed_and_serving_at_vocky.hi2vi.com_and_the_vestigial_hi2vi_design_tokens_are_renamed_to_role_names",
+          "path": "docs/versions/frontend/v0008_p12_the_web_app_is_deployed_and_serving_at_vocky.hi2vi.com_and_the_vestigial_hi2vi_design_tokens_are_renamed_to_role_names.md",
+          "created_at": "2026-08-04T12:53:07+09:00",
+          "source": "P12.REVIEW",
+          "summary": "P12: the web app is deployed and serving at vocky.hi2vi.com, and the vestigial hi2vi design tokens are renamed to role names",
+          "previous": "v0007_p11_the_landing_gains_an_agent_quickstart_and_a_skill_section_the_snippet_and_trap_primitives_mount-gated_copy_islands_over_a_server-rendered_no-js_floor_and_a_request-time_read_of_the_served_skill_file"
         }
       ]
     },
@@ -405,7 +437,7 @@
       ]
     },
     "api": {
-      "latest": "v0008_p10_signup_returns_an_additive_project_post_app_projects_is_get-or-create_three_new_org-level_app_credentials_routes_credential_project_id_is_nullable_and_capture_takes_an_optional_project_name_honored_only_for_org_keys",
+      "latest": "v0009_p12_the_edge_vhost_that_404s_admin_moved_to_the_edge_repo_admin_auth_answers_503_when_unconfigured_and_auth_signup_auth_login_can_now_answer_429",
       "current_path": "docs/current/api.md",
       "versions": [
         {
@@ -471,11 +503,19 @@
           "source": "P10.REVIEW",
           "summary": "P10: signup returns an additive project, POST /app/projects is get-or-create, three new org-level /app/credentials routes, credential project_id is nullable, and capture takes an optional project name honored only for org keys",
           "previous": "v0007_p6_the_packaged_admin_web_ui_routes_are_deleted_admin_and_admin_assets_no_longer_exist_only_the_bearer-guarded_admin_api_rest_surface_remains_and_it_is_404d_at_the_production_edge"
+        },
+        {
+          "id": "v0009_p12_the_edge_vhost_that_404s_admin_moved_to_the_edge_repo_admin_auth_answers_503_when_unconfigured_and_auth_signup_auth_login_can_now_answer_429",
+          "path": "docs/versions/api/v0009_p12_the_edge_vhost_that_404s_admin_moved_to_the_edge_repo_admin_auth_answers_503_when_unconfigured_and_auth_signup_auth_login_can_now_answer_429.md",
+          "created_at": "2026-08-04T12:52:30+09:00",
+          "source": "P12.REVIEW",
+          "summary": "P12: the edge vhost that 404s /admin moved to the edge repo, admin auth answers 503 when unconfigured, and /auth/signup + /auth/login can now answer 429",
+          "previous": "v0008_p10_signup_returns_an_additive_project_post_app_projects_is_get-or-create_three_new_org-level_app_credentials_routes_credential_project_id_is_nullable_and_capture_takes_an_optional_project_name_honored_only_for_org_keys"
         }
       ]
     },
     "operations": {
-      "latest": "v0005_p11_the_hosted_install.sh_installer_the_repo_s_first_push_and_pull-request_ci_gate_with_its_two_deliberate_exclusions_and_the_cli_capture_module",
+      "latest": "v0006_p12_vocky_is_live_at_vocky.hi2vi.com_first_deploy_green_edge_vhost_owned_by_the_edge_repo_fail-loud_box_secrets_auth_rate_limits_backups_log_caps_and_a_proven_ci_gate",
       "current_path": "docs/current/operations.md",
       "versions": [
         {
@@ -517,11 +557,19 @@
           "source": "P11.REVIEW",
           "summary": "P11: the hosted install.sh installer, the repo's first push and pull-request CI gate with its two deliberate exclusions, and the CLI capture module",
           "previous": "v0004_p6_the_vocky.hi2vi.com_production_deploy_kit_compose_topology_box_secrets_web_image_edge_vhost_deploy_rollback_runbook_ci_chain_lean-cli_split_authored_statically_validated_not_deployed"
+        },
+        {
+          "id": "v0006_p12_vocky_is_live_at_vocky.hi2vi.com_first_deploy_green_edge_vhost_owned_by_the_edge_repo_fail-loud_box_secrets_auth_rate_limits_backups_log_caps_and_a_proven_ci_gate",
+          "path": "docs/versions/operations/v0006_p12_vocky_is_live_at_vocky.hi2vi.com_first_deploy_green_edge_vhost_owned_by_the_edge_repo_fail-loud_box_secrets_auth_rate_limits_backups_log_caps_and_a_proven_ci_gate.md",
+          "created_at": "2026-08-04T12:46:55+09:00",
+          "source": "P12.REVIEW",
+          "summary": "P12: vocky is live at vocky.hi2vi.com — first deploy green, edge vhost owned by the edge repo, fail-loud box secrets, auth rate limits, backups/log caps, and a proven CI gate",
+          "previous": "v0005_p11_the_hosted_install.sh_installer_the_repo_s_first_push_and_pull-request_ci_gate_with_its_two_deliberate_exclusions_and_the_cli_capture_module"
         }
       ]
     },
     "security": {
-      "latest": "v0008_p10_org-level_vk__keys_are_a_real_trust-boundary_widening_key_scope_is_now_user-chosen_project-bound_or_org-level_and_the_guarantee_is_anchored_on_tenancy_plus_a_middleware-resolved_non-null_project-id_tuple",
+      "latest": "v0009_p12_admin_auth_is_fail-closed_503_when_unconfigured_all_three_box_secrets_abort_a_blank_deploy_and_the_auth_rate-limit_gap_is_closed_by_an_in-process_limiter",
       "current_path": "docs/current/security.md",
       "versions": [
         {
@@ -587,11 +635,19 @@
           "source": "P10.REVIEW",
           "summary": "P10: org-level vk_ keys are a real trust-boundary widening — key scope is now user-chosen (project-bound or org-level) and the guarantee is anchored on tenancy plus a middleware-resolved non-null project-id tuple",
           "previous": "v0007_p6_the_production_edge_app_security_split_prod-gated_app_csp_edge_hsts_additive_upgrade-insecure-requests_cloudflare_real-ip_restore_admin_404_internal-only_at_the_edge_and_the_unthrottled_auth_origin_gap_d5"
+        },
+        {
+          "id": "v0009_p12_admin_auth_is_fail-closed_503_when_unconfigured_all_three_box_secrets_abort_a_blank_deploy_and_the_auth_rate-limit_gap_is_closed_by_an_in-process_limiter",
+          "path": "docs/versions/security/v0009_p12_admin_auth_is_fail-closed_503_when_unconfigured_all_three_box_secrets_abort_a_blank_deploy_and_the_auth_rate-limit_gap_is_closed_by_an_in-process_limiter.md",
+          "created_at": "2026-08-04T12:50:15+09:00",
+          "source": "P12.REVIEW",
+          "summary": "P12: admin auth is fail-closed (503 when unconfigured), all three box secrets abort a blank deploy, and the /auth/* rate-limit gap is closed by an in-process limiter",
+          "previous": "v0008_p10_org-level_vk__keys_are_a_real_trust-boundary_widening_key_scope_is_now_user-chosen_project-bound_or_org-level_and_the_guarantee_is_anchored_on_tenancy_plus_a_middleware-resolved_non-null_project-id_tuple"
         }
       ]
     },
     "qa": {
-      "latest": "v0001_bootstrap",
+      "latest": "v0002_p12_vocky_s_first_real_qa_doc_the_python_and_web_suites_how_to_run_them_the_four_ci_gates_now_proven_green_the_smoke_layers_and_the_qa-check_driver_gap",
       "current_path": "docs/current/qa.md",
       "versions": [
         {
@@ -601,6 +657,14 @@
           "source": "bootstrap",
           "summary": "Initial qa doc",
           "previous": null
+        },
+        {
+          "id": "v0002_p12_vocky_s_first_real_qa_doc_the_python_and_web_suites_how_to_run_them_the_four_ci_gates_now_proven_green_the_smoke_layers_and_the_qa-check_driver_gap",
+          "path": "docs/versions/qa/v0002_p12_vocky_s_first_real_qa_doc_the_python_and_web_suites_how_to_run_them_the_four_ci_gates_now_proven_green_the_smoke_layers_and_the_qa-check_driver_gap.md",
+          "created_at": "2026-08-04T12:46:30+09:00",
+          "source": "P12.REVIEW",
+          "summary": "P12: vocky's first real QA doc — the Python and web suites, how to run them, the four CI gates now proven green, the smoke layers, and the /qa-check driver gap",
+          "previous": "v0001_bootstrap"
         }
       ]
     },
@@ -667,5 +731,5 @@
       ]
     }
   },
-  "last_rebuilt_at": "2026-08-04T10:08:00+09:00"
+  "last_rebuilt_at": "2026-08-04T12:53:52+09:00"
 }
