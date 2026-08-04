@@ -5,12 +5,12 @@
 
 ## Pointer
 
-- Current phase: `P13`
-- Current slice: `P13.REVIEW`
+- Current phase: `none`
+- Current slice: `none`
 - Next slice: `none`
 - Waiting on operator: `none`
-- Open deferred jobs: `6`
-- Rebuilt at: `2026-08-04T17:13:04+09:00`
+- Open deferred jobs: `7`
+- Rebuilt at: `2026-08-04T17:23:05+09:00`
 
 ## Active Phases
 
@@ -20,7 +20,7 @@
 | [x] `P10` | `done` | `pass` | Accounts v2: orgs, org-level keys & default project | `none` | `works/phases/active/P10` |
 | [x] `P11` | `done` | `pass` | Frictionless onboarding: working install, env-var quickstart, agent skill on the landing | `none` | `works/phases/active/P11` |
 | [x] `P12` | `done` | `pass` | Production launch & hardening: bring-up, rate limits, CI tests, QA doc | `none` | `works/phases/active/P12` |
-| [ ] `P13` | `planned` | `pending` | Feedback email alerts over SMTP | `P13.REVIEW` | `works/phases/active/P13` |
+| [x] `P13` | `done` | `pass` | Feedback email alerts over SMTP | `none` | `works/phases/active/P13` |
 
 ## Phase P6: Landing Page, Webpage & Production Deploy
 
@@ -92,4 +92,4 @@
 | [x] `P13.S3` | `done` | worker post-persist alert hook + DI wiring + failure containment | `implementation` | `works/phases/active/P13/slices/P13.S3` |
 | [x] `P13.S4` | `done` | SMTP env/compose/deploy plumbing (prod + dev) | `implementation` | `works/phases/active/P13/slices/P13.S4` |
 | [x] `P13.S5` | `done` | production bring-up: changple5 SMTP credentials + live alert verification | `implementation` | `works/phases/active/P13/slices/P13.S5` |
-| [ ] `P13.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P13/slices/P13.REVIEW` |
+| [x] `P13.REVIEW` | `done` | phase review | `review` | `works/phases/active/P13/slices/P13.REVIEW` |

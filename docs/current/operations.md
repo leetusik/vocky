@@ -1,10 +1,10 @@
 ---
 doc_id: operations
-version: v0006
-created_at: 2026-08-04T12:46:55+09:00
-source: P12.REVIEW
-summary: P12: vocky is live at vocky.hi2vi.com — first deploy green, edge vhost owned by the edge repo, fail-loud box secrets, auth rate limits, backups/log caps, and a proven CI gate
-previous: v0005_p11_the_hosted_install.sh_installer_the_repo_s_first_push_and_pull-request_ci_gate_with_its_two_deliberate_exclusions_and_the_cli_capture_module
+version: v0007
+created_at: 2026-08-04T17:18:22+09:00
+source: P13.REVIEW
+summary: P13: feedback email alerts are live on the box — VOCKY_SMTP_PASSWORD is the fourth fail-loud box secret, the SMTP block is worker-only, and the changple5 SMTP account is reused via a Django-to-vocky var mapping
+previous: v0006_p12_vocky_is_live_at_vocky.hi2vi.com_first_deploy_green_edge_vhost_owned_by_the_edge_repo_fail-loud_box_secrets_auth_rate_limits_backups_log_caps_and_a_proven_ci_gate
 ---
 
 # Operations
@@ -238,19 +238,66 @@ All five carry `restart: unless-stopped`; `depends_on: service_healthy` gates ap
 
 ### Box secrets
 
-`.env.prod.example` is the template for the box's gitignored `.env`. There is deliberately **no `env_file:` anywhere** in `compose.prod.yml`: each container receives only the vars listed under its own `environment:`, so the api's secrets are never injected into the web container and vice versa. Exactly **three** `${...}` interpolations exist, all generated on the box (`openssl rand -base64 32`):
+`.env.prod.example` is the template for the box's gitignored `.env`. There is deliberately **no `env_file:` anywhere** in `compose.prod.yml`: each container receives only the vars listed under its own `environment:`, so the api's secrets are never injected into the web container and vice versa. **Four** secrets are `${...}` interpolated; the first three are generated on the box (`openssl rand -base64 32`), the fourth is copied from an existing SMTP account:
 
 | Secret | Consumed by |
 | --- | --- |
 | `POSTGRES_PASSWORD` | the postgres service, and baked into the api/worker `DATABASE_URL` |
 | `SESSION_SECRET` | **web only** — rotating it logs every user out |
 | `VOCKY_ADMIN_AUTH_TOKEN` | **api only** — guards `/admin/api/*`, and **still mandatory** (P12.S1 kept `/admin/api/*`, fail-closed) |
+| `VOCKY_SMTP_PASSWORD` (P13) | **worker only** — the SMTP account password used to send feedback alert email |
 
-**All three now fail loudly, and only since P12.S1** — every interpolation site uses the `${VAR:?message}` form (`POSTGRES_PASSWORD` at all three sites: the postgres service plus the `DATABASE_URL` built in both api and worker), so `docker compose` **aborts** with an actionable message rather than substituting a blank. Before P12 this doc's "a missing value must fail loudly" claim was aspirational: a plain `${VAR}` makes Compose substitute an **empty string with a warning**. `POSTGRES_PASSWORD` failed only by the `postgres:17` image's own refusal to initialize blank, and **a blank `SESSION_SECRET` passed `deploy.sh`'s health gate entirely** — the web healthcheck fetches `/`, the static landing, which never reads it — surfacing only when a real user tried to log in.
+**All four now fail loudly, and only since P12.S1** (P13 for the fourth) — every interpolation site uses the `${VAR:?message}` form (`POSTGRES_PASSWORD` at all three sites: the postgres service plus the `DATABASE_URL` built in both api and worker), so `docker compose` **aborts** with an actionable message rather than substituting a blank. Before P12 this doc's "a missing value must fail loudly" claim was aspirational: a plain `${VAR}` makes Compose substitute an **empty string with a warning**. `POSTGRES_PASSWORD` failed only by the `postgres:17` image's own refusal to initialize blank, and **a blank `SESSION_SECRET` passed `deploy.sh`'s health gate entirely** — the web healthcheck fetches `/`, the static landing, which never reads it — surfacing only when a real user tried to log in.
 
-> **Testing the fail-loud behaviour: `env -u VAR` proves nothing.** `docker compose` auto-reads the project directory's `.env`, so unsetting a shell variable silently false-passes (exit 0) while the file supplies the value. This trap bit twice in P12 — once locally, once on the box. Test with an explicit `--env-file` pointing at a partial or empty file instead: `docker compose --env-file /tmp/partial.env -f compose.prod.yml config -q` → **exit 1**, *"POSTGRES_PASSWORD is required — set it in the box .env"*.
+> **Testing the fail-loud behaviour: `env -u VAR` proves nothing.** `docker compose` auto-reads the project directory's `.env`, so unsetting a shell variable silently false-passes (exit 0) while the file supplies the value. This trap bit twice in P12 — once locally, once on the box. Test with an explicit `--env-file` pointing at a partial or empty file instead: `docker compose --env-file /tmp/partial.env -f compose.prod.yml config -q` → **exit 1**, *"POSTGRES_PASSWORD is required — set it in the box .env"*. The same trap applies to P13's `VOCKY_SMTP_*` guards; an `env -u` test of those only proves anything while the project `.env` happens to carry no `VOCKY_SMTP_*` line at all (`grep -c VOCKY_SMTP .env` → `0`).
 
 `DATABASE_URL`, `REDIS_URL`, and `VOCKY_API_BASE_URL` are **committed literal container-name URLs**, not secrets, and do not belong in `.env`; `NEXT_PUBLIC_APP_URL` is a build arg, not an env var.
+
+### SMTP feedback alerts (P13) — the box block
+
+Since **P13** the worker emails the owning org's owner one plain-text alert per persisted feedback event. This is **live on the box** (verified 2026-08-04 with a real capture and a received email). The mechanism is in `architecture.md` / `backend.md`; what follows is the operations surface.
+
+**The five vars, and their interpolation forms.** All five live on the **`worker` service's `environment:` block only**, in both compose files — `api` and `web` never receive them, matching the per-service isolation invariant above (the worker is the sole sender).
+
+| Var | `compose.prod.yml` | `docker-compose.yml` (dev) | Meaning |
+| --- | --- | --- | --- |
+| `VOCKY_SMTP_HOST` | `${VAR:?…}` — required | `${VAR:-}` | SMTP server hostname. Required but **not secret** |
+| `VOCKY_SMTP_USER` | `${VAR:?…}` — required | `${VAR:-}` | SMTP account username. Required but **not secret** |
+| `VOCKY_SMTP_PASSWORD` | `${VAR:?…}` — required | `${VAR:-}` | the **secret** (see the box-secrets table above) |
+| `VOCKY_SMTP_PORT` | `${VAR:-587}` | `${VAR:-587}` | `465` selects implicit SSL; anything else uses STARTTLS |
+| `VOCKY_SMTP_FROM` | `${VAR:-}` | `${VAR:-}` | From address; **blank falls back to `VOCKY_SMTP_USER`** |
+
+**Why prod is `:?` and dev is `:-`.** Production *intends* alerts on, so a missing host/user/password **aborts `docker compose` itself** rather than silently shipping a stack whose alerts are quietly off — the same fail-loud pattern as the other three secrets. Dev mirrors all five in the empty-default form so a local stack with no SMTP configured still starts and simply runs with alerts disabled (`Settings.smtp_configured` is false). **Env-first, deploy-second on the box**: once S4's guards are on `origin/main`, `deploy/deploy.sh` will abort at interpolation until the three required vars are in `.env`.
+
+**`deploy/deploy.sh` needed no change and must not gain one.** It only asserts that `.env` exists; compose's `${VAR:?}` interpolation is the **single** enforcement point for every box secret. Do not add a second one.
+
+**Bring-up: reusing changple5's SMTP account.** vocky borrows the SMTP account changple5 already sends with on the same box. changple5 is Django, so its env speaks Django's names:
+
+| Django name (changple5) | vocky name (`/home/opc/vocky/.env`) |
+| --- | --- |
+| `EMAIL_HOST` | `VOCKY_SMTP_HOST` (required) |
+| `EMAIL_PORT` | `VOCKY_SMTP_PORT` (optional, default 587) |
+| `EMAIL_HOST_USER` | `VOCKY_SMTP_USER` (required) |
+| `EMAIL_HOST_PASSWORD` | `VOCKY_SMTP_PASSWORD` (required, the secret) |
+| `DEFAULT_FROM_EMAIL` | `VOCKY_SMTP_FROM` (optional, falls back to the user) |
+
+Discovery on the box, most robust first: **read the running container's actual environment** — `docker ps --format 'table {{.Names}}\t{{.Image}}' | grep -i changple`, then `docker exec <changple5-container> env | grep -iE 'email|smtp'`. This is what worked in practice (the values were read off `changple5-celery_beat-1`); grepping a source `.env` or `settings*.py` under the changple5 checkout is a fallback that depends on where the clone lives. Then edit the five keys **in place** in `/home/opc/vocky/.env` — `grep -c VOCKY_SMTP /home/opc/vocky/.env` first, since a duplicate key in a `.env` is read inconsistently by different tools — sanity-check with `docker compose -f compose.prod.yml config --quiet`, and run `deploy/deploy.sh` (it recreates the worker unconditionally, so no separate restart is needed).
+
+**The live endpoint (non-secret, as deployed):** host `mail.privateemail.com`, port `587` (STARTTLS), user `hi@hi2vi.com`, From `창플 <hi@hi2vi.com>`. The password lives **only** in the box's gitignored `.env` and in changple5's own env — never in this repo.
+
+**Verifying an alert live.** Capture one real feedback event (`VOCKY_EXTERNAL_BASE_URL=https://vocky.hi2vi.com make external-smoke` is the easiest full round trip, but it creates a throwaway account — so its alert goes to *that* throwaway owner; use a real project of your own if you want the mail in your own inbox). Then check both:
+
+1. `docker logs vocky-worker --since 5m` — the job persisted, and **no** `Feedback alert failed` line (that string is the worker's `logger.exception` message and the only in-band signal that a send failed).
+2. The **org owner's** account inbox — one plain-text mail, `From:` the configured `VOCKY_SMTP_FROM` (or the user fallback).
+
+**Triage, by failure shape:**
+
+- **`docker compose` / `deploy.sh` aborts with a `:?` message** → one of host/user/password is missing or blank in `.env`. Watch for a stray duplicate key further down the file shadowing the one you edited.
+- **Worker logs `Feedback alert failed`** → credentials or TLS mismatch. Most common fix is the other port: `465` (implicit SSL) vs `587` (STARTTLS), then recreate just the worker (`docker compose -f compose.prod.yml up -d worker`).
+- **No error in the log, but no email** → check spam first; then check that the effective From is an identity the SMTP account is authorized to send *as* — some providers accept the SMTP transaction and drop the message.
+- **`No owner email for project …` warning** → the project's tenant has no `role='owner'` member. The alert is skipped by design; the feedback row is unaffected.
+
+**A failed alert is lost, by design** — there is no retry and no notify DLQ, so the worker log is the only record. The feedback itself is always durably stored and readable in the app; alerting is strictly best-effort. See `architecture.md` for the reasoning.
 
 ### Optional non-secret tunables (P12.S3)
 

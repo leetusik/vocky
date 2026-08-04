@@ -1,10 +1,10 @@
 ---
 doc_id: qa
-version: v0002
-created_at: 2026-08-04T12:46:30+09:00
-source: P12.REVIEW
-summary: P12: vocky's first real QA doc — the Python and web suites, how to run them, the four CI gates now proven green, the smoke layers, and the /qa-check driver gap
-previous: v0001_bootstrap
+version: v0003
+created_at: 2026-08-04T17:20:09+09:00
+source: P13.REVIEW
+summary: P13: the Python suite is 30 files and 225 tests, ruff is not configured in this repo at all, and the feedback alert has a two-part live verification
+previous: v0002_p12_vocky_s_first_real_qa_doc_the_python_and_web_suites_how_to_run_them_the_four_ci_gates_now_proven_green_the_smoke_layers_and_the_qa-check_driver_gap
 ---
 
 # Qa
@@ -26,9 +26,9 @@ warrants it. Read the counts below as a snapshot of what earned a test, not a co
 
 ## The Python suite (`tests/`)
 
-**29 test files** (`test_*.py`) plus a shared `conftest.py`, flat directory, **215 test functions**
-(`uv run pytest --collect-only`; confirmed by a full green run — see below). Roughly clustered by what
-they exercise, inferred from filenames rather than a formal taxonomy:
+**30 test files** (`test_*.py`) plus a shared `conftest.py`, flat directory, **225 test functions**
+(`uv run pytest --collect-only`, re-counted at P13.REVIEW; confirmed by a full green run — see below).
+Roughly clustered by what they exercise, inferred from filenames rather than a formal taxonomy:
 
 - **Capture / ingest**: `test_capture_api`, `test_capture_queue`, `test_capture_validation`,
   `test_query_validation`
@@ -43,6 +43,12 @@ they exercise, inferred from filenames rather than a formal taxonomy:
 - **CLI** (5 files): `test_cli_auth`, `test_cli_capture`, `test_cli_feedback`, `test_cli_foundation`,
   `test_cli_projects`
 - **MCP transport** (1 file): `test_mcp_transport`
+- **Notifications** (P13, 1 file): `test_notifications` (5 cases, pure-Python, **no DB**) — the
+  unconfigured-SMTP skip, the `record is None` / `project_id is None` skips, one full send against a
+  monkeypatched `_send_message`, and the "no owner email" skip. The alert's *containment* is tested
+  where it lives, in `test_worker` (`test_worker_notifies_after_persist`,
+  `test_worker_contains_notifier_failure` — a raising notifier must leave both the queue and the
+  dead-letter list empty).
 
 ### The `conftest.py` contract — read this before running the suite anywhere
 
@@ -116,12 +122,15 @@ run `30873072664`, triggered by `P12.S4`'s production push) went **green in 53 s
 iteration needed on either the new pytest job or the format-check step. A QA doc that documents a gate
 that has never executed is weaker than one that documents a proven one — this one is proven.
 
-No Python lint/`ruff` step runs in CI; `ruff check` is clean as of the last slice that touched Python code
-but is not gated.
+**There is no Python lint or type-check step anywhere in this repo — not in CI, not locally** (verified
+independently by three P13 slices). `ruff` is not a dependency, there is no `[tool.ruff]` section in
+`pyproject.toml`, there is no Makefile lint target, and the binary is not installed (`uv run ruff
+--version` fails to spawn); `mypy` is likewise absent. Treat any plan step that says "run ruff if
+configured" as a **no-op here**, and do not report a lint pass that never ran.
 
 ## Smoke layers
 
-1. **Unit/integration** — the 215-test Python suite and 78-test web suite above, run on every push/PR.
+1. **Unit/integration** — the 225-test Python suite and 78-test web suite above, run on every push/PR.
 2. **`vocky-smoke`** (`vocky.smoke:main`, `src/vocky/smoke.py` — httpx + stdlib only, no test framework):
    hits `GET /healthz`, then walks the real account control plane — signup, create a project, mint a
    per-project `vk_` ingest key — then `POST /api/feedback` with that key, and polls the scoped
@@ -150,6 +159,27 @@ but is not gated.
    Full evidence: `works/phases/active/P12/slices/P12.S4/result.md` (or its archived location once P12
    archives).
 
+## Verifying feedback email alerts (P13)
+
+**No automated layer covers the alert end to end** — the suite tests the notifier and the worker's
+containment with fakes, and neither `vocky-smoke` nor CI ever opens an SMTP connection. Live
+verification is manual and has two halves, both required (the full runbook, including the box-side
+credential discovery, is in `operations.md`):
+
+1. Capture one real feedback event against the target deployment. `VOCKY_EXTERNAL_BASE_URL=https://vocky.hi2vi.com make external-smoke`
+   is the easiest full round trip, but note it **signs up a throwaway account** — the alert then goes to
+   *that* account's owner, not to you. To see the mail yourself, capture into a project whose org you own.
+2. Check both signals: `docker logs vocky-worker --since 5m` shows the job persisted with **no
+   `Feedback alert failed` line** (that exact string is the worker's `logger.exception` message and the
+   only in-band failure signal), **and** the plain-text mail actually arrives in the org owner's inbox.
+   A clean log alone proves nothing about delivery — some providers accept the SMTP transaction and drop
+   the message when the From identity is unauthorized.
+
+**Baseline, executed live 2026-08-04 (P13.S5):** both halves passed against `vocky.hi2vi.com` using the
+SMTP account changple5 already sends with (`mail.privateemail.com:587`, STARTTLS). Evidence:
+`works/phases/active/P13/slices/P13.S5/result.md` plus the operator's acceptance note in that phase's
+`phase.md`.
+
 ## Manual checks automation cannot cover
 
 - **The BFF origin-gate trap above** — every future manual/QA probe against `/api/auth/*` needs a real
@@ -170,7 +200,9 @@ but is not gated.
   scripted or manual QA pass that retries either route more than that from one source will legitimately
   hit `429` — space retries, or set `VOCKY_AUTH_RATE_LIMIT=0` in the box `.env` for a deliberate stress
   pass and restore it after.
-- **Visual/design sign-off**: nothing in P12 touches product visual design (`P12.S2`'s token rename was a
+- **Feedback alert delivery** — see the P13 section above. Nothing automated ever sends real mail, and a
+  silently-dropped message leaves no trace in vocky at all (a failed alert is logged and lost, by design).
+- **Visual/design sign-off**: nothing in P12 or P13 touches product visual design (`P12.S2`'s token rename was a
   byte-identical-hex mechanical edit, verified by grep, not a visual change) — there is no design gate to
   cover here as of this doc's version.
 

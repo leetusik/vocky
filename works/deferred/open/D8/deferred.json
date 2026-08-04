@@ -1,0 +1,11 @@
+{
+  "id": "D8",
+  "title": "Retry or outbox for failed feedback alert emails",
+  "status": "deferred",
+  "source": "P13.REVIEW",
+  "reason": "A failed alert is logged and lost — no retry, no queue, no operator-facing signal. Deliberate per P13 Decision 2 (containment had to be total) and fine while feedback is durably stored, but not once someone relies on the email as their notification channel.",
+  "trigger": "A real alert observed missing/failed on the box, volume growth past single-owner scale, or any work adding a second notification channel or preferences surface.",
+  "created_at": "2026-08-04T17:23:05+09:00",
+  "promoted_to": null,
+  "dropped_reason": null
+}

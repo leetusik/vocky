@@ -239,6 +239,44 @@ _One-liners appended by each slice; `P13.REVIEW` consolidates them into doc vers
 - None blocking. Two things are deliberately left to their slice: the notifier module's exact file/package shape (single module vs `src/vocky/notifications/` package — S2's call, following the `accounts`/`feedback` house style), and the final interpolation form for the SMTP secret in compose (S4's call, with Decision 3's recommendation as the default).
 - For `P13.REVIEW` to consider: whether the lost-alert-on-failure tradeoff (Decision 2) warrants a `defer-job` for a retry/outbox path.
 
+## P13.REVIEW notes (phase review — verdict `pass`)
+
+- **Verdict `pass`, no findings, no fix slices.** Validation re-run across all slices together:
+  `workflow.py validate` clean, `uv run pytest -q` → **225 passed** (matches S3's recorded count
+  exactly), and all three of S4's compose guards reproduced (prod all-vars → exit 0; prod minus
+  `VOCKY_SMTP_PASSWORD` → exit 1 with the exact `:?` message; dev with no SMTP vars → exit 0).
+- **The compose negative test is genuine here, and that is worth knowing**: `operations.md` warns
+  that `env -u VAR` false-passes because Compose auto-reads the project `.env`. The repo-root `.env`
+  carries **zero** `VOCKY_SMTP*` lines (`grep -c VOCKY_SMTP .env` → `0`), so nothing shadowed the
+  guard. Anyone re-running this check after adding SMTP vars to a local `.env` must switch to
+  `--env-file` — now documented in `operations.md` v0007.
+- **Containment verified in the code, not just via the tests** (`src/vocky/worker.py:70-94`): the
+  persistence `try:` wraps only the two `create_feedback_event*` calls, its
+  `except FeedbackPersistenceError` branch `return`s, and the notify block sits after that block at
+  the same indentation as the `try`. `requeue_job`/`dead_letter_job` appear **only** inside
+  `_handle_persistence_failure`, which the alert path never reaches. Decision 2 is satisfied
+  literally.
+- **Scope wall + dependency wall both held**: 12 non-`works/` files, +538/-15; `pyproject.toml` and
+  `uv.lock` **byte-unchanged by the whole phase**. No `web/`, no preferences/digest/HTML surface.
+  SMTP vars on the `worker` service only in both compose files. No credential anywhere in the repo —
+  only the non-secret endpoint facts, and only in `works/`.
+- **Doc consolidation went beyond the Doc impact list, deliberately: five versions, not three.**
+  `backend` v0006, `architecture` v0011, `operations` v0007 as listed — **plus `security` v0010 and
+  `qa` v0003**, because this phase falsified statements in both: `security.md` asserted "all three
+  box secrets" (now four) and `qa.md` asserted "29 files / 215 tests" (now 30/225, verified by
+  `--collect-only`) plus "`ruff check` is clean but not gated" (there is no ruff, and no lint or
+  type step of any kind — the fact three slices kept rediscovering is now written down in `qa.md`
+  so nobody rediscovers it a fifth time).
+- **Deferred-job recommendation handed to the orchestrator** (the review may not run `defer-job`):
+  *Retry or outbox for failed feedback alert emails* — a failed alert is logged and lost with no
+  operator-facing signal; trigger is a real missed alert on the box, volume growth past
+  single-owner scale, or the arrival of a second notification channel / preferences surface. Full
+  wording in `P13.REVIEW/result.md` §4. This closes `phase.md`'s open question.
+- Two non-blocking observations for whoever touches this next: `OwnerEmailResolver` types its
+  argument as `object` (harmless — no type checker is configured), and the serial worker plus the
+  10s SMTP timeout means an unreachable SMTP host can stall the next job by that much. The latter is
+  recorded in `architecture.md` as the number to revisit if capture volume grows.
+
 ### P13.S5 acceptance (operator-confirmed, 2026-08-04)
 
 The operator ran the runbook live: SMTP values were copied from the `changple5-celery_beat-1`

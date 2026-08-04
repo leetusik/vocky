@@ -419,3 +419,12 @@
 {"ts": "2026-08-04T17:04:01+09:00", "type": "slice_status_changed", "slice": "P13.S5", "old_status": "in_progress", "new_status": "pending"}
 {"ts": "2026-08-04T17:13:04+09:00", "type": "slice_status_changed", "slice": "P13.S5", "old_status": "pending", "new_status": "in_progress"}
 {"ts": "2026-08-04T17:13:04+09:00", "type": "slice_status_changed", "slice": "P13.S5", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-08-04T17:13:49+09:00", "type": "slice_status_changed", "slice": "P13.REVIEW", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-08-04T17:16:51+09:00", "type": "doc_version_created", "doc": "backend", "version": "v0006_p13_accounts_gains_get_owner_email_for_project_config_gains_the_vocky_smtp__settings_and_the_smtp_configured_gate_and_src_vocky_notifications.py_sends_the_owner_feedback_alert", "source": "P13.REVIEW"}
+{"ts": "2026-08-04T17:17:31+09:00", "type": "doc_version_created", "doc": "architecture", "version": "v0011_p13_the_worker_gains_a_post-persist_feedback_alert_hook_whose_swallow-and-log_containment_sits_structurally_outside_the_persistence_try_so_a_failed_alert_can_never_requeue_or_duplicate_a_feedback_event", "source": "P13.REVIEW"}
+{"ts": "2026-08-04T17:18:22+09:00", "type": "doc_version_created", "doc": "operations", "version": "v0007_p13_feedback_email_alerts_are_live_on_the_box_vocky_smtp_password_is_the_fourth_fail-loud_box_secret_the_smtp_block_is_worker-only_and_the_changple5_smtp_account_is_reused_via_a_django-to-vocky_var_mapping", "source": "P13.REVIEW"}
+{"ts": "2026-08-04T17:19:24+09:00", "type": "doc_version_created", "doc": "security", "version": "v0010_p13_a_fourth_box_secret_vocky_smtp_password_joins_the_fail-loud_set_and_feedback_alert_email_becomes_vocky_s_first_outbound_data_flow_owner-addressed_by_a_project-anchored_join_worker-only_credentials", "source": "P13.REVIEW"}
+{"ts": "2026-08-04T17:20:09+09:00", "type": "doc_version_created", "doc": "qa", "version": "v0003_p13_the_python_suite_is_30_files_and_225_tests_ruff_is_not_configured_in_this_repo_at_all_and_the_feedback_alert_has_a_two-part_live_verification", "source": "P13.REVIEW"}
+{"ts": "2026-08-04T17:23:05+09:00", "type": "slice_status_changed", "slice": "P13.REVIEW", "old_status": "in_progress", "new_status": "done"}
+{"ts": "2026-08-04T17:23:05+09:00", "type": "phase_reviewed", "phase": "P13", "verdict": "pass", "reviewer": "slice-executor-high"}
+{"ts": "2026-08-04T17:23:05+09:00", "type": "deferred_created", "deferred": "D8", "source": "P13.REVIEW"}

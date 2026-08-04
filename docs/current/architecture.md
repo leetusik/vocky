@@ -1,10 +1,10 @@
 ---
 doc_id: architecture
-version: v0010
-created_at: 2026-08-04T12:51:19+09:00
-source: P12.REVIEW
-summary: P12: the app is deployed — Admin REST is kept and fail-closed, an in-process /auth/* limiter joins the request path, and the edge vhost now lives in the edge repo
-previous: v0009_p10_user_org_project_accounts_plane_the_ingest_middleware_resolves_a_credential_s_project_scope_once_per_request_as_a_non-null_tuple_and_enqueue_is_the_write_path_s_last_enforcement_point
+version: v0011
+created_at: 2026-08-04T17:17:31+09:00
+source: P13.REVIEW
+summary: P13: the worker gains a post-persist feedback alert hook whose swallow-and-log containment sits structurally outside the persistence try, so a failed alert can never requeue or duplicate a feedback event
+previous: v0010_p12_the_app_is_deployed_admin_rest_is_kept_and_fail-closed_an_in-process_auth_limiter_joins_the_request_path_and_the_edge_vhost_now_lives_in_the_edge_repo
 ---
 
 # Architecture
@@ -20,6 +20,8 @@ As of **P10** that layer has three architecturally significant properties: **sig
 As of **P4**, vocky also has a **browser surface of its own**: a Next.js app in `web/` that talks to `/auth/*` + `/app/*` through a **server-side BFF proxy** (sealed httpOnly cookie, no CORS, no web-side DB). It was built in P4 as the replacement for the packaged same-origin Admin Web UI, and **P6 completed that replacement by deleting the old UI**. See "The Web App and the BFF Boundary" below.
 
 As of **P6**, vocky also has a complete **production deployment topology** for `vocky.hi2vi.com` — five containers behind a shared edge nginx on an existing OCI box — and as of **P12 it is deployed and serving**: the first deploy (`6c16ac5`, 2026-08-04) ran the whole chain green, including P10's 11-revision migration against an empty schema. See "Production Deployment Topology" below and the runbook in `operations.md`.
+
+As of **P13**, the worker also **sends outbound email**: one plain-text SMTP alert to the owning org's owner per persisted feedback event, over env-configured `VOCKY_SMTP_*` transport (off when unconfigured). It is vocky's first and only outbound-email path, and its defining architectural property is the **containment** of the call — see "Feedback Alert Hook and Its Containment" below.
 
 As of **P5**, vocky also has a **`vocky` CLI**: a Typer app in `src/vocky/cli/` that is a **pure session-token client** of `/auth/*` + `/app/*` — the same "client only, no backend change" shape as the web app. The server console entry was renamed `vocky` → `vocky-server` to free the `vocky` name for the CLI. See "The `vocky` CLI" below.
 
@@ -202,6 +204,9 @@ The runtime configuration surface is intentionally small:
 - `VOCKY_ATTACHMENTS_MAX_BYTES`: maximum size in bytes of a single uploaded attachment. Default `5242880` (5 MiB).
 - `VOCKY_ATTACHMENTS_MAX_COUNT`: maximum number of attachments that may be linked to one feedback event. Default `10`.
 - `VOCKY_ATTACHMENTS_ALLOWED_MIME_TYPES`: comma-separated allowed attachment MIME types, validated by magic-byte sniffing. Default `image/jpeg,image/png,image/gif,image/webp`.
+- `VOCKY_SMTP_HOST` / `VOCKY_SMTP_PORT` / `VOCKY_SMTP_USER` / `VOCKY_SMTP_PASSWORD` / `VOCKY_SMTP_FROM` (P13): SMTP transport for feedback email alerts. Defaults `""` / `587` / `""` / `""` / `""` — i.e. **alerts default to off**, and `Settings.smtp_configured` (non-blank host **and** a non-blank effective From, where From falls back to the user) is the single gate. **Read by the worker only** — the api never sends, and in `compose.prod.yml` these vars are on the worker service's `environment:` block alone.
+
+
 
 The supported local operator workflow adds these host-side settings:
 
@@ -216,7 +221,7 @@ The supported local operator workflow adds these host-side settings:
 
 The root `.env`, copied from `.env.example`, is the primary **local** configuration source for both Docker Compose and the Make-based host workflow. The Compose app service receives its Admin auth setting (`VOCKY_ADMIN_AUTH_TOKEN`) from this file; `/api/*` auth is no longer env-configured (per-project credentials replaced `VOCKY_API_AUTH_TOKEN`). The supported self-hosted path remains Compose-first and includes Redis plus the worker process. `make bootstrap` should bring up the service dependencies, apply migrations, and wait for readiness. `make verify` runs the smoke flow and the test suite — as of **P6** it no longer builds and inspects a wheel for packaged Admin UI assets, since those assets no longer exist (`package-check` was removed with the UI). `make compose-down` should tear the stack back down.
 
-**Production configuration is a separate surface.** `compose.prod.yml` + `.env.prod.example` (P6) define the box's configuration independently of the local `.env`: exactly three interpolated secrets (`POSTGRES_PASSWORD`, `SESSION_SECRET`, `VOCKY_ADMIN_AUTH_TOKEN`), with `DATABASE_URL` / `REDIS_URL` / `VOCKY_API_BASE_URL` as committed literal container-name URLs and `NEXT_PUBLIC_APP_URL` as a build arg. There is deliberately **no `env_file:`** in the production compose, so each container sees only its own vars. See `operations.md`.
+**Production configuration is a separate surface.** `compose.prod.yml` + `.env.prod.example` (P6) define the box's configuration independently of the local `.env`: **four** interpolated secrets (`POSTGRES_PASSWORD`, `SESSION_SECRET`, `VOCKY_ADMIN_AUTH_TOKEN`, and — as of **P13** — `VOCKY_SMTP_PASSWORD`), plus `VOCKY_SMTP_HOST` / `VOCKY_SMTP_USER` which are required-but-not-secret (also `:?`) and `VOCKY_SMTP_PORT` / `VOCKY_SMTP_FROM` which are optional `:-` config, with `DATABASE_URL` / `REDIS_URL` / `VOCKY_API_BASE_URL` as committed literal container-name URLs and `NEXT_PUBLIC_APP_URL` as a build arg. There is deliberately **no `env_file:`** in the production compose, so each container sees only its own vars. See `operations.md`.
 
 The supported operator modes are:
 
@@ -397,6 +402,30 @@ Capture is asynchronous (`202 Accepted` → Redis queue → worker persist), and
 - When a job carries non-empty `attachment_ids`, the worker calls `create_feedback_event_with_attachments`, which inserts the feedback row and runs the guarded scope-verified link in one transaction. A job with no attachments takes the unchanged `create_feedback_event` path. Missing, mis-scoped, or already-linked attachments are skipped and logged; they never dead-letter the job, because a missing screenshot must not fail real feedback.
 
 REST capture validates and normalizes `attachment_ids` (parse to UUID, dedupe, cap at `VOCKY_ATTACHMENTS_MAX_COUNT`).
+
+## Feedback Alert Hook and Its Containment (P13)
+
+The worker is the **only** thing in vocky that sends email. When `CaptureWorker._process_job` persists a capture job, it then notifies the **owning org's owner** by one plain-text SMTP email. The backend pieces (the accounts owner-email query, the `VOCKY_SMTP_*` settings, `src/vocky/notifications.py`) are in `backend.md`; what is architectural is **where the call sits** and **what it is forbidden to touch**.
+
+**Shape.** `CaptureWorker.__init__` takes a defaulted `notifier: FeedbackAlertNotifier | None = None` (so every pre-existing caller and test double kept working unchanged), `run_worker()` wires `notifier=get_feedback_alert_notifier()`, and `_process_job` now **captures** the `FeedbackEventRecord | None` returned by `create_feedback_event(_with_attachments)` — a value that was previously discarded — into `record`. After the persistence `try/except FeedbackPersistenceError` block and its "Persisted" info log:
+
+```python
+if self._notifier is not None:
+    try:
+        await self._notifier.notify_feedback_persisted(record)
+    except Exception:
+        logger.exception("Feedback alert failed for job %s", job.request_id)
+```
+
+**The containment rule, and why it is structural.** `_handle_persistence_failure` retries the **whole** capture job, so *any* exception escaping the alert path would re-enqueue an event that is **already committed** and create duplicate feedback rows. Containment therefore has to be total, and it is achieved by placement, not by clause ordering:
+
+- The notify block sits **textually after** the persistence `try:`/`except` block, and that `except` branch `return`s — so the alert code **physically cannot run** on a persistence failure. Moving the call inside the persistence `try:` (even into a different `except`) reintroduces the duplicate-feedback bug.
+- Its own handler is a bare `except Exception` that only `logger.exception`s and falls through. **It never calls `requeue_job` or `dead_letter_job`**, and it never re-raises.
+- `notifications.py` deliberately does **not** swallow its own errors (the owner lookup's `AccountsReadError` and the SMTP send's socket errors both propagate), which keeps that module honest and testable. This call site is the single containment point and is load-bearing, not defensive decoration. A regression test (`test_worker_contains_notifier_failure`) asserts a raising notifier still yields `process_next_job() is True` with the queue **and** dead-letter list both empty.
+
+**The accepted tradeoff (no notify DLQ).** A failed alert is **lost and visible only in the worker's logs**. That is deliberate: a notify DLQ would be a queue with no consumer, no drain tooling, and no operator UI, and the feedback itself is durably stored and readable in the app. Retry/outbox machinery, if alert reliability ever matters, is a follow-up — not something added speculatively.
+
+**Latency note.** The send is blocking `smtplib` run through `asyncio.to_thread` with a 10s socket timeout, and the worker processes jobs serially — so a slow or unreachable SMTP server delays the next job by up to that timeout. At one short message per captured event on a single-owner product this is well inside budget; it is the number to revisit if capture volume grows.
 
 ## Query Read Model
 

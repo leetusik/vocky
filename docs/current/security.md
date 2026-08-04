@@ -1,10 +1,10 @@
 ---
 doc_id: security
-version: v0009
-created_at: 2026-08-04T12:50:15+09:00
-source: P12.REVIEW
-summary: P12: admin auth is fail-closed (503 when unconfigured), all three box secrets abort a blank deploy, and the /auth/* rate-limit gap is closed by an in-process limiter
-previous: v0008_p10_org-level_vk__keys_are_a_real_trust-boundary_widening_key_scope_is_now_user-chosen_project-bound_or_org-level_and_the_guarantee_is_anchored_on_tenancy_plus_a_middleware-resolved_non-null_project-id_tuple
+version: v0010
+created_at: 2026-08-04T17:19:24+09:00
+source: P13.REVIEW
+summary: P13: a fourth box secret (VOCKY_SMTP_PASSWORD) joins the fail-loud set, and feedback alert email becomes vocky's first outbound data flow — owner-addressed by a project-anchored join, worker-only credentials
+previous: v0009_p12_admin_auth_is_fail-closed_503_when_unconfigured_all_three_box_secrets_abort_a_blank_deploy_and_the_auth_rate-limit_gap_is_closed_by_an_in-process_limiter
 ---
 
 # Security
@@ -199,7 +199,19 @@ What is **unchanged**: `AdminBearerAuthMiddleware`, `VOCKY_ADMIN_AUTH_TOKEN`, an
 Both halves are fixed:
 
 - **The middleware fails closed.** With no token configured, **every** `/admin/api/*` request is refused with **`503`** and `{"detail": "Admin API is not configured"}` — deliberately *not* a `401` with a `WWW-Authenticate: Bearer` challenge, because there is no credential that could succeed. Once a token *is* configured, the pre-existing `401` + `WWW-Authenticate: Bearer` behaviour is unchanged.
-- **All three box secrets abort the deploy when blank.** `compose.prod.yml` now uses `${VAR:?message}` at every interpolation site for `POSTGRES_PASSWORD` (three sites), `SESSION_SECRET`, and `VOCKY_ADMIN_AUTH_TOKEN`. This also closed a quieter hole: a blank `SESSION_SECRET` used to pass `deploy.sh`'s health gate completely — the web healthcheck fetches `/`, the static landing, which never reads it — and failed only when a real user tried to log in. (Testing this needs an explicit `--env-file`; `env -u VAR` false-passes because Compose auto-reads the project `.env`. See `operations.md`.)
+- **Every box secret aborts the deploy when blank.** `compose.prod.yml` uses `${VAR:?message}` at every interpolation site for `POSTGRES_PASSWORD` (three sites), `SESSION_SECRET`, `VOCKY_ADMIN_AUTH_TOKEN`, and — since **P13** — `VOCKY_SMTP_PASSWORD` (plus its non-secret companions `VOCKY_SMTP_HOST` / `VOCKY_SMTP_USER`, also `:?`, because production intends alerts on). **Four secrets, not three.** This also closed a quieter hole: a blank `SESSION_SECRET` used to pass `deploy.sh`'s health gate completely — the web healthcheck fetches `/`, the static landing, which never reads it — and failed only when a real user tried to log in. (Testing this needs an explicit `--env-file`; `env -u VAR` false-passes because Compose auto-reads the project `.env`. See `operations.md`.)
+
+## Outbound Email — the feedback alert data flow (P13)
+
+P13 gives vocky its **first outbound data flow**: the worker mails feedback content off the box, to a human inbox, over SMTP. Three properties make that safe to state plainly.
+
+**The recipient is derived, never supplied.** `AccountsRepository.get_owner_email_for_project` walks `projects.tenant_id → tenant_members(role='owner') → users.email` in one query **anchored on the event's own `project_id`**. A caller cannot influence the address — there is no recipient field on the capture payload, and none is configurable anywhere yet (per-recipient preferences are explicitly out of scope). The anchor plus the `role = 'owner'` filter is the multi-tenant boundary: **the only way one org's feedback could reach another org's owner is a regression in that single query**, which is why it is documented and tested in isolation (`backend.md`). Where a tenant has more than one `owner` row (the schema permits it), the read is deterministic — oldest-wins by `(created_at, id)` — rather than raising or picking arbitrarily.
+
+**The content that leaves the box.** The mail body carries the feedback event's message, feedback value, comment, channel, source product, timestamps, event id and project id — plain text, no attachments, no session or credential material, no other tenant's data. It goes to the org owner's own account email, i.e. to someone already entitled to read that row in the app.
+
+**The credentials are worker-only and off git.** `VOCKY_SMTP_*` appears in the `worker` service's `environment:` block and nowhere else, so `api` and `web` never receive the SMTP password — the same per-service isolation that keeps the api's secrets out of the web container. The real values live only in the box's gitignored `.env` (and in changple5's own env, the account being reused); this repo carries placeholders and prose only. `VOCKY_SMTP_PASSWORD` is a first-class box secret with a fail-loud `:?` guard, listed in `operations.md`.
+
+**Failure mode, stated honestly.** An alert that fails is logged and dropped — no retry, no queue. That is a durability tradeoff, not a security one: nothing is exposed by a failed send, and the feedback row is committed before the send is even attempted. The inverse also holds — an alert failure can never re-enter the capture job's retry path, so it cannot duplicate feedback rows (`architecture.md`).
 
 ## Production Transport Security (P6) — the app/edge split
 

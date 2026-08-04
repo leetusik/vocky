@@ -197,7 +197,7 @@
       ]
     },
     "architecture": {
-      "latest": "v0010_p12_the_app_is_deployed_admin_rest_is_kept_and_fail-closed_an_in-process_auth_limiter_joins_the_request_path_and_the_edge_vhost_now_lives_in_the_edge_repo",
+      "latest": "v0011_p13_the_worker_gains_a_post-persist_feedback_alert_hook_whose_swallow-and-log_containment_sits_structurally_outside_the_persistence_try_so_a_failed_alert_can_never_requeue_or_duplicate_a_feedback_event",
       "current_path": "docs/current/architecture.md",
       "versions": [
         {
@@ -279,6 +279,14 @@
           "source": "P12.REVIEW",
           "summary": "P12: the app is deployed — Admin REST is kept and fail-closed, an in-process /auth/* limiter joins the request path, and the edge vhost now lives in the edge repo",
           "previous": "v0009_p10_user_org_project_accounts_plane_the_ingest_middleware_resolves_a_credential_s_project_scope_once_per_request_as_a_non-null_tuple_and_enqueue_is_the_write_path_s_last_enforcement_point"
+        },
+        {
+          "id": "v0011_p13_the_worker_gains_a_post-persist_feedback_alert_hook_whose_swallow-and-log_containment_sits_structurally_outside_the_persistence_try_so_a_failed_alert_can_never_requeue_or_duplicate_a_feedback_event",
+          "path": "docs/versions/architecture/v0011_p13_the_worker_gains_a_post-persist_feedback_alert_hook_whose_swallow-and-log_containment_sits_structurally_outside_the_persistence_try_so_a_failed_alert_can_never_requeue_or_duplicate_a_feedback_event.md",
+          "created_at": "2026-08-04T17:17:31+09:00",
+          "source": "P13.REVIEW",
+          "summary": "P13: the worker gains a post-persist feedback alert hook whose swallow-and-log containment sits structurally outside the persistence try, so a failed alert can never requeue or duplicate a feedback event",
+          "previous": "v0010_p12_the_app_is_deployed_admin_rest_is_kept_and_fail-closed_an_in-process_auth_limiter_joins_the_request_path_and_the_edge_vhost_now_lives_in_the_edge_repo"
         }
       ]
     },
@@ -353,7 +361,7 @@
       ]
     },
     "backend": {
-      "latest": "v0005_p10_accounts_gains_provision_signup_get_or_create_project_get_project_by_name_list_org_credentials_and_get_credential_auth_gains_the_credential_project-scope_resolver_capture_gains_resolve_capture_project",
+      "latest": "v0006_p13_accounts_gains_get_owner_email_for_project_config_gains_the_vocky_smtp__settings_and_the_smtp_configured_gate_and_src_vocky_notifications.py_sends_the_owner_feedback_alert",
       "current_path": "docs/current/backend.md",
       "versions": [
         {
@@ -395,6 +403,14 @@
           "source": "P10.REVIEW",
           "summary": "P10: accounts gains provision_signup, get_or_create_project, get_project_by_name, list_org_credentials and get_credential; auth gains the credential project-scope resolver; capture gains resolve_capture_project",
           "previous": "v0004_p6_create_app_no_longer_registers_admin_ui_routes_the_admin_web_ui_module_and_its_assets_are_deleted_middleware_and_the_admin_api_routes_are_unchanged"
+        },
+        {
+          "id": "v0006_p13_accounts_gains_get_owner_email_for_project_config_gains_the_vocky_smtp__settings_and_the_smtp_configured_gate_and_src_vocky_notifications.py_sends_the_owner_feedback_alert",
+          "path": "docs/versions/backend/v0006_p13_accounts_gains_get_owner_email_for_project_config_gains_the_vocky_smtp__settings_and_the_smtp_configured_gate_and_src_vocky_notifications.py_sends_the_owner_feedback_alert.md",
+          "created_at": "2026-08-04T17:16:51+09:00",
+          "source": "P13.REVIEW",
+          "summary": "P13: accounts gains get_owner_email_for_project, config gains the VOCKY_SMTP_* settings and the smtp_configured gate, and src/vocky/notifications.py sends the owner feedback alert",
+          "previous": "v0005_p10_accounts_gains_provision_signup_get_or_create_project_get_project_by_name_list_org_credentials_and_get_credential_auth_gains_the_credential_project-scope_resolver_capture_gains_resolve_capture_project"
         }
       ]
     },
@@ -515,7 +531,7 @@
       ]
     },
     "operations": {
-      "latest": "v0006_p12_vocky_is_live_at_vocky.hi2vi.com_first_deploy_green_edge_vhost_owned_by_the_edge_repo_fail-loud_box_secrets_auth_rate_limits_backups_log_caps_and_a_proven_ci_gate",
+      "latest": "v0007_p13_feedback_email_alerts_are_live_on_the_box_vocky_smtp_password_is_the_fourth_fail-loud_box_secret_the_smtp_block_is_worker-only_and_the_changple5_smtp_account_is_reused_via_a_django-to-vocky_var_mapping",
       "current_path": "docs/current/operations.md",
       "versions": [
         {
@@ -565,11 +581,19 @@
           "source": "P12.REVIEW",
           "summary": "P12: vocky is live at vocky.hi2vi.com — first deploy green, edge vhost owned by the edge repo, fail-loud box secrets, auth rate limits, backups/log caps, and a proven CI gate",
           "previous": "v0005_p11_the_hosted_install.sh_installer_the_repo_s_first_push_and_pull-request_ci_gate_with_its_two_deliberate_exclusions_and_the_cli_capture_module"
+        },
+        {
+          "id": "v0007_p13_feedback_email_alerts_are_live_on_the_box_vocky_smtp_password_is_the_fourth_fail-loud_box_secret_the_smtp_block_is_worker-only_and_the_changple5_smtp_account_is_reused_via_a_django-to-vocky_var_mapping",
+          "path": "docs/versions/operations/v0007_p13_feedback_email_alerts_are_live_on_the_box_vocky_smtp_password_is_the_fourth_fail-loud_box_secret_the_smtp_block_is_worker-only_and_the_changple5_smtp_account_is_reused_via_a_django-to-vocky_var_mapping.md",
+          "created_at": "2026-08-04T17:18:22+09:00",
+          "source": "P13.REVIEW",
+          "summary": "P13: feedback email alerts are live on the box — VOCKY_SMTP_PASSWORD is the fourth fail-loud box secret, the SMTP block is worker-only, and the changple5 SMTP account is reused via a Django-to-vocky var mapping",
+          "previous": "v0006_p12_vocky_is_live_at_vocky.hi2vi.com_first_deploy_green_edge_vhost_owned_by_the_edge_repo_fail-loud_box_secrets_auth_rate_limits_backups_log_caps_and_a_proven_ci_gate"
         }
       ]
     },
     "security": {
-      "latest": "v0009_p12_admin_auth_is_fail-closed_503_when_unconfigured_all_three_box_secrets_abort_a_blank_deploy_and_the_auth_rate-limit_gap_is_closed_by_an_in-process_limiter",
+      "latest": "v0010_p13_a_fourth_box_secret_vocky_smtp_password_joins_the_fail-loud_set_and_feedback_alert_email_becomes_vocky_s_first_outbound_data_flow_owner-addressed_by_a_project-anchored_join_worker-only_credentials",
       "current_path": "docs/current/security.md",
       "versions": [
         {
@@ -643,11 +667,19 @@
           "source": "P12.REVIEW",
           "summary": "P12: admin auth is fail-closed (503 when unconfigured), all three box secrets abort a blank deploy, and the /auth/* rate-limit gap is closed by an in-process limiter",
           "previous": "v0008_p10_org-level_vk__keys_are_a_real_trust-boundary_widening_key_scope_is_now_user-chosen_project-bound_or_org-level_and_the_guarantee_is_anchored_on_tenancy_plus_a_middleware-resolved_non-null_project-id_tuple"
+        },
+        {
+          "id": "v0010_p13_a_fourth_box_secret_vocky_smtp_password_joins_the_fail-loud_set_and_feedback_alert_email_becomes_vocky_s_first_outbound_data_flow_owner-addressed_by_a_project-anchored_join_worker-only_credentials",
+          "path": "docs/versions/security/v0010_p13_a_fourth_box_secret_vocky_smtp_password_joins_the_fail-loud_set_and_feedback_alert_email_becomes_vocky_s_first_outbound_data_flow_owner-addressed_by_a_project-anchored_join_worker-only_credentials.md",
+          "created_at": "2026-08-04T17:19:24+09:00",
+          "source": "P13.REVIEW",
+          "summary": "P13: a fourth box secret (VOCKY_SMTP_PASSWORD) joins the fail-loud set, and feedback alert email becomes vocky's first outbound data flow — owner-addressed by a project-anchored join, worker-only credentials",
+          "previous": "v0009_p12_admin_auth_is_fail-closed_503_when_unconfigured_all_three_box_secrets_abort_a_blank_deploy_and_the_auth_rate-limit_gap_is_closed_by_an_in-process_limiter"
         }
       ]
     },
     "qa": {
-      "latest": "v0002_p12_vocky_s_first_real_qa_doc_the_python_and_web_suites_how_to_run_them_the_four_ci_gates_now_proven_green_the_smoke_layers_and_the_qa-check_driver_gap",
+      "latest": "v0003_p13_the_python_suite_is_30_files_and_225_tests_ruff_is_not_configured_in_this_repo_at_all_and_the_feedback_alert_has_a_two-part_live_verification",
       "current_path": "docs/current/qa.md",
       "versions": [
         {
@@ -665,6 +697,14 @@
           "source": "P12.REVIEW",
           "summary": "P12: vocky's first real QA doc — the Python and web suites, how to run them, the four CI gates now proven green, the smoke layers, and the /qa-check driver gap",
           "previous": "v0001_bootstrap"
+        },
+        {
+          "id": "v0003_p13_the_python_suite_is_30_files_and_225_tests_ruff_is_not_configured_in_this_repo_at_all_and_the_feedback_alert_has_a_two-part_live_verification",
+          "path": "docs/versions/qa/v0003_p13_the_python_suite_is_30_files_and_225_tests_ruff_is_not_configured_in_this_repo_at_all_and_the_feedback_alert_has_a_two-part_live_verification.md",
+          "created_at": "2026-08-04T17:20:09+09:00",
+          "source": "P13.REVIEW",
+          "summary": "P13: the Python suite is 30 files and 225 tests, ruff is not configured in this repo at all, and the feedback alert has a two-part live verification",
+          "previous": "v0002_p12_vocky_s_first_real_qa_doc_the_python_and_web_suites_how_to_run_them_the_four_ci_gates_now_proven_green_the_smoke_layers_and_the_qa-check_driver_gap"
         }
       ]
     },
@@ -731,5 +771,5 @@
       ]
     }
   },
-  "last_rebuilt_at": "2026-08-04T12:53:52+09:00"
+  "last_rebuilt_at": "2026-08-04T17:20:56+09:00"
 }

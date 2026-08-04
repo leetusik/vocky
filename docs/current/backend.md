@@ -1,17 +1,47 @@
 ---
 doc_id: backend
-version: v0005
-created_at: 2026-07-28T23:47:56+09:00
-source: P10.REVIEW
-summary: P10: accounts gains provision_signup, get_or_create_project, get_project_by_name, list_org_credentials and get_credential; auth gains the credential project-scope resolver; capture gains resolve_capture_project
-previous: v0004_p6_create_app_no_longer_registers_admin_ui_routes_the_admin_web_ui_module_and_its_assets_are_deleted_middleware_and_the_admin_api_routes_are_unchanged
+version: v0006
+created_at: 2026-08-04T17:16:51+09:00
+source: P13.REVIEW
+summary: P13: accounts gains get_owner_email_for_project, config gains the VOCKY_SMTP_* settings and the smtp_configured gate, and src/vocky/notifications.py sends the owner feedback alert
+previous: v0005_p10_accounts_gains_provision_signup_get_or_create_project_get_project_by_name_list_org_credentials_and_get_credential_auth_gains_the_credential_project-scope_resolver_capture_gains_resolve_capture_project
 ---
 
 # Backend
 
 ## Status
 
+As of **P13** it also covers the **feedback email alert backend** — the accounts owner-email primitive, the `VOCKY_SMTP_*` settings, and `src/vocky/notifications.py` (see "P13 Additions" below). The worker hook that calls it and its containment rule are in `architecture.md`; the box env/secret plumbing is in `operations.md`.
+
 This doc covers the **accounts / identity backend** landed in P2: the `src/vocky/accounts/` domain package, the reusable user-auth guard, the security primitives, and the `/auth/*` + `/app/*` route modules and their app wiring. As of **P7** it also covers the **MCP capture backend**: the FastMCP server bootstrap (`src/vocky/mcp_server.py`), the write-only `capture_feedback` tool module (`src/vocky/tools/capture_feedback.py`), the broadened ingest guard (`is_mcp_path`), and the thin MCP input model. As of **P6** it also records the **removal of the packaged Admin Web UI** from the backend (see "Admin Web UI Removal" below) — a deletion only; no accounts, MCP, or Admin REST behavior changed. As of **P10** it covers the **org-level credential backend** — new accounts primitives, the credential project-scope resolver, and the shared ingest project resolver (see "P10 Additions" below). The feedback capture/read backend (service, repository, worker, queue, storage) is documented in `architecture.md`; this doc does not repeat it.
+
+## P13 Additions — feedback email alerts over SMTP
+
+One plain-text email per persisted feedback event, addressed to the **owning org's owner**. Three pieces: a recipient primitive in accounts, SMTP settings in config, and a notifier module. The worker call site and its swallow-and-log containment are documented in `architecture.md` — **that containment is what makes this module's exception policy safe**, so read both together.
+
+**`src/vocky/accounts/` — the recipient primitive**
+
+- `AccountsRepository.get_owner_email_for_project(project_id: UUID) -> str | None` — one query walking `projects.tenant_id → tenant_members(role='owner') → users.email`, selecting `UserModel.email` directly (so it returns `str | None` from `.scalars().first()` with no new `*Record` and no mapper). **The join is anchored on `ProjectModel.id == project_id`**, which is the multi-tenant guarantee: a project can only ever resolve to its own tenant's owner. Dropping the `TenantMemberModel.role == "owner"` filter or re-anchoring the join is how one org's feedback would be mailed to another org's owner — this is the phase's correctness hot spot.
+- **Oldest-wins by `(created_at, id)` with `.limit(1)`**, deliberately not `.one()` / `scalar_one_or_none()`: nothing in the schema forbids two `role='owner'` rows in one tenant (`tenant_members` is unique on `(tenant_id, user_id)` only), so an unordered single-row read would raise on a legitimate state. Same tie-break `get_project_by_name` uses.
+- `role="owner"` stayed a **bare string literal**, matching the two existing write sites in `service.py`; no shared constant was introduced (changing the write sites was out of scope).
+- `AccountsService.get_owner_email_for_project(project_id)` — thin passthrough on a fresh session, `SQLAlchemyError` → rollback → `AccountsReadError`, same shape as every other read. **"No owner" is `None`, not an exception**; `AccountsReadError` means a genuine DB failure.
+
+**`src/vocky/config.py` — SMTP settings**
+
+`smtp_host` (`VOCKY_SMTP_HOST`, default `""`), `smtp_port` (`VOCKY_SMTP_PORT`, default `587`), `smtp_user` (`VOCKY_SMTP_USER`, `""`), `smtp_password` (`VOCKY_SMTP_PASSWORD`, `""`), `smtp_from` (`VOCKY_SMTP_FROM`, `""`) — all optional, modelled on `admin_auth_token` (empty string = feature off), no required validation anywhere.
+
+- `smtp_from_value` — the **effective** From/envelope sender: `smtp_from.strip() or smtp_user.strip()`. An operator who sets only `VOCKY_SMTP_USER` still gets a valid From header.
+- `smtp_configured` — the single gate: non-blank `smtp_host` **and** a non-blank effective From. Everything else may stay at defaults; alerts are simply off. **Unconfigured never raises and never logs at ERROR per job** — that is the "cleanly disabled" contract.
+
+**`src/vocky/notifications.py` (new, a single module, not a package)**
+
+- `FeedbackAlertNotifier(*, settings: Settings, accounts_service: OwnerEmailResolver)` with `async notify_feedback_persisted(record: FeedbackEventRecord | None) -> None`. Four early returns before any work: `record is None` **or** `record.project_id is None` (debug log — `project_id` is `UUID | None` on the record, and the worker's own test doubles return `None`, so both are real paths), SMTP unconfigured (silent), owner lookup returned `None` (one `logger.warning`).
+- `OwnerEmailResolver` — a `typing.Protocol` with just `get_owner_email_for_project`, so tests inject a fake without importing `AccountsService` (which satisfies it unmodified).
+- `_render_message(settings, record, to_email)` — plain-text `email.message.EmailMessage`. Subject `Vocky feedback: <source_product>`, plus `(<feedback_value>)` when set; body is one line each for message, feedback value, comment, channel, source product, event/ingested timestamps, event id, project id. **No HTML part** — deliberately out of scope.
+- `_send_message(settings, message)` — the **blocking** send, kept as a module-level function on purpose: it is the single isolation point, so swapping stdlib `smtplib` for an async client later touches one function. `SMTP_SSL` iff `smtp_port == 465`, else `SMTP` + `starttls()`; `login()` only when `smtp_user` is non-blank; 10s timeout; used as a context manager. Called via `asyncio.to_thread` so the worker's single asyncio loop is never blocked.
+- `get_feedback_alert_notifier()` — constructor-per-call factory over `get_settings()` + `get_accounts_service()`, matching `get_feedback_service()`'s style (no `@lru_cache`).
+- **Exception policy: this module deliberately does not swallow.** Steps up to the owner lookup return; the lookup (`AccountsReadError`) and the send (`smtplib`/socket errors) are allowed to propagate so the module stays honest and testable. The worker's `try/except Exception` is the only containment, and it is load-bearing — see `architecture.md`.
+- **No new dependency, at any tier.** Stdlib only; the pip-installable CLI's `httpx` + `typer` core and the `server` extra are both untouched (`pyproject.toml`/`uv.lock` unchanged by the whole phase).
 
 ## P10 Additions — org-level credentials
 
