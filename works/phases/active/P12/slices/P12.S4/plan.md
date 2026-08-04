@@ -227,3 +227,24 @@ job `P12.S6` just added) has never executed on a runner. **The push must precede
   the two statements that become false the moment this succeeds — *"vocky is NOT deployed"*
   (`operations.md:18-26`, echoed in `product.md`, `experience.md`, `frontend.md`) and *"the hosted install
   line 404s until P12 deploys"*.
+
+## Addendum 2 — resuming after the gates and edge P6 (2026-08-04)
+
+State at resume, verified live:
+
+- **All four gates cleared.** G1 DNS (was 526 pre-vhost), G2 box `.env` (three fresh secrets, mode 600),
+  G3 GitHub secrets, G4 push — box checkout at `6c16ac5` == `origin/main`. Box reset per the operator's
+  "dump the 4 rows, then wipe" decision (see `phase.md` § Gate 4).
+- **B1/B2 done** during Gate 4 (clone at `/home/opc/vocky`, `.env` in place, old dev stack retired).
+- **B6 (edge vhost) is superseded and DONE — do not run B6.0–B6.6.** Edge repo P6 landed the versioned
+  path: `vocky.conf` is canonical in `edge/conf.d/`, adopted at edge `87d5b2e`, and the new dispatch-only
+  `edge-deploy` workflow's first run was green — the whole tree (six confs) staged to the box at
+  2026-08-04 03:04 and gracefully reloaded. Verified on the box: `/home/opc/edge/conf.d/vocky.conf`
+  present (15775 bytes); port-80 Host-header probe → 301; `https://vocky.hi2vi.com/` → **502**, the
+  correct "vhost live, origin down" state. The stale-comment fix (last open question) was handled during
+  the edge adoption.
+- **Remaining:** A2 (shared-network check), B3–B5 (`deploy/deploy.sh`: rollback tags → datastores →
+  build → P10's first-ever migration → up → health gate), then Part C smoke (C1–C6).
+
+Operator instruction: "edge p6.s3 done. you continue the job." — the `pending` gate is cleared by the
+operator; orchestrator executes the remainder inline (kind `co-work`, never dispatched).

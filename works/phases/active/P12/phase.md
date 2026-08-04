@@ -481,3 +481,40 @@ it). G3 the push (`origin/main` == `6c16ac5`). G4 as above.
 
 **`P12.S4` remains `pending`**: Part B (containers + P10's first real migration) is ready to run, but the
 edge vhost step is blocked on edge-repo P6.
+
+## P12.S4 complete — vocky is LIVE (2026-08-04)
+
+First-ever execution of the whole deploy chain, green end to end. Facts later slices need:
+
+- **Production is up at `https://vocky.hi2vi.com`** — `/` and `/healthz` 200, signup→session round-trip
+  proven, `/install.sh` + `/SKILL.md` 200 with byte parity, clean-env `curl | bash` installs vocky 0.2.0
+  from GitHub `main` (`6c16ac5`). All five containers healthy on the box; P10's 11-revision migration
+  chain applied cleanly on first run.
+- **The edge vhost arrived via edge repo P6's `edge-deploy` workflow, not the manual B6 scp** (superseded,
+  never run). `vocky.conf` is canonical in the edge repo; future vhost changes go through that workflow.
+- **Cloudflare-not-a-barrier: proven live** (script-to-curl, non-browser JSON POST, uv git fetch — no
+  challenges). Cache state on `/install.sh` + `/SKILL.md`: `DYNAMIC`, `max-age=0` — fresh bytes every
+  install; deliberately left uncached.
+- **CI's first runner execution was green in 53s** (run 30873072664, push `6c16ac5`) — S6's pytest job
+  and prettier gate needed zero iteration.
+- **BFF origin gate trap for future probes/QA:** origin-less non-browser POSTs to `/api/auth/*` 403 by
+  design (`session.ts:191` CSRF layer). Send `Origin: https://vocky.hi2vi.com` when curling.
+- **The plan's co-tenant list was wrong:** the changple vhosts serve `changple.ai` /
+  `miracle.changple.ai`, not `changple5.com`. All four co-tenant hosts verified 200 post-reload.
+- **For S5:** box access from this environment is proven; S5 can install its backup artifacts itself.
+  Throwaway prod account `p12-smoke-20260804@example.com` and Gate 4 keepsakes
+  (`/home/opc/vocky-preP12-*`) exist — operator cleanup at leisure.
+
+### Doc impact (P12.S4)
+
+- Doc impact: operations.md (+ echoes in product.md, experience.md, frontend.md) — "vocky is NOT
+  deployed" is now false: live at `vocky.hi2vi.com` since 2026-08-04, first deploy `6c16ac5`, all
+  bring-up probes flipped (install 200/parity clean, Cloudflare-not-a-barrier proven, clean-env install
+  0.2.0, CI first run green). The §317 bring-up checklist is fully executed.
+- Doc impact: operations.md deploy runbook — the edge vhost step is now "dispatch the edge repo's
+  `edge-deploy` workflow", never scp; first-deploy no-`:previous` branch has been exercised and the next
+  deploy gets real `:previous` rollback points.
+- Doc impact: operations.md — cache policy question answered: `/install.sh` + `/SKILL.md` intentionally
+  uncached (`DYNAMIC`, `max-age=0`); revisit only under real traffic.
+- Doc impact: compose.prod.yml api comment now correctly describes the `deploy.sh` one-off-container
+  migration (was the pre-S7 `exec` idiom).

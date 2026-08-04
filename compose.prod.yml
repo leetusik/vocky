@@ -97,8 +97,9 @@ services:
     environment:
       # DB + queue as literal container-name URLs over the shared net; the password
       # is the SECRET POSTGRES_PASSWORD interpolated from the box's gitignored `.env`
-      # (user/db are the literals `vocky`). Migrations run explicitly on deploy
-      # (S7: `docker compose exec vocky-api uv run --no-sync alembic upgrade head`).
+      # (user/db are the literals `vocky`). Migrations run explicitly on deploy —
+      # deploy/deploy.sh runs them in a one-off container BEFORE serving new code
+      # (`compose run --rm --no-deps api uv run --no-sync alembic upgrade head`).
       DATABASE_URL: postgresql+psycopg://vocky:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — set it in the box .env}@vocky-postgres:5432/vocky
       REDIS_URL: redis://vocky-redis:6379/0
       VOCKY_HOST: 0.0.0.0
