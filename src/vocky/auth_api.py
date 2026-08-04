@@ -36,6 +36,7 @@ from vocky.accounts.security import (
 )
 from vocky.api import format_pydantic_error
 from vocky.persistence.models import utc_now
+from vocky.rate_limit import check_rate_limit
 
 SESSION_TTL = timedelta(days=30)
 
@@ -150,6 +151,10 @@ async def signup(request: Request) -> JSONResponse:
     leaves an org-less user — narrowed, not closed.
     """
 
+    throttled = check_rate_limit(request, bucket="signup")
+    if throttled is not None:
+        return throttled
+
     try:
         payload = await _parse_body(request, SignupInput)
     except AuthAPIValidationError as exc:
@@ -186,6 +191,10 @@ async def login(request: Request) -> JSONResponse:
     Answers an identical generic 401 for an unknown email and a wrong password
     so callers cannot enumerate registered accounts.
     """
+
+    throttled = check_rate_limit(request, bucket="login")
+    if throttled is not None:
+        return throttled
 
     try:
         payload = await _parse_body(request, LoginInput)

@@ -11,12 +11,12 @@ from uuid import UUID, uuid4
 import psycopg
 import pytest
 import pytest_asyncio
-from alembic import command
 from alembic.config import Config
 from psycopg import sql
 from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
 
+from alembic import command
 from vocky.accounts import (
     CreateProject,
     CreateProjectCredential,
@@ -26,8 +26,23 @@ from vocky.accounts import (
 from vocky.accounts.security import generate_opaque_token, hash_password, sha256_hex
 from vocky.config import get_settings
 from vocky.db import dispose_engine, get_engine
+from vocky.rate_limit import reset_rate_limits
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://vocky:vocky@127.0.0.1:55432/vocky"
+
+
+@pytest.fixture(autouse=True)
+def _isolated_rate_limits() -> Generator[None, None, None]:
+    """Reset the in-process auth rate limiter before every test.
+
+    `httpx.ASGITransport` gives every test client the same fixed peer address,
+    so without this every test in the session would share one rate-limit
+    bucket per route.
+    """
+
+    reset_rate_limits()
+    yield
+    reset_rate_limits()
 
 
 class SeededCredential(NamedTuple):

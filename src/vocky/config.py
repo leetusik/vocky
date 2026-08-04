@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     mcp_allowed_hosts: str = Field(default="", alias="VOCKY_MCP_ALLOWED_HOSTS")
     mcp_allowed_origins: str = Field(default="", alias="VOCKY_MCP_ALLOWED_ORIGINS")
     admin_auth_token: str = Field(default="", alias="VOCKY_ADMIN_AUTH_TOKEN")
+    auth_rate_limit: int = Field(default=20, alias="VOCKY_AUTH_RATE_LIMIT")
+    auth_rate_window_s: int = Field(default=900, alias="VOCKY_AUTH_RATE_WINDOW_S")
     attachments_dir: str = Field(default="./attachments", alias="VOCKY_ATTACHMENTS_DIR")
     attachments_max_bytes: int = Field(
         default=5 * 1024 * 1024, alias="VOCKY_ATTACHMENTS_MAX_BYTES"

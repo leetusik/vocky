@@ -1,11 +1,11 @@
 {
   "id": "D5",
   "title": "Rate-limit the public /auth/* (open signup + password login)",
-  "status": "deferred",
+  "status": "dropped",
   "source": "P6.S6",
   "reason": "vocky exposes /auth/signup + /auth/login publicly at vocky.hi2vi.com with no server-side limiter (knowledge ships an in-process per-IP limiter; vocky does not), and a limit_req_zone is forbidden at the shared edge (global-name footgun).",
   "trigger": "At/soon after go-live: add a Cloudflare rate-limiting rule for /auth/*, or an in-process per-IP limiter in src/vocky/auth_api.py.",
   "created_at": "2026-07-18T16:41:15+09:00",
   "promoted_to": null,
-  "dropped_reason": null
+  "dropped_reason": "Resolved by P12.S3, not abandoned: in-process per-(IP,route) fixed-window limiter on /auth/signup + /auth/login (src/vocky/rate_limit.py), default 20 per 900s, <=0 disables. promote-deferred was unavailable because the slice folder already existed."
 }

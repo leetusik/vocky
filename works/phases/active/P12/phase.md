@@ -172,6 +172,65 @@ The bring-up is expected to fail at least once. The rule for this phase:
   check and a "document what was retired" edit in the same file are contradictory unless the check is
   written to exclude documented history from the start.
 
+### `P12.S3` — Rate-limit `/auth/signup` + `/auth/login` (D5) (done)
+
+- **New module `src/vocky/rate_limit.py`**, mirroring the sibling `knowledge` repo's shipped limiter
+  (`/Users/sugang/projects/personal/knowledge/server/auth_api.py:56-157`). Handler-level (not middleware),
+  return-not-raise (`JSONResponse | None`), in-memory fixed window keyed `"<ip>:<bucket>"` on
+  `time.monotonic()`, no `await` in the check path (atomic under the single event loop, no lock needed),
+  `_RATE_MAX_KEYS = 20_000` prune cap (expired first, then oldest half — worst case under-counts, never
+  over-counts). Public surface: `check_rate_limit(request, *, bucket) -> JSONResponse | None`,
+  `reset_rate_limits() -> None`, `client_ip(request) -> str`.
+- **Wired into `signup` and `login` only** in `src/vocky/auth_api.py`, as the first statement in each
+  handler (before `_parse_body`, before any DB/password work) — `logout`/`me` untouched, scope is exactly
+  the two unauthenticated routes per the plan.
+- **Client IP precedence**: `X-Real-IP` → first `X-Forwarded-For` segment → `request.client.host` →
+  `"unknown"`. Keyed on IP + route/bucket only, never on email, so `login`'s generic 401 (unknown-email vs
+  wrong-password) stays byte-identical and the 429 check runs before any credential work.
+- **Two new config knobs** on `Settings` (`src/vocky/config.py`): `VOCKY_AUTH_RATE_LIMIT` (default `20`),
+  `VOCKY_AUTH_RATE_WINDOW_S` (default `900`, 15 min). `<= 0` disables the limiter entirely — the escape
+  hatch for a smoke run. Both read via `get_settings()` at call time, not import time. Documented (commented,
+  optional) in `.env.example`; **not** added to `.env.prod.example` — they're not secrets and have safe
+  defaults, so the box `.env` needs no change for them.
+- **429 response**: `{"detail": "too many requests — please retry later"}` + `Retry-After: <seconds>`
+  header. No `X-RateLimit-*` headers, per the plan's "keep the response surface minimal".
+- **Single-worker invariant documented in three places** (module docstring, a comment next to
+  `uvicorn.run(...)` in `src/vocky/main.py`, and `P12.S3/result.md`): the limiter's module-global dict with
+  no lock is only correct under `vocky.main`'s current single uvicorn process (no `workers=N`, no
+  gunicorn, `compose.prod.yml` sets no `command:`/`deploy.replicas` override for `api`). Adding
+  `workers=N` in the future would silently divide the effective rate limit — this was true before this
+  slice and previously undocumented; now it is written down.
+- **Test isolation**: a new autouse fixture `_isolated_rate_limits` in `tests/conftest.py` calls
+  `reset_rate_limits()` before and after every test — `httpx.ASGITransport` fixes every test client's ASGI
+  peer address to the same tuple, so without this every test sharing `/auth/signup`|`/auth/login` across
+  the whole session would eventually trip the limiter. Five new cases + one direct unit test added to
+  `tests/test_auth_api.py`; the worst-failure-mode test
+  (`test_rate_limit_reads_forwarded_ip_not_the_shared_peer`) specifically proves two clients sharing the
+  same fixed ASGI peer land in different buckets once one sends an `X-Real-IP` header — the exact
+  correctness trap the phase notebook flagged.
+- **Full suite validated with a real database**: `vocky-postgres-1` (postgres:17) was already up in this
+  executor's sandbox on `127.0.0.1:55432` — `uv run pytest` (full suite) reported **215 passed, 0
+  failures/errors**, not the ~108-Postgres-errors fallback the plan anticipated as the no-DB case. Worth
+  recording for later slices' sandboxes: **a running `vocky-postgres-1` container may already be available**
+  and worth checking with `docker ps` before assuming Postgres is unreachable.
+- `ruff check` is clean on every file this slice touched (`rate_limit.py`, `auth_api.py`, `config.py`,
+  `main.py`, `test_auth_api.py`, `conftest.py`); the 34 remaining repo-wide `ruff` findings are pre-existing
+  debt in unrelated files, confirmed against a stashed baseline (35 findings before this slice's changes,
+  the 1-count difference being `rate_limit.py`'s untracked status during the stash, not a real baseline
+  shift).
+- **D5 bookkeeping**: `works/deferred/open/D5/` still reads `status: deferred` — per the caveat this
+  phase's `DECOMP` recorded, `promote-deferred` cannot be run against an already-existing slice directory.
+  The orchestrator still needs to run `drop-deferred D5 --reason "Resolved by P12.S3: in-process per-(IP,
+  route) fixed-window rate limiter on /auth/signup + /auth/login; not abandoned"` (or equivalent) to close
+  the bookkeeping — not done by this executor, which may not run `drop-deferred`.
+- **For `P12.S4`**: production default is 20 req / 15 min per `(IP, route)`. A Cloudflare rate-limiting
+  rule is still worth adding as an outer, unversioned layer at S4's operator gate (belt-and-braces, not
+  required). If S4's smoke script retries `/auth/signup`/`/auth/login` more than ~20 times from one source
+  within 15 minutes it will hit a `429` — space retries or temporarily set `VOCKY_AUTH_RATE_LIMIT=0` in the
+  box `.env` for a scripted stress pass, then restore it. Aligning the BFF's separate, weaker JS limiter
+  (`web/src/lib/rate-limit.ts`) with this one stays an explicitly out-of-scope open question.
+- Full detail, exact validation output, and defaults: `P12.S3/result.md`.
+
 ### `P12.S1` — `/admin/api/*` kept, fail-closed (done)
 
 - The operator's KEEP/FAIL-CLOSED decision is landed in code: `src/vocky/auth.py`'s
@@ -233,6 +292,13 @@ _Running list — `P12.REVIEW` consolidates these into durable-doc versions. One
   `compose.prod.yml` now gives `POSTGRES_PASSWORD`, `SESSION_SECRET`, and `VOCKY_ADMIN_AUTH_TOKEN` the
   identical `${VAR:?err}` treatment, so the claim as originally written in `operations.md` is correct again
   and needs no softening — just confirmation that it's now actually implemented that way).
+- **P12.S3**: `security.md` records the `/auth/*` rate-limit gap as accepted "for launch behind Cloudflare"
+  — that gap is now **closed in-app**: an in-process per-`(IP, route)` fixed-window limiter on
+  `POST /auth/signup` + `POST /auth/login` (default 20 requests / 15 min, `<=0` disables), documented in
+  `src/vocky/rate_limit.py`. `operations.md` gains two new optional/non-secret tunables,
+  `VOCKY_AUTH_RATE_LIMIT` (default 20) and `VOCKY_AUTH_RATE_WINDOW_S` (default 900), documented in
+  `.env.example`, plus a new operational invariant: the limiter's correctness depends on `vocky-api` staying
+  a single uvicorn worker (no `workers=N`) — adding one would silently divide the effective limit.
 
 ## Operator decisions (2026-08-04, taken by the orchestrator at the start of the `auto` run)
 
