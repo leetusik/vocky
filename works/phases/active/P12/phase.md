@@ -375,3 +375,33 @@ have failed on its very first run with an unresolvable-action error, which is ex
 static-only slice cannot catch. Corrected to `@v7` by the orchestrator before the commit. **Lesson for
 later slices: a version pin that no local command can execute must be verified against the remote tag
 list, not an API summary.**
+
+## Cross-repo dependency — `P12.S4` is blocked on edge repo P6 (2026-08-04)
+
+The operator stopped `P12.S4`'s edge step before it ran. **`/home/opc/edge/` is not the source of truth**
+— the `leetusik/edge` repo is (`~/projects/personal/edge` on the `node` host; now also cloned locally at
+`/Users/sugang/projects/personal/edge`). It is itself an agentic workspace, five phases done, and it
+tracks `edge/conf.d/` (`00-default.conf`, `changple5.conf`, `changple-web.conf`, `hi2vi.conf`) plus
+`compose.yml`, `validate.sh`, `stage.sh`, `deploy.sh`, `cutover.sh`. `scp`-ing `deploy/vocky.conf` onto the
+box would have bypassed that repo and added a sixth untracked file to the VM.
+
+**Edge repo phase P6** was created for this and **blocks `P12.S4`**; it must also complete before
+`P12.REVIEW`. Its three parts: adopt `vocky.conf` into `edge/conf.d/` as its canonical home, adopt the
+box-only `knowledge.conf`, and add the production deploy workflow (the repo has no `.github/` at all).
+
+**Consequences for this phase, to apply when `P12.S4` resumes:**
+
+- **`P12.S4`'s B6.0–B6.6 manual `scp` procedure is SUPERSEDED.** Do not run it. The vhost reaches the box
+  through the edge repo's workflow — its `validate.sh` (dummy certs + `compose config -q` +
+  throwaway-container `nginx -t` over the whole tree) already does properly what B6.0 improvised, and its
+  `stage.sh` rsyncs **without `--delete`** by explicit design (`edge/stage.sh:14,69`).
+- **`deploy/vocky.conf` is retired from this repo**, replaced by a pointer in vocky's docs — the edge repo
+  owns the file. A `P12.F<n>` fix slice or `P12.REVIEW` should land that removal and the doc pointer.
+- Its stale header comment (the `/auth/*` gap `P12.S3` closed) is fixed in the edge repo when the file is
+  adopted, not here.
+- **Findings that transfer:** the box's `conf.d/` carries `knowledge.conf` (15249 bytes, 2026-07-29) which
+  the edge repo lacks; the VM has a stray `/home/opc/edge/knowledge.conf.bak` at the project root; and
+  `/home/opc/edge/` is a plain rsync target, not a git checkout.
+
+`P12.S4` stays `pending`. Its other three operator gates (Cloudflare DNS, the on-box `.env`, the two
+GitHub secrets) are unaffected and can proceed in parallel — none of them touches the edge.
