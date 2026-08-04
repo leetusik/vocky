@@ -1,0 +1,33 @@
+{
+  "id": "P13.S4",
+  "phase_id": "P13",
+  "name": "SMTP env/compose/deploy plumbing (prod + dev)",
+  "kind": "implementation",
+  "status": "todo",
+  "order": 4,
+  "depends_on": [
+    "P13.S3"
+  ],
+  "created_at": "2026-08-04T16:43:37+09:00",
+  "started_at": null,
+  "completed_at": null,
+  "risk": "medium",
+  "source": {
+    "type": "manual",
+    "id": null
+  },
+  "paths": {
+    "plan": "plan.md",
+    "result": "result.md"
+  },
+  "validation": {
+    "required": [],
+    "last_run": null,
+    "last_status": "pending"
+  },
+  "archive": {
+    "archived": false,
+    "archived_at": null,
+    "archive_path": null
+  }
+}
