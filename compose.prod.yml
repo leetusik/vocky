@@ -29,6 +29,27 @@
 # anywhere — each container receives ONLY the vars listed under its own
 # `environment:`, so the api's secrets never leak into the web container and vice
 # versa. `docker compose config` still validates once dummy values are exported.
+#
+# LOG ROTATION (P12.S5): the box's real disk risk is unbounded `json-file` driver logs,
+# not application data — `restart: unless-stopped` containers that have been up for
+# months (see phase.md's "abandoned May stack" finding) can otherwise grow their log
+# file without bound. `x-logging` below is a YAML anchor stating the cap ONCE — every
+# service aliases it with `logging: *default-logging` instead of repeating the same
+# five lines five times — 10m per file, 3 files kept, so each container's log is capped
+# at 30m on disk. CAPS APPLY ON CONTAINER
+# RECREATE, NOT RETROACTIVELY — an already-running container keeps its pre-existing
+# (uncapped) log driver config until it is next recreated, i.e. at the next
+# `deploy/deploy.sh` run. The `postgres` / `redis` datastore containers are never
+# recreated by a normal deploy (only `api`/`web`/`worker` are rebuilt+recreated;
+# datastores stay up across releases — see deploy.sh), so THEIR caps take effect only on
+# a deliberate `docker compose up -d postgres redis` (or a full stack bounce), not on the
+# next ordinary app deploy.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   postgres:
@@ -56,6 +77,7 @@ services:
       retries: 6
       start_period: 20s
     restart: unless-stopped
+    logging: *default-logging
 
   redis:
     # The capture queue (RQ/Redis). Append-only persistence so an enqueued capture
@@ -75,6 +97,7 @@ services:
       retries: 6
       start_period: 5s
     restart: unless-stopped
+    logging: *default-logging
 
   api:
     # The FastAPI/Starlette app (same root Dockerfile as dev — uv two-layer build,
@@ -142,6 +165,7 @@ services:
       retries: 3
       start_period: 60s
     restart: unless-stopped
+    logging: *default-logging
 
   worker:
     # The capture-persistence queue consumer. REUSES the api image BY TAG
@@ -174,6 +198,7 @@ services:
     networks:
       - changple_shared_network
     restart: unless-stopped
+    logging: *default-logging
 
   web:
     # The Next.js 16 standalone app (web/Dockerfile, output:'standalone' -> node
@@ -225,6 +250,7 @@ services:
       retries: 3
       start_period: 20s
     restart: unless-stopped
+    logging: *default-logging
 
 volumes:
   # Durable Postgres data (never down -v).

@@ -300,6 +300,40 @@ The bring-up is expected to fail at least once. The rule for this phase:
   failure-mode list with fixes: `P12.S6/result.md`.
 - Full detail, decision rationale, and verbatim validation output: `P12.S6/result.md`.
 
+### `P12.S5` — Postgres backups, log rotation and basic metrics (done)
+
+- **Authored only, per plan — no box contact.** `deploy/backup.sh` (nightly `pg_dump` + gzip into
+  `/home/opc/backups/vocky/db/`, an `alpine`-throwaway-container tar of `vocky_attachments-data` into
+  `/home/opc/backups/vocky/attachments/`, Redis deliberately skipped, 14-day retention on both
+  directories, prints what it pruned), `deploy/status.sh` (read-only `compose ps` + health + `df -h` +
+  `docker system df -v` + per-volume sizes + last 20 api/worker log lines — explicitly "basic metrics",
+  not monitoring infra), and `deploy/restore.md` (verify-in-scratch-db → real DB cutover → attachments
+  cutover → "what this does not protect against"; never rehearsed, states so plainly).
+- **`compose.prod.yml` gained an `x-logging: &default-logging` anchor** (`json-file`, `max-size: "10m"`,
+  `max-file: "3"`) referenced by all five services. **Caveat for the operator runbook: app services
+  (`api`/`web`/`worker`) pick up the cap on the next ordinary `deploy.sh` run (they're recreated every
+  deploy); the datastores (`postgres`/`redis`) are NOT recreated by an ordinary app deploy, so they need a
+  deliberate `docker compose up -d postgres redis --force-recreate` to actually pick up the cap** — this
+  is a real, easy-to-miss gap in "the caps apply at the next deploy" if read too loosely. Full runbook
+  (push → pull → deploy.sh → optional datastore force-recreate → cron install → optional first-run +
+  status.sh) is in `P12.S5/result.md`.
+- **A discrepancy worth flagging, not silently resolved**: the § *P12.S4 complete* note above says "S5 can
+  install its backup artifacts itself" (box access proven). This slice's own `plan.md`, written after that
+  note, is explicit that the slice authors-only and the on-box application is operator-gated post-push —
+  and the dispatching orchestrator separately instructed this executor never to ssh or touch the box. This
+  executor followed `plan.md`'s literal, narrower scope. If a future slice or the operator intended
+  something looser, that intent did not make it into this slice's actual plan.
+- Cron: `10 4 * * * /home/opc/vocky/deploy/backup.sh >> /home/opc/backups/vocky/backup.log 2>&1`, daily
+  04:10 box time, per the plan's suggested slot.
+- Validated: `bash -n` on both scripts (clean; `shellcheck` still not installed in this sandbox); dummy-env
+  `docker compose -f compose.prod.yml config -q` passes both with and without the repo's real dev `.env`
+  auto-loaded (cross-checking `P12.S1`'s documented auto-load trap); a `docker compose config --format
+  json` + stdlib `json` parse (no `pyyaml` in this sandbox) confirms exactly 5/5 services carry
+  `driver=json-file, max-size=10m, max-file=3`; a dry read confirms `backup.sh`'s prune calls are
+  hard-coded to `$DB_DIR`/`$ATTACH_DIR` under `$BACKUP_ROOT` and can never delete outside
+  `/home/opc/backups/vocky/`.
+- Full detail, verbatim validation output, and the complete operator runbook: `P12.S5/result.md`.
+
 ## Constraints
 
 - **Shared-edge house rules** (violating any breaks *every* co-tenant site): never `default_server`; no `listen [::]` (IPv6); **no `limit_req_zone`** and globally-unique zone/location names; always restore Cloudflare real IPs (`set_real_ip_from` + `real_ip_header CF-Connecting-IP`); always use `resolver 127.0.0.11 valid=30s ipv6=off` with variable `proxy_pass` upstreams.
@@ -340,6 +374,15 @@ _Running list — `P12.REVIEW` consolidates these into durable-doc versions. One
   section to describe `ci.yml`'s four jobs as they now stand (Skill Parity, Installer Syntax, Web
   including format check, Python Tests against Postgres) and the exact env contract the pytest job needs
   (`DATABASE_URL`/`TEST_DATABASE_URL`, both pointing at `localhost:5432`).
+- **P12.S5**: `operations.md` currently has **no backup story at all** — add one: `deploy/backup.sh`
+  (nightly `pg_dump` + gzip of the `vocky` database, an alpine-throwaway-container tar of
+  `vocky_attachments-data`, Redis deliberately not backed up, 14-day retention on both, the exact cron
+  line `10 4 * * * /home/opc/vocky/deploy/backup.sh >> /home/opc/backups/vocky/backup.log 2>&1`), a
+  pointer to `deploy/restore.md` (verify-in-scratch-db → real cutover for DB and attachments; **never
+  rehearsed**), the new `x-logging` cap on all five `compose.prod.yml` services (10m × 3 files) with the
+  caveat that app services pick it up on the next `deploy.sh` but the datastores need a deliberate
+  `docker compose up -d postgres redis --force-recreate`, and `deploy/status.sh` as the basic on-box
+  status/metrics read. Full operator runbook for applying this post-push: `P12.S5/result.md`.
 
 ## Operator decisions (2026-08-04, taken by the orchestrator at the start of the `auto` run)
 
