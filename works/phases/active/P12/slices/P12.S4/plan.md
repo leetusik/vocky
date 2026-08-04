@@ -124,11 +124,54 @@ job `P12.S6` just added) has never executed on a runner. **The push must precede
   It takes the **service key `api`**, never the container name. Documented fallback if the box's Compose
   refuses it: `MIGRATE_VIA_DOCKER_RUN=1`. **This is P10's accounts-v2 migration running for the first time
   anywhere — read its output rather than skimming it.**
-- **B6. Edge vhost.** Never `docker cp` into `edge-nginx`, never recreate the edge container.
+- **B6. Edge vhost — the highest-blast-radius step in the phase.** Never `docker cp` into `edge-nginx`,
+  never recreate the edge container. Run it as six discrete steps, not as one chained command:
+
+  **B6.0 — local pre-flight (already done, 2026-08-04).** `deploy/vocky.conf` had never been through
+  `nginx -t` anywhere. It has now: a throwaway `nginx:1.27-alpine` container (the edge's own image) with
+  dummy self-signed certs at `/etc/nginx/certs/hi2vi.{crt,key}` returns *"configuration file
+  /etc/nginx/nginx.conf test is successful"*. **Re-run this after any edit to the file**:
   ```sh
-  scp deploy/vocky.conf oracle-cloud:/home/opc/edge/conf.d/vocky.conf
-  ssh oracle-cloud 'cd /home/opc/edge && ./validate.sh && ./deploy.sh'
+  docker run --rm -v "$PWD/deploy/vocky.conf:/etc/nginx/conf.d/vocky.conf:ro" nginx:1.27-alpine sh -c '
+    rm -f /etc/nginx/conf.d/default.conf
+    mkdir -p /etc/nginx/certs && apk add --no-cache openssl >/dev/null 2>&1
+    openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=hi2vi.com" \
+      -keyout /etc/nginx/certs/hi2vi.key -out /etc/nginx/certs/hi2vi.crt >/dev/null 2>&1
+    nginx -t'
   ```
+  This proves syntax and directive validity. It does **not** prove the absence of a global-name collision
+  with a sibling vhost — only the box's `validate.sh` (whole-tree) can. By design there is nothing to
+  collide with: this file declares no named `upstream {}` and no rate-limit zone.
+
+  **B6.1 — record the before state**, so "we only added one file" is provable afterwards:
+  `ssh oracle-cloud 'ls -la /home/opc/edge/conf.d/'`
+
+  **B6.2 — copy in:** `scp deploy/vocky.conf oracle-cloud:/home/opc/edge/conf.d/vocky.conf`
+
+  **B6.3 — whole-tree pre-gate, which does NOT touch the running edge:**
+  `ssh oracle-cloud 'cd /home/opc/edge && ./validate.sh'`
+
+  **B6.4 — only if B6.3 passes, apply:** `ssh oracle-cloud 'cd /home/opc/edge && ./deploy.sh'` — a hard
+  `nginx -t` inside the running container, then a graceful `nginx -s reload`. A failed test reloads
+  nothing and the edge keeps serving last-known-good.
+
+  **B6.5 — if B6.3 or B6.4 fails, REMOVE THE FILE IMMEDIATELY. Do not leave it in place to debug.**
+  ```sh
+  ssh oracle-cloud 'rm -f /home/opc/edge/conf.d/vocky.conf && cd /home/opc/edge && ./validate.sh'
+  ```
+  **This is the real cross-tenant risk in the whole phase, and it is not the reload.** `conf.d/` is tested
+  and reloaded *as a unit*, so a broken `vocky.conf` left sitting in the directory breaks nothing that is
+  currently running — but it fails the **next** co-tenant's `nginx -t`, whenever changple5, knowledge or
+  hi2vi next deploys. Debug the file locally with B6.0, not on the box.
+
+  **B6.6 — verify the co-tenants are still served** after the reload, before declaring the step done:
+  ```sh
+  for h in hi2vi.com knowledge.hi2vi.com changple5.com; do
+    printf '%-24s %s\n' "$h" "$(curl -sS -o /dev/null -w '%{http_code}' "https://$h/")"
+  done
+  ```
+  Each must return what it returned before the reload. Rollback is the B6.5 command — removing one added
+  file restores the exact previous state, since no existing file is ever modified.
   The `conf.d/` tree is tested and reloaded **as a unit**: a bad `vocky.conf` fails `nginx -t` for every
   co-tenant. Untouchable siblings: `00-default.conf`, `changple5.conf`, `changple-web.conf`, `hi2vi.conf`,
   `knowledge.conf`. A failed `nginx -t` reloads nothing and the edge keeps serving last-known-good.
@@ -169,6 +212,12 @@ job `P12.S6` just added) has never executed on a runner. **The push must precede
   session is proven or it is not.
 - `compose.prod.yml`'s api comment still cites the pre-S7 `exec vocky-api …` migrate idiom and is wrong as
   written — a candidate one-line fix while in the file.
+- **`deploy/vocky.conf`'s header comment is now stale and is about to become production documentation.**
+  Its "NO rate-limit zone here" block still says *"vocky has NO server-side limiter on /auth/* today …
+  so at launch /auth/* is UNTHROTTLED at the origin"* and calls it an OPEN GAP tracked as a deferred job.
+  `P12.S3` closed that gap (in-process per-(IP,route) limiter, 20/900s) and D5 is closed. Fix the comment
+  **before B6.2 copies the file to the edge**, then re-run the B6.0 pre-flight — it is a comment-only edit,
+  so `nginx -t` must still pass.
 
 ## Deliverables
 
