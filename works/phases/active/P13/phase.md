@@ -100,6 +100,7 @@ _One-liners appended by each slice; `P13.REVIEW` consolidates them into doc vers
 
 - (P13.DECOMP) None yet — decomposition changed no durable truth. Expected areas for the phase: `backend.md` (SMTP settings + notifier module + the accounts owner-email primitive), `architecture.md` (the worker's post-persist alert hook and its containment rule), `operations.md` (the fourth box secret and the SMTP bring-up runbook), and possibly `qa.md` (how a live alert is verified).
 - (P13.S1) `backend.md` gains `AccountsRepository.get_owner_email_for_project(project_id) -> str | None` and the matching `AccountsService` passthrough — a single 3-join read (`projects.tenant_id -> tenant_members(role='owner') -> users.email`), oldest-wins tie-break, `None` on missing project/no owner.
+- (P13.S2) `backend.md` gains: `Settings.smtp_host/port/user/password/from` (`VOCKY_SMTP_*`, all optional, all default-disabled) plus `smtp_from_value` (effective From, falling back to `smtp_user`) and `smtp_configured` (the single "unconfigured ⇒ cleanly disabled" gate); and the new `src/vocky/notifications.py` module — `FeedbackAlertNotifier.notify_feedback_persisted(record)` (renders one plain-text `EmailMessage` and sends it via stdlib `smtplib` in `asyncio.to_thread`) plus `get_feedback_alert_notifier()` factory — inert until S3 wires it into the worker.
 
 ## P13.S1 notes (owner-email recipient resolution)
 
@@ -109,6 +110,37 @@ _One-liners appended by each slice; `P13.REVIEW` consolidates them into doc vers
 - Selecting `UserModel.email` directly (not the whole `UserModel`) let the repository method return `str | None` straight from `.scalars().first()` with no new `_to_*_record` mapper.
 - Ruff is **not configured in this repo at all** (no `ruff` in `dependencies`/dev group, no `[tool.ruff]`, no lint Makefile target, `ruff` binary not installed) — later slices' plans should treat "run ruff if configured" as a no-op here rather than expect a house lint command to exist.
 - Test-DB reachability confirmed working via the already-running dev compose stack (`vocky-postgres-1` on `127.0.0.1:55432`); `uv run pytest tests/test_accounts_persistence.py -q` and the full `uv run pytest -q` (218 tests) both passed clean before and after this slice.
+
+## P13.S2 notes (SMTP settings + notifier module)
+
+- Landed `src/vocky/notifications.py` as a single module (not a package) per the plan's shape
+  call — `class FeedbackAlertNotifier(settings, accounts_service)` with
+  `async def notify_feedback_persisted(self, record: FeedbackEventRecord | None) -> None`, a
+  module-level `_render_message(settings, record, to_email) -> EmailMessage`, a module-level
+  blocking `_send_message(settings, message) -> None` (the isolation point for Decision 1), and
+  `get_feedback_alert_notifier()` as a plain constructor-per-call factory (no `@lru_cache`,
+  matching `get_feedback_service()`/`get_accounts_service()`).
+- **S3 should call**: `await notifier.notify_feedback_persisted(record)` where `notifier` comes
+  from `get_feedback_alert_notifier()` (or DI in tests) and `record` is the
+  `FeedbackEventRecord | None` currently discarded at `worker.py:67-85`. The method itself
+  tolerates `record is None`, `record.project_id is None`, and unconfigured SMTP by returning
+  silently — but the accounts-service lookup (`AccountsReadError`) and the SMTP send
+  (`smtplib`/socket exceptions) both propagate out of it by design (Decision 2/the plan's
+  "exception policy" section: this module must stay honest and testable, not double-swallow). S3's
+  own `try/except Exception` around the call site, sitting **outside** the persistence `try:`
+  block, is the only containment — it is load-bearing, not optional.
+- **S4 should plumb**: `VOCKY_SMTP_HOST` (default `""`), `VOCKY_SMTP_PORT` (default `587`),
+  `VOCKY_SMTP_USER` (default `""`), `VOCKY_SMTP_PASSWORD` (default `""`), `VOCKY_SMTP_FROM`
+  (default `""`). **From-address fallback rule**: when `VOCKY_SMTP_FROM` is blank, the notifier
+  uses `VOCKY_SMTP_USER` as the effective From header/envelope sender
+  (`Settings.smtp_from_value`) — worth a line in the env-file prose so an operator who sets only
+  the user still gets alerts. `smtp_configured` requires a non-blank host **and** a non-blank
+  effective From; port/user/password may stay at defaults with alerts simply off.
+- Test-DB reachability confirmed again via the running `vocky-postgres-1` container
+  (`127.0.0.1:55432`); `uv run pytest tests/test_notifications.py -q` (5 passed, pure-Python, no
+  DB needed) and the full `uv run pytest -q` (223 passed, up from S1's 218 baseline by exactly the
+  5 new tests) both passed clean.
+- No ruff/mypy step run — confirmed (again) neither is configured anywhere in this repo.
 
 ## Open Questions
 

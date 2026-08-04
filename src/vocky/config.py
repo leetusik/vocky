@@ -48,6 +48,11 @@ class Settings(BaseSettings):
         default="image/jpeg,image/png,image/gif,image/webp",
         alias="VOCKY_ATTACHMENTS_ALLOWED_MIME_TYPES",
     )
+    smtp_host: str = Field(default="", alias="VOCKY_SMTP_HOST")
+    smtp_port: int = Field(default=587, alias="VOCKY_SMTP_PORT")
+    smtp_user: str = Field(default="", alias="VOCKY_SMTP_USER")
+    smtp_password: str = Field(default="", alias="VOCKY_SMTP_PASSWORD")
+    smtp_from: str = Field(default="", alias="VOCKY_SMTP_FROM")
 
     @property
     def mcp_allowed_host_values(self) -> tuple[str, ...]:
@@ -72,6 +77,23 @@ class Settings(BaseSettings):
         """Return the configured allowed attachment MIME types."""
 
         return parse_csv_setting(self.attachments_allowed_mime_types)
+
+    @property
+    def smtp_from_value(self) -> str:
+        """Return the effective From address: ``smtp_from``, else ``smtp_user``."""
+
+        return self.smtp_from.strip() or self.smtp_user.strip()
+
+    @property
+    def smtp_configured(self) -> bool:
+        """Return True iff SMTP is configured enough to attempt a send.
+
+        The single "unconfigured -> cleanly disabled" gate: a non-blank host
+        and a non-blank effective From address (``smtp_from`` falling back to
+        ``smtp_user``).
+        """
+
+        return bool(self.smtp_host.strip()) and bool(self.smtp_from_value)
 
 
 @lru_cache(maxsize=1)
