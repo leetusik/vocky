@@ -1,4 +1,12 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { POST as loginPOST } from "@/app/api/auth/login/route";
 import { POST as logoutPOST } from "@/app/api/auth/logout/route";
@@ -12,8 +20,16 @@ import { openSession, SESSION_COOKIE, sealSession } from "@/lib/session";
 // and that vocky's `detail` text never reaches the client.
 
 const TOKEN = "0GkQ3vJ8bYd1wZs5RfN7tXcA2eLmPqU9hVjK4oIyB6M";
-const USER = { id: "u1", email: "owner@example.com", created_at: "2026-07-16T00:00:00+00:00" };
-const TENANT = { id: "t1", name: "owner's workspace", created_at: "2026-07-16T00:00:00+00:00" };
+const USER = {
+  id: "u1",
+  email: "owner@example.com",
+  created_at: "2026-07-16T00:00:00+00:00",
+};
+const TENANT = {
+  id: "t1",
+  name: "owner's workspace",
+  created_at: "2026-07-16T00:00:00+00:00",
+};
 
 beforeAll(() => {
   process.env.SESSION_SECRET = "p4s2-test-secret-not-a-real-one";
@@ -51,7 +67,10 @@ function stubVocky(status: number, body: unknown) {
 function makeReq(
   path: string,
   {
-    body = JSON.stringify({ email: "owner@example.com", password: "correct-horse" }),
+    body = JSON.stringify({
+      email: "owner@example.com",
+      password: "correct-horse",
+    }),
     headers = {},
     ip,
   }: { body?: string | null; headers?: Record<string, string>; ip: string },
@@ -76,7 +95,10 @@ const cookieValue = (setCookie: string) =>
 describe("POST /api/auth/login — ordered rejections", () => {
   it("415s a non-JSON content-type before anything else", async () => {
     const res = await loginPOST(
-      makeReq("/api/auth/login", { headers: { "content-type": "text/plain" }, ip: "10.0.0.1" }),
+      makeReq("/api/auth/login", {
+        headers: { "content-type": "text/plain" },
+        ip: "10.0.0.1",
+      }),
     );
     expect(res.status).toBe(415);
     expect(fetch).not.toHaveBeenCalled();
@@ -84,21 +106,29 @@ describe("POST /api/auth/login — ordered rejections", () => {
 
   it("403s a cross-site request (CSRF layer 2)", async () => {
     const res = await loginPOST(
-      makeReq("/api/auth/login", { headers: { "sec-fetch-site": "cross-site" }, ip: "10.0.0.2" }),
+      makeReq("/api/auth/login", {
+        headers: { "sec-fetch-site": "cross-site" },
+        ip: "10.0.0.2",
+      }),
     );
     expect(res.status).toBe(403);
     expect(fetch).not.toHaveBeenCalled();
   });
 
   it("400s a malformed JSON body", async () => {
-    const res = await loginPOST(makeReq("/api/auth/login", { body: "{not json", ip: "10.0.0.3" }));
+    const res = await loginPOST(
+      makeReq("/api/auth/login", { body: "{not json", ip: "10.0.0.3" }),
+    );
     expect(res.status).toBe(400);
     expect(fetch).not.toHaveBeenCalled();
   });
 
   it("422s a well-formed body of the wrong shape", async () => {
     const res = await loginPOST(
-      makeReq("/api/auth/login", { body: JSON.stringify({ email: "" }), ip: "10.0.0.4" }),
+      makeReq("/api/auth/login", {
+        body: JSON.stringify({ email: "" }),
+        ip: "10.0.0.4",
+      }),
     );
     expect(res.status).toBe(422);
     expect(fetch).not.toHaveBeenCalled();
@@ -108,7 +138,10 @@ describe("POST /api/auth/login — ordered rejections", () => {
     stubVocky(200, { token: TOKEN, user: USER, tenants: [TENANT] });
     const statuses: number[] = [];
     for (let i = 0; i < 6; i += 1) {
-      statuses.push((await loginPOST(makeReq("/api/auth/login", { ip: "10.0.0.5" }))).status);
+      statuses.push(
+        (await loginPOST(makeReq("/api/auth/login", { ip: "10.0.0.5" })))
+          .status,
+      );
     }
     expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
   });
@@ -152,7 +185,9 @@ describe("POST /api/auth/login — vocky outcomes", () => {
 
   it("passes vocky's 400 through but maps an unexpected upstream status to 502", async () => {
     stubVocky(400, { detail: "password: must have at least 8 characters" });
-    expect((await loginPOST(makeReq("/api/auth/login", { ip: "10.0.1.3" }))).status).toBe(400);
+    expect(
+      (await loginPOST(makeReq("/api/auth/login", { ip: "10.0.1.3" }))).status,
+    ).toBe(400);
 
     stubVocky(500, { detail: "boom" });
     const res = await loginPOST(makeReq("/api/auth/login", { ip: "10.0.1.4" }));
@@ -164,7 +199,9 @@ describe("POST /api/auth/login — vocky outcomes", () => {
 describe("POST /api/auth/signup", () => {
   it("normalizes vocky's 201 + singular `tenant` into a 200 with a sealed cookie", async () => {
     stubVocky(201, { token: TOKEN, user: USER, tenant: TENANT });
-    const res = await signupPOST(makeReq("/api/auth/signup", { ip: "10.0.2.1" }));
+    const res = await signupPOST(
+      makeReq("/api/auth/signup", { ip: "10.0.2.1" }),
+    );
 
     expect(res.status).toBe(200);
     expect(openSession(cookieValue(setCookieOf(res)!))).toBe(TOKEN);
@@ -172,7 +209,9 @@ describe("POST /api/auth/signup", () => {
 
   it("passes the duplicate-email 409 through with no cookie", async () => {
     stubVocky(409, { detail: "a user with this email already exists" });
-    const res = await signupPOST(makeReq("/api/auth/signup", { ip: "10.0.2.2" }));
+    const res = await signupPOST(
+      makeReq("/api/auth/signup", { ip: "10.0.2.2" }),
+    );
 
     expect(res.status).toBe(409);
     expect(setCookieOf(res)).toBeNull();
@@ -183,9 +222,12 @@ describe("POST /api/auth/signup", () => {
     stubVocky(201, { token: TOKEN, user: USER, tenant: TENANT });
     const ip = "10.0.2.3";
     // Exhaust login's 5-per-window budget for this IP...
-    for (let i = 0; i < 6; i += 1) await loginPOST(makeReq("/api/auth/login", { ip }));
+    for (let i = 0; i < 6; i += 1)
+      await loginPOST(makeReq("/api/auth/login", { ip }));
     // ...signup from the same IP must still be allowed (separate bucket).
-    expect((await signupPOST(makeReq("/api/auth/signup", { ip }))).status).toBe(200);
+    expect((await signupPOST(makeReq("/api/auth/signup", { ip }))).status).toBe(
+      200,
+    );
   });
 });
 
@@ -226,7 +268,9 @@ describe("POST /api/auth/logout", () => {
   });
 
   it("clears the cookie without calling vocky when there is no valid session", async () => {
-    const res = await logoutPOST(makeReq("/api/auth/logout", { body: null, ip: "10.0.3.3" }));
+    const res = await logoutPOST(
+      makeReq("/api/auth/logout", { body: null, ip: "10.0.3.3" }),
+    );
     expect(res.status).toBe(200);
     expect(fetch).not.toHaveBeenCalled();
     expect(setCookieOf(res)).toContain("Max-Age=0");

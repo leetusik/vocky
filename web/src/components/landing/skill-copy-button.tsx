@@ -74,7 +74,7 @@ const skillCopyVariants = cva(
       },
       {
         state: "copied",
-        class: "border-security-mint bg-green-soft text-green-dark",
+        class: "border-mint bg-green-soft text-green-dark",
       },
       {
         state: "failed",

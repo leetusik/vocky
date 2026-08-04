@@ -121,7 +121,10 @@ export function Hero() {
           <Snippet
             variant="row"
             command={heroInstall.command}
-            copy={{ ...LANDING.snippet, announcement: heroInstall.copyAnnouncement }}
+            copy={{
+              ...LANDING.snippet,
+              announcement: heroInstall.copyAnnouncement,
+            }}
           />
           <p className="mt-2 font-mono text-[11.5px] text-steel">
             <span className="app:hidden">{heroInstall.captionNarrow}</span>

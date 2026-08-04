@@ -70,14 +70,17 @@ function ReadingList({ readings }: { readings: typeof steps.verify.readings }) {
           <span
             className={cn(
               "flex min-w-[52px] shrink-0 items-center justify-center rounded-sm px-2 py-[3px] font-mono text-[12px] font-bold",
-              READING_CHIP_TONE[reading.code] ?? "bg-surface-caution text-caution-deep",
+              READING_CHIP_TONE[reading.code] ??
+                "bg-surface-caution text-caution-deep",
             )}
           >
             {reading.code}
           </span>
           <span>
             {reading.verdict && (
-              <span className="font-semibold text-charcoal">{reading.verdict} </span>
+              <span className="font-semibold text-charcoal">
+                {reading.verdict}{" "}
+              </span>
             )}
             {reading.body}
           </span>
@@ -90,7 +93,13 @@ function ReadingList({ readings }: { readings: typeof steps.verify.readings }) {
 /** §5.1's step marker (correction 5): 34px circle, ink bg, white mono 700 15px.
  * The peer row's `·` marker reuses the same shape, `bg-surface-soft`/`text-steel`
  * instead, per §5.1's own fifth-step-row framing. */
-function StepMarker({ tone, children }: { tone: "step" | "peer"; children: ReactNode }) {
+function StepMarker({
+  tone,
+  children,
+}: {
+  tone: "step" | "peer";
+  children: ReactNode;
+}) {
   return (
     <span
       className={cn(
@@ -123,13 +132,20 @@ export function AgentQuickstart() {
           <li className="flex items-start gap-4">
             <StepMarker tone="step">{steps.install.n}</StepMarker>
             <div className="min-w-0 flex-1 pb-[34px]">
-              <h3 className="text-heading-4 text-charcoal">{steps.install.title}</h3>
-              <p className="mt-2 max-w-[62ch] text-body-md text-steel">{steps.install.sub}</p>
+              <h3 className="text-heading-4 text-charcoal">
+                {steps.install.title}
+              </h3>
+              <p className="mt-2 max-w-[62ch] text-body-md text-steel">
+                {steps.install.sub}
+              </p>
               <div className="mt-3.5">
                 <Snippet
                   variant="row"
                   command={steps.install.command}
-                  copy={{ ...LANDING.snippet, announcement: steps.install.copyAnnouncement }}
+                  copy={{
+                    ...LANDING.snippet,
+                    announcement: steps.install.copyAnnouncement,
+                  }}
                 />
               </div>
             </div>
@@ -138,13 +154,18 @@ export function AgentQuickstart() {
           <li className="flex items-start gap-4">
             <StepMarker tone="step">{steps.env.n}</StepMarker>
             <div className="min-w-0 flex-1 pb-[34px]">
-              <h3 className="text-heading-4 text-charcoal">{steps.env.title}</h3>
+              <h3 className="text-heading-4 text-charcoal">
+                {steps.env.title}
+              </h3>
               <div className="mt-3.5 space-y-3">
                 <Snippet
                   variant="block"
                   label={steps.env.snippetLabel}
                   command={steps.env.command}
-                  copy={{ ...LANDING.snippet, announcement: steps.env.copyAnnouncement }}
+                  copy={{
+                    ...LANDING.snippet,
+                    announcement: steps.env.copyAnnouncement,
+                  }}
                 />
                 {/* Correction 3: the ".note" treatment does not exist in this
                     repo — built inline, one consumer. Order matters: note
@@ -158,7 +179,10 @@ export function AgentQuickstart() {
                   {withInlineCode(steps.env.note.text, steps.env.note.code)}
                 </div>
                 <Trap label={steps.env.trap.label}>
-                  {withInlineCode(steps.env.trap.body.text, steps.env.trap.body.code)}
+                  {withInlineCode(
+                    steps.env.trap.body.text,
+                    steps.env.trap.body.code,
+                  )}
                 </Trap>
               </div>
             </div>
@@ -167,14 +191,21 @@ export function AgentQuickstart() {
           <li className="flex items-start gap-4">
             <StepMarker tone="step">{steps.verify.n}</StepMarker>
             <div className="min-w-0 flex-1 pb-[34px]">
-              <h3 className="text-heading-4 text-charcoal">{steps.verify.title}</h3>
-              <p className="mt-2 max-w-[62ch] text-body-md text-steel">{steps.verify.sub}</p>
+              <h3 className="text-heading-4 text-charcoal">
+                {steps.verify.title}
+              </h3>
+              <p className="mt-2 max-w-[62ch] text-body-md text-steel">
+                {steps.verify.sub}
+              </p>
               <div className="mt-3.5 space-y-3">
                 <Snippet
                   variant="block"
                   label={steps.verify.snippetLabel}
                   command={steps.verify.command}
-                  copy={{ ...LANDING.snippet, announcement: steps.verify.copyAnnouncement }}
+                  copy={{
+                    ...LANDING.snippet,
+                    announcement: steps.verify.copyAnnouncement,
+                  }}
                 />
                 {/* 400 is the SUCCESS reading; 401 says stop, never retry — see
                     the file header. Do not relabel or reorder either. */}
@@ -186,12 +217,17 @@ export function AgentQuickstart() {
           <li className="flex items-start gap-4">
             <StepMarker tone="step">{steps.capture.n}</StepMarker>
             <div className="min-w-0 flex-1 pb-[34px]">
-              <h3 className="text-heading-4 text-charcoal">{steps.capture.title}</h3>
+              <h3 className="text-heading-4 text-charcoal">
+                {steps.capture.title}
+              </h3>
               <div className="mt-3.5">
                 <Snippet
                   variant="row"
                   command={steps.capture.command}
-                  copy={{ ...LANDING.snippet, announcement: steps.capture.copyAnnouncement }}
+                  copy={{
+                    ...LANDING.snippet,
+                    announcement: steps.capture.copyAnnouncement,
+                  }}
                 />
                 <div className="mt-2.5 flex items-center gap-2">
                   <span className="inline-flex items-center rounded-full bg-green-soft px-2.5 py-1 font-mono text-[11px] text-green-dark">
@@ -226,14 +262,17 @@ export function AgentQuickstart() {
         {/* Right — the contract aside. Sticky only at >=900px (app:); narrow
             drops sticky and the aside simply falls below the steps in DOM
             order (nothing reorders). */}
-        <div className="app:sticky app:top-6 flex flex-col gap-4">
+        <div className="flex flex-col gap-4 app:sticky app:top-6">
           <Card variant="featureMuted">
             <p className="font-mono text-micro text-green-dark uppercase">
               {aside.contractLabel}
             </p>
             <div className="mt-3 space-y-2">
               {aside.contractRows.map((row) => (
-                <Chip key={row.name} className="flex w-full items-center justify-between bg-canvas">
+                <Chip
+                  key={row.name}
+                  className="flex w-full items-center justify-between bg-canvas"
+                >
                   <span>{row.name}</span>
                   <span>{row.value}</span>
                 </Chip>

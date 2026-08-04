@@ -53,7 +53,7 @@ export function ShowOnceKey({ value, copy, onDismiss }: ShowOnceKeyProps) {
   return (
     <div
       role="alert"
-      className="rounded-lg border border-security-mint bg-surface-green p-4"
+      className="rounded-lg border border-mint bg-surface-green p-4"
     >
       <h4 className="text-body-md font-semibold text-ink">{copy.heading}</h4>
       <p className="mt-1 text-body-sm text-steel">{copy.warning}</p>

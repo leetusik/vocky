@@ -109,9 +109,12 @@ export async function mintCredentialAction(
     minted = await createCredential(token, projectId.data, name.data);
   } catch (error) {
     if (error instanceof ApiError) {
-      if (error.status === 400) return { error: MINT_CREDENTIAL_ERRORS.invalidName };
-      if (error.status === 401) return { error: MINT_CREDENTIAL_ERRORS.sessionExpired };
-      if (error.status === 404) return { error: MINT_CREDENTIAL_ERRORS.notFound };
+      if (error.status === 400)
+        return { error: MINT_CREDENTIAL_ERRORS.invalidName };
+      if (error.status === 401)
+        return { error: MINT_CREDENTIAL_ERRORS.sessionExpired };
+      if (error.status === 404)
+        return { error: MINT_CREDENTIAL_ERRORS.notFound };
     }
     return { error: MINT_CREDENTIAL_ERRORS.generic };
   }
@@ -146,9 +149,12 @@ export async function revokeCredentialAction(
     await revokeCredential(token, projectId.data, credentialId.data);
   } catch (error) {
     if (error instanceof ApiError) {
-      if (error.status === 400) return { error: REVOKE_CREDENTIAL_ERRORS.invalidRequest };
-      if (error.status === 401) return { error: REVOKE_CREDENTIAL_ERRORS.sessionExpired };
-      if (error.status === 404) return { error: REVOKE_CREDENTIAL_ERRORS.notFound };
+      if (error.status === 400)
+        return { error: REVOKE_CREDENTIAL_ERRORS.invalidRequest };
+      if (error.status === 401)
+        return { error: REVOKE_CREDENTIAL_ERRORS.sessionExpired };
+      if (error.status === 404)
+        return { error: REVOKE_CREDENTIAL_ERRORS.notFound };
     }
     return { error: REVOKE_CREDENTIAL_ERRORS.generic };
   }

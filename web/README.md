@@ -8,7 +8,7 @@ routes through a server-side BFF proxy; it never talks to the `vk_`-keyed
 
 The palette/fonts here are **neutral placeholders** (slate surfaces + one
 indigo accent, Noto Sans KR + JetBrains Mono via `next/font/google`). The real
-vocky brand is finalized at the P6 design gate; the `@theme` token *names*
+vocky brand is finalized at the P6 design gate; the `@theme` token _names_
 match hi2vi_web so P6 swaps values only.
 
 ## Auth model (the BFF)
@@ -30,10 +30,10 @@ client only: it never touches the `vk_`-keyed `/api/*` surface.
 
 Copy `.env.example` to `.env.local` and set both server-only keys:
 
-| Key | Purpose |
-| --- | --- |
-| `VOCKY_API_BASE_URL` | vocky API origin the server calls, e.g. `http://127.0.0.1:8000` |
-| `SESSION_SECRET` | secret the session-sealing key is derived from (`openssl rand -base64 32`) |
+| Key                  | Purpose                                                                    |
+| -------------------- | -------------------------------------------------------------------------- |
+| `VOCKY_API_BASE_URL` | vocky API origin the server calls, e.g. `http://127.0.0.1:8000`            |
+| `SESSION_SECRET`     | secret the session-sealing key is derived from (`openssl rand -base64 32`) |
 
 Neither is `NEXT_PUBLIC_`. Rotating `SESSION_SECRET` invalidates every live
 session.

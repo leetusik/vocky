@@ -107,13 +107,12 @@ const copyButtonVariants = cva(
       {
         tone: "light",
         state: "copied",
-        class: "border-security-mint bg-green-soft text-green-dark",
+        class: "border-mint bg-green-soft text-green-dark",
       },
       {
         tone: "dark",
         state: "copied",
-        class:
-          "border-security-teal bg-[rgba(190,233,213,0.16)] text-victory-lime",
+        class: "border-teal bg-[rgba(190,233,213,0.16)] text-lime",
       },
       {
         state: "failed",

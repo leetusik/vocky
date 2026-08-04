@@ -13,7 +13,10 @@
  * type-scale list, and every page class stay stable); P9 swapped the VALUES to
  * vocky's own palette and the compact type/radius/spacing scale. Because Tailwind
  * utilities compile to `var(--color-*)`, this value swap re-themes every surface
- * at once, call sites untouched. Do not rename tokens.
+ * at once, call sites untouched. Names are otherwise still 1:1 with hi2vi_web;
+ * P12.S2 retired the five vestigial hi2vi-section names (`security-mint`,
+ * `security-teal`, `victory-lime`, and the unused `archive-olive` /
+ * `archive-cream`) in favour of role names. Do not rename the remaining tokens.
  *
  * No `.dark` block on purpose — the system uses explicit surface tokens, not a
  * prefers-color-scheme / class toggle (no dark-mode toggle).
@@ -34,14 +37,12 @@
   --color-green-soft: #e4f5ed; /* active nav bg, soft chips */
 
   /* Secondary green accents / on-dark tints */
-  --color-security-mint: #bee9d5; /* mint tint (chip borders, key panel) */
-  --color-security-teal: #2fa477; /* brighter data accent (endpoint label) */
+  --color-mint: #bee9d5; /* mint tint (chip borders, key panel) */
+  --color-teal: #2fa477; /* brighter data accent (endpoint label) */
   --color-trust-sage: #7fb8a0; /* sage / on-dark small accents */
 
-  /* Soft positive + muted neutral tints */
-  --color-victory-lime: #9ad4a8; /* soft positive tint (rare) */
-  --color-archive-olive: #8a968f; /* muted neutral (= muted, intentional) */
-  --color-archive-cream: #f1f4f0; /* light neutral surface */
+  /* Soft positive tint */
+  --color-lime: #9ad4a8; /* soft positive tint (rare) */
 
   /* Signal states — the two warm signals in an otherwise green-cool system.
    * danger = fatal/destructive; caution = non-fatal warning. Kept legible so

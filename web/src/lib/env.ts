@@ -33,7 +33,9 @@ function readEnvGroup<K extends string>(
     }
   }
   if (missing.length > 0) {
-    throw new Error(`web env: missing ${label} env vars: ${missing.join(", ")}`);
+    throw new Error(
+      `web env: missing ${label} env vars: ${missing.join(", ")}`,
+    );
   }
   return config;
 }

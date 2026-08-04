@@ -16,7 +16,7 @@ export const chipVariants = cva(
     variants: {
       variant: {
         default: "border-hairline bg-surface text-slate",
-        filter: "border-security-mint bg-green-soft text-green-dark",
+        filter: "border-mint bg-green-soft text-green-dark",
       },
     },
     defaultVariants: {

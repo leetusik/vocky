@@ -33,7 +33,7 @@ export function EndpointCard({
       {...props}
     >
       {label != null && (
-        <span className="mb-3 inline-flex items-center rounded-full bg-ink px-2.5 py-1 font-mono text-caption text-security-teal">
+        <span className="mb-3 inline-flex items-center rounded-full bg-ink px-2.5 py-1 font-mono text-caption text-teal">
           {label}
         </span>
       )}

@@ -33,7 +33,10 @@ import type { VockySession } from "./vocky/types";
 // leaks through this boundary. Passwords are never logged, in any branch.
 
 /** JSON body, never cached. `{ok}` is the only field the client reads. */
-export function json(status: number, body: Record<string, unknown>): NextResponse {
+export function json(
+  status: number,
+  body: Record<string, unknown>,
+): NextResponse {
   return NextResponse.json(body, {
     status,
     headers: { "Cache-Control": "no-store" },
@@ -95,7 +98,8 @@ export async function handleCredentialRoute(
   // 3. Per-IP rate limit (429) BEFORE parsing/hashing, so a flood is cheap to shed.
   const ip = clientIp(req.headers);
   if (
-    !checkRateLimit(`${options.bucket}:${ip}`, options.limit, options.windowMs).ok
+    !checkRateLimit(`${options.bucket}:${ip}`, options.limit, options.windowMs)
+      .ok
   ) {
     return json(429, { ok: false });
   }

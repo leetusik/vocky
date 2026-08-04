@@ -40,8 +40,11 @@ describe("normalizeAuthResponse", () => {
   it("treats tenants[0] as the active tenant (matching vocky's require_user)", () => {
     const second: VockyTenant = { ...TENANT, id: "second", name: "second" };
     expect(
-      normalizeAuthResponse({ token: TOKEN, user: USER, tenants: [TENANT, second] })
-        .tenant,
+      normalizeAuthResponse({
+        token: TOKEN,
+        user: USER,
+        tenants: [TENANT, second],
+      }).tenant,
     ).toEqual(TENANT);
   });
 });

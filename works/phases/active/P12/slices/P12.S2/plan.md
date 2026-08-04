@@ -148,3 +148,65 @@ Any failure in step 5 that you cannot attribute to a line in this plan → stop 
   is the precondition `P12.S6` needs before it can add that gate to `ci.yml`.
 - **No "Doc impact" line is expected** — this slice changes no durable truth. If you believe it does, say
   so in `result.md` rather than editing any doc.
+
+---
+
+## Escalation 1: `slice-executor-low` → `slice-executor-mid`
+
+The low tier executed all three edits correctly and reported every check green **except** two conflicts
+that are defects in this plan, not in the work. Both are hereby resolved by the orchestrator. The tree as
+the low tier left it is **correct and complete** — do not revert or redo any of it.
+
+### The low tier's findings (verbatim in substance)
+
+1. `pnpm exec prettier --write .` also reformatted `web/src/components/ui/snippet.tsx`, which is **not** on
+   this plan's 14-file list and **is** a file Edit 2c modified. The plan named that exact situation as a
+   hard escalation trigger.
+2. Validation step 1 (`grep … → no matches`) **cannot pass** while Edit 2b requires writing the five
+   retired token names verbatim into the `globals.css` header comment. The two instructions contradict
+   each other in the same file.
+
+Everything else was reported green: `Makefile` correct (retired token gone, `VOCKY_ADMIN_AUTH_TOKEN`
+still on line 15); three hexes unchanged under the new names; `archive-olive` / `archive-cream`
+declarations gone; `prettier --check` clean; `pnpm lint && typecheck && test (78 passed) && build` green.
+
+### Resolution 1 — the `snippet.tsx` reflow is ACCEPTED
+
+Verified from `git diff`: prettier collapsed a two-line string literal to one line **because Edit 2c's
+rename made it shorter** (`border-security-teal … text-victory-lime` → `border-teal … text-lime`). Same
+classes, same DOM, same rendered pixels, `bg-[rgba(190,233,213,0.16)]` untouched. This is a direct,
+predictable consequence of an edit this plan ordered, so it is inside the slice's scope, not outside it.
+The 14-file list was descriptive of the *pre-existing* drift, and should have said so.
+
+### Resolution 2 — validation step 1 is REPLACED
+
+The header comment is deliberate historical documentation and stays exactly as written. Step 1 is
+replaced by these two checks, which say what was actually meant (that no **token declaration or utility
+class** survives, prose aside):
+
+```sh
+# A. no declaration and no usage of any retired name — must return NOTHING (exit 1)
+grep -rn -- "--color-security-mint\|--color-security-teal\|--color-victory-lime\|--color-archive-olive\|--color-archive-cream\|border-security-\|text-security-\|text-victory-\|bg-archive-" web/ --exclude-dir=node_modules --exclude-dir=.next
+
+# B. the only surviving mentions are the three header-comment lines in globals.css
+grep -rn "security-mint\|security-teal\|victory-lime\|archive-olive\|archive-cream" web/ --exclude-dir=node_modules --exclude-dir=.next
+```
+
+The orchestrator has already run both: **A returns nothing (exit 1)**, and **B returns exactly three
+lines, all `web/src/app/globals.css:17-19`**, inside the header comment. That is the passing state.
+
+### What the mid tier must actually do
+
+The implementation is done. Your job is verification and bookkeeping only:
+
+1. Re-run checks A and B above, plus this plan's original validation steps 2, 3, 4 and 5, and report the
+   real output. If any of them now fails, that is a genuine regression — report it rather than patching.
+2. Make **no further source edits** unless a check fails. In particular do not revert the `snippet.tsx`
+   reflow and do not touch the header comment.
+3. Write `result.md` for this slice (it was intentionally not written), covering all three edits, the
+   verbatim check output, a confirmation that no hex value changed, and both escalation resolutions.
+4. Append the short note to `phase.md` § *Findings & Notes* the original Deliverables section asks for:
+   the three surviving tokens' new names (`mint`, `teal`, `lime`), the two deleted, that the retired names
+   survive only in the `globals.css` header comment as history, and that `prettier --check` under `web/`
+   is now clean — the precondition `P12.S6` needs before adding that gate to `ci.yml`.
+5. Still no commit, no `workflow.py` state command, no `docs/` edit, no "Doc impact" line expected.

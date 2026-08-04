@@ -109,7 +109,9 @@ describe("readSessionCookie", () => {
 
   it("returns undefined when absent or when there is no cookie header", () => {
     expect(readSessionCookie(withCookie("a=1"))).toBeUndefined();
-    expect(readSessionCookie(new Request("http://localhost/x"))).toBeUndefined();
+    expect(
+      readSessionCookie(new Request("http://localhost/x")),
+    ).toBeUndefined();
   });
 });
 
@@ -118,17 +120,26 @@ describe("assertSameOrigin", () => {
     new Request("http://localhost/x", { headers });
 
   it("accepts same-origin / none Sec-Fetch-Site, or a matching Origin host", () => {
-    expect(assertSameOrigin(withHeaders({ "sec-fetch-site": "same-origin" }))).toBe(true);
-    expect(assertSameOrigin(withHeaders({ "sec-fetch-site": "none" }))).toBe(true);
+    expect(
+      assertSameOrigin(withHeaders({ "sec-fetch-site": "same-origin" })),
+    ).toBe(true);
+    expect(assertSameOrigin(withHeaders({ "sec-fetch-site": "none" }))).toBe(
+      true,
+    );
     expect(
       assertSameOrigin(
-        withHeaders({ origin: "http://localhost:3030", host: "localhost:3030" }),
+        withHeaders({
+          origin: "http://localhost:3030",
+          host: "localhost:3030",
+        }),
       ),
     ).toBe(true);
   });
 
   it("rejects cross-site, a mismatched Origin, and no origin signal at all", () => {
-    expect(assertSameOrigin(withHeaders({ "sec-fetch-site": "cross-site" }))).toBe(false);
+    expect(
+      assertSameOrigin(withHeaders({ "sec-fetch-site": "cross-site" })),
+    ).toBe(false);
     expect(
       assertSameOrigin(
         withHeaders({ origin: "http://evil.example", host: "localhost:3030" }),

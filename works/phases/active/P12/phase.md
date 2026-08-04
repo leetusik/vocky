@@ -149,6 +149,29 @@ The bring-up is expected to fail at least once. The rule for this phase:
 - `shellcheck` and `actionlint` are **not installed** in this sandbox; neither is a Docker daemon. Do not plan validation around them.
 - The repo is public (`https://github.com/leetusik/vocky.git`) and `works/` is tracked, so the push at S4 publishes this notebook — already true of the previous 9 phases; it contains the box IP and paths, which are already public, and no secrets.
 
+### `P12.S2` — Repo hygiene sweep (done; escalated once, resolved by orchestrator)
+
+- **Design tokens**: three vestigial hi2vi names renamed (same hex, zero visual change) —
+  `--color-security-mint` → `--color-mint` (`#bee9d5`), `--color-security-teal` → `--color-teal`
+  (`#2fa477`), `--color-victory-lime` → `--color-lime` (`#9ad4a8`). Two unused duplicates **deleted**:
+  `--color-archive-olive` (`#8a968f`, duplicate of `--color-muted`) and `--color-archive-cream`
+  (`#f1f4f0`, duplicate of `--color-surface-soft`). All six usage sites updated to match. The retired
+  names now survive **only** as deliberate history in `globals.css`'s header comment (lines 17-19) —
+  no declaration, no Tailwind utility class anywhere references them.
+- `Makefile:15` dropped the retired `VOCKY_API_AUTH_TOKEN` from `EXPORTED_ENV_VARS`;
+  `VOCKY_ADMIN_AUTH_TOKEN` (mandatory per `P12.S1`) is untouched.
+- `web/` is now `prettier --check`-clean (0 files) — **this is the precondition `P12.S6` needs** before it
+  can add that gate to `ci.yml`.
+- **Escalation, resolved**: the low-tier executor correctly flagged two contradictions baked into this
+  plan — (1) `prettier --write` also reflowed `web/src/components/ui/snippet.tsx`, one file beyond the
+  plan's literal 14-file list, as a direct consequence of the token rename shortening a class string
+  (accepted, same DOM/pixels); (2) the plan's own Edit 2b (retire the header's "Do not rename tokens."
+  line by writing the five retired names into new header prose) makes its own validation step 1 ("no
+  matches" grep) unsatisfiable. Both are plan defects, not work defects; full resolution and re-verified
+  check output in `P12.S2/result.md`. Worth remembering for later slices' plans: a "no matches" grep
+  check and a "document what was retired" edit in the same file are contradictory unless the check is
+  written to exclude documented history from the start.
+
 ### `P12.S1` — `/admin/api/*` kept, fail-closed (done)
 
 - The operator's KEEP/FAIL-CLOSED decision is landed in code: `src/vocky/auth.py`'s

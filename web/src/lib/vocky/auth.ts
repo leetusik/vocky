@@ -1,7 +1,12 @@
 import "server-only";
 
 import { getJson, sendJson } from "./client";
-import type { VockyIdentity, VockySession, VockyTenant, VockyUser } from "./types";
+import type {
+  VockyIdentity,
+  VockySession,
+  VockyTenant,
+  VockyUser,
+} from "./types";
 
 // P4.S2 — typed server-side calls against vocky's `/auth/*` surface, used only by
 // the BFF route handlers and the `(app)`/`(auth)` server components.

@@ -1,7 +1,12 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { cookies } from "next/headers";
 
-import { getSession, requireSession, SESSION_COOKIE, sealSession } from "@/lib/session";
+import {
+  getSession,
+  requireSession,
+  SESSION_COOKIE,
+  sealSession,
+} from "@/lib/session";
 
 // P4.S2 — the server guards. `next/headers` and `next/navigation` are mocked
 // because both need a real request scope; the logic under test is "what does the
