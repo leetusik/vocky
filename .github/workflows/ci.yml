@@ -1,17 +1,10 @@
 name: CI
 
-# The repo's first push/pull_request gate. `deploy-production.yml` is
-# `workflow_dispatch`-only and has never run on a push. This workflow checks
-# the parts of the tree that are green today without a database: the
-# canonical/served SKILL.md byte-parity gate, the web app's lint/typecheck/
-# vitest suite, and a syntax check on the installer shell script.
-#
-# Deliberately excluded for now (both land in P12, which owns the Postgres
-# service container a real pytest run needs):
-#   - `pnpm exec prettier --check .` — 12 pre-existing failures in files this
-#     workflow has no business touching; fixing them is a separate decision.
-#   - `uv run pytest` — needs a live Postgres; a bare GitHub runner has none.
-# P12 is expected to add a job to this same file, not start a new one.
+# The repo's push/pull_request gate. `deploy-production.yml` is
+# `workflow_dispatch`-only and has never run on a push. This workflow checks:
+# the canonical/served SKILL.md byte-parity gate, the web app's lint/
+# typecheck/vitest/prettier suite, a syntax check on the installer shell
+# script, and the Python test suite against a Postgres service container.
 
 on:
   push:
@@ -93,3 +86,65 @@ jobs:
         run: |
           set -euo pipefail
           pnpm test
+
+      - name: Format check
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm format:check
+
+  pytest:
+    name: Python Tests (Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # No `working-directory` here: `tests/conftest.py` runs alembic itself
+    # with a relative path to `alembic.ini`, so this job must run from the
+    # repo root.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: vocky
+          POSTGRES_USER: vocky
+          POSTGRES_PASSWORD: vocky
+        ports:
+          - 5432:5432
+        # Mandatory, not polish: conftest connects at session start with no
+        # retry loop, so without this gate the job flakes on the first
+        # psycopg connect.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # tests/conftest.py requires two distinct databases and rejects the
+      # run if they're equal or TEST_DATABASE_URL has no database name. Both
+      # are set explicitly even though the second could be derived, because
+      # that's what the guard checks and what a reader needs. DATABASE_URL
+      # has no default in config.py (.env is gitignored on the runner), so
+      # this job env is the only source — a missing var here surfaces as a
+      # confusing pydantic ValidationError at import time.
+      DATABASE_URL: postgresql+psycopg://vocky:vocky@localhost:5432/vocky
+      TEST_DATABASE_URL: postgresql+psycopg://vocky:vocky@localhost:5432/vocky_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        # .python-version pins 3.12 and uv honours it directly — no
+        # actions/setup-python step needed. This is the repo's first use of
+        # astral-sh/setup-uv.
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv sync --frozen
+
+      - name: Run pytest
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --no-sync pytest

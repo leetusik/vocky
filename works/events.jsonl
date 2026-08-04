@@ -377,3 +377,4 @@
 {"ts": "2026-08-04T10:38:56+09:00", "type": "slice_status_changed", "slice": "P12.S3", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-08-04T10:38:56+09:00", "type": "deferred_dropped", "deferred": "D5", "reason": "Resolved by P12.S3, not abandoned: in-process per-(IP,route) fixed-window limiter on /auth/signup + /auth/login (src/vocky/rate_limit.py), default 20 per 900s, <=0 disables. promote-deferred was unavailable because the slice folder already existed."}
 {"ts": "2026-08-04T10:40:19+09:00", "type": "slice_status_changed", "slice": "P12.S6", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-08-04T10:44:25+09:00", "type": "slice_status_changed", "slice": "P12.S6", "old_status": "in_progress", "new_status": "done"}

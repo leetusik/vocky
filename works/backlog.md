@@ -6,11 +6,11 @@
 ## Pointer
 
 - Current phase: `P12`
-- Current slice: `P12.S6`
-- Next slice: `P12.S4`
+- Current slice: `P12.S4`
+- Next slice: `P12.S5`
 - Waiting on operator: `none`
 - Open deferred jobs: `5`
-- Rebuilt at: `2026-08-04T10:40:19+09:00`
+- Rebuilt at: `2026-08-04T10:44:25+09:00`
 
 ## Active Phases
 
@@ -19,7 +19,7 @@
 | [x] `P6` | `done` | `pass` | Landing Page, Webpage & Production Deploy | `none` | `works/phases/active/P6` |
 | [x] `P10` | `done` | `pass` | Accounts v2: orgs, org-level keys & default project | `none` | `works/phases/active/P10` |
 | [x] `P11` | `done` | `pass` | Frictionless onboarding: working install, env-var quickstart, agent skill on the landing | `none` | `works/phases/active/P11` |
-| [ ] `P12` | `planned` | `pending` | Production launch & hardening: bring-up, rate limits, CI tests, QA doc | `P12.S6` | `works/phases/active/P12` |
+| [ ] `P12` | `planned` | `pending` | Production launch & hardening: bring-up, rate limits, CI tests, QA doc | `P12.S4` | `works/phases/active/P12` |
 
 ## Phase P6: Landing Page, Webpage & Production Deploy
 
@@ -75,7 +75,7 @@
 | [x] `P12.S1` | `done` | Decide the fate of /admin/api/* and VOCKY_ADMIN_AUTH_TOKEN | `implementation` | `works/phases/active/P12/slices/P12.S1` |
 | [x] `P12.S2` | `done` | Repo hygiene sweep: retired token refs, prettier debt, vestigial design-token names | `implementation` | `works/phases/active/P12/slices/P12.S2` |
 | [x] `P12.S3` | `done` | Rate-limit the public /auth/* surface (D5) | `implementation` | `works/phases/active/P12/slices/P12.S3` |
-| [ ] `P12.S6` | `in_progress` | Extend ci.yml with a Postgres-backed pytest job | `implementation` | `works/phases/active/P12/slices/P12.S6` |
+| [x] `P12.S6` | `done` | Extend ci.yml with a Postgres-backed pytest job | `implementation` | `works/phases/active/P12/slices/P12.S6` |
 | [ ] `P12.S4` | `todo` | Production bring-up at vocky.hi2vi.com (operator-gated) | `co-work` | `works/phases/active/P12/slices/P12.S4` |
 | [ ] `P12.S5` | `todo` | Postgres backups, log rotation and basic metrics | `implementation` | `works/phases/active/P12/slices/P12.S5` |
 | [ ] `P12.S7` | `todo` | Author docs/current/qa.md | `implementation` | `works/phases/active/P12/slices/P12.S7` |

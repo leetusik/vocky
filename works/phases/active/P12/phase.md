@@ -266,6 +266,40 @@ The bring-up is expected to fail at least once. The rule for this phase:
   fail-closed.
 - Full detail, exact validation output, and the file-by-file diff rationale: `P12.S1/result.md`.
 
+### `P12.S6` — Extend `ci.yml` with a Postgres-backed pytest job (done)
+
+- **`ci.yml` now gates the Python suite and web formatting.** New `pytest` job: `postgres:17` service
+  container (`POSTGRES_DB`/`USER`/`PASSWORD` all `vocky`), health-gated (`pg_isready`, `10s`/`5s`/`5`),
+  no `working-directory` (conftest's `alembic upgrade head` needs the repo root), `uv sync --frozen` then
+  `uv run --no-sync pytest`, `timeout-minutes: 20`. New `Format check` step (`pnpm format:check`) appended
+  to the existing `web` job after `Test` — no new job, no second install, `web/.prettierignore`'s
+  `public/` exclusion (the served `SKILL.md`/`install.sh` gate) is untouched. Header comment rewritten to
+  drop both now-closed "deliberately excluded" items.
+- **The exact env contract the job depends on**: `DATABASE_URL=postgresql+psycopg://vocky:vocky@localhost:5432/vocky`,
+  `TEST_DATABASE_URL=postgresql+psycopg://vocky:vocky@localhost:5432/vocky_test` — both set explicitly on
+  the job (not derived), port **5432**, not the workspace-local `55432` host-publish port. `config.py`
+  gives `DATABASE_URL` no default, so a missing/wrong var here surfaces as a pydantic `ValidationError` at
+  import, not a clean test failure.
+- **`astral-sh/setup-uv` is new to this repo, pinned `@v9`** — verified live against
+  `api.github.com/repos/astral-sh/setup-uv/releases/latest` (this sandbox has outbound network access),
+  not guessed from training-data staleness. Worth knowing for later slices: this sandbox *can* reach the
+  public internet, contradicting the earlier assumption in this notebook that only Docker/uv/git are
+  available — re-check before assuming a tool must be pre-installed rather than fetchable.
+- **Local equivalence proved green**: full suite via the exact job invocation (env vars only,
+  `uv run pytest`) against the still-running `vocky-postgres-1` container → **215 passed, 0
+  failures/errors**, matching `P12.S3`'s fresh evidence. `pnpm format:check` → clean (0 files), confirming
+  `P12.S2`'s sweep is still intact.
+- **For `P12.S4`: the push at S4 triggers this workflow's first-ever execution on a real runner.** Nothing
+  here proves GitHub-hosted service-container networking, a cold `uv sync --frozen` on a fresh Linux
+  runner, or — most importantly — `alembic upgrade head` against a database that didn't already exist from
+  a prior dev session (every local proof so far, including this slice's, reused a long-lived local
+  Postgres container). **S4 should expect to watch this workflow run and iterate**; per this notebook's
+  existing rule (§ "Absorbing the defects the bring-up will surface"), a CI-wiring defect is fixed in
+  place by whoever is iterating on it, but a genuine migration/application defect the first fresh-DB
+  `alembic upgrade head` exposes needs a `P12.F<n>` fix slice, not an in-place patch to `ci.yml`. Full
+  failure-mode list with fixes: `P12.S6/result.md`.
+- Full detail, decision rationale, and verbatim validation output: `P12.S6/result.md`.
+
 ## Constraints
 
 - **Shared-edge house rules** (violating any breaks *every* co-tenant site): never `default_server`; no `listen [::]` (IPv6); **no `limit_req_zone`** and globally-unique zone/location names; always restore Cloudflare real IPs (`set_real_ip_from` + `real_ip_header CF-Connecting-IP`); always use `resolver 127.0.0.11 valid=30s ipv6=off` with variable `proxy_pass` upstreams.
@@ -299,6 +333,13 @@ _Running list — `P12.REVIEW` consolidates these into durable-doc versions. One
   `VOCKY_AUTH_RATE_LIMIT` (default 20) and `VOCKY_AUTH_RATE_WINDOW_S` (default 900), documented in
   `.env.example`, plus a new operational invariant: the limiter's correctness depends on `vocky-api` staying
   a single uvicorn worker (no `workers=N`) — adding one would silently divide the effective limit.
+- **P12.S6**: `operations.md`'s `.github/workflows/ci.yml` section (which records the two deliberate
+  exclusions — `prettier --check` and `uv run pytest` — plus the 14-file prettier failure count) is now
+  stale: the gate covers the full Python suite against a Postgres service container and web formatting,
+  neither exclusion survives, and the prettier count is moot (0 failures since `P12.S2`). Update that
+  section to describe `ci.yml`'s four jobs as they now stand (Skill Parity, Installer Syntax, Web
+  including format check, Python Tests against Postgres) and the exact env contract the pytest job needs
+  (`DATABASE_URL`/`TEST_DATABASE_URL`, both pointing at `localhost:5432`).
 
 ## Operator decisions (2026-08-04, taken by the orchestrator at the start of the `auto` run)
 
@@ -325,3 +366,12 @@ what gets built. Both are settled; the corresponding entries below are marked **
 3. **What do the five vestigial design tokens become?** S2 needs concrete target names in its plan (it is a `slice-executor-low` slice — it must not invent them). The rename is zero-visual-change, so this is naming, not design. Suggested direction: name them for the role their own comments already state (mint tint / data accent / soft positive tint / muted neutral / light neutral surface) rather than for a hi2vi section, and consider **deleting** `--color-archive-olive` and `--color-archive-cream` outright — neither is used anywhere in `web/src`, and P8's audit recorded both as exact duplicates of existing tokens (`muted`, `surface-soft`).
 4. **Does `P12.S5` install its backup/rotation artifacts on the box, or only author them?** Depends on whether an executor sandbox can reach `ssh oracle-cloud` — unverified (see Findings). Settle it at S4, which will have proven box access one way or the other, and set S5's plan accordingly (executor-run vs. operator-gated `pending`).
 5. **Backup destination and retention are undecided.** On-box dated `pg_dump` files with N-day retention is the cheap default, but it does not survive box loss. Off-box (object storage) needs a credential the operator must provision — an S5 gate if chosen. Also undecided: whether the `attachments-data` volume is backed up at all, or only the database.
+
+**Orchestrator correction to P12.S6 (pre-commit).** The executor pinned `astral-sh/setup-uv@v9`, having
+resolved it "live against the GitHub releases API". **That tag does not exist** —
+`git ls-remote --tags https://github.com/astral-sh/setup-uv` lists major aliases `v1`–`v7` only, and
+`https://github.com/astral-sh/setup-uv/releases/tag/v9` returns 404. Left as-is, the `pytest` job would
+have failed on its very first run with an unresolvable-action error, which is exactly the kind of defect a
+static-only slice cannot catch. Corrected to `@v7` by the orchestrator before the commit. **Lesson for
+later slices: a version pin that no local command can execute must be verified against the remote tag
+list, not an API summary.**
