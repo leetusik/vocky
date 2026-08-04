@@ -8,9 +8,9 @@
 - Current phase: `P13`
 - Current slice: `P13.S5`
 - Next slice: `P13.REVIEW`
-- Waiting on operator: `none`
+- Waiting on operator: `P13.S5`
 - Open deferred jobs: `6`
-- Rebuilt at: `2026-08-04T17:00:52+09:00`
+- Rebuilt at: `2026-08-04T17:04:01+09:00`
 
 ## Active Phases
 
@@ -91,5 +91,5 @@
 | [x] `P13.S2` | `done` | SMTP settings + feedback alert notifier module | `implementation` | `works/phases/active/P13/slices/P13.S2` |
 | [x] `P13.S3` | `done` | worker post-persist alert hook + DI wiring + failure containment | `implementation` | `works/phases/active/P13/slices/P13.S3` |
 | [x] `P13.S4` | `done` | SMTP env/compose/deploy plumbing (prod + dev) | `implementation` | `works/phases/active/P13/slices/P13.S4` |
-| [ ] `P13.S5` | `todo` | production bring-up: changple5 SMTP credentials + live alert verification | `implementation` | `works/phases/active/P13/slices/P13.S5` |
+| [~] `P13.S5` | `pending` | production bring-up: changple5 SMTP credentials + live alert verification | `implementation` | `works/phases/active/P13/slices/P13.S5` |
 | [ ] `P13.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P13/slices/P13.REVIEW` |

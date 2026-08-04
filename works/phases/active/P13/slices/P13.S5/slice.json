@@ -3,13 +3,13 @@
   "phase_id": "P13",
   "name": "production bring-up: changple5 SMTP credentials + live alert verification",
   "kind": "implementation",
-  "status": "todo",
+  "status": "pending",
   "order": 5,
   "depends_on": [
     "P13.S4"
   ],
   "created_at": "2026-08-04T16:43:37+09:00",
-  "started_at": null,
+  "started_at": "2026-08-04T17:01:38+09:00",
   "completed_at": null,
   "risk": "medium",
   "source": {

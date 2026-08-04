@@ -103,6 +103,7 @@ _One-liners appended by each slice; `P13.REVIEW` consolidates them into doc vers
 - (P13.S2) `backend.md` gains: `Settings.smtp_host/port/user/password/from` (`VOCKY_SMTP_*`, all optional, all default-disabled) plus `smtp_from_value` (effective From, falling back to `smtp_user`) and `smtp_configured` (the single "unconfigured ⇒ cleanly disabled" gate); and the new `src/vocky/notifications.py` module — `FeedbackAlertNotifier.notify_feedback_persisted(record)` (renders one plain-text `EmailMessage` and sends it via stdlib `smtplib` in `asyncio.to_thread`) plus `get_feedback_alert_notifier()` factory — inert until S3 wires it into the worker.
 - (P13.S3) `architecture.md` gains the worker's post-persist alert hook: `CaptureWorker.__init__` takes a defaulted `notifier: FeedbackAlertNotifier | None = None`; `_process_job` captures the `FeedbackEventRecord | None` returned by persistence and, after the persistence `try/except` has already returned successfully, calls `await self._notifier.notify_feedback_persisted(record)` inside its own `try/except Exception: logger.exception(...)` that sits structurally outside the persistence `try:` block and never touches `requeue_job`/`dead_letter_job` — a failed alert is logged and lost, never re-enqueued, so it can never duplicate a feedback row. `run_worker()` wires `notifier=get_feedback_alert_notifier()`.
 - (P13.S4) `operations.md` gains: the fourth box secret `VOCKY_SMTP_PASSWORD` (alongside `POSTGRES_PASSWORD`/`SESSION_SECRET`/`VOCKY_ADMIN_AUTH_TOKEN`), the required-vs-optional interpolation forms for all five `VOCKY_SMTP_*` vars (`HOST`/`USER`/`PASSWORD` are `${VAR:?err}`, `PORT`/`FROM` are `${VAR:-default}`), and that they live on the `worker` service's `environment:` block only (`compose.prod.yml`) — `api`/`web` never receive them, matching the existing per-service secret-isolation invariant.
+- (P13.S5) `operations.md` gains the SMTP bring-up runbook: the changple5→vocky Django-name mapping (`EMAIL_HOST/PORT/HOST_USER/HOST_PASSWORD/DEFAULT_FROM_EMAIL` → `VOCKY_SMTP_HOST/PORT/USER/PASSWORD/FROM`), the box-side discovery commands (env-file grep with a `docker exec <container> env` fallback), and the live-verification checklist (`docker logs vocky-worker` clean + received alert email) — full text in `works/phases/active/P13/slices/P13.S5/result.md`.
 
 ## P13.S1 notes (owner-email recipient resolution)
 
@@ -206,6 +207,32 @@ _One-liners appended by each slice; `P13.REVIEW` consolidates them into doc vers
   guard fires; `docker compose -f docker-compose.yml config --quiet` with no SMTP vars
   set passes (dev stays optional). No code changed, so `uv run pytest -q` was skipped
   (per plan).
+
+## P13.S5 notes (production bring-up runbook)
+
+- Authored the full operator runbook into `result.md` — ship-the-code order, changple5 SMTP
+  discovery (grep `/home/opc/changple5/.env` if that path exists, fall back to grepping the
+  running container's env via `docker exec <changple5-container> env | grep -iE 'email|smtp'`),
+  the Django→vocky var mapping table (`EMAIL_HOST/PORT/HOST_USER/HOST_PASSWORD/DEFAULT_FROM_EMAIL`
+  → `VOCKY_SMTP_HOST/PORT/USER/PASSWORD/FROM`), the `deploy/deploy.sh` run, the two-part live
+  verification (`docker logs vocky-worker --since 5m` no-alert-failed check + real inbox check),
+  and failure triage for the three likely failure shapes (`:?` abort, credential/TLS mismatch,
+  silent no-send).
+- **Executor did not SSH, deploy, or touch any credential** — per plan, this slice is
+  operator-gated by construction. Returning `needs_operator` (not `done`).
+- **What's awaited from the operator**: push P13.S1–S4 to `origin/main` if not already there, then
+  follow `works/phases/active/P13/slices/P13.S5/result.md` end to end on the box, and confirm back
+  that a real feedback capture produced (a) a clean worker log with no alert-failed line and (b) a
+  received plain-text alert email in the org owner's inbox. That confirmation is the slice's
+  acceptance evidence.
+- The exact changple5 clone path on the box was not verifiable from this workspace (only the edge
+  vhost name `changple5.conf` is known) — the runbook gives a path guess plus a `docker ps`/`docker
+  exec` fallback that works regardless of where the source checkout lives, per plan's "adjust path
+  guesses to what you can infer" instruction.
+- Reused `docs/current/qa.md`'s existing `make external-smoke` /
+  `VOCKY_EXTERNAL_BASE_URL=https://vocky.hi2vi.com` smoke path as the easiest live-capture option
+  in step 5, alongside a manual `POST /api/feedback` and the CLI as alternatives — no new capture
+  tooling needed.
 
 ## Open Questions
 
