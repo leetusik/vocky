@@ -3,14 +3,14 @@
   "phase_id": "P12",
   "name": "Author docs/current/qa.md",
   "kind": "implementation",
-  "status": "todo",
+  "status": "done",
   "order": 7,
   "depends_on": [
     "P12.S6"
   ],
   "created_at": "2026-07-29T16:03:30+09:00",
-  "started_at": null,
-  "completed_at": null,
+  "started_at": "2026-08-04T12:38:32+09:00",
+  "completed_at": "2026-08-04T12:43:08+09:00",
   "risk": "medium",
   "source": {
     "type": "manual",

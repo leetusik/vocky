@@ -4,10 +4,10 @@
 
 ## Summary
 
-- Open: `5`
+- Open: `6`
 - Promoted: `0`
 - Dropped: `1`
-- Rebuilt at: `2026-08-04T12:37:41+09:00`
+- Rebuilt at: `2026-08-04T12:43:08+09:00`
 
 ## Open
 
@@ -18,6 +18,7 @@
 | `D3` | `deferred` | Garbage-collect never-linked attachment uploads | P2.DECOMP | user promotes, or the first cleanup / scale / PII-retention need | `works/deferred/open/D3` |
 | `D4` | `deferred` | Project-scope the end-user attachment download endpoint | P3.REVIEW | operator promotes, or the next time the /api/* attachment surface is touched | `works/deferred/open/D4` |
 | `D6` | `deferred` | Org management: additional orgs, member invites, roles | P10.DECOMP | When a user needs more than one org, or when a second person must share an org (team/collaboration demand), or before any pricing tier is sold per-seat. | `works/deferred/open/D6` |
+| `D7` | `deferred` | Define the project QA driver /qa-check requires | P12.S7 | When the operator wants exploratory browser QA runs against the live site, or the next phase that builds UI features wants automated QA evidence. | `works/deferred/open/D7` |
 
 ## Promoted
 

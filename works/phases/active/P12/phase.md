@@ -383,6 +383,10 @@ _Running list — `P12.REVIEW` consolidates these into durable-doc versions. One
   caveat that app services pick it up on the next `deploy.sh` but the datastores need a deliberate
   `docker compose up -d postgres redis --force-recreate`, and `deploy/status.sh` as the basic on-box
   status/metrics read. Full operator runbook for applying this post-push: `P12.S5/result.md`.
+- **P12.S7**: `qa.md` needs its whole first real body (was the bootstrap `v0001` placeholder) —
+  `P12.REVIEW`, run `doc-new-version --doc qa --summary "..." --source P12.REVIEW` and paste the complete
+  body verbatim from `works/phases/active/P12/slices/P12.S7/result.md` § "Proposed qa.md v0002 body"
+  (fenced, ready to lift — do not re-derive or re-summarize it).
 
 ## Operator decisions (2026-08-04, taken by the orchestrator at the start of the `auto` run)
 
@@ -561,3 +565,29 @@ First-ever execution of the whole deploy chain, green end to end. Facts later sl
   uncached (`DYNAMIC`, `max-age=0`); revisit only under real traffic.
 - Doc impact: compose.prod.yml api comment now correctly describes the `deploy.sh` one-off-container
   migration (was the pre-S7 `exec` idiom).
+
+### `P12.S7` — Author `docs/current/qa.md` (done)
+
+- **The complete v0002 body is authored, not landed** — it lives fenced in
+  `P12.S7/result.md` under "Proposed qa.md v0002 body", per this phase's documented `qa.md` exception
+  (whole-new-body slices author into `result.md`; `P12.REVIEW` runs `doc-new-version --doc qa
+  --summary "..." --source P12.REVIEW` and pastes it in verbatim as the doc's first real content since
+  bootstrap). `docs/current/qa.md` is untouched — still `v0001`, confirmed by an empty
+  `git status --porcelain docs/`.
+- **Every count in the plan's pre-research was re-measured, not copied**, against the sandbox's already
+  running `vocky-postgres-1` (`postgres:17`, `127.0.0.1:55432`). One correction found: the plan's "~225
+  test functions" is actually **215** (`pytest --collect-only` + a full green run both agree; matches
+  what `P12.S3` and `P12.S6` each independently measured earlier in this phase — three independent
+  measurements now agree on 215, worth trusting over the DECOMP-era estimate). Everything else the plan
+  pre-researched held exactly: 29 Python test files, 9-table TRUNCATE list, `test_admin_api.py` 17 cases,
+  `test_public_access.py` 6 cases, 5 CLI test files, 1 MCP transport file, 10 web test files / 78 cases,
+  4 `ci.yml` jobs, `Makefile`'s 12 targets, `restore.md`'s "never rehearsed" status, and the `/qa-check`
+  driver gap (no `scripts/qa-agent/`, no mission library — confirmed still absent).
+- **One landed-vs-planned detail folded in accurately**: the doc cites `astral-sh/setup-uv@v7`, the tag
+  the orchestrator actually corrected `ci.yml` to before the P12.S6 commit — not the stale `@v9` `P12.S6`'s
+  own `result.md` originally reported (see this file's "Orchestrator correction to P12.S6" note above).
+- **`/qa-check` + `qa-agent` gap stated honestly, not built.** Per `intent.md`'s scope line, the doc names
+  exactly what a driver would need (the verb set `qa-agent.md` assumes, a mission-brief library, an
+  artifact-directory convention) without proposing to build it — that remains a deferred-job candidate for
+  the orchestrator to open, not something this slice did.
+- Full validation output (every grep/measurement command and its exact result): `P12.S7/result.md`.
