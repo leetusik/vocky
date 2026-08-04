@@ -101,6 +101,7 @@ _One-liners appended by each slice; `P13.REVIEW` consolidates them into doc vers
 - (P13.DECOMP) None yet — decomposition changed no durable truth. Expected areas for the phase: `backend.md` (SMTP settings + notifier module + the accounts owner-email primitive), `architecture.md` (the worker's post-persist alert hook and its containment rule), `operations.md` (the fourth box secret and the SMTP bring-up runbook), and possibly `qa.md` (how a live alert is verified).
 - (P13.S1) `backend.md` gains `AccountsRepository.get_owner_email_for_project(project_id) -> str | None` and the matching `AccountsService` passthrough — a single 3-join read (`projects.tenant_id -> tenant_members(role='owner') -> users.email`), oldest-wins tie-break, `None` on missing project/no owner.
 - (P13.S2) `backend.md` gains: `Settings.smtp_host/port/user/password/from` (`VOCKY_SMTP_*`, all optional, all default-disabled) plus `smtp_from_value` (effective From, falling back to `smtp_user`) and `smtp_configured` (the single "unconfigured ⇒ cleanly disabled" gate); and the new `src/vocky/notifications.py` module — `FeedbackAlertNotifier.notify_feedback_persisted(record)` (renders one plain-text `EmailMessage` and sends it via stdlib `smtplib` in `asyncio.to_thread`) plus `get_feedback_alert_notifier()` factory — inert until S3 wires it into the worker.
+- (P13.S3) `architecture.md` gains the worker's post-persist alert hook: `CaptureWorker.__init__` takes a defaulted `notifier: FeedbackAlertNotifier | None = None`; `_process_job` captures the `FeedbackEventRecord | None` returned by persistence and, after the persistence `try/except` has already returned successfully, calls `await self._notifier.notify_feedback_persisted(record)` inside its own `try/except Exception: logger.exception(...)` that sits structurally outside the persistence `try:` block and never touches `requeue_job`/`dead_letter_job` — a failed alert is logged and lost, never re-enqueued, so it can never duplicate a feedback row. `run_worker()` wires `notifier=get_feedback_alert_notifier()`.
 
 ## P13.S1 notes (owner-email recipient resolution)
 
@@ -141,6 +142,37 @@ _One-liners appended by each slice; `P13.REVIEW` consolidates them into doc vers
   DB needed) and the full `uv run pytest -q` (223 passed, up from S1's 218 baseline by exactly the
   5 new tests) both passed clean.
 - No ruff/mypy step run — confirmed (again) neither is configured anywhere in this repo.
+
+## P13.S3 notes (worker post-persist alert hook + DI wiring + failure containment)
+
+- End-to-end wiring is now live: `run_worker()` constructs `CaptureWorker` with
+  `notifier=get_feedback_alert_notifier()`, so once SMTP env is configured on a running worker
+  process, every successfully persisted feedback event triggers an alert-send attempt with zero
+  further application-code changes — S4/S5 are pure env/compose/box work from here.
+- `_process_job` now captures `record` from both persistence call sites (`record = await
+  self._feedback_service.create_feedback_event(...)` / `..._with_attachments(...)`) instead of
+  discarding the return value. Existing worker test doubles all still declare `-> None`, so `record`
+  is `None` in every worker-test path; the notifier's own `record is None` skip (from S2) is what
+  makes that safe — no worker-side `None` special-casing was needed.
+- Containment is structural, not just clause ordering: the notify block sits textually *after* the
+  persistence `try/except FeedbackPersistenceError` block, which already `return`s inside its
+  `except` branch — so the notify code physically cannot run on a persistence failure, and its own
+  `except Exception` never calls `requeue_job`/`dead_letter_job`. Verified by
+  `test_worker_contains_notifier_failure`: with a notifier that always raises, `process_next_job`
+  still returns `True` and both the queue and dead-letter Redis lists stay at length 0.
+  `test_worker_notifies_after_persist` confirms the happy path calls the notifier exactly once with
+  the (here `None`) record.
+- All six pre-existing worker tests needed zero edits — confirms the hook seam the plan specified
+  (defaulted `notifier=` kwarg, call site after the persistence try/except) was the right shape;
+  nothing needed to change about `FlakyFeedbackService`/`RecordingFeedbackService`/
+  `BrokenFeedbackService`.
+- Test-DB reachability confirmed again (`nc -z 127.0.0.1 55432`, `vocky-postgres-1` running):
+  `uv run pytest tests/test_worker.py -q` → 8 passed (6 pre-existing + 2 new);
+  `uv run pytest -q` (full suite) → 225 passed, up from S2's 223 baseline by exactly the 2 new tests.
+- No ruff/mypy step run — repo still has neither configured (reconfirmed, consistent with S1/S2).
+- **S4 should note**: no application code changes remain in this phase after S3 — S4/S5 are purely
+  env/compose/box plumbing and operator bring-up against the notifier module and worker hook that
+  now exist and are fully wired.
 
 ## Open Questions
 

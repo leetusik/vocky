@@ -18,6 +18,7 @@ from vocky.config import get_settings
 from vocky.db import dispose_engine
 from vocky.feedback import FeedbackPersistenceError, FeedbackService, get_feedback_service
 from vocky.logging import configure_logging
+from vocky.notifications import FeedbackAlertNotifier, get_feedback_alert_notifier
 from vocky.redis_client import dispose_redis_client
 
 logger = logging.getLogger(__name__)
@@ -32,10 +33,12 @@ class CaptureWorker:
         queue: CaptureQueue,
         feedback_service: FeedbackService,
         max_attempts: int = CAPTURE_MAX_ATTEMPTS,
+        notifier: FeedbackAlertNotifier | None = None,
     ) -> None:
         self._queue = queue
         self._feedback_service = feedback_service
         self._max_attempts = max_attempts
+        self._notifier = notifier
 
     async def process_next_job(self, *, timeout_seconds: int = 1) -> bool:
         """Process one queued capture job if one is available."""
@@ -69,11 +72,11 @@ class CaptureWorker:
 
         try:
             if job.payload.attachment_ids:
-                await self._feedback_service.create_feedback_event_with_attachments(
+                record = await self._feedback_service.create_feedback_event_with_attachments(
                     job.payload
                 )
             else:
-                await self._feedback_service.create_feedback_event(job.payload)
+                record = await self._feedback_service.create_feedback_event(job.payload)
         except FeedbackPersistenceError:
             await self._handle_persistence_failure(job)
             return
@@ -83,6 +86,12 @@ class CaptureWorker:
             job.request_id,
             job.attempt,
         )
+
+        if self._notifier is not None:
+            try:
+                await self._notifier.notify_feedback_persisted(record)
+            except Exception:
+                logger.exception("Feedback alert failed for job %s", job.request_id)
 
     async def _handle_persistence_failure(self, job: CaptureJob) -> None:
         """Retry or dead-letter a job whose persistence failed."""
@@ -117,6 +126,7 @@ async def run_worker() -> None:
     worker = CaptureWorker(
         queue=get_capture_queue(),
         feedback_service=get_feedback_service(),
+        notifier=get_feedback_alert_notifier(),
     )
 
     try:
