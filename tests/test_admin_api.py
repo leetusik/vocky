@@ -92,21 +92,21 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
                 "id, message, source_product, source_integration, conversation_id, "
                 "session_id, user_id, trigger_type, trigger_message, trigger_metadata, "
                 "target_type, target_id, target_role, target_text, "
-                "feedback_value, comment, channel, event_at, ingested_at, "
+                "feedback_value, comment, channel, recorded_by, event_at, ingested_at, "
                 "tags, messages, used_context, source_metadata, attributes"
                 ") VALUES "
                 "(:like_id, :like_message, :product, :integration, :conversation_id, "
                 ":session_id, :like_user_id, :like_trigger_type, :like_trigger_message, "
                 "CAST(:like_trigger_metadata AS jsonb), "
                 ":target_type, :target_id, :target_role, :target_text, "
-                "1, :like_comment, :channel, :event_at, :like_ingested_at, "
+                "1, :like_comment, :channel, :like_recorded_by, :event_at, :like_ingested_at, "
                 ":tags, CAST(:like_messages AS jsonb), CAST(:like_context AS jsonb), "
                 "CAST(:metadata AS jsonb), CAST(:like_attributes AS jsonb)), "
                 "(:dislike_id, :dislike_message, :product, :integration, :conversation_id, "
                 ":session_id, :dislike_user_id, :dislike_trigger_type, "
                 ":dislike_trigger_message, CAST(:dislike_trigger_metadata AS jsonb), "
                 "NULL, NULL, NULL, NULL, "
-                "2, :dislike_comment, :channel, :event_at, :dislike_ingested_at, "
+                "2, :dislike_comment, :channel, NULL, :event_at, :dislike_ingested_at, "
                 ":tags, CAST(:dislike_messages AS jsonb), CAST(:dislike_context AS jsonb), "
                 "CAST(:metadata AS jsonb), CAST(:dislike_attributes AS jsonb))"
             ),
@@ -134,6 +134,9 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
                 "like_comment": "good answer",
                 "dislike_comment": "bad answer",
                 "channel": "web",
+                # P14: the agent/human marker. The dislike row stays NULL
+                # (unspecified) so the same fixture covers both states.
+                "like_recorded_by": "agent",
                 "event_at": datetime(2026, 4, 24, 2, 0, tzinfo=UTC),
                 "like_ingested_at": datetime(2026, 4, 24, 2, 1, tzinfo=UTC),
                 "dislike_ingested_at": datetime(2026, 4, 24, 2, 2, tzinfo=UTC),
@@ -180,6 +183,13 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
                 "trigger_type": " like ",
             },
         )
+        recorded_by_response = await client.get(
+            "/admin/api/feedback",
+            params={
+                "source_product": "admin-product",
+                "recorded_by": " agent ",
+            },
+        )
 
     assert response.status_code == 200
     records = response.json()["records"]
@@ -214,6 +224,14 @@ async def test_admin_list_feedback_returns_likes_and_dislikes(
     ]
     assert trigger_type_response.status_code == 200
     assert [record["message"] for record in trigger_type_response.json()["records"]] == [
+        "liked answer"
+    ]
+    # P14: the marker round-trips on the read side and narrows the list;
+    # a NULL (unspecified) row serializes as null and is filtered out.
+    assert records[0]["recorded_by"] is None
+    assert records[1]["recorded_by"] == "agent"
+    assert recorded_by_response.status_code == 200
+    assert [record["message"] for record in recorded_by_response.json()["records"]] == [
         "liked answer"
     ]
 
@@ -562,6 +580,7 @@ async def test_admin_list_feedback_preserves_legacy_channel_filter(
             "comment": None,
             "channel": "email",
             "source_integration": None,
+            "recorded_by": None,
             "conversation_id": None,
             "session_id": None,
             "user_id": None,
@@ -627,6 +646,10 @@ async def test_admin_list_feedback_validation_errors(configured_database: str) -
             "/admin/api/feedback",
             params={"trigger_type": "reaction"},
         )
+        invalid_recorded_by_response = await client.get(
+            "/admin/api/feedback",
+            params={"recorded_by": "robot"},
+        )
 
     assert response.status_code == 400
     assert response.json() == {
@@ -639,6 +662,10 @@ async def test_admin_list_feedback_validation_errors(configured_database: str) -
     assert invalid_trigger_type_response.status_code == 400
     assert invalid_trigger_type_response.json() == {
         "detail": "trigger_type must be one of: like, dislike, comment, rating, survey, manual, other"
+    }
+    assert invalid_recorded_by_response.status_code == 400
+    assert invalid_recorded_by_response.json() == {
+        "detail": "recorded_by must be one of: agent, human"
     }
 
 

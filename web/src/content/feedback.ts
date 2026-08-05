@@ -92,6 +92,8 @@ export const FEEDBACK = {
       sourceProduct: "Product",
       sourceIntegration: "Integration",
       channel: "Channel",
+      /** `recorded_by` — who recorded it; `null` (unspecified) renders as "—". */
+      recordedBy: "Recorded by",
       triggerType: "Trigger",
       triggerMessage: "Trigger message",
       targetType: "Target type",

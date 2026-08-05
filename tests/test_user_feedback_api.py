@@ -92,16 +92,17 @@ async def _seed_feedback(
     comment: str | None = None,
     message: str = "feedback row",
     project_id: str | None = None,
+    recorded_by: str | None = None,
 ) -> None:
     async with get_engine().begin() as connection:
         await connection.execute(
             text(
                 "INSERT INTO feedback_events ("
                 "id, message, source_product, user_id, feedback_value, comment, "
-                "ingested_at, project_id"
+                "ingested_at, project_id, recorded_by"
                 ") VALUES ("
                 ":id, :message, :source_product, :user_id, :feedback_value, :comment, "
-                ":ingested_at, :project_id"
+                ":ingested_at, :project_id, :recorded_by"
                 ")"
             ),
             {
@@ -113,6 +114,7 @@ async def _seed_feedback(
                 "comment": comment,
                 "ingested_at": ingested_at,
                 "project_id": project_id,
+                "recorded_by": recorded_by,
             },
         )
 
@@ -158,6 +160,7 @@ async def test_user_feedback_returns_only_caller_scope_with_comments(
         comment="my own comment",
         message="mine",
         project_id=str(configured_project_credential.project_id),
+        recorded_by="human",
     )
     await _seed_feedback(
         feedback_id=other_user,
@@ -185,11 +188,24 @@ async def test_user_feedback_returns_only_caller_scope_with_comments(
             "/api/feedback",
             params={"user_id": "user-1", "source_product": "changple5"},
         )
+        # P14: this surface has its OWN normalizer + serializer (duplicates of the
+        # shared ones), so the marker is proved separately here.
+        agent_only = await client.get(
+            "/api/feedback",
+            params={
+                "user_id": "user-1",
+                "source_product": "changple5",
+                "recorded_by": "agent",
+            },
+        )
 
     assert response.status_code == 200
     records = response.json()["records"]
     assert [record["id"] for record in records] == [mine]
     record = records[0]
+    assert record["recorded_by"] == "human"
+    assert agent_only.status_code == 200
+    assert agent_only.json()["records"] == []
     assert record["message"] == "mine"
     assert record["user_id"] == "user-1"
     assert record["source_product"] == "changple5"

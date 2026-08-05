@@ -191,6 +191,58 @@ Per-slice rule: implementation slices append a one-line **Doc impact** note belo
   `alembic check` reports only the known pre-existing `ix_feedback_events_search_trgm` drift — no
   `add_column`/`add_index`, i.e. the new column and index match the ORM model exactly.
 
+### Landed in `P14.S2` — the read path (read this before S3/S4)
+
+- **Filter validator: `query_feedback_common.normalize_recorded_by_filter`.** It
+  **delegates** to `vocky.recorded_by.normalize_recorded_by` and re-raises as
+  `FeedbackQueryValidationError`, exactly like `normalize_trigger_type_filter` wraps
+  `normalize_trigger_type`. (DECOMP's note said "import `ALLOWED_RECORDED_BY`"; delegating
+  reuses the vocabulary **and** the trim/blank rule **and** the error string from the one
+  module, so nothing is re-declared. Same outcome, one fewer copy.) Blank/absent ⇒ **no
+  filter** — there is deliberately no way to select *only* the unspecified (`NULL`) rows;
+  if a dashboard ever needs a three-way split it needs a new sentinel, not a tweak here.
+- **Four REST surfaces confirmed covered by two edits.** `app_feedback_api` and
+  `project_feedback_api` both `import normalize_list_query from vocky.admin_api` (verified
+  at their call sites), so the admin edit really does cover three surfaces; `api.py`'s
+  duplicate pair (`normalize_user_feedback_query` + `serialize_user_feedback_record`) is
+  the only other place, and it has its own test now.
+- **Field position convention:** `recorded_by` sits immediately after `source_integration`
+  in `FeedbackQueryFilters`, in `_apply_filters`, and in **both** serializers, mirroring
+  `FeedbackEventRecord`. Keep any future read-side addition mirroring the record too.
+- **One existing assertion had to change** —
+  `tests/test_admin_api.py::test_admin_list_feedback_preserves_legacy_channel_filter`
+  compares the whole serialized record as an exact dict, so it gained `"recorded_by": None`.
+  It is the **only** full-record exact-dict assertion in `tests/` or `web/tests/` (checked),
+  and its `null` value is itself the additivity proof. Additivity is a client-contract
+  property (responses gain one nullable key); a serializer snapshot is a mirror of the
+  serializer, not a client. Any future capture/read field will hit exactly this one line.
+- **Web:** the record interface is **`VockyFeedback`**, not `VockyFeedbackRecord` as the
+  DECOMP note wrote it. `recorded_by` went into `PARAM_KEYS` + `toQuery` (narrowed like the
+  other enum params) and into the detail page's metadata list; `FORM_FIELD_KEYS` was **not**
+  touched — no rendered control, per "Explicitly out of scope". The row needed a label, so
+  `web/src/content/feedback.ts` gained `detail.fields.recordedBy: "Recorded by"`. `Field`
+  renders `children ?? <Empty />`, so `null` already shows the em-dash — no null handling
+  was written.
+- **Prettier will reformat `toQuery`'s destructure** — it now has five names and no longer
+  fits one line. CI runs `format:check`, so run `prettier --write` on
+  `web/src/app/(app)/feedback/page.tsx` after touching it. (CI installs web deps with
+  **pnpm**; S2 used local `npm`/`npx` and changed no lockfile.)
+- **The CLI read path was deliberately left alone.** `cli/feedback.py`'s `feedback show`
+  prints a curated subset that omits `trigger_type` too, and `_list_params` exposes no enum
+  filter — so adding a marker there is a scope change, matching S1's `vocky capture`
+  decision. **Open item for S4:** if public docs imply a CLI marker (read *or* write), raise
+  it as an explicit follow-up rather than widening the CLI.
+- **Concrete work S4 inherits in README.md:** the capture-payload/response JSON examples
+  (~L113, ~L367, ~L399 and `docs/cli.md` ~L266) now under-describe the response, the
+  trigger-fields paragraph (~L264) is the natural home for "who recorded it vs why capture
+  happened", and the admin-list-filters sentence (~L446) enumerates the filterable fields
+  and must gain `recorded_by`.
+- **Suite state after S2:** full `make test` = **238 passed** (S1 left 237; +1 is the new
+  validator case). Web: `npm test` 78 passed, `typecheck` / `lint` / `format:check` clean.
+  `make check-skill-parity` PASS. `workflow.py validate` passed.
+- **Still S3's / S4's:** the live round-trip (S3 can now assert `?recorded_by=agent`
+  narrowing on all four REST surfaces after an MCP capture) and the public docs.
+
 ### Constraints for every slice
 
 - **Additivity is the acceptance bar.** Every existing client — REST, MCP, CLI, dashboard — must keep working byte-for-byte when it never mentions `recorded_by`. The pydantic models ignore unknown fields, the column is nullable, the filter is absent-means-no-filter. If any existing test needs an assertion edit, stop and re-read the design.
@@ -216,6 +268,9 @@ _One line per durable-truth change; `P14.REVIEW` consolidates these into doc ver
 - `data.md` — migration guidance: pin an alembic downgrade target **by revision id, never `"-1"`**; a relative step in a test silently retargets onto each new head (cost this slice 50 cascading failures). (P14.S1)
 - `api.md` — the capture contract gains an optional `recorded_by` (`"agent"` | `"human"`, else 400 `recorded_by must be one of: agent, human`) on **REST `POST /api/feedback`** and the **MCP `capture_feedback`** tool; MCP defaults it to `"agent"` when omitted, REST leaves it `NULL` (unspecified). (P14.S1)
 - `architecture.md` — the `feedback_events` base shape now carries the capture-time provenance marker `recorded_by`, orthogonal to `trigger_type`. (P14.S1)
+- `api.md` — every feedback **read** surface now returns `recorded_by` (`"agent"` | `"human"` | `null` = unspecified) in the record body: Admin `/admin/api/feedback`, `/app/feedback`, `/api/project/feedback` (shared serializer) and `GET /api/feedback` (its own duplicate serializer). Additive: one new nullable key, nothing renamed or retyped. (P14.S2)
+- `api.md` — all four list surfaces accept an optional `recorded_by` **query filter** (`agent` | `human`, trimmed; blank/absent = no filter — legacy `NULL` rows are not selectable); an unknown value is 400 `recorded_by must be one of: agent, human`, the same string capture returns. (P14.S2)
+- `frontend.md` — the dashboard's feedback list gains `recorded_by` as a **URL-driven filter only** (`/feedback?recorded_by=agent`, preserved across filter submit and pagination); no new rendered form control (the visible chip stays design-cowork territory), plus one "Recorded by" row in the record detail page's metadata list. (P14.S2)
 - `decisions.md` — **D-P14-1**: the agent/human marker is a first-class nullable indexed `recorded_by` column with a closed two-value vocabulary and `NULL` = unspecified (never backfilled, never inferred, not PATCH-able); **D-P14-2**: MCP capture defaults `recorded_by` to `"agent"` while REST defaults to `NULL`, with the transport-specific default living in `normalize_mcp_payload` and `_normalize_capture_payload` staying transport-neutral. (P14.S1)
 
 ## Open Questions

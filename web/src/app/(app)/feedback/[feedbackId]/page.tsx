@@ -224,6 +224,11 @@ export default async function FeedbackDetailPage({
               <Field label={FEEDBACK.detail.fields.channel}>
                 {record.channel}
               </Field>
+              {/* WHO recorded it (agent | human), vs the trigger below, which is
+                  WHY. `null` = unspecified, rendered as the empty dash. */}
+              <Field label={FEEDBACK.detail.fields.recordedBy}>
+                {record.recorded_by}
+              </Field>
               <Field label={FEEDBACK.detail.fields.triggerType}>
                 {record.trigger_type}
               </Field>

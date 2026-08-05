@@ -140,6 +140,8 @@ class FeedbackQueryFilters:
     end_ingested_at: datetime | None = None
     source_product: str | None = None
     source_integration: str | None = None
+    #: ``agent`` | ``human``; ``None`` means *no filter* (never "unspecified rows").
+    recorded_by: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
     user_id: str | None = None

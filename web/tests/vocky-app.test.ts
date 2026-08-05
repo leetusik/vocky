@@ -421,6 +421,8 @@ const FEEDBACK: VockyFeedback = {
   conversation_id: null,
   session_id: null,
   user_id: null,
+  // WHO recorded it, orthogonal to `trigger_type` (WHY). `null` = unspecified.
+  recorded_by: "agent",
   trigger_type: "dislike",
   trigger_message: null,
   trigger_metadata: {},
@@ -459,6 +461,8 @@ describe("listFeedback", () => {
       q: "결제 오류",
       project_id: PROJECT.id,
       feedback_value: 2,
+      // URL-driven only: no rendered control, but it must reach vocky.
+      recorded_by: "agent",
       // Blank/undefined must be OMITTED, not sent: vocky 400s on a blank `tag`
       // or `cursor`, and a GET filter form submits its empty fields.
       tag: "",
@@ -470,7 +474,8 @@ describe("listFeedback", () => {
     // decodes it back) and one layer of percent-encoding for the Korean.
     expect(lastCall().url).toBe(
       "http://vocky.test:8000/app/feedback" +
-        `?q=%EA%B2%B0%EC%A0%9C+%EC%98%A4%EB%A5%98&project_id=${PROJECT.id}&feedback_value=2`,
+        `?q=%EA%B2%B0%EC%A0%9C+%EC%98%A4%EB%A5%98&project_id=${PROJECT.id}&feedback_value=2` +
+        "&recorded_by=agent",
     );
   });
 

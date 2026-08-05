@@ -60,6 +60,7 @@ const PARAM_KEYS = [
   "end_ingested_at",
   "source_product",
   "source_integration",
+  "recorded_by",
   "conversation_id",
   "session_id",
   "user_id",
@@ -122,14 +123,21 @@ function readActiveParams(
 /**
  * URL strings → the typed client query.
  *
- * The four non-string params are NARROWED, not validated: vocky owns the rules
- * (`feedback_value` ∈ {1,2}, `limit` ∈ 1–100, the two enum filters) and answers
+ * The five non-string params are NARROWED, not validated: vocky owns the rules
+ * (`feedback_value` ∈ {1,2}, `limit` ∈ 1–100, the three enum filters) and answers
  * 400, which `loadFeedback` turns into the not-found page. Re-checking them here
  * would fork the UI from the backend's validation — the same reason the BFF's
  * credential routes let vocky own the password rules.
  */
 function toQuery(active: ActiveParams): VockyFeedbackQuery {
-  const { feedback_value, limit, target_type, trigger_type, ...text } = active;
+  const {
+    feedback_value,
+    limit,
+    target_type,
+    trigger_type,
+    recorded_by,
+    ...text
+  } = active;
   return {
     ...text,
     ...(feedback_value === undefined
@@ -142,6 +150,11 @@ function toQuery(active: ActiveParams): VockyFeedbackQuery {
     ...(trigger_type === undefined
       ? {}
       : { trigger_type: trigger_type as VockyFeedbackQuery["trigger_type"] }),
+    // URL-driven only (no rendered control): `?recorded_by=agent` splits
+    // agent-recorded from human-recorded feedback. Blank ⇒ absent ⇒ no filter.
+    ...(recorded_by === undefined
+      ? {}
+      : { recorded_by: recorded_by as VockyFeedbackQuery["recorded_by"] }),
   };
 }
 

@@ -234,6 +234,13 @@ export interface VockyFeedback {
   comment: string | null;
   channel: string | null;
   source_integration: string | null;
+  /**
+   * WHO recorded the capture: `"agent"` | `"human"` | `null`. Orthogonal to
+   * `trigger_type` (WHY it happened). `null` means UNSPECIFIED — every pre-P14
+   * row and every caller that stayed silent — so the split is three-way, not
+   * two-way; vocky never backfills or infers it.
+   */
+  recorded_by: string | null;
   conversation_id: string | null;
   session_id: string | null;
   user_id: string | null;
@@ -334,6 +341,11 @@ export interface VockyFeedbackQuery {
   /** 1 = like, 2 = dislike. Anything else is a 400. */
   feedback_value?: 1 | 2;
   channel?: string;
+  /**
+   * Agent-vs-human split. Anything else is a 400; omitting it means NO FILTER,
+   * never "only unspecified rows" — legacy `null` rows cannot be selected for.
+   */
+  recorded_by?: "agent" | "human";
   target_type?: "message" | "conversation" | "surface";
   trigger_type?:
     "like" | "dislike" | "comment" | "rating" | "survey" | "manual" | "other";

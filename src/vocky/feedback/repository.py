@@ -590,6 +590,8 @@ class FeedbackRepository:
             statement = statement.where(
                 FeedbackEventModel.source_integration == filters.source_integration
             )
+        if filters.recorded_by is not None:
+            statement = statement.where(FeedbackEventModel.recorded_by == filters.recorded_by)
         if filters.conversation_id is not None:
             statement = statement.where(
                 FeedbackEventModel.conversation_id == filters.conversation_id

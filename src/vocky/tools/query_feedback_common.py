@@ -14,6 +14,7 @@ from vocky.feedback import (
     FeedbackEventRecord,
     FeedbackListCursor,
 )
+from vocky.recorded_by import RecordedByValidationError, normalize_recorded_by
 from vocky.trigger import TriggerTypeValidationError, normalize_trigger_type
 
 DEFAULT_LIST_LIMIT = 50
@@ -76,6 +77,22 @@ def normalize_trigger_type_filter(value: str | None) -> str | None:
     try:
         return normalize_trigger_type(value)
     except TriggerTypeValidationError as exc:
+        raise FeedbackQueryValidationError(str(exc)) from exc
+
+
+def normalize_recorded_by_filter(value: str | None) -> str | None:
+    """Normalize and validate an optional recorded-by read filter.
+
+    Delegates to :func:`vocky.recorded_by.normalize_recorded_by` so the read side
+    shares one vocabulary (``ALLOWED_RECORDED_BY``) and one error string with the
+    capture side. A blank value collapses to *no filter*; ``None`` never means
+    "only unspecified rows" — legacy ``NULL`` rows are simply unfilterable, by
+    design (the marker is never inferred or backfilled).
+    """
+
+    try:
+        return normalize_recorded_by(value)
+    except RecordedByValidationError as exc:
         raise FeedbackQueryValidationError(str(exc)) from exc
 
 
@@ -168,6 +185,7 @@ def serialize_record(record: FeedbackEventRecord) -> dict[str, object]:
         "comment": record.comment,
         "channel": record.channel,
         "source_integration": record.source_integration,
+        "recorded_by": record.recorded_by,
         "conversation_id": record.conversation_id,
         "session_id": record.session_id,
         "user_id": record.user_id,

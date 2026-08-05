@@ -21,6 +21,7 @@ from vocky.tools.query_feedback_common import (
     normalize_feedback_value,
     normalize_limit,
     normalize_optional_text,
+    normalize_recorded_by_filter,
     normalize_tag,
     normalize_target_type_filter,
     normalize_trigger_type_filter,
@@ -81,6 +82,19 @@ def test_invalid_trigger_type_filter_is_rejected() -> None:
         match="trigger_type must be one of: like, dislike, comment, rating, survey, manual, other",
     ):
         normalize_trigger_type_filter("thumbs-up")
+
+
+def test_recorded_by_filter_accepts_the_closed_vocabulary_and_rejects_the_rest() -> None:
+    assert normalize_recorded_by_filter(" agent ") == "agent"
+    assert normalize_recorded_by_filter("human") == "human"
+    # Absent or blank means "no filter", never "only unspecified rows".
+    assert normalize_recorded_by_filter(None) is None
+    assert normalize_recorded_by_filter("   ") is None
+    with pytest.raises(
+        FeedbackQueryValidationError,
+        match="recorded_by must be one of: agent, human",
+    ):
+        normalize_recorded_by_filter("robot")
 
 
 def test_invalid_cursor_is_rejected() -> None:
