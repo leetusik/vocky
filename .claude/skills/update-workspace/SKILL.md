@@ -58,7 +58,7 @@ Apply (after the operator approves):
 
 Verify:
 
-8. The installer's update already ran `validate` / `rebuild` (or `next` for a repo without the docs subsystem) and printed the result. Run `python3 scripts/workflow.py next` to confirm the current state under the refreshed engine. If this repo tunes the executor tiers via a repo-root `executors.toml`, re-run `python3 scripts/workflow.py sync-agents` — the update resets the `slice-executor-*` agent files to upstream defaults (`validate` warns while they drift).
+8. The installer's update already ran `validate` / `rebuild` (or `next` for a repo without the docs subsystem) and printed the result. Run `python3 scripts/workflow.py next` to confirm the current state under the refreshed engine. If this repo tunes the executor tiers via a repo-root `executors.toml`, re-run `python3 scripts/workflow.py sync-agents` — the update resets the `slice-executor-*` agent files to upstream defaults (`validate` warns while they drift). **Coming from a pre-v23 workspace:** the `low` tier is retired (routing is two-tier now — `risk: low` goes to `slice-executor-mid`, everything else to `slice-executor-high`). The update flags the stale `.claude/agents/slice-executor-low.md` and `.codex/agents/slice-executor-low.toml` instead of deleting them, so remove both by hand, and drop any `[claude.low]` / `[codex.low]` block from `executors.toml` — `sync-agents` now rejects those sections.
 
 Report and clean up:
 

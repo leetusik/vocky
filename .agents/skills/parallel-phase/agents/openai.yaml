@@ -1,0 +1,6 @@
+interface:
+  display_name: "parallel-phase"
+  short_description: "Run a phase in parallel on its own branch and worktree, and integrate it back: PR, quiet-point gate, merge, deferred doc consolidation, teardown."
+  default_prompt: "Use the parallel-phase skill."
+policy:
+  allow_implicit_invocation: false

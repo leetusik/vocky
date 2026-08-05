@@ -13,7 +13,7 @@ Archiving is **manual and explicit** — never automatic. A passing review marks
 python3 scripts/workflow.py archive-all
 ```
 
-`archive-all` refuses unless every active phase is `done` with a passing review.
+`archive-all` refuses unless every active phase is `done` with a passing review — and, for a phase that ran in parallel mode, unless its deferred doc consolidation has landed too.
 
 **Rotate the done phases — partial sweep.** When only some phases are done, archive exactly those and leave the in-progress ones active:
 
@@ -27,4 +27,4 @@ python3 scripts/workflow.py rotate-backlog
 python3 scripts/workflow.py archive-phase <P>
 ```
 
-All three gate on the same rule: a phase must be `done` with a passing review to archive. Use `--force` (on `archive-all`/`archive-phase`) only for exceptional cleanup of an unfinished phase.
+All three gate on the same rule: a phase must be `done` with a passing review to archive. **A parallel-mode phase has one more gate:** the engine blocks it while `execution.consolidation` is still `"pending"` (`archive-phase` refuses, `archive-all` lists it, `rotate-backlog` leaves it active) — merge the branch, consolidate its docs on the default stream, and run `python3 scripts/workflow.py parallel-consolidated <P>` first; see the `parallel-phase` skill. Use `--force` (on `archive-all`/`archive-phase`) only for exceptional cleanup of an unfinished phase.

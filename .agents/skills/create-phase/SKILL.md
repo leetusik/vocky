@@ -39,5 +39,14 @@ Turn an operator request for new work into one or more phases — or a deferred 
 
       (`new-phase` already filled the phase id and captured-at timestamp.)
    3. Confirm `phase.md` links `intent.md` near the top (the engine added `_Intent: see [intent.md](intent.md)._`).
+   4. **Relay the parallel hint if `new-phase` printed one.** When another phase is already
+      `in_progress`, the engine prints a `hint:` line offering
+      `python3 scripts/workflow.py parallel-start P<N>` — surface it to the operator as a
+      **suggestion, never a default**: this phase can run on its own branch and worktree instead of
+      queueing behind the current one. **Now is the only moment to opt in** — `parallel-start`
+      requires the phase to still be `planned`, so it must run before any decomposition or execution.
+      If the operator says yes, run it and report the branch and worktree it created; the phase is
+      then driven from a session opened in that worktree. See the `parallel-phase` skill for the full
+      lifecycle (work, branch review, PR, merge, deferred doc consolidation, teardown).
 
 5. **STOP and report.** List the phases created — IDs, names, and `intent.md` paths — or the deferred job created. Do **not** decompose into middle slices, write any slice's `plan.md`, or implement code. Decomposition is the `DECOMP` slice's own job, later, when the operator executes the phase (`/do-next-slice`, `/do-whole-phase`) or explicitly tells you to.

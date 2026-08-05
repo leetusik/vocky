@@ -1,0 +1,74 @@
+# Agentic workspace CI.
+#
+# One generic workflow that works unchanged in the upstream bootstrap repo and in
+# every adopting workspace: the checks that only make sense upstream are guarded on
+# the presence of the files they need (installer/, tests/), so a repo that adopted
+# the workspace -- which has neither -- simply skips them.
+#
+# It is seeded once by the installer and never overwritten afterwards: this is your
+# CI file, edit it freely.
+name: workspace-ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: workflow state integrity
+        run: python3 scripts/workflow.py validate
+
+      - name: installer artifact parity (upstream only)
+        run: |
+          if [ -f installer/build.py ]; then
+            python3 installer/build.py --check
+          else
+            echo "no installer/ in this repo -- skipping artifact parity check"
+          fi
+
+      - name: retrofit smoke (upstream only)
+        run: |
+          if [ -f tests/retrofit_smoke.sh ]; then
+            bash tests/retrofit_smoke.sh
+          else
+            echo "no tests/retrofit_smoke.sh in this repo -- skipping retrofit smoke"
+          fi
+
+  # Quiet-point gate for parallel phase execution: a pull request from a
+  # phase/P<N>-<slug> branch is mergeable only when that phase is done + review
+  # pass on its own branch AND the default stream is quiet. GATE CLOSED exits
+  # non-zero, so this check goes red; whether that blocks the merge is the repo's
+  # branch-protection choice.
+  parallel-gate:
+    name: parallel quiet-point gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'phase/')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The phase branch's own tip (not the PR merge commit) is what the gate
+          # must read, plus enough history to resolve the base branch.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: quiet point for the phase branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -eu
+          # phase/P<N>-<slug> -> P<N>  (the branch format parallel-start writes)
+          phase=$(printf '%s\n' "$HEAD_REF" | sed -n 's|^phase/\(P[0-9][0-9]*\)-.*$|\1|p')
+          if [ -z "$phase" ]; then
+            echo "head branch '$HEAD_REF' is not phase/P<N>-<slug> -- nothing to gate"
+            exit 0
+          fi
+          git fetch --no-tags --quiet origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" || true
+          echo "gating $phase: branch=HEAD ($HEAD_REF) main=origin/$BASE_REF"
+          python3 scripts/workflow.py parallel-gate "$phase" \
+            --branch-ref HEAD --main-ref "origin/$BASE_REF"

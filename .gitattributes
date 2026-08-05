@@ -1,0 +1,24 @@
+# Merge policy for this agentic workspace's machine-written files.
+#
+# works/events.jsonl is an append-only log, so both sides of a merge are always
+# wanted: `union` is a built-in git merge driver and needs no per-clone config.
+works/events.jsonl merge=union
+
+# The files below are GENERATED -- never hand-authored -- from the folders that
+# hold the real truth (works/phases/**, works/deferred/**, docs/versions/**):
+#
+#   works/state.json   works/index.json   works/backlog.md   works/deferred.md
+#   docs/current/*.md
+#
+# They deliberately get NO custom merge driver. A driver (merge=ours and friends)
+# only works where `git config merge.<driver>.driver` has been set in that clone,
+# so it does not travel with the repo and would silently fall back to a normal
+# merge for everyone else -- exactly where correctness would matter most.
+#
+# Instead: regenerate, don't merge. When a phase-branch merge conflicts in any of
+# them, take EITHER side to complete the merge and then run
+#
+#   python3 scripts/workflow.py parallel-merge-finish
+#
+# (or `python3 scripts/workflow.py rebuild`), which rewrites all of them from the
+# merged folders and reports what still needs post-merge doc consolidation.

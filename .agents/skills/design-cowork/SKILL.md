@@ -35,7 +35,7 @@ read-back — …`, with the `pending` window between them.
 
 ## Shape
 
-- **The design slice:** `--kind co-work --risk high`. Never `low` — nothing here is mechanical.
+- **The design slice:** `--kind co-work --risk high`. Never `low` — that tier is for a one-line edit or docs, and nothing here is either.
 - **A design slice never writes implementation code.** It ends at the landed design + SIGNOFF.
   **Implementation is always its own slice.**
 - **Big design → several design slices**, one per round, each with its own handoff and `pending`, and
@@ -101,13 +101,20 @@ good the design is. So spell the contract out in the handoff:
   superseded piecemeal.
 - **Line 1 of every card file, exactly:**
   ```html
-  <!-- @dsCard group="Components" name="Button" subtitle="Primary / secondary / ghost · 3 sizes" viewport="960x600" -->
+  <!-- @dsCard group="P48.S1 · Components" name="Button" subtitle="Primary / secondary / ghost · 3 sizes" viewport="960x600" -->
   ```
   `group` plus the file path are what the pane needs; `name`, `subtitle`, and `viewport` are what make a
   card legible. The `subtitle` is where a card says what it is for.
 - **Name the `group`s** you want as the pane's headings — `Foundations`, `Components`, the app's own
   surfaces, `Landing`, `States`. Grouping is organization, not a design decision: asking for shape is how
   you keep a round reviewable without deciding anything in it.
+- **Prefix every group — and every canvas frame — with the round's slice ID** (`P48.S1 · Components`;
+  frame `P48.S1 · Button states`). Rounds accumulate in one design project, and a bare `Components` is
+  unfindable three rounds later; the slice ID is the round's address, so it goes first in the name.
+- **The round under review sorts to the top.** Require in the handoff that this round's groups lead the
+  pane's group list — a sort-first marker on the group names (e.g. `⏳ P48.S1 · Components`) is the
+  usual means — and that superseded rounds lose the marker: each new handoff names the previous round's
+  groups to demote. The operator must land on the to-review cards on opening the pane, not dig for them.
 - **Ask for a `tokens.css`** the cards link, carrying the round's real values, so the pane compiles the
   foundations from it. **Not your mirror — the palette *is* the design, so Claude Design authors it.**
 - **The definition of done is "the cards appear in the pane,"** not "the files exist."
