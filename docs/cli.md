@@ -218,7 +218,7 @@ curl -X POST "http://127.0.0.1:8000/app/projects/<project-id>/credentials" \
 # -> 201 { "credential": { "project_id": "<project-id>", ... }, "key": "vk_..." }
 ```
 
-Store the `vk_…` key as a secret in the product backend. It is the credential for `/api/*` capture/read and `/mcp` — **not** the session token.
+Store the `vk_…` key as a secret in the product backend. It is the credential for `/api/*` capture/read and `/mcp` — **not** the session token. It is also **not capture-only**: within its scope it can capture, read, PATCH, and delete feedback, and an org key's scope is every project in the org. Mint a **project-bound** key for anything that runs outside your own control (an agent runtime, a third-party product) so the blast radius stays one project.
 
 ### 2b. (Optional) More projects — get-or-create
 
@@ -264,12 +264,15 @@ curl -X POST "http://127.0.0.1:8000/api/feedback" \
     "channel": "web",
     "user_id": "user_123",
     "trigger_type": "comment",
-    "target_type": "surface"
+    "target_type": "surface",
+    "recorded_by": "human"
   }'
 # -> 202 { "request_id": "...", "accepted_at": "...", "status": "accepted" }
 ```
 
 `202` means the job was accepted for background persistence; the record becomes queryable once the worker writes it. `message` and `source.product` are required; every other field is optional (see `docs/current/experience.md` for the full field set). A missing/invalid/revoked key → `401`.
+
+**Marking who recorded it.** The optional `recorded_by` field takes `agent` or `human` and nothing else (anything else → `400 recorded_by must be one of: agent, human`). Omitting it stores `null` — *unspecified*, not *human*. `vocky capture` has no marker flag, so CLI captures are always unspecified; when the marker matters, send it on the raw REST body above or capture over `/mcp`, which defaults it to `agent` (see below). It answers *who recorded this*, separately from `trigger_type`'s *why capture happened*.
 
 **Choosing the destination project with an org key (P10).** A project key always captures into its own project. With an **org key**, add an optional `project` **name** to the body — get-or-created under your own org, defaulting to `"default"` (the project signup already made you) when omitted:
 
@@ -301,13 +304,20 @@ curl "http://127.0.0.1:8000/app/feedback?q=pricing&limit=50" \
 
 A product's own admin panel can instead read+manage its project's feedback with the **same `vk_` key** over `/api/project/feedback`, and a product user's own "my feedback" view uses the scoped `GET /api/feedback?user_id=…&source_product=…`. See `docs/current/experience.md`.
 
+Every read surface returns `recorded_by` in the record (`"agent"` / `"human"` / `null` for unspecified) and accepts an optional `recorded_by=agent|human` query filter, so agent-recorded feedback can be listed apart from human-recorded feedback (`curl "…/app/feedback?recorded_by=agent" -H "Authorization: Bearer <session-token>"`). Omitting the filter returns every record regardless of marker.
+
 ## Agent-decided write-only capture over MCP
 
 When the product is an **AI agent**, the agent can decide at its own judgement to capture feedback through vocky's **write-only** MCP endpoint instead of calling `/api/*` directly. Point the agent's MCP client at `<base-url>/mcp` and authenticate with the **same `vk_` key** you minted above (either scope works) — the whole endpoint (including the `initialize` handshake) requires it.
 
 - There is exactly **one** tool: `capture_feedback` (write-only; there are no read/query tools).
-- Its inputs are the same capture fields as REST **minus** `attachment_ids`, with `source` the only nested object. There is no `project_id` parameter — a **project key** captures into its own project, and an **org key** may name a destination with the optional `project` argument (get-or-created under its org, defaulting to `"default"`).
+- Its inputs are the same capture fields as REST **minus** `attachment_ids`, `recorded_by` included, with `source` the only nested object. There is no `project_id` parameter — a **project key** captures into its own project, and an **org key** may name a destination with the optional `project` argument (get-or-created under its org, defaulting to `"default"`).
 - A successful call returns the same capture receipt as REST (`{request_id, accepted_at, status: "accepted"}`) — the record becomes queryable after the worker persists it.
+- **`recorded_by` defaults to `agent` here** — `/mcp` is the agent-runtime surface, so a call that omits the field is stored as `agent`, and an agent that never learns the argument still produces correctly marked data. Pass `"human"` explicitly when relaying a human-recorded event; an explicit value always wins. A rejected value comes back as a tool error result carrying the same `recorded_by must be one of: agent, human` message, not as an HTTP status.
+
+Put the user's own words (or sentiment, verbatim — Korean included) in `message` and the agent's note about them — what happened, why it was recorded — in `comment`; both are free text, and both are covered by `/app/feedback?q=` / `vocky feedback search`. Treat `comment` as required for agent capture even though the schema leaves it optional.
+
+The `vk_` key you give an agent runtime is **not** capture-only — within its scope it can also read, PATCH, and delete feedback — so mint a **project-bound** key (`vocky keys mint --project <project-id>`) for it and never an org key.
 
 Use MCP capture only when an agent runtime is intentionally deciding to record voice-of-customer feedback; explicit human UI actions (like/dislike buttons, page/widget feedback) should still go through `/api/*` REST capture. The full MCP client shape and tool inputs are documented in `docs/current/experience.md` ("Agent Capture Over MCP").
 

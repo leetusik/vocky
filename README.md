@@ -111,7 +111,8 @@ curl -X POST "http://127.0.0.1:8000/api/feedback" \
     "channel": "web",
     "user_id": "user_123",
     "trigger_type": "comment",
-    "target_type": "surface"
+    "target_type": "surface",
+    "recorded_by": "human"
   }'
 #    -> 202 {"request_id": "...", "accepted_at": "...", "status": "accepted"}
 
@@ -263,6 +264,8 @@ The Starlette host app exposes:
 
 `user_id` is optional caller-owned identity for the product user associated with the event. It does not replace `session_id`, which remains browser, runtime, or session correlation. Trigger fields explain why capture happened: use `trigger_type` for `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, or `other`; use `trigger_message` for button text, prompt copy, survey question, or action label; and use `trigger_metadata` for structured details such as control IDs, rating scale, selected option, or redacted runtime context.
 
+`recorded_by` answers the separate question of **who recorded the event**, orthogonal to the trigger fields' *why*. It is optional and accepts only `agent` (an AI agent runtime decided to record this) or `human` (an explicit human action such as a like/dislike button or a submitted form); anything else is rejected with `recorded_by must be one of: agent, human`. Omitting it stores `null`, meaning *unspecified* — never assume `null` means human, and note that every record captured before the marker existed reads back as `null`. The one inference is on `/mcp`, the agent surface, where an omitted value is stored as `agent`; REST and the CLI leave it `null`. The marker is capture-time provenance: it is not backfilled, not inferred from anything else, and not editable through Admin PATCH.
+
 For conversation or process context, send review-safe summaries, retrieved snippets, tool traces, prompt summaries, and redacted execution metadata. Do not send raw hidden chain-of-thought or private model reasoning.
 
 ## Access Modes
@@ -367,6 +370,7 @@ curl -X POST "http://127.0.0.1:8000/api/feedback" \
     "trigger_type": "comment",
     "trigger_message": "Pricing page feedback form",
     "trigger_metadata": {"form_id": "pricing-feedback", "placement": "footer"},
+    "recorded_by": "human",
     "target_type": "surface",
     "target_id": "pricing-page-feedback-button",
     "target_text": "Feedback",
@@ -397,6 +401,7 @@ async def main() -> None:
                 "session_id": "sess_123",
                 "user_id": "user_123",
                 "trigger_type": "like",
+                "recorded_by": "human",
             },
         )
         response.raise_for_status()
@@ -411,7 +416,20 @@ For client integration guidance, see [docs/current/experience.md](docs/current/e
 
 ## Agent Capture Over MCP (write-only)
 
-If your product is an AI agent, the agent can save feedback at its own judgement through vocky's **write-only** MCP endpoint instead of (or alongside) REST. Point the agent's MCP client at the project's `/mcp` URL and authenticate with the **same `vk_` project key** — the whole endpoint (the `initialize` handshake included) requires it. There is exactly one tool, `capture_feedback` (no read/query tools); its inputs are the same capture fields as REST minus `attachment_ids`. A successful call returns the same `{request_id, accepted_at, status: "accepted"}` receipt as REST. See [docs/current/experience.md](docs/current/experience.md) for a client example.
+If your product is an AI agent, the agent can save feedback at its own judgement through vocky's **write-only** MCP endpoint instead of (or alongside) REST. Point the agent's MCP client at the project's `/mcp` URL and authenticate with the **same `vk_` project key** — the whole endpoint (the `initialize` handshake included) requires it. There is exactly one tool, `capture_feedback` (no read/query tools); its inputs are the same capture fields as REST minus `attachment_ids`, `recorded_by` included. A successful call returns the same `{request_id, accepted_at, status: "accepted"}` receipt as REST. See [docs/current/experience.md](docs/current/experience.md) for a client example.
+
+**The agent-capture convention.** Both halves of an agent-recorded event are free text — vocky has no sentiment enum — and both go in fields that already exist:
+
+- **`message`** carries the user's own feedback or sentiment, verbatim where possible (a word such as `답답함` or `감사`, or a whole sentence). It is required and non-blank, and it is the voice of the customer — not a paraphrase.
+- **`comment`** carries the agent's note about that feedback: what happened, what the user was doing, why it was recorded. The schema leaves it optional so existing clients keep working, but an agent capture without it is one no reviewer can act on, so it is documented as required for agent capture.
+- **`recorded_by`** is the marker itself (`agent` / `human`), and `/mcp` defaults it to `agent` when the call omits it — an agent that never learns the argument still produces correctly marked data, and an explicit value always wins. REST does not infer it.
+- **`source.integration`** (e.g. `langchain-mcp`) stays what it always was: a free-text runtime hint, **not** the marker.
+
+Both `message` and `comment` sit inside the same substring-search expression, so an agent's sentiment *and* its note are searchable — Korean included — from the signed-in cross-project read (`/app/feedback?q=`, or `vocky feedback search`) with no extra setup.
+
+**Key scope, stated plainly.** A `vk_` key is **not** capture-only: within its scope it can capture, read, PATCH, and delete feedback, and an org-level key spans every project in the org. When you put a key inside a third-party or agent runtime, mint a **project-bound** key (`vocky keys mint --project <project-id>`) so the blast radius is that one project, and never hand out an org key. Per-credential capture-only scopes are not implemented yet.
+
+The `/mcp` transport also enforces DNS-rebinding protection on the request `Host`: a public hostname must appear in `VOCKY_MCP_ALLOWED_HOSTS` or the call answers `421 Invalid Host header` regardless of the key. Non-browser MCP clients send no `Origin` header, so `VOCKY_MCP_ALLOWED_ORIGINS` usually needs no configuration.
 
 ## Read Back Feedback
 
@@ -428,6 +446,8 @@ The worker persists accepted jobs in the background. There are four scoped, auth
 - **Signed-in cross-project read** — search across all your projects with your session token over `/app/feedback`, or from the terminal with `vocky feedback list` / `vocky feedback search "<query>"` (Korean-safe substring).
 - **Admin REST** — self-hosted operator review under `/admin/api/*`.
 
+Every one of these read surfaces returns `recorded_by` in the record body (`"agent"`, `"human"`, or `null` for unspecified) and accepts an optional `?recorded_by=agent|human` filter, so agent-recorded feedback can be separated from human-recorded feedback on any of them. The filter is exact-match; omitting it returns every record regardless of marker, and there is no filter value that selects only the unspecified (`null`) rows.
+
 ## Admin REST Surface
 
 The Admin REST API is separate from the public capture/read API and is intended for self-hosted human operators, scripts, and dashboards. It can query and manage all feedback records, including likes, dislikes, comments, caller-owned user identity, trigger context, target context, metadata, messages, and used context.
@@ -443,7 +463,7 @@ Implemented endpoints:
 
 `VOCKY_ADMIN_AUTH_TOKEN` is **required**: without it, every `/admin/api/*` request answers `503` (fails closed — the surface is never openly reachable). Once configured, Admin REST requests send `Authorization: Bearer <VOCKY_ADMIN_AUTH_TOKEN>`. This is a **separate** boundary from the `vk_` ingest credential that guards `/api/*`.
 
-Admin REST patch writes apply the same channel category rule as capture: blank clears to `null`, and non-null values must be `web`, `mobile`, or `support`. Admin list filters exact-match stored channel text, `user_id`, `target_type`, and `trigger_type`.
+Admin REST patch writes apply the same channel category rule as capture: blank clears to `null`, and non-null values must be `web`, `mobile`, or `support`. Admin list filters exact-match stored channel text, `user_id`, `target_type`, `trigger_type`, and `recorded_by`. `recorded_by` is capture-time provenance and is deliberately **not** patchable — Admin edits can review a record, not restate who recorded it.
 
 ## Documentation
 

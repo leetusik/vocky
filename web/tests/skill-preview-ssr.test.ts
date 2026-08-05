@@ -38,7 +38,7 @@ describe("SkillPreview server HTML", () => {
 
   it("ships the WHOLE file, through its last section", () => {
     expect(html).toContain("# vocky-feedback");
-    expect(html).toContain("## 7. Report back");
+    expect(html).toContain("## 8. Report back");
     expect(html).toContain(
       "Never claim a capture succeeded without a `202` response",
     );

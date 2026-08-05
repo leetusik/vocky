@@ -294,6 +294,53 @@ Full evidence in `slices/P14.S3/result.md`. The durable lessons:
   `workflow.py validate` passed, `make smoke` passed. Stack left healthy, ad-hoc drivers left in the
   session scratchpad (never committed), the ad-hoc :8011 server stopped.
 
+### Landed in `P14.S4` — the public contract (read this before REVIEW)
+
+Docs only; no `src/` change. Full detail in `slices/P14.S4/result.md`.
+
+- **`skills/vocky-feedback/SKILL.md` gained one new section and grew from 7 numbered steps to 8.**
+  The new **step 3, "What goes in which field"**, sits *before* the three transport paths on purpose
+  — the field mapping decides the payload for all of them — so Path A/B/C shifted to 4/5/6, the error
+  table to 7, and "Report back" to 8. The two in-text `see the table in step 6` references were
+  repointed. Content: D3's mapping table (sentiment verbatim → `message`; the agent's note →
+  `comment`, "treat as required whenever an agent is the one recording"; `recorded_by` the marker;
+  `source.integration` explicitly *not* the marker), the `null` = *unspecified* rule, the per-transport
+  default (`/mcp` ⇒ `agent`, REST/CLI ⇒ `null`, explicit always wins), and a `json` payload example.
+- **The renumber broke exactly one assertion:** `web/tests/skill-preview-ssr.test.ts:41` pins the
+  **last section heading** (`## 7. Report back` → `## 8. Report back`) as its "the whole file shipped,
+  nothing truncated" probe. One line, no semantic change. **Any future SKILL.md section
+  insertion/renumbering hits this same line** — it is the SKILL.md analogue of S2's single exact-dict
+  assertion. The line/byte counts next to it are computed from the file at test time, so they never
+  need touching.
+- **Key-scope honesty (D4 item 3) landed in three places**, all saying the same thing: a `vk_` key is
+  **not** capture-only (capture + read + PATCH + DELETE within its scope; an org key spans every
+  project in the org), so mint a **project-bound** key for an agent runtime. SKILL.md step 1, README's
+  MCP section, `docs/cli.md` §2a + the MCP section. Phrased as current reality, not a promise —
+  "per-credential capture-only scopes are not implemented yet".
+- **A pre-existing SKILL.md bug was fixed**: the Path C self-hosting paragraph claimed an unlisted host
+  makes `/mcp` "401 regardless of the key". Per S3's live evidence it is **`421 Invalid Host header`**,
+  the check is on the **`Host`** header (not `Origin`), the default allowlist is
+  `127.0.0.1`/`localhost`/`[::1]`, and the key is never examined. The error table gained a `421` row
+  and a `recorded_by must be one of: agent, human` row (noting MCP returns that string as an
+  `isError` tool result, not an HTTP status — verified in `tools/capture_feedback.py`).
+- **S3's must-nots were honored.** `q` is mentioned only ever as `/app/feedback?q=` / `vocky feedback
+  search`; no admin/project/`GET /api/feedback` surface is shown with `q`. No CLI marker flag is
+  implied anywhere — SKILL.md Path A and `docs/cli.md` §4 both say plainly that `vocky capture` has no
+  such flag and lands `null`, and point at REST/`/mcp` when the marker matters.
+- **`docs/cli.md` is hand-maintained** — confirmed: nothing generates it (no reference in `Makefile`,
+  `scripts/`, or CI; it is not under `docs/current/`). Editing it directly is correct.
+- **Repo-root markdown is outside prettier's scope.** `web`'s `format:check` runs `prettier --check .`
+  **from `web/`**, so `README.md` and `docs/cli.md` are not checked (verified: both fail
+  `prettier --check` at `HEAD` too, pre-existing). Do **not** "fix" them — a reformat would be a
+  thousand-line unrelated diff. `web/public/SKILL.md` stays prettier-ignored for the parity gate.
+- **Gate state after S4:** `make test` **238 passed** (unchanged — docs only), `make check-skill-parity`
+  PASS, web `npm test` 78 passed / `typecheck` / `lint` / `format:check` clean,
+  `workflow.py validate` passed. Every JSON body edited in README/`docs/cli.md`/SKILL.md was parsed
+  with `json.loads`, and the README `httpx` example with `ast.parse`.
+- **For REVIEW:** the Doc impact list below was swept against everything P14 changed and gained six
+  lines (`experience.md`, `product.md`, `security.md`, `backend.md`, `decisions.md`, `qa.md`). The two
+  Open Questions above are unchanged and still want an operator answer.
+
 ### Constraints for every slice
 
 - **Additivity is the acceptance bar.** Every existing client — REST, MCP, CLI, dashboard — must keep working byte-for-byte when it never mentions `recorded_by`. The pydantic models ignore unknown fields, the column is nullable, the filter is absent-means-no-filter. If any existing test needs an assertion edit, stop and re-read the design.
@@ -345,6 +392,37 @@ _One line per durable-truth change; `P14.REVIEW` consolidates these into doc ver
   send **no `Origin`**, so leaving `VOCKY_MCP_ALLOWED_ORIGINS` unset is correct. Local
   `docker-compose.yml` does not forward either variable to `app` (prod's `compose.prod.yml` does),
   so `/mcp` over a local stack's external hostname 421s — REST is unaffected. (P14.S3)
+- `experience.md` — the product integration guide is where the **public agent-capture contract** now
+  lives and is the doc most out of date: its capture field list (~L112–117), its capture examples, its
+  "Agent Capture Over MCP" section (~L198–232), and its end-user read filter list (~L243) all predate
+  `recorded_by`. Consolidate: the field mapping (user's sentiment verbatim → `message`; the agent's
+  note → `comment`, documented-required for agent capture; `source.integration` is a runtime hint,
+  **not** the marker), `recorded_by` on capture + every read + every list filter, `/mcp`'s `agent`
+  default vs REST's `null`, and `null` = *unspecified* (never *human*, never backfilled). (P14.S4)
+- `product.md` — the published `vocky-feedback` skill (product.md's "published artifact" bullet) now
+  also carries the agent-capture field mapping, the `recorded_by` marker with its per-transport
+  default, and a plain-spoken key-scope statement; its numbered walk grew from **7 to 8 steps** (the
+  new field-mapping step precedes the three capture paths). Still one canonical file + a byte-identical
+  served copy behind the CI parity gate. (P14.S4)
+- `security.md` — the public docs now **state the `vk_` key's real scope out loud**: a key is not
+  capture-only (capture + read + PATCH + DELETE within its scope, and an org key spans every project in
+  the org), so an agent runtime must be given a **project-bound** key, never an org key; per-credential
+  capture-only scopes remain unimplemented (the deferred D-P3-2 revisit, D4 item 3). Said in SKILL.md,
+  README, and `docs/cli.md`. (P14.S4)
+- `backend.md` — new shared validator module **`src/vocky/recorded_by.py`** (`ALLOWED_RECORDED_BY`,
+  `RecordedByValidationError`, `normalize_recorded_by`), mirroring `trigger.py`; the transport-specific
+  default lives in `capture.normalize_mcp_payload` (`MCP_DEFAULT_RECORDED_BY`) while
+  `_normalize_capture_payload` stays transport-neutral; the MCP tool gained an explicit flat
+  `recorded_by` parameter, and `query_feedback_common.normalize_recorded_by_filter` delegates to the
+  same module on the read side. (sweep gap from S1/S2, filed by P14.S4)
+- `decisions.md` — **D-P14-3**: `comment` is **documented-required, not server-enforced**, for agent
+  capture (enforcing it would 400 every existing client that omits it; the defensible future shape is
+  "required *when* `recorded_by == agent`"), and the **CLI deliberately carries no marker flag** on
+  either the write or the read side — `vocky capture` lands `null` and the public docs point at REST or
+  `/mcp` when the marker matters, rather than widening the CLI. (P14.S4)
+- `qa.md` — `web/tests/skill-preview-ssr.test.ts` pins the **last section heading of `SKILL.md`** as its
+  no-truncation probe, so any section added to or renumbered in the skill must update that one line
+  (the neighbouring line/byte counts are computed from the file and never need touching). (P14.S4)
 - `decisions.md` — **D-P14-1**: the agent/human marker is a first-class nullable indexed `recorded_by` column with a closed two-value vocabulary and `NULL` = unspecified (never backfilled, never inferred, not PATCH-able); **D-P14-2**: MCP capture defaults `recorded_by` to `"agent"` while REST defaults to `NULL`, with the transport-specific default living in `normalize_mcp_payload` and `_normalize_capture_payload` staying transport-neutral. (P14.S1)
 
 ## Open Questions
