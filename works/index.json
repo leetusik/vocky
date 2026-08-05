@@ -1,7 +1,20 @@
 {
-  "active_phases": [],
+  "active_phases": [
+    {
+      "id": "P14",
+      "name": "Public agent feedback: agent-recorded VoC capture",
+      "objective": "Let third-party AI agents publicly record free-text user feedback (sentiment plus note) through the existing capture surfaces (MCP and REST), with a first-class agent-vs-human marker, documented for public adoption.",
+      "status": "planned",
+      "order": 1,
+      "path": "works/phases/active/P14",
+      "review_status": "pending",
+      "current_slice": "P14.DECOMP",
+      "slice_count": 2,
+      "done_slice_count": 0
+    }
+  ],
   "deferred_open_count": 7,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 1,
-  "last_rebuilt_at": "2026-08-05T14:30:54+09:00"
+  "last_rebuilt_at": "2026-08-05T14:34:38+09:00"
 }

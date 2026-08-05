@@ -5,15 +5,22 @@
 
 ## Pointer
 
-- Current phase: `none`
-- Current slice: `none`
-- Next slice: `none`
+- Current phase: `P14`
+- Current slice: `P14.DECOMP`
+- Next slice: `P14.REVIEW`
 - Waiting on operator: `none`
 - Open deferred jobs: `7`
-- Rebuilt at: `2026-08-05T14:30:54+09:00`
+- Rebuilt at: `2026-08-05T14:34:38+09:00`
 
 ## Active Phases
 
 | Phase | Status | Review | Name | Current Slice | Path |
 |---|---|---|---|---|---|
-| - | - | - | - | - | - |
+| [ ] `P14` | `planned` | `pending` | Public agent feedback: agent-recorded VoC capture | `P14.DECOMP` | `works/phases/active/P14` |
+
+## Phase P14: Public agent feedback: agent-recorded VoC capture
+
+| Slice | Status | Name | Kind | Path |
+|---|---|---|---|---|
+| [ ] `P14.DECOMP` | `todo` | decompose phase | `decomposition` | `works/phases/active/P14/slices/P14.DECOMP` |
+| [ ] `P14.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P14/slices/P14.REVIEW` |
