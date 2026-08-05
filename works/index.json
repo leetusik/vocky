@@ -1,68 +1,7 @@
 {
-  "active_phases": [
-    {
-      "id": "P6",
-      "name": "Landing Page, Webpage & Production Deploy",
-      "objective": "Build the public landing page/site in the Next.js app using the hi2vi_web Claude design-gate workflow, and deploy to production at vocky.hi2vi.com — app on the oracle-cloud box, nginx via edge.",
-      "status": "done",
-      "order": 6,
-      "path": "works/phases/active/P6",
-      "review_status": "pass",
-      "current_slice": null,
-      "slice_count": 11,
-      "done_slice_count": 11
-    },
-    {
-      "id": "P10",
-      "name": "Accounts v2: orgs, org-level keys & default project",
-      "objective": "Restructure vocky's accounts plane into an explicit user -> org -> project model: the existing `tenants` row becomes the org in product-facing naming (no table rename), signup auto-provisions a `default` org and a `default` project, `projects` gains UNIQUE(tenant_id, name) plus get-or-create-by-name, and credentials become mintable at org level (`project_credentials.tenant_id` NOT NULL, `project_id` nullable) so one `vk_` key works across every project in the org — while today's project-bound keys keep their exact current semantics. Org creation beyond the default, member invites, and roles stay out of scope (deferred).",
-      "status": "done",
-      "order": 7,
-      "path": "works/phases/active/P10",
-      "review_status": "pass",
-      "current_slice": null,
-      "slice_count": 7,
-      "done_slice_count": 7
-    },
-    {
-      "id": "P11",
-      "name": "Frictionless onboarding: working install, env-var quickstart, agent skill on the landing",
-      "objective": "Make vocky's onboarding real end to end for a coding agent: ship an install path for the `vocky` CLI that actually runs from the landing page (publish to PyPI or serve a `curl | bash` installer), add the missing `VOCKY_API_TOKEN` so two environment variables are the whole agent contract alongside today's `VOCKY_BASE_URL`, publish a copyable and downloadable end-user `SKILL.md` on the landing behind a byte-parity CI gate, and correct the landing's untrue hero payload (top-level `source_product` -> nested `source.product`, and the non-existent `vk_live_` prefix). Any net-new landing section goes through a design-cowork gate; no new backend capture contract.",
-      "status": "done",
-      "order": 8,
-      "path": "works/phases/active/P11",
-      "review_status": "pass",
-      "current_slice": null,
-      "slice_count": 13,
-      "done_slice_count": 13
-    },
-    {
-      "id": "P12",
-      "name": "Production launch & hardening: bring-up, rate limits, CI tests, QA doc",
-      "objective": "Take vocky live, then close the operational gaps its own phases left open: run the operator-gated production bring-up at `vocky.hi2vi.com` using the artifacts P6 authored but deliberately never executed (compose topology, edge vhost, deploy/rollback scripts, CI chain — none has ever touched real infrastructure), then rate-limit the public `/auth/*` surface (deferred D5 — a Cloudflare rule or an in-process per-IP limiter, since the shared edge forbids `limit_req_zone`), add the CI test workflow the repo has never had (`.github/workflows/` holds only `deploy-production.yml`), write `docs/current/qa.md` (still the bootstrap v0001 placeholder after nine phases), decide the fate of the now-unreachable `/admin/api/*` surface and its `VOCKY_ADMIN_AUTH_TOKEN` box secret, and add Postgres backups plus basic log/metrics. Deploying only after P10 and P11 is deliberate: the accounts-v2 migration then lands on an empty schema instead of as a live cutover on prod data. Feature work and the deferred attachment GC (D3, which needs a scheduler that does not exist) stay out of scope.",
-      "status": "done",
-      "order": 9,
-      "path": "works/phases/active/P12",
-      "review_status": "pass",
-      "current_slice": null,
-      "slice_count": 9,
-      "done_slice_count": 9
-    },
-    {
-      "id": "P13",
-      "name": "Feedback email alerts over SMTP",
-      "objective": "When the worker persists a captured feedback event, send one plain-text email alert via SMTP to the account email of the owning org's owner (feedback -> project -> tenant -> owner member). SMTP transport is configured entirely from env (VOCKY_SMTP_*), reusing the SMTP account changple5 already uses in production; unconfigured SMTP means alerts are cleanly disabled, and a send failure is never allowed to duplicate or requeue an already-persisted feedback event. Recipient/preferences configurability is deliberately out of scope — this phase lands the default-on, owner-addressed alert only.",
-      "status": "done",
-      "order": 10,
-      "path": "works/phases/active/P13",
-      "review_status": "pass",
-      "current_slice": null,
-      "slice_count": 7,
-      "done_slice_count": 7
-    }
-  ],
+  "active_phases": [],
   "deferred_open_count": 7,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 1,
-  "last_rebuilt_at": "2026-08-04T17:23:05+09:00"
+  "last_rebuilt_at": "2026-08-05T14:12:14+09:00"
 }

@@ -1,0 +1,23 @@
+{
+  "phase_id": "P11",
+  "archived_at": "2026-08-05T14:12:12+09:00",
+  "archive_reason": "phase_review_passed",
+  "review_verdict": "pass",
+  "source_path": "works/phases/active/P11",
+  "archive_path": "works/phases/archived/20260805_141212_P11_frictionless_onboarding_working_install_env-var_quickstart_agent_skill_on_the_landing",
+  "slices": [
+    "P11.DECOMP",
+    "P11.S1",
+    "P11.S2",
+    "P11.S3",
+    "P11.S4",
+    "P11.S5",
+    "P11.DECOMP2",
+    "P11.S6",
+    "P11.S7",
+    "P11.S8",
+    "P11.S9",
+    "P11.S10",
+    "P11.REVIEW"
+  ]
+}

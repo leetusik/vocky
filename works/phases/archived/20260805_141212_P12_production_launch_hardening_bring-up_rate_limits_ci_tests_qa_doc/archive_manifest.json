@@ -1,0 +1,19 @@
+{
+  "phase_id": "P12",
+  "archived_at": "2026-08-05T14:12:12+09:00",
+  "archive_reason": "phase_review_passed",
+  "review_verdict": "pass",
+  "source_path": "works/phases/active/P12",
+  "archive_path": "works/phases/archived/20260805_141212_P12_production_launch_hardening_bring-up_rate_limits_ci_tests_qa_doc",
+  "slices": [
+    "P12.DECOMP",
+    "P12.S1",
+    "P12.S2",
+    "P12.S3",
+    "P12.S6",
+    "P12.S4",
+    "P12.S5",
+    "P12.S7",
+    "P12.REVIEW"
+  ]
+}

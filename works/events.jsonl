@@ -428,3 +428,8 @@
 {"ts": "2026-08-04T17:23:05+09:00", "type": "slice_status_changed", "slice": "P13.REVIEW", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-08-04T17:23:05+09:00", "type": "phase_reviewed", "phase": "P13", "verdict": "pass", "reviewer": "slice-executor-high"}
 {"ts": "2026-08-04T17:23:05+09:00", "type": "deferred_created", "deferred": "D8", "source": "P13.REVIEW"}
+{"ts": "2026-08-05T14:12:12+09:00", "type": "phase_archived", "phase": "P6", "archive_path": "works/phases/archived/20260805_141212_P6_landing_page_webpage_production_deploy"}
+{"ts": "2026-08-05T14:12:12+09:00", "type": "phase_archived", "phase": "P10", "archive_path": "works/phases/archived/20260805_141212_P10_accounts_v2_orgs_org-level_keys_default_project"}
+{"ts": "2026-08-05T14:12:12+09:00", "type": "phase_archived", "phase": "P11", "archive_path": "works/phases/archived/20260805_141212_P11_frictionless_onboarding_working_install_env-var_quickstart_agent_skill_on_the_landing"}
+{"ts": "2026-08-05T14:12:12+09:00", "type": "phase_archived", "phase": "P12", "archive_path": "works/phases/archived/20260805_141212_P12_production_launch_hardening_bring-up_rate_limits_ci_tests_qa_doc"}
+{"ts": "2026-08-05T14:12:12+09:00", "type": "phase_archived", "phase": "P13", "archive_path": "works/phases/archived/20260805_141212_P13_feedback_email_alerts_over_smtp"}
