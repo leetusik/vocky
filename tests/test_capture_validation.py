@@ -10,7 +10,9 @@ import pytest
 from vocky.capture import (
     CaptureFeedbackSourceInput,
     CaptureFeedbackValidationError,
+    McpCaptureFeedbackInput,
     RestCaptureFeedbackInput,
+    normalize_mcp_payload,
     normalize_rest_payload,
 )
 
@@ -263,6 +265,50 @@ def test_blank_identity_and_trigger_fields_normalize_to_none() -> None:
     assert normalized.payload.trigger_type is None
     assert normalized.payload.trigger_message is None
     assert normalized.payload.trigger_metadata == {}
+
+
+def _mcp_input(**overrides: object) -> McpCaptureFeedbackInput:
+    """Create a default raw MCP capture input for tests."""
+
+    data: dict[str, object] = {
+        "message": "답답함",
+        "source": CaptureFeedbackSourceInput(product="changple5", integration="langchain-mcp"),
+    }
+    data.update(overrides)
+    return McpCaptureFeedbackInput(**data)
+
+
+@pytest.mark.parametrize(
+    ("raw_recorded_by", "expected"),
+    [("agent", "agent"), (" human ", "human"), ("   ", None), (None, None)],
+)
+def test_rest_recorded_by_is_normalized(raw_recorded_by: str | None, expected: str | None) -> None:
+    normalized = normalize_rest_payload(make_input(recorded_by=raw_recorded_by))
+
+    assert normalized.payload.recorded_by == expected
+
+
+def test_invalid_recorded_by_is_rejected() -> None:
+    with pytest.raises(
+        CaptureFeedbackValidationError,
+        match="recorded_by must be one of: agent, human",
+    ):
+        normalize_rest_payload(make_input(recorded_by="robot"))
+
+
+@pytest.mark.parametrize(
+    ("raw_recorded_by", "expected"),
+    [(None, "agent"), ("  ", "agent"), ("human", "human"), (" agent ", "agent")],
+)
+def test_mcp_capture_defaults_recorded_by_to_agent(
+    raw_recorded_by: str | None,
+    expected: str,
+) -> None:
+    """``/mcp`` is the agent-runtime surface: silence means ``agent``, explicit wins."""
+
+    normalized = normalize_mcp_payload(_mcp_input(recorded_by=raw_recorded_by))
+
+    assert normalized.payload.recorded_by == expected
 
 
 def test_rest_payload_uses_shared_capture_normalization() -> None:

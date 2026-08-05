@@ -14,6 +14,7 @@ from vocky.accounts.types import ProjectCredentialRecord
 from vocky.channel import ChannelValidationError, normalize_channel_write
 from vocky.config import get_settings
 from vocky.feedback import CreateFeedbackEvent
+from vocky.recorded_by import RecordedByValidationError, normalize_recorded_by
 from vocky.trigger import TriggerTypeValidationError, normalize_trigger_type
 
 ALLOWED_TARGET_TYPES = frozenset({"message", "conversation", "surface"})
@@ -39,6 +40,7 @@ class BaseCaptureFeedbackInput(BaseModel):
     feedback_value: int | None = None
     comment: str | None = None
     channel: str | None = None
+    recorded_by: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
     user_id: str | None = None
@@ -212,6 +214,15 @@ def normalize_capture_trigger_type(value: str | None) -> str | None:
         raise CaptureFeedbackValidationError(str(exc)) from exc
 
 
+def normalize_capture_recorded_by(value: str | None) -> str | None:
+    """Normalize and validate a recorded_by marker from a capture transport."""
+
+    try:
+        return normalize_recorded_by(value)
+    except RecordedByValidationError as exc:
+        raise CaptureFeedbackValidationError(str(exc)) from exc
+
+
 def normalize_json_array(value: list[Any] | None, *, field_name: str) -> tuple[Any, ...]:
     """Normalize an optional JSON array field."""
 
@@ -277,6 +288,7 @@ def _normalize_capture_payload(raw: BaseCaptureFeedbackInput) -> NormalizedCaptu
         comment=normalize_optional_text(raw.comment),
         channel=normalize_capture_channel(raw.channel),
         source_integration=normalize_optional_text(raw.source.integration),
+        recorded_by=normalize_capture_recorded_by(raw.recorded_by),
         conversation_id=normalize_optional_text(raw.conversation_id),
         session_id=normalize_optional_text(raw.session_id),
         user_id=normalize_optional_text(raw.user_id),
@@ -304,10 +316,25 @@ def _normalize_capture_payload(raw: BaseCaptureFeedbackInput) -> NormalizedCaptu
     )
 
 
-def normalize_mcp_payload(raw: McpCaptureFeedbackInput) -> NormalizedCaptureFeedback:
-    """Normalize and validate a raw MCP capture payload."""
+#: What ``recorded_by`` means on an MCP capture that never states it. ``/mcp`` is
+#: by construction the agent-runtime surface — one write-only tool, no
+#: human-driven client — so the default *corrects* the record rather than
+#: guessing. REST is genuinely mixed and stays ``None`` (unspecified).
+MCP_DEFAULT_RECORDED_BY = "agent"
 
-    return _normalize_capture_payload(raw)
+
+def normalize_mcp_payload(raw: McpCaptureFeedbackInput) -> NormalizedCaptureFeedback:
+    """Normalize and validate a raw MCP capture payload.
+
+    Transport-specific behavior lives here, not in
+    :func:`_normalize_capture_payload`: an MCP caller that omits (or blanks)
+    ``recorded_by`` is stamped ``"agent"``; an explicit value always wins.
+    """
+
+    normalized = _normalize_capture_payload(raw)
+    if normalized.payload.recorded_by is None:
+        normalized.payload.recorded_by = MCP_DEFAULT_RECORDED_BY
+    return normalized
 
 
 def normalize_rest_payload(raw: RestCaptureFeedbackInput) -> NormalizedCaptureFeedback:

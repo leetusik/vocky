@@ -33,6 +33,7 @@ class FeedbackEventModel(Base):
         Index("ix_feedback_events_session_id", "session_id"),
         Index("ix_feedback_events_user_id", "user_id"),
         Index("ix_feedback_events_trigger_type", "trigger_type"),
+        Index("ix_feedback_events_recorded_by", "recorded_by"),
         Index("ix_feedback_events_target_type", "target_type"),
         Index("ix_feedback_events_tags_gin", "tags", postgresql_using="gin"),
         Index("ix_feedback_events_project_id", "project_id"),
@@ -50,6 +51,9 @@ class FeedbackEventModel(Base):
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     channel: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_integration: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: Capture-time provenance marker: ``agent`` | ``human`` | NULL (unspecified).
+    #: Never backfilled and never inferred; validated in ``vocky.recorded_by``.
+    recorded_by: Mapped[str | None] = mapped_column(Text, nullable=True)
     conversation_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     session_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     user_id: Mapped[str | None] = mapped_column(Text, nullable=True)

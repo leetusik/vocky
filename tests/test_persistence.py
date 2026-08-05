@@ -42,7 +42,7 @@ async def test_migration_applies_and_expected_indexes_exist(configured_database:
             )
         ).scalars().all()
 
-    assert migration_version == "20260728_1200"
+    assert migration_version == "20260805_1200"
     assert index_rows == [
         "ix_feedback_events_channel",
         "ix_feedback_events_conversation_id",
@@ -50,6 +50,7 @@ async def test_migration_applies_and_expected_indexes_exist(configured_database:
         "ix_feedback_events_feedback_value",
         "ix_feedback_events_ingested_at",
         "ix_feedback_events_project_id",
+        "ix_feedback_events_recorded_by",
         "ix_feedback_events_search_trgm",
         "ix_feedback_events_session_id",
         "ix_feedback_events_source_product",
@@ -59,6 +60,39 @@ async def test_migration_applies_and_expected_indexes_exist(configured_database:
         "ix_feedback_events_user_id",
         "pk_feedback_events",
     ]
+
+
+@pytest.mark.asyncio
+async def test_recorded_by_persists_and_defaults_to_null(configured_database: str) -> None:
+    """The agent marker survives the write path; an unmarked capture stays NULL."""
+
+    service = FeedbackService(get_session_maker())
+    marked = await service.create_feedback_event(
+        CreateFeedbackEvent(
+            message="답답함",
+            source_product="changple5",
+            recorded_by="agent",
+        )
+    )
+    unmarked = await service.create_feedback_event(
+        CreateFeedbackEvent(message="No marker", source_product="vocky-cli")
+    )
+
+    assert marked.recorded_by == "agent"
+    assert unmarked.recorded_by is None
+
+    async with get_engine().connect() as connection:
+        stored = (
+            await connection.execute(
+                text("SELECT id, recorded_by FROM feedback_events WHERE id = ANY(:ids)"),
+                {"ids": [marked.id, unmarked.id]},
+            )
+        ).mappings().all()
+
+    assert {row["id"]: row["recorded_by"] for row in stored} == {
+        marked.id: "agent",
+        unmarked.id: None,
+    }
 
 
 @pytest.mark.asyncio

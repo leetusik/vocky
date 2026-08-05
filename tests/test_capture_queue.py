@@ -104,6 +104,26 @@ async def test_queue_round_trip_preserves_attachment_ids() -> None:
     await redis_client.aclose()
 
 
+@pytest.mark.asyncio
+async def test_queue_round_trip_preserves_recorded_by() -> None:
+    redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    queue = CaptureQueue(redis_client)
+
+    await queue.enqueue_feedback(
+        CreateFeedbackEvent(
+            message="답답함",
+            source_product="changple5",
+            recorded_by="agent",
+        )
+    )
+    job = await queue.pop_job(timeout_seconds=1)
+
+    assert job is not None
+    assert job.payload.recorded_by == "agent"
+
+    await redis_client.aclose()
+
+
 def test_serialize_job_encodes_attachment_ids_as_strings() -> None:
     attachment_id = uuid4()
     job = CaptureJob(
@@ -160,6 +180,8 @@ def test_deserialize_job_defaults_missing_optional_added_fields() -> None:
     assert job.payload.trigger_metadata == {}
     # A job serialized before attachments existed deserializes to no attachments.
     assert job.payload.attachment_ids == ()
+    # Likewise a job serialized before the recorded_by marker existed: unspecified.
+    assert job.payload.recorded_by is None
 
 
 @pytest.mark.asyncio

@@ -442,3 +442,5 @@
 {"ts": "2026-08-05T14:52:34+09:00", "type": "slice_status_changed", "slice": "P14.DECOMP", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-08-05T14:52:45+09:00", "type": "deferred_created", "deferred": "D9", "source": "P14.DECOMP"}
 {"ts": "2026-08-05T14:52:49+09:00", "type": "deferred_created", "deferred": "D10", "source": "P14.DECOMP"}
+{"ts": "2026-08-05T14:53:28+09:00", "type": "slice_status_changed", "slice": "P14.S1", "old_status": "todo", "new_status": "in_progress"}
+{"ts": "2026-08-05T15:03:32+09:00", "type": "slice_status_changed", "slice": "P14.S1", "old_status": "in_progress", "new_status": "done"}

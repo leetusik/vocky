@@ -61,6 +61,9 @@ async def test_mcp_capture_feedback_enqueues_with_authenticating_project_id(
     assert init.serverInfo.name == "Vocky"
     # Write-only surface: exactly the one capture tool, no revived read tools.
     assert [tool.name for tool in tools.tools] == ["capture_feedback"]
+    # The agent marker is advertised in the tool schema (the flat tool signature is
+    # what MCP publishes — adding the field to the input model alone would not).
+    assert "recorded_by" in tools.tools[0].inputSchema["properties"]
 
     assert result.isError is False
     assert result.structuredContent is not None
@@ -74,5 +77,8 @@ async def test_mcp_capture_feedback_enqueues_with_authenticating_project_id(
     assert queued_job.payload.message == "The export flow is broken"
     assert queued_job.payload.source_product == "vocky-agent"
     assert queued_job.payload.feedback_value == 2
+    # The call above omits recorded_by: /mcp is the agent-runtime surface, so the
+    # normalizer stamps "agent" rather than leaving the row unspecified.
+    assert queued_job.payload.recorded_by == "agent"
 
     await redis_client.aclose()

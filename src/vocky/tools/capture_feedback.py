@@ -40,6 +40,7 @@ async def capture_feedback(
     feedback_value: int | None = None,
     comment: str | None = None,
     channel: str | None = None,
+    recorded_by: str | None = None,
     project: str | None = None,
     conversation_id: str | None = None,
     session_id: str | None = None,
@@ -72,6 +73,12 @@ async def capture_feedback(
     entirely. It is deliberately not routed through ``McpCaptureFeedbackInput``:
     the project is stamped onto the normalized payload after
     ``normalize_mcp_payload``, outside caller control.
+
+    ``recorded_by`` marks who recorded the event (``"agent"`` | ``"human"``). It
+    defaults to ``"agent"`` on this transport — ``/mcp`` is the agent-runtime
+    surface — so an agent that never learns the argument still produces correctly
+    marked data; pass ``"human"`` explicitly when relaying a human-recorded
+    event.
     """
 
     raw_payload = McpCaptureFeedbackInput(
@@ -80,6 +87,7 @@ async def capture_feedback(
         feedback_value=feedback_value,
         comment=comment,
         channel=channel,
+        recorded_by=recorded_by,
         conversation_id=conversation_id,
         session_id=session_id,
         user_id=user_id,

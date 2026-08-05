@@ -150,7 +150,12 @@ def test_org_credentials_migration_round_trip(test_database_url: str) -> None:
     with psycopg.connect(sync_url, autocommit=True) as connection:
         connection.execute(_TRUNCATE)
 
-    command.downgrade(config, "-1")
+    # Target the revision *before* org credentials (``20260728_1200``) by name
+    # rather than by ``"-1"``: this test exercises that one migration, so a
+    # relative step silently retargets itself onto whatever the current head is
+    # (P14 added ``20260805_1200`` on top). Everything above it is downgraded
+    # too, and the closing ``upgrade("head")`` puts the whole chain back.
+    command.downgrade(config, "20260716_1600")
 
     tenant_id, survivor_id, dead_id = uuid4(), uuid4(), uuid4()
     credential_id, feedback_id = uuid4(), uuid4()

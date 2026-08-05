@@ -64,6 +64,7 @@ def _serialize_payload(payload: CreateFeedbackEvent) -> dict[str, Any]:
         "comment": payload.comment,
         "channel": payload.channel,
         "source_integration": payload.source_integration,
+        "recorded_by": payload.recorded_by,
         "conversation_id": payload.conversation_id,
         "session_id": payload.session_id,
         "user_id": payload.user_id,
@@ -117,6 +118,11 @@ def _deserialize_payload(raw: dict[str, Any]) -> CreateFeedbackEvent:
         source_integration=(
             str(raw["source_integration"])
             if raw.get("source_integration") is not None
+            else None
+        ),
+        recorded_by=(
+            str(raw["recorded_by"])
+            if raw.get("recorded_by") is not None
             else None
         ),
         conversation_id=(

@@ -154,6 +154,43 @@ Per-slice rule: implementation slices append a one-line **Doc impact** note belo
 - `src/vocky/smoke.py` holds the in-tree reference capture payload (`vocky-smoke` / `make-smoke`) and asserts on the round-tripped record — worth extending in S3 only if it stays terse.
 - Keep test additions small (repo rule): extend the existing `tests/test_capture_validation.py`, `test_capture_api.py`, `test_capture_queue.py`, `test_mcp_transport.py`, `test_query_validation.py`, `test_persistence.py` rather than adding new files.
 
+### Landed in `P14.S1` — the write path (read this before S2/S3/S4)
+
+- **Migration `20260805_1200_add_feedback_recorded_by`** (revises `20260728_1200`, now head).
+  Nullable `feedback_events.recorded_by TEXT` + `ix_feedback_events_recorded_by`, mirrored
+  downgrade, **no DB CHECK constraint** — the vocabulary is application-validated like
+  `trigger_type`/`channel`, so a third actor kind costs one constant and no migration. Verified
+  reversible (`downgrade -1` → `upgrade head`).
+- **Validator: `src/vocky/recorded_by.py`** — `ALLOWED_RECORDED_BY = ("agent", "human")`,
+  `RecordedByValidationError`, `normalize_recorded_by()`. Public error string, quotable in docs:
+  `recorded_by must be one of: agent, human`. **S2 must import `ALLOWED_RECORDED_BY` for the filter
+  validator rather than re-declaring the vocabulary.**
+- **All five write-path places threaded**, plus `persistence/models.py` (column + index) and
+  `FeedbackEventRecord`. `FeedbackEventRecord.recorded_by` carries a `None` **default** (its
+  siblings have none) — required for additivity, because `tests/test_notifications.py` builds the
+  full field dict; `kw_only=True` makes the mid-list default legal. Do not "tidy" that default away.
+- **MCP:** the flat `recorded_by` parameter was added to `tools/capture_feedback.py` — adding the
+  field to the input model alone does **not** publish it in the tool schema. `normalize_mcp_payload`
+  stamps `MCP_DEFAULT_RECORDED_BY = "agent"` when the normalized value is `None` (omitted *or*
+  blank); explicit wins; REST stays `NULL`. `_normalize_capture_payload` remained transport-neutral.
+- **Not touched by S1, still S2's:** `FeedbackQueryFilters`, `_apply_filters`, both serializers,
+  both list-query normalizers, the web types. `recorded_by` stays **out of** the Admin PATCH
+  allowlist permanently (provenance, not a review field).
+- **The CLI (`vocky capture`) was deliberately not extended.** `cli/capture.py:_build_payload`
+  hand-builds a subset body (no `trigger_type`, no `channel` either), so this matches its existing
+  scope. If S4's public docs imply a CLI marker, raise it as an explicit follow-up.
+- **Trap found and fixed — relevant to every future migration in this repo.**
+  `tests/test_accounts_provisioning.py::test_org_credentials_migration_round_trip` used
+  `command.downgrade(config, "-1")` to undo *the org-credentials migration*. A new head silently
+  retargets that relative step: it failed with `UniqueViolation: uq_projects_tenant_id` and
+  cascaded into **50 failures across 12 files** (a misaligned session DB, not 50 real bugs). Fixed
+  by pinning the target by name (`"20260716_1600"`); no assertion, seed, or fixture changed. Any
+  future migration would have hit the same wall — `data.md`'s migration guidance should say
+  "pin downgrade targets by revision, never `-1`".
+- **Suite state after S1:** full `uv run pytest` = **237 passed** (clean-tree baseline 225).
+  `alembic check` reports only the known pre-existing `ix_feedback_events_search_trgm` drift — no
+  `add_column`/`add_index`, i.e. the new column and index match the ORM model exactly.
+
 ### Constraints for every slice
 
 - **Additivity is the acceptance bar.** Every existing client — REST, MCP, CLI, dashboard — must keep working byte-for-byte when it never mentions `recorded_by`. The pydantic models ignore unknown fields, the column is nullable, the filter is absent-means-no-filter. If any existing test needs an assertion edit, stop and re-read the design.
@@ -175,6 +212,11 @@ Per-slice rule: implementation slices append a one-line **Doc impact** note belo
 _One line per durable-truth change; `P14.REVIEW` consolidates these into doc versions._
 
 - (P14.DECOMP: no durable-truth change — decisions recorded above; `decisions.md` entries `D-P14-1`/`D-P14-2` are expected to be written by the implementing slices' notes and consolidated at REVIEW.)
+- `data.md` — `feedback_events` gains nullable `recorded_by TEXT` + `ix_feedback_events_recorded_by`; **migration head is now `20260805_1200`** (was `20260728_1200`), reversible, no backfill, no DB CHECK (vocabulary validated in the app). (P14.S1)
+- `data.md` — migration guidance: pin an alembic downgrade target **by revision id, never `"-1"`**; a relative step in a test silently retargets onto each new head (cost this slice 50 cascading failures). (P14.S1)
+- `api.md` — the capture contract gains an optional `recorded_by` (`"agent"` | `"human"`, else 400 `recorded_by must be one of: agent, human`) on **REST `POST /api/feedback`** and the **MCP `capture_feedback`** tool; MCP defaults it to `"agent"` when omitted, REST leaves it `NULL` (unspecified). (P14.S1)
+- `architecture.md` — the `feedback_events` base shape now carries the capture-time provenance marker `recorded_by`, orthogonal to `trigger_type`. (P14.S1)
+- `decisions.md` — **D-P14-1**: the agent/human marker is a first-class nullable indexed `recorded_by` column with a closed two-value vocabulary and `NULL` = unspecified (never backfilled, never inferred, not PATCH-able); **D-P14-2**: MCP capture defaults `recorded_by` to `"agent"` while REST defaults to `NULL`, with the transport-specific default living in `normalize_mcp_payload` and `_normalize_capture_payload` staying transport-neutral. (P14.S1)
 
 ## Open Questions
 

@@ -312,6 +312,54 @@ async def test_capture_feedback_omitted_target_type_remains_compatible(
 
 
 @pytest.mark.anyio
+async def test_capture_feedback_recorded_by_marker_round_trips_and_defaults_null(
+    monkeypatch: pytest.MonkeyPatch,
+    configured_project_credential,
+) -> None:
+    """REST carries an explicit marker and never infers one when it is omitted."""
+
+    redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    queue = CaptureQueue(redis_client)
+    monkeypatch.setattr(api_module, "get_capture_queue", lambda: queue)
+
+    async with _authed_client(configured_project_credential.key) as client:
+        marked = await client.post(
+            "/api/feedback",
+            json={
+                "message": "답답함",
+                "source": {"product": "changple5", "integration": "langchain-mcp"},
+                "comment": "User retried the export three times before giving up",
+                "recorded_by": " agent ",
+            },
+        )
+        unmarked = await client.post(
+            "/api/feedback",
+            json={"message": "No marker", "source": {"product": "vocky-cli"}},
+        )
+        rejected = await client.post(
+            "/api/feedback",
+            json={
+                "message": "Bad marker",
+                "source": {"product": "vocky-cli"},
+                "recorded_by": "robot",
+            },
+        )
+
+    assert (marked.status_code, unmarked.status_code) == (202, 202)
+    assert rejected.status_code == 400
+    assert rejected.json()["detail"] == "recorded_by must be one of: agent, human"
+
+    marked_job = await queue.pop_job(timeout_seconds=1)
+    unmarked_job = await queue.pop_job(timeout_seconds=1)
+    assert marked_job is not None and unmarked_job is not None
+    assert marked_job.payload.recorded_by == "agent"
+    assert marked_job.payload.comment == "User retried the export three times before giving up"
+    assert unmarked_job.payload.recorded_by is None
+
+    await redis_client.aclose()
+
+
+@pytest.mark.anyio
 async def test_capture_feedback_body_shape_errors_return_400(
     configured_project_credential,
 ) -> None:

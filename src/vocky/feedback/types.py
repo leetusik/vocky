@@ -19,6 +19,7 @@ class CreateFeedbackEvent:
     comment: str | None = None
     channel: str | None = None
     source_integration: str | None = None
+    recorded_by: str | None = None
     conversation_id: str | None = None
     session_id: str | None = None
     user_id: str | None = None
@@ -50,6 +51,9 @@ class FeedbackEventRecord:
     comment: str | None
     channel: str | None
     source_integration: str | None
+    #: Who recorded the event: ``agent`` | ``human`` | ``None`` (unspecified).
+    #: Defaulted so pre-P14 construction sites stay valid.
+    recorded_by: str | None = None
     conversation_id: str | None
     session_id: str | None
     user_id: str | None
