@@ -1,7 +1,7 @@
 {
   "docs": {
     "product": {
-      "latest": "v0011_p12_vocky_is_live_at_vocky.hi2vi.com_the_deploy_kit_p6_authored_has_been_executed",
+      "latest": "v0012_p14_agent-recorded_feedback_is_a_public_product_surface_and_the_skill_now_teaches_it",
       "current_path": "docs/current/product.md",
       "versions": [
         {
@@ -91,11 +91,19 @@
           "source": "P12.REVIEW",
           "summary": "P12: vocky is live at vocky.hi2vi.com — the deploy kit P6 authored has been executed",
           "previous": "v0010_p11_distribution_is_a_curl_bash_installer_not_pypi_and_vocky_ships_a_published_agent-skill_surface_with_three_capture_paths_behind_two_environment_variables"
+        },
+        {
+          "id": "v0012_p14_agent-recorded_feedback_is_a_public_product_surface_and_the_skill_now_teaches_it",
+          "path": "docs/versions/product/v0012_p14_agent-recorded_feedback_is_a_public_product_surface_and_the_skill_now_teaches_it.md",
+          "created_at": "2026-08-05T15:39:32+09:00",
+          "source": "P14.REVIEW",
+          "summary": "P14: agent-recorded feedback is a public product surface and the skill now teaches it",
+          "previous": "v0011_p12_vocky_is_live_at_vocky.hi2vi.com_the_deploy_kit_p6_authored_has_been_executed"
         }
       ]
     },
     "experience": {
-      "latest": "v0012_p12_the_hosted_install_line_is_live_not_a_promise_curl_bash_from_vocky.hi2vi.com_works_today",
+      "latest": "v0013_p14_the_public_agent-capture_contract_-_sentiment_note_and_the_recorded_by_marker",
       "current_path": "docs/current/experience.md",
       "versions": [
         {
@@ -193,11 +201,19 @@
           "source": "P12.REVIEW",
           "summary": "P12: the hosted install line is live, not a promise — curl | bash from vocky.hi2vi.com works today",
           "previous": "v0011_p11_onboarding_is_real_end_to_end_for_an_agent_a_curl_bash_install_line_vocky_api_token_plus_vocky_capture_as_the_two-variable_contract_and_a_published_vocky-feedback_skill"
+        },
+        {
+          "id": "v0013_p14_the_public_agent-capture_contract_-_sentiment_note_and_the_recorded_by_marker",
+          "path": "docs/versions/experience/v0013_p14_the_public_agent-capture_contract_-_sentiment_note_and_the_recorded_by_marker.md",
+          "created_at": "2026-08-05T15:39:32+09:00",
+          "source": "P14.REVIEW",
+          "summary": "P14: the public agent-capture contract - sentiment, note, and the recorded_by marker",
+          "previous": "v0012_p12_the_hosted_install_line_is_live_not_a_promise_curl_bash_from_vocky.hi2vi.com_works_today"
         }
       ]
     },
     "architecture": {
-      "latest": "v0011_p13_the_worker_gains_a_post-persist_feedback_alert_hook_whose_swallow-and-log_containment_sits_structurally_outside_the_persistence_try_so_a_failed_alert_can_never_requeue_or_duplicate_a_feedback_event",
+      "latest": "v0012_p14_feedback_events_carries_the_capture-time_recorded_by_provenance_marker",
       "current_path": "docs/current/architecture.md",
       "versions": [
         {
@@ -287,11 +303,19 @@
           "source": "P13.REVIEW",
           "summary": "P13: the worker gains a post-persist feedback alert hook whose swallow-and-log containment sits structurally outside the persistence try, so a failed alert can never requeue or duplicate a feedback event",
           "previous": "v0010_p12_the_app_is_deployed_admin_rest_is_kept_and_fail-closed_an_in-process_auth_limiter_joins_the_request_path_and_the_edge_vhost_now_lives_in_the_edge_repo"
+        },
+        {
+          "id": "v0012_p14_feedback_events_carries_the_capture-time_recorded_by_provenance_marker",
+          "path": "docs/versions/architecture/v0012_p14_feedback_events_carries_the_capture-time_recorded_by_provenance_marker.md",
+          "created_at": "2026-08-05T15:39:32+09:00",
+          "source": "P14.REVIEW",
+          "summary": "P14: feedback_events carries the capture-time recorded_by provenance marker",
+          "previous": "v0011_p13_the_worker_gains_a_post-persist_feedback_alert_hook_whose_swallow-and-log_containment_sits_structurally_outside_the_persistence_try_so_a_failed_alert_can_never_requeue_or_duplicate_a_feedback_event"
         }
       ]
     },
     "frontend": {
-      "latest": "v0008_p12_the_web_app_is_deployed_and_serving_at_vocky.hi2vi.com_and_the_vestigial_hi2vi_design_tokens_are_renamed_to_role_names",
+      "latest": "v0009_p14_recorded_by_is_a_url-driven_feedback_filter_plus_one_detail-page_row",
       "current_path": "docs/current/frontend.md",
       "versions": [
         {
@@ -357,11 +381,19 @@
           "source": "P12.REVIEW",
           "summary": "P12: the web app is deployed and serving at vocky.hi2vi.com, and the vestigial hi2vi design tokens are renamed to role names",
           "previous": "v0007_p11_the_landing_gains_an_agent_quickstart_and_a_skill_section_the_snippet_and_trap_primitives_mount-gated_copy_islands_over_a_server-rendered_no-js_floor_and_a_request-time_read_of_the_served_skill_file"
+        },
+        {
+          "id": "v0009_p14_recorded_by_is_a_url-driven_feedback_filter_plus_one_detail-page_row",
+          "path": "docs/versions/frontend/v0009_p14_recorded_by_is_a_url-driven_feedback_filter_plus_one_detail-page_row.md",
+          "created_at": "2026-08-05T15:39:32+09:00",
+          "source": "P14.REVIEW",
+          "summary": "P14: recorded_by is a URL-driven feedback filter plus one detail-page row",
+          "previous": "v0008_p12_the_web_app_is_deployed_and_serving_at_vocky.hi2vi.com_and_the_vestigial_hi2vi_design_tokens_are_renamed_to_role_names"
         }
       ]
     },
     "backend": {
-      "latest": "v0006_p13_accounts_gains_get_owner_email_for_project_config_gains_the_vocky_smtp__settings_and_the_smtp_configured_gate_and_src_vocky_notifications.py_sends_the_owner_feedback_alert",
+      "latest": "v0007_p14_the_recorded_by_validator_module_and_the_mcp-only_agent_default_seam",
       "current_path": "docs/current/backend.md",
       "versions": [
         {
@@ -411,11 +443,19 @@
           "source": "P13.REVIEW",
           "summary": "P13: accounts gains get_owner_email_for_project, config gains the VOCKY_SMTP_* settings and the smtp_configured gate, and src/vocky/notifications.py sends the owner feedback alert",
           "previous": "v0005_p10_accounts_gains_provision_signup_get_or_create_project_get_project_by_name_list_org_credentials_and_get_credential_auth_gains_the_credential_project-scope_resolver_capture_gains_resolve_capture_project"
+        },
+        {
+          "id": "v0007_p14_the_recorded_by_validator_module_and_the_mcp-only_agent_default_seam",
+          "path": "docs/versions/backend/v0007_p14_the_recorded_by_validator_module_and_the_mcp-only_agent_default_seam.md",
+          "created_at": "2026-08-05T15:39:32+09:00",
+          "source": "P14.REVIEW",
+          "summary": "P14: the recorded_by validator module and the MCP-only agent default seam",
+          "previous": "v0006_p13_accounts_gains_get_owner_email_for_project_config_gains_the_vocky_smtp__settings_and_the_smtp_configured_gate_and_src_vocky_notifications.py_sends_the_owner_feedback_alert"
         }
       ]
     },
     "data": {
-      "latest": "v0004_p10_migration_20260728_1200_projects_unique_tenant_id_name_with_an_oldest-wins_de-dupe_project_credentials.tenant_id_not_null_and_project_id_nullable_is_null_org-level",
+      "latest": "v0005_p14_feedback_events_gains_nullable_indexed_recorded_by_migration_20260805_1200_is_the_new_head",
       "current_path": "docs/current/data.md",
       "versions": [
         {
@@ -449,11 +489,19 @@
           "source": "P10.REVIEW",
           "summary": "P10: migration 20260728_1200 — projects UNIQUE(tenant_id,name) with an oldest-wins de-dupe, project_credentials.tenant_id NOT NULL, and project_id nullable (IS NULL = org-level)",
           "previous": "v0003_p3_feedback_events.project_id_fk_index_migration_20260716_1500_pg_trgm_trigram_gin_search_index_20260716_1600_head_credential_auth-token_last_used_at_now_stamped"
+        },
+        {
+          "id": "v0005_p14_feedback_events_gains_nullable_indexed_recorded_by_migration_20260805_1200_is_the_new_head",
+          "path": "docs/versions/data/v0005_p14_feedback_events_gains_nullable_indexed_recorded_by_migration_20260805_1200_is_the_new_head.md",
+          "created_at": "2026-08-05T15:39:32+09:00",
+          "source": "P14.REVIEW",
+          "summary": "P14: feedback_events gains nullable indexed recorded_by; migration 20260805_1200 is the new head",
+          "previous": "v0004_p10_migration_20260728_1200_projects_unique_tenant_id_name_with_an_oldest-wins_de-dupe_project_credentials.tenant_id_not_null_and_project_id_nullable_is_null_org-level"
         }
       ]
     },
     "api": {
-      "latest": "v0009_p12_the_edge_vhost_that_404s_admin_moved_to_the_edge_repo_admin_auth_answers_503_when_unconfigured_and_auth_signup_auth_login_can_now_answer_429",
+      "latest": "v0010_p14_recorded_by_on_capture_every_read_record_and_every_list_filter",
       "current_path": "docs/current/api.md",
       "versions": [
         {
@@ -527,11 +575,19 @@
           "source": "P12.REVIEW",
           "summary": "P12: the edge vhost that 404s /admin moved to the edge repo, admin auth answers 503 when unconfigured, and /auth/signup + /auth/login can now answer 429",
           "previous": "v0008_p10_signup_returns_an_additive_project_post_app_projects_is_get-or-create_three_new_org-level_app_credentials_routes_credential_project_id_is_nullable_and_capture_takes_an_optional_project_name_honored_only_for_org_keys"
+        },
+        {
+          "id": "v0010_p14_recorded_by_on_capture_every_read_record_and_every_list_filter",
+          "path": "docs/versions/api/v0010_p14_recorded_by_on_capture_every_read_record_and_every_list_filter.md",
+          "created_at": "2026-08-05T15:39:32+09:00",
+          "source": "P14.REVIEW",
+          "summary": "P14: recorded_by on capture, every read record, and every list filter",
+          "previous": "v0009_p12_the_edge_vhost_that_404s_admin_moved_to_the_edge_repo_admin_auth_answers_503_when_unconfigured_and_auth_signup_auth_login_can_now_answer_429"
         }
       ]
     },
     "operations": {
-      "latest": "v0007_p13_feedback_email_alerts_are_live_on_the_box_vocky_smtp_password_is_the_fourth_fail-loud_box_secret_the_smtp_block_is_worker-only_and_the_changple5_smtp_account_is_reused_via_a_django-to-vocky_var_mapping",
+      "latest": "v0008_p14_the_recorded_by_migration_needs_no_operational_change_and_a_local_compose_mcp_env_gap",
       "current_path": "docs/current/operations.md",
       "versions": [
         {
@@ -589,11 +645,19 @@
           "source": "P13.REVIEW",
           "summary": "P13: feedback email alerts are live on the box — VOCKY_SMTP_PASSWORD is the fourth fail-loud box secret, the SMTP block is worker-only, and the changple5 SMTP account is reused via a Django-to-vocky var mapping",
           "previous": "v0006_p12_vocky_is_live_at_vocky.hi2vi.com_first_deploy_green_edge_vhost_owned_by_the_edge_repo_fail-loud_box_secrets_auth_rate_limits_backups_log_caps_and_a_proven_ci_gate"
+        },
+        {
+          "id": "v0008_p14_the_recorded_by_migration_needs_no_operational_change_and_a_local_compose_mcp_env_gap",
+          "path": "docs/versions/operations/v0008_p14_the_recorded_by_migration_needs_no_operational_change_and_a_local_compose_mcp_env_gap.md",
+          "created_at": "2026-08-05T15:39:32+09:00",
+          "source": "P14.REVIEW",
+          "summary": "P14: the recorded_by migration needs no operational change, and a local compose MCP env gap",
+          "previous": "v0007_p13_feedback_email_alerts_are_live_on_the_box_vocky_smtp_password_is_the_fourth_fail-loud_box_secret_the_smtp_block_is_worker-only_and_the_changple5_smtp_account_is_reused_via_a_django-to-vocky_var_mapping"
         }
       ]
     },
     "security": {
-      "latest": "v0010_p13_a_fourth_box_secret_vocky_smtp_password_joins_the_fail-loud_set_and_feedback_alert_email_becomes_vocky_s_first_outbound_data_flow_owner-addressed_by_a_project-anchored_join_worker-only_credentials",
+      "latest": "v0011_p14_vk__keys_now_live_in_third-party_agent_runtimes_and_the_live_mcp_host_allowlist",
       "current_path": "docs/current/security.md",
       "versions": [
         {
@@ -675,11 +739,19 @@
           "source": "P13.REVIEW",
           "summary": "P13: a fourth box secret (VOCKY_SMTP_PASSWORD) joins the fail-loud set, and feedback alert email becomes vocky's first outbound data flow — owner-addressed by a project-anchored join, worker-only credentials",
           "previous": "v0009_p12_admin_auth_is_fail-closed_503_when_unconfigured_all_three_box_secrets_abort_a_blank_deploy_and_the_auth_rate-limit_gap_is_closed_by_an_in-process_limiter"
+        },
+        {
+          "id": "v0011_p14_vk__keys_now_live_in_third-party_agent_runtimes_and_the_live_mcp_host_allowlist",
+          "path": "docs/versions/security/v0011_p14_vk__keys_now_live_in_third-party_agent_runtimes_and_the_live_mcp_host_allowlist.md",
+          "created_at": "2026-08-05T15:39:32+09:00",
+          "source": "P14.REVIEW",
+          "summary": "P14: vk_ keys now live in third-party agent runtimes, and the live /mcp Host allowlist",
+          "previous": "v0010_p13_a_fourth_box_secret_vocky_smtp_password_joins_the_fail-loud_set_and_feedback_alert_email_becomes_vocky_s_first_outbound_data_flow_owner-addressed_by_a_project-anchored_join_worker-only_credentials"
         }
       ]
     },
     "qa": {
-      "latest": "v0003_p13_the_python_suite_is_30_files_and_225_tests_ruff_is_not_configured_in_this_repo_at_all_and_the_feedback_alert_has_a_two-part_live_verification",
+      "latest": "v0004_p14_vocky-smoke_guards_the_marker_end_to_end_and_the_skill.md_last-heading_probe",
       "current_path": "docs/current/qa.md",
       "versions": [
         {
@@ -705,11 +777,19 @@
           "source": "P13.REVIEW",
           "summary": "P13: the Python suite is 30 files and 225 tests, ruff is not configured in this repo at all, and the feedback alert has a two-part live verification",
           "previous": "v0002_p12_vocky_s_first_real_qa_doc_the_python_and_web_suites_how_to_run_them_the_four_ci_gates_now_proven_green_the_smoke_layers_and_the_qa-check_driver_gap"
+        },
+        {
+          "id": "v0004_p14_vocky-smoke_guards_the_marker_end_to_end_and_the_skill.md_last-heading_probe",
+          "path": "docs/versions/qa/v0004_p14_vocky-smoke_guards_the_marker_end_to_end_and_the_skill.md_last-heading_probe.md",
+          "created_at": "2026-08-05T15:39:32+09:00",
+          "source": "P14.REVIEW",
+          "summary": "P14: vocky-smoke guards the marker end to end, and the SKILL.md last-heading probe",
+          "previous": "v0003_p13_the_python_suite_is_30_files_and_225_tests_ruff_is_not_configured_in_this_repo_at_all_and_the_feedback_alert_has_a_two-part_live_verification"
         }
       ]
     },
     "decisions": {
-      "latest": "v0007_p10_add_d-p10-1..5_no_tenants-to-orgs_rename_a_default_project_but_a_friendly_org_name_one_vk__prefix_for_both_scopes_omitting_--project_mints_an_org_key_and_no_design_round_for_the_org-key_surface",
+      "latest": "v0008_p14_add_d-p14-1_d-p14-2_and_d-p14-3_for_the_agent-vs-human_capture_marker",
       "current_path": "docs/current/decisions.md",
       "versions": [
         {
@@ -767,9 +847,17 @@
           "source": "P10.REVIEW",
           "summary": "P10: add D-P10-1..5 — no tenants-to-orgs rename, a default project but a friendly org name, one vk_ prefix for both scopes, omitting --project mints an org key, and no design round for the org-key surface",
           "previous": "v0006_p8_add_d-p8-1_round_01_design_gate_closed_superseding_d-p4-3_the_landing_design_build_moves_to_p8_p9"
+        },
+        {
+          "id": "v0008_p14_add_d-p14-1_d-p14-2_and_d-p14-3_for_the_agent-vs-human_capture_marker",
+          "path": "docs/versions/decisions/v0008_p14_add_d-p14-1_d-p14-2_and_d-p14-3_for_the_agent-vs-human_capture_marker.md",
+          "created_at": "2026-08-05T15:39:32+09:00",
+          "source": "P14.REVIEW",
+          "summary": "P14: add D-P14-1, D-P14-2 and D-P14-3 for the agent-vs-human capture marker",
+          "previous": "v0007_p10_add_d-p10-1..5_no_tenants-to-orgs_rename_a_default_project_but_a_friendly_org_name_one_vk__prefix_for_both_scopes_omitting_--project_mints_an_org_key_and_no_design_round_for_the_org-key_surface"
         }
       ]
     }
   },
-  "last_rebuilt_at": "2026-08-05T14:30:50+09:00"
+  "last_rebuilt_at": "2026-08-05T15:48:45+09:00"
 }

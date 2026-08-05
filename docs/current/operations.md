@@ -1,10 +1,10 @@
 ---
 doc_id: operations
-version: v0007
-created_at: 2026-08-04T17:18:22+09:00
-source: P13.REVIEW
-summary: P13: feedback email alerts are live on the box — VOCKY_SMTP_PASSWORD is the fourth fail-loud box secret, the SMTP block is worker-only, and the changple5 SMTP account is reused via a Django-to-vocky var mapping
-previous: v0006_p12_vocky_is_live_at_vocky.hi2vi.com_first_deploy_green_edge_vhost_owned_by_the_edge_repo_fail-loud_box_secrets_auth_rate_limits_backups_log_caps_and_a_proven_ci_gate
+version: v0008
+created_at: 2026-08-05T15:39:32+09:00
+source: P14.REVIEW
+summary: P14: the recorded_by migration needs no operational change, and a local compose MCP env gap
+previous: v0007_p13_feedback_email_alerts_are_live_on_the_box_vocky_smtp_password_is_the_fourth_fail-loud_box_secret_the_smtp_block_is_worker-only_and_the_changple5_smtp_account_is_reused_via_a_django-to-vocky_var_mapping
 ---
 
 # Operations
@@ -230,7 +230,9 @@ The whole topology follows one rule: **no host ports.** Every service is `expose
 
 All five carry `restart: unless-stopped`; `depends_on: service_healthy` gates api and worker on postgres+redis and web on api. Named volumes: `postgres-data`, `redis-data`, and `attachments-data` — the last **shared by api and worker** (the worker writes uploaded attachment bytes, the api serves them) and it must survive every redeploy.
 
-**There is no MCP container.** `/mcp` is a Starlette `Mount` **inside `vocky-api`**, so the edge routes `/mcp → vocky-api:8000` like any other api path. `VOCKY_MCP_ALLOWED_HOSTS: vocky.hi2vi.com` is set on the api service so the transport's DNS-rebinding allowlist accepts the public host.
+**There is no MCP container.** `/mcp` is a Starlette `Mount` **inside `vocky-api`**, so the edge routes `/mcp → vocky-api:8000` like any other api path. `VOCKY_MCP_ALLOWED_HOSTS: vocky.hi2vi.com` is set on the api service so the transport's DNS-rebinding allowlist accepts the public host — **verified live at P14**: a full authenticated MCP session from that `Host` succeeds, and without the variable the identical request answers `421 Invalid Host header` (not `401` — the key is never examined). `VOCKY_MCP_ALLOWED_ORIGINS` is deliberately **unset and should stay unset**: the transport only checks `Origin` when the header is present, and non-browser MCP clients send none.
+
+> **Local-stack gap (P14, not a production issue).** The local `docker-compose.yml` does **not** forward `VOCKY_MCP_ALLOWED_HOSTS` / `VOCKY_MCP_ALLOWED_ORIGINS` to the `app` service even when `.env` sets them, so `/mcp` reached over a local stack's external hostname `421`s while REST is unaffected (the allowlist guards `/mcp` only). Production is fine. Testing a public-host MCP session locally therefore needs the variables passed to the process directly; the compose gap is a candidate for a local-dev-parity follow-up.
 
 > **The worker used to be the sharpest footgun here, and it is now closed by construction.** When the worker had its own `build: .`, a partial rebuild could leave it running stale code behind a fresh api. It now runs the *exact* tag `docker compose build` produces for the api, so one build freshens both. It has **no healthcheck by design** (no HTTP endpoint), so the deploy script gates it on container **state**, not health.
 
@@ -369,6 +371,8 @@ docker compose -f compose.prod.yml run --rm -T --no-deps --name vocky-migrate-$$
 `docker compose run` does not accept a `container_name` as a target ("no such service: vocky-api"). The one-off container inherits the api service's `environment:` block — including the interpolated `DATABASE_URL`, which `config.py` reads directly — and the shared network. `--name` sidesteps the pinned `container_name: vocky-api`. If a Compose version ever refuses `run` on a name-pinned service, `MIGRATE_VIA_DOCKER_RUN=1` switches to a plain `docker run --network changple_shared_network` fallback that rebuilds `DATABASE_URL` from `POSTGRES_PASSWORD`.
 
 `deploy/rollback.sh` is the manual counterpart: verify both `vocky-*:previous` exist, retag `:previous → :latest`, `up -d --no-build`, re-gate. **It does not re-migrate** — that assumes additive migrations. A schema-incompatible revert is a git-ref redeploy (`deploy/deploy.sh <sha>`), not a rollback.
+
+**Step 6-before-step-7 is what makes an additive schema change need no operational work at all.** P14's `recorded_by` migration (`20260805_1200`) is the worked example: migrate **before** deploying code that reads the column — old-code + new-schema is safe (the old code never selects it), new-code + old-schema `500`s. Because the column is nullable with no backfill and its index is a btree over an all-`NULL` column, the migration is **instant and non-blocking**, so there is **no lock window to schedule** and no maintenance announcement to make. `deploy.sh` already runs migrate-then-recreate, so **P14 required no change to any deploy artifact**, and `rollback.sh`'s deliberate no-re-migrate stance is safe for it: reverting to pre-P14 images over the P14 schema simply leaves the column unread. Treat that as the template for additive migrations; a *non*-additive one is the case where the rollback script stops being a valid path.
 
 Env-overridable knobs on both scripts: `APP_DIR`, `COMPOSE_FILE`, `ENV_FILE`, `HEALTH_TRIES` (default 24), `HEALTH_INTERVAL` (default 5s).
 

@@ -1,10 +1,10 @@
 ---
 doc_id: frontend
-version: v0008
-created_at: 2026-08-04T12:53:07+09:00
-source: P12.REVIEW
-summary: P12: the web app is deployed and serving at vocky.hi2vi.com, and the vestigial hi2vi design tokens are renamed to role names
-previous: v0007_p11_the_landing_gains_an_agent_quickstart_and_a_skill_section_the_snippet_and_trap_primitives_mount-gated_copy_islands_over_a_server-rendered_no-js_floor_and_a_request-time_read_of_the_served_skill_file
+version: v0009
+created_at: 2026-08-05T15:39:32+09:00
+source: P14.REVIEW
+summary: P14: recorded_by is a URL-driven feedback filter plus one detail-page row
+previous: v0008_p12_the_web_app_is_deployed_and_serving_at_vocky.hi2vi.com_and_the_vestigial_hi2vi_design_tokens_are_renamed_to_role_names
 ---
 
 # Frontend
@@ -237,9 +237,12 @@ The flagship read surface, and **read + search only** — feedback management li
 - **Blank params are OMITTED, never sent.** This is load-bearing, not tidiness: a GET filter form *necessarily* submits its empty fields, and vocky **400s** on a blank `project_id`/`feedback_value`/`tag`/`cursor`. `getJson`'s bare-concat URL makes a `?` in `path` safe, so `URLSearchParams` builds the query — and never `encodeURIComponent` on top of it (that double-encodes Korean into oblivion).
 - **`searchParams` is a `Promise` in Next 16**, and a value is **`string[]`** for a repeated key (`?q=a&q=b`) — a wrinkle `params` never had. Take-first, mirroring vocky's own `query_params.get()`.
 - **Pagination is forward-only** (keyset yields no prev-cursor; each page is its own URL, so browser Back *is* Prev). **The cursor does not encode filters** — every page link resends them all. **`next_cursor` is an omitted key, never `null`** → test `!== undefined`; a `!== null` test pages forever.
-- The UI exposes `q` + `project_id` + `feedback_value` while the client carries **all 16** query fields; URL-only ones survive as hidden inputs / link params.
+- The UI exposes `q` + `project_id` + `feedback_value` while the client carries **all 17** query fields (P14 added `recorded_by`); URL-only ones survive as hidden inputs / link params.
+- **`recorded_by` is a URL-driven filter only (P14).** `/feedback?recorded_by=agent` narrows the list to agent-recorded feedback and survives a filter submit and pagination, because the key is in `PARAM_KEYS` (the URL allowlist, where blank ⇒ absent is load-bearing) and narrowed in `toQuery` like the other enum params. **`FORM_FIELD_KEYS` was deliberately not touched** — there is no rendered control, and adding a visible agent/human chip or an agent-vs-human split view **is product visual design**: it belongs to Claude Design under the `design-cowork` skill in a design-bearing phase, not to a contract slice. The record interface is **`VockyFeedback`** (`recorded_by: string | null`) and the query type takes the literal union `"agent" | "human"`.
+- Adding a fifth name to `toQuery`'s destructure pushed it past one line, so **prettier reformats that block** — CI runs `format:check`, so run `prettier --write` on `web/src/app/(app)/feedback/page.tsx` after touching it.
 - **Two distinct empty states** — "no projects yet" is not the same message as "no feedback matches these filters" (a locked floor).
 - **Timestamps are pinned to UTC** ("Times are shown in UTC, newest first"). These render *server-side*, so an unpinned zone silently prints the deploy box's clock as if it were local.
+- **The detail page's metadata list is the established home for a new record field.** P14 added one `<Field label={FEEDBACK.detail.fields.recordedBy}>` row before the Trigger row — filling an existing pattern, not designing one. `Field` renders `children ?? <Empty />`, so a `null` marker shows the same em-dash the neighbouring nullable fields do and needed **no** null handling of its own; the row's label lives in `web/src/content/feedback.ts` like every other label.
 - `feedback-fields.tsx` colocates `formatUtc` / `Timestamp` / `RatingBadge`, shared by list and detail. `RatingBadge` now maps `1`/`2`/`null` → the `liked`/`disliked`/`unrated` **Badge** variants (the old muted-`<span>` null branch is gone; `null` now reads as an explicit `unrated` badge). Detail-page tags render as **`<Chip>`**. Deliberately **not** a `@/components/ui` primitive: both encode vocky's shapes (`1|2|null`, UTC ISO), while the `ui/` kit stays domain-free.
 - **Feedback-list active-filter chips were deliberately NOT built** — `build-prompt.md §5/§4.9` marks them **optional**, and a *removable* `Chip` needs a client `onRemove` parent, which would break the page's no-client-island GET-form invariant. This is a spec-sanctioned omission (the page design is preserved), not a dropped element; if ever wanted, do them **link-based** (server-friendly), never with the client `removable` Chip.
 

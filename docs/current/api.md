@@ -1,10 +1,10 @@
 ---
 doc_id: api
-version: v0009
-created_at: 2026-08-04T12:52:30+09:00
-source: P12.REVIEW
-summary: P12: the edge vhost that 404s /admin moved to the edge repo, admin auth answers 503 when unconfigured, and /auth/signup + /auth/login can now answer 429
-previous: v0008_p10_signup_returns_an_additive_project_post_app_projects_is_get-or-create_three_new_org-level_app_credentials_routes_credential_project_id_is_nullable_and_capture_takes_an_optional_project_name_honored_only_for_org_keys
+version: v0010
+created_at: 2026-08-05T15:39:32+09:00
+source: P14.REVIEW
+summary: P14: recorded_by on capture, every read record, and every list filter
+previous: v0009_p12_the_edge_vhost_that_404s_admin_moved_to_the_edge_repo_admin_auth_answers_503_when_unconfigured_and_auth_signup_auth_login_can_now_answer_429
 ---
 
 # API
@@ -34,6 +34,18 @@ The account and tenancy surfaces are also implemented: a public **Account Auth A
 | `GET /api/project/usage` | under an org key, reports the caller's whole project scope and additionally lists the **org-level** keys themselves |
 
 **No existing client breaks.** Every project-bound key keeps its exact previous request and response shapes; the widening is opt-in at mint time. See `security.md` for the trust-boundary consequences.
+
+**P14 added one capture field across every surface, additively: `recorded_by`.** It marks **who recorded the event** — `"agent"`, `"human"`, or `null` (unspecified) — and is the public contract for third-party AI agents recording user feedback. Summarized here because, like P10, it touches several surfaces at once:
+
+| change | shape |
+|---|---|
+| `POST /api/feedback` and the MCP `capture_feedback` tool | gain an optional **`recorded_by`** (`"agent"` \| `"human"`); anything else is rejected with `recorded_by must be one of: agent, human` |
+| the MCP tool **only** | **defaults `recorded_by` to `"agent"`** when the caller omits it or sends blank; an explicit value always wins |
+| REST capture | **defaults to `null`** — vocky never infers the marker on REST, and the CLI (`vocky capture`) has no marker flag, so CLI captures are always `null` |
+| every feedback **read** record | gains a `recorded_by: string \| null` key — Admin, `/app/feedback`, `/api/project/feedback` (shared serializer) and `GET /api/feedback` (its own duplicate serializer) |
+| every feedback **list** surface | accepts an optional **`?recorded_by=`** exact filter (`agent` \| `human`, trimmed; blank/absent = no filter) |
+
+**Additive for every existing client.** Responses gain exactly one nullable key; nothing is renamed or retyped. A caller that never sends `recorded_by` gets the pre-P14 behaviour byte-for-byte, and every pre-P14 stored record reads back `null`. The full field-mapping convention for agent capture (the user's sentiment → `message`, the agent's note → `comment`) is in **Shared Capture Provenance Rules** below.
 
 These contracts should still be treated as early-stage MVP contracts rather than long-term stable commitments.
 
@@ -208,6 +220,7 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
 - Inputs (flat tool parameters — the same capture field set as REST **minus** `attachment_ids`; agents have no upload flow):
   - `message: string` required; `source: { product: string, integration?: string }` required (the only nested input).
   - Optional: `feedback_value` (`1` like / `2` dislike), `comment`, `channel` (`web` / `mobile` / `support` / null), `conversation_id`, `session_id`, `user_id`, `trigger_type` (`like`/`dislike`/`comment`/`rating`/`survey`/`manual`/`other`), `trigger_message`, `trigger_metadata` (object), `target_type` (`message`/`conversation`/`surface`), `target_id`, `target_role` (`user`/`assistant`/`system`/`tool`), `target_text`, `event_at` (timezone-aware ISO 8601), `tags` (string[]), `messages` (array), `used_context` (array), `source_metadata` (object), `attributes` (object).
+  - **`recorded_by: string | null` (P14, optional).** Who recorded the event — `"agent"` or `"human"`; anything else returns an `isError` tool result carrying `recorded_by must be one of: agent, human`. **This is the one capture surface that infers the value**: omitted or blank is stamped **`"agent"`**, because `/mcp` is by construction the agent-runtime transport. An explicit value always wins. See Shared Capture Provenance Rules above for the field-mapping convention that goes with it.
   - **`project: string | null` (P10, optional).** Names the destination project for an **org-level** key: get-or-created under that key's own org, defaulting to `"default"` when absent or blank, capped at 200 characters (over-long → an error result). A **project-bound** key ignores it entirely — not compared, not rejected — which is what keeps existing agents byte-for-byte unchanged.
   - Normalization/validation is identical to REST capture (shared `normalize_*_payload` seam). There is **no** `attachment_ids` parameter, and no `project_id` parameter — the destination is always resolved server-side from the credential (plus, for an org key, the `project` **name**). The project is stamped onto the normalized payload *after* normalization, outside caller control.
 - Outputs: an MCP `CallToolResult`:
@@ -283,6 +296,30 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
   - `trigger_message` does not replace the primary feedback `message` or the optional user `comment`
   - Trigger fields describe why capture happened; target fields describe what was reviewed; `used_context`, `messages`, `source_metadata`, and `attributes` keep their existing roles
 
+### Shared Capture Provenance Rules (`recorded_by`, P14)
+
+- Status: implemented
+- Applies to: REST capture (`POST /api/feedback`), the MCP `capture_feedback` tool, every feedback record response, and every feedback list filter
+- Values:
+  - `"agent"` — an AI agent decided to record this feedback on a user's behalf
+  - `"human"` — a real person's explicit action produced this feedback
+  - `null` or omitted means **unspecified**. It does **not** mean `human`, and it is what every pre-P14 record reads back as.
+- Capture write behavior:
+  - Values are trimmed; a blank value normalizes to *unspecified*; any non-null value outside `agent` / `human` is rejected with `400 {"detail":"recorded_by must be one of: agent, human"}` (the MCP tool returns that same string as an `isError` tool result, not an HTTP status).
+  - **The MCP tool is the one surface that infers the marker.** `/mcp` is by construction the agent-runtime transport, so an omitted or blank `recorded_by` is stamped `"agent"` there — an agent that never learns the argument still produces correctly-marked data. An explicit `"human"` (an agent relaying a human-recorded judgement) always wins.
+  - **REST never infers it.** `POST /api/feedback` is genuinely mixed traffic — a product backend *and* an agent-driven path — so an omitted value stays `null` rather than being guessed. The `vocky capture` CLI sends no marker at all and therefore always lands `null`; use REST or `/mcp` when the marker matters.
+  - `recorded_by` is **provenance, not a review field**: it is set once at capture and is deliberately **not** in the Admin or Project PATCH allowlist, so no operator surface can rewrite it.
+- Read/filter behavior:
+  - Every record response carries `recorded_by: string | null`.
+  - Every list surface accepts `?recorded_by=` as an exact filter after trimming blank input to absence: `GET /api/feedback`, `GET /admin/api/feedback`, `GET /api/project/feedback`, and `GET /app/feedback`. An unknown value returns the same `400` string capture returns.
+  - **There is no filter value that selects only the unspecified (`null`) rows.** Omitting the filter returns everything, including them. A three-way agent / human / unspecified split needs a new sentinel value, not a different query.
+  - `recorded_by` adds no metrics dimension; Admin/usage metrics remain the ingest-time window plus the shared filters.
+- The agent-capture field convention (documented, not schema-enforced):
+  - The **user's own feedback or sentiment** goes in **`message`**, free text and **verbatim** where possible (`답답함`, `감사`, `긍정`, `부정`, `짜증`, or a whole sentence). There is deliberately **no sentiment enum** — free text is the product decision, so operators hear the customer's actual words.
+  - The **agent's note about that feedback** — what happened, what the user was doing, why it was recorded — goes in **`comment`**. It is schema-optional but **documented as required whenever an agent is the one recording**; it is deliberately **not** server-enforced, because rejecting a capture that omits `comment` would break every existing REST/CLI/MCP client (see `decisions.md` D-P14-3).
+  - `source.integration` (e.g. `"langchain-mcp"`) remains a free-text runtime hint and is **not** the marker.
+  - Both `message` and `comment` already sit inside the `pg_trgm` free-text search expression, so an agent's sentiment **and** its note are searchable — Korean substrings included — with no extra index work. Note that `?q=` is accepted on **`/app/feedback` only**, not on the Admin, project, or `GET /api/feedback` surfaces.
+
 ### Shared Capture Field Responsibilities
 
 - Status: implemented
@@ -294,6 +331,7 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
   - Display and action: `message`, `feedback_value`, and `comment`
   - Source identity: `source.product` / `source_product` and `source.integration` / `source_integration`
   - Caller identity: `user_id`
+  - Capture provenance: `recorded_by` (who recorded it — P14)
   - Trigger context: `trigger_type`, `trigger_message`, and `trigger_metadata`
   - Review category: `channel` and `tags`
   - Exact target: `target_type`, `target_id`, `target_role`, and `target_text`
@@ -326,6 +364,7 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
     - `conversation_id: string` optional. Caller-provided conversation or thread identifier when the REST feedback belongs to a conversation. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `session_id: string` optional. Caller-provided runtime, browser, or user-session identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `user_id: string` optional. Caller-owned end-user or account-member identifier. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
+    - `recorded_by: string` optional **(P14)**. Who recorded the event. Allowed values are `agent` and `human`. Leading and trailing whitespace is trimmed; blank values are normalized to `null` (*unspecified*, which is **not** the same as `human`). Any other value returns `400 {"detail":"recorded_by must be one of: agent, human"}`. **REST never infers it** — omitting it stores `null`, and only the MCP tool defaults to `"agent"`. Set once at capture and not patchable afterwards.
     - `trigger_type: string` optional. Allowed values are `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, and `other`. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `trigger_message: string` optional. Action label, prompt copy, survey question, button text, or event description that caused capture. Leading and trailing whitespace is trimmed. Blank values are normalized to `null`.
     - `trigger_metadata: object` optional. Structured trigger context persisted as supplied; omitted values default to `{}`.
@@ -419,6 +458,7 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
   - `channel: string` optional. Exact channel filter after trimming blank input to absence.
   - `target_type: string` optional. Exact filter; non-blank values must be `message`, `conversation`, or `surface`.
   - `trigger_type: string` optional. Exact filter; non-blank values must be `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, or `other`.
+  - `recorded_by: string` optional **(P14)**. Exact filter; non-blank values must be `agent` or `human`. Blank/absent means no filter — there is no value that selects only the unspecified (`null`) rows.
   - `source_integration: string` optional. Exact filter after trimming blank input to absence.
   - `conversation_id: string` optional. Exact filter after trimming blank input to absence.
   - `session_id: string` optional. Exact filter after trimming blank input to absence.
@@ -433,7 +473,7 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
   - Response body:
     - `records: object[]` newest-first by `(ingested_at desc, id desc)`
     - `next_cursor: string` opaque pagination cursor for the next page when more records exist; the field is omitted when no further page exists
-  - Record shape: the same fields as the Admin Feedback REST API record shape (`id`, `message`, `source_product`, `feedback_value`, `comment`, `channel`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `trigger_type`, `trigger_message`, `trigger_metadata`, `target_type`, `target_id`, `target_role`, `target_text`, `event_at`, `ingested_at`, `tags`, `messages`, `used_context`, `source_metadata`, `attributes`), plus:
+  - Record shape: the same fields as the Admin Feedback REST API record shape (`id`, `message`, `source_product`, `feedback_value`, `comment`, `channel`, `source_integration`, `recorded_by`, `conversation_id`, `session_id`, `user_id`, `trigger_type`, `trigger_message`, `trigger_metadata`, `target_type`, `target_id`, `target_role`, `target_text`, `event_at`, `ingested_at`, `tags`, `messages`, `used_context`, `source_metadata`, `attributes`), plus:
     - `comments: object[]` operator comments for the record, oldest-first, each `{id, author, body, created_at}` (the Admin Comment shape)
     - `attachments: object[]` image attachments for the record, oldest-first, each `{id, content_type, byte_size, filename, created_at, url}` where `url` is the relative end-user download path `/api/feedback/{feedback_id}/attachments/{id}`
 - Errors:
@@ -467,7 +507,7 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
   - Any feedback id outside that set answers **404 (never 403)** so out-of-scope existence is never leaked (mirrors D-P2-5); mutating ops verify scope membership before the mutation.
 - Endpoints:
   - `GET /api/project/feedback`
-    - Lists the credential's scope's feedback, newest-first, with keyset pagination. Supports the same optional filters as the Admin list (`start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `feedback_value`, exact `channel`, exact `target_type`, exact `trigger_type`, `tag`, `limit`, `cursor`). The project filter is **forced** to the credential's resolved project set and overrides any caller-supplied value; there is no `?project_id` narrowing on this surface (a recorded future option for org keys).
+    - Lists the credential's scope's feedback, newest-first, with keyset pagination. Supports the same optional filters as the Admin list (`start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `feedback_value`, exact `channel`, exact `target_type`, exact `trigger_type`, exact `recorded_by`, `tag`, `limit`, `cursor`). The project filter is **forced** to the credential's resolved project set and overrides any caller-supplied value; there is no `?project_id` narrowing on this surface (a recorded future option for org keys).
     - `200 { "records": [<record>, ...], "next_cursor"?: string }`. An org that owns no projects returns `{ "records": [] }` rather than an unfiltered read.
     - **Record shape depends on the caller's key scope (P10).** A **project-bound** caller gets the Admin record shape **without** `project_id` — byte-for-byte as before, on the premise that the caller knows its own project. An **org-level** caller gets the same shape **plus `project_id`**, because that premise breaks when one key spans many projects. A client must decide which to expect from the credential's scope, not from sampling one response.
   - `GET /api/project/feedback/{feedback_id}`
@@ -498,7 +538,7 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
   - Scoped to the caller's tenant's project set (`list_projects_for_tenant`). Any feedback outside that set — including legacy NULL-`project_id` rows — answers **404 (never 403)**.
 - Endpoints:
   - `GET /app/feedback`
-    - Cross-project list/search, newest-first, keyset paginated. Query: `q` (free-text search), optional `project_id` (narrow to one owned project), plus the standard filters (`start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `feedback_value`, `channel`, `target_type`, `trigger_type`, `tag`, `limit`, `cursor`).
+    - Cross-project list/search, newest-first, keyset paginated. Query: `q` (free-text search — **this is the only surface that accepts `q`**), optional `project_id` (narrow to one owned project), plus the standard filters (`start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `feedback_value`, `channel`, `target_type`, `trigger_type`, `recorded_by`, `tag`, `limit`, `cursor`).
     - `200 { "records": [<record + project_id>, ...], "next_cursor"?: string }`. Each record **includes** `project_id` (the caller has many projects). A caller with no projects (or an empty owned narrow) returns `{ "records": [] }`.
     - `?project_id` narrowing validates membership: malformed → `400 {"detail":"project_id must be a valid UUID"}`, not-owned/unknown → `404 {"detail":"project not found"}`.
   - `GET /app/feedback/{feedback_id}`
@@ -507,6 +547,7 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
     - Streams one attachment linked to a feedback record in the caller's tenant (`X-Content-Type-Options: nosniff`). `404` cross-tenant, unlinked, or missing object; `503` storage failure.
 - Search (`q`) semantics:
   - Case-insensitive **substring** (`ILIKE`) match over the concatenated user-visible text (`message`, `comment`, `target_text`, `trigger_message`). Language-agnostic: it matches Korean 조사-attached forms (`결제` matches both `결제 오류` and `결제를`) and English uniformly. Deliberately **no** `to_tsvector('english', …)` (D-P3-4).
+  - Because agent capture maps the user's sentiment to `message` and the agent's note to `comment` (P14), **both halves of an agent-recorded event are already searchable here** with no extra index work — verified live on Korean substrings — and search composes with `?recorded_by=`.
   - Search is a **filter, newest-first** — not relevance ranking — and composes with the standard filters and keyset paging. It is accelerated by a `pg_trgm` trigram GIN index but returns identical results with or without it.
 - Errors: `401` (session), `400` (malformed id/`project_id`/filters), `404` (cross-tenant/not-owned/missing — never 403), `500 {"detail":"storage read failed"}` / `503` (attachment storage).
 
@@ -547,7 +588,7 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
     - Returns `{"service":"vocky","surface":"admin","status":"ok"}`
   - `GET /admin/api/feedback`
     - Lists all feedback records by default
-    - Supports `start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `feedback_value`, exact `channel`, exact `target_type`, exact `trigger_type`, `tag`, `limit`, and `cursor`
+    - Supports `start_ingested_at`, `end_ingested_at`, `source_product`, `source_integration`, `conversation_id`, `session_id`, `user_id`, `feedback_value`, exact `channel`, exact `target_type`, exact `trigger_type`, exact `recorded_by`, `tag`, `limit`, and `cursor`
     - Returns `records` and optional `next_cursor`
   - `GET /admin/api/feedback/metrics`
     - Returns dashboard metrics for a required ingest-time window
@@ -566,7 +607,7 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
   - `PATCH /admin/api/feedback/{feedback_id}`
     - Updates review-oriented fields: `feedback_value`, `comment`, `channel`, `tags`, `source_metadata`, and `attributes`
     - `channel`, when patched, is trimmed; blank values clear the category to `null`; non-null values must be `web`, `mobile`, or `support`
-    - Captured target fields, trigger fields, `user_id`, `messages`, and `used_context` are immutable in this MVP
+    - Captured target fields, trigger fields, `recorded_by`, `user_id`, `messages`, and `used_context` are immutable in this MVP. `recorded_by` is deliberately excluded from the allowlist and must stay excluded — it is capture-time provenance, not a review field
     - Returns the updated record
   - `DELETE /admin/api/feedback/{feedback_id}`
     - Deletes one feedback record and returns `204` on success
@@ -590,6 +631,7 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
   - `comment: string | null`
   - `channel: string | null` stored channel value. New records should use `web`, `mobile`, `support`, or `null`; older records may contain legacy arbitrary strings.
   - `source_integration: string | null`
+  - `recorded_by: string | null` **(P14)** who recorded the event — `"agent"`, `"human"`, or `null` (*unspecified*, which every pre-P14 record reads back as; never assume `human`)
   - `conversation_id: string | null`
   - `session_id: string | null`
   - `user_id: string | null`
@@ -641,5 +683,3 @@ The two listings are **disjoint in both directions** (`project_id IS NULL` vs `p
   - **The production edge does not expose `/admin` at all**, and as of P12 this is live rather than authored. The vhost answers `location /admin/ { return 404; }`, so Admin REST is reachable only from inside the deployment's Docker network (or an SSH tunnel), never from `https://vocky.hi2vi.com`. **The vhost file now lives in the `leetusik/edge` repo** as `edge/conf.d/vocky.conf` — this repo's `deploy/vocky.conf` was retired to the pointer `deploy/vocky.conf.md`; the routing behaviour is unchanged. The Admin bearer remains required regardless, and is now enforced fail-closed — see `security.md`.
   - Browser editing (in the packaged UI, while it existed) intentionally exposed only `feedback_value`, `comment`, `channel`, and `tags`, even though Admin REST can also patch `source_metadata` and `attributes`.
   - Exact `target_type` filtering is implemented for Admin list review, but target fields remain immutable and are not editable review fields in this phase.
-</content>
-</invoke>

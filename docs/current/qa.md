@@ -1,10 +1,10 @@
 ---
 doc_id: qa
-version: v0003
-created_at: 2026-08-04T17:20:09+09:00
-source: P13.REVIEW
-summary: P13: the Python suite is 30 files and 225 tests, ruff is not configured in this repo at all, and the feedback alert has a two-part live verification
-previous: v0002_p12_vocky_s_first_real_qa_doc_the_python_and_web_suites_how_to_run_them_the_four_ci_gates_now_proven_green_the_smoke_layers_and_the_qa-check_driver_gap
+version: v0004
+created_at: 2026-08-05T15:39:32+09:00
+source: P14.REVIEW
+summary: P14: vocky-smoke guards the marker end to end, and the SKILL.md last-heading probe
+previous: v0003_p13_the_python_suite_is_30_files_and_225_tests_ruff_is_not_configured_in_this_repo_at_all_and_the_feedback_alert_has_a_two-part_live_verification
 ---
 
 # Qa
@@ -26,8 +26,10 @@ warrants it. Read the counts below as a snapshot of what earned a test, not a co
 
 ## The Python suite (`tests/`)
 
-**30 test files** (`test_*.py`) plus a shared `conftest.py`, flat directory, **225 test functions**
-(`uv run pytest --collect-only`, re-counted at P13.REVIEW; confirmed by a full green run — see below).
+**30 test files** (`test_*.py`) plus a shared `conftest.py`, flat directory, **238 test functions**
+(`uv run pytest --collect-only`, re-counted at P14.REVIEW; confirmed by a full green run — see below).
+P14 added 13 cases and **no new file**, which is the repo's standing preference: extend the existing
+capture/queue/persistence/query files rather than open a new one for each field.
 Roughly clustered by what they exercise, inferred from filenames rather than a formal taxonomy:
 
 - **Capture / ingest**: `test_capture_api`, `test_capture_queue`, `test_capture_validation`,
@@ -75,6 +77,19 @@ Roughly clustered by what they exercise, inferred from filenames rather than a f
 unit-tested outside a Next runtime. Rough clusters: app routes/shell (`vocky-app`, `agent-quickstart-ssr`,
 `skill-preview-ssr`, `snippet-ssr`, `landing-copy`), auth routes (`auth-routes`, `vocky-auth`), session
 crypto + guards (`session`, `session-guards`), and `clipboard`.
+
+**Two assertions in this repo mirror an artifact rather than a contract, and both bite predictably:**
+
+- **`web/tests/skill-preview-ssr.test.ts` pins `SKILL.md`'s *last section heading*** as its "the whole
+  file shipped, nothing was truncated" probe. **Any section added to or renumbered in the skill must
+  update that one line** (P14 grew the skill from 7 numbered steps to 8 and had to). The neighbouring
+  line/byte-count assertions are computed from the file at test time and never need touching.
+- **`tests/test_admin_api.py::test_admin_list_feedback_preserves_legacy_channel_filter` compares the
+  whole serialized record as an exact dict** — it is the only full-record exact-dict comparison across
+  `tests/` and `web/tests/`. **Every new response field lands on exactly this one line.** Editing it is
+  not an additivity violation: additivity is a client-contract property (the JSON gains one nullable key,
+  nothing is renamed or retyped), and a serializer snapshot is a mirror of the serializer, not a client.
+  The `null` the new key carries there is itself the additivity proof.
 
 ## Running everything locally
 
@@ -130,14 +145,23 @@ configured" as a **no-op here**, and do not report a lint pass that never ran.
 
 ## Smoke layers
 
-1. **Unit/integration** — the 225-test Python suite and 78-test web suite above, run on every push/PR.
+1. **Unit/integration** — the 238-test Python suite and 78-test web suite above, run on every push/PR.
 2. **`vocky-smoke`** (`vocky.smoke:main`, `src/vocky/smoke.py` — httpx + stdlib only, no test framework):
    hits `GET /healthz`, then walks the real account control plane — signup, create a project, mint a
    per-project `vk_` ingest key — then `POST /api/feedback` with that key, and polls the scoped
    `GET /api/feedback` (up to 20×0.5s) until the worker-persisted record appears, asserting the captured
-   context (`user_id`, `target_type`, `target_id`, `target_role`, `target_text`) round-tripped. `make
-   smoke` runs it against a local stack; `make external-smoke` / `external-verify` run the same check
-   against `VOCKY_EXTERNAL_BASE_URL`.
+   context (`user_id`, `target_type`, `target_id`, `target_role`, `target_text`, and as of P14
+   `recorded_by`) round-tripped. `make smoke` runs it against a local stack; `make external-smoke` /
+   `external-verify` run the same check against `VOCKY_EXTERNAL_BASE_URL`.
+
+   **The reference payload is the deploy-time guard against silent capture-field loss (P14).** The
+   in-process suite covers a new capture field, but the Redis queue's hand-written
+   `_serialize_payload`/`_deserialize_payload` pair is the one place a field is dropped **silently** —
+   no error, the value simply never reaches the worker. `vocky-smoke` is the only check that exercises
+   app → Redis → worker → Postgres → read against a **deployed** environment (`make smoke`,
+   `external-smoke`, `external-verify`, and the deploy script's post-deploy gate), which is exactly where
+   that failure hides. **Every future capture field should extend this same payload and assertion** —
+   three lines inside the loop that already exists, not a new harness or file.
 3. **The `P12.S4` production bring-up baseline** — the manual-QA reference for `vocky.hi2vi.com`, executed
    once, live, on 2026-08-04:
    - `GET /healthz` and `GET /` both 200.
@@ -202,9 +226,19 @@ SMTP account changple5 already sends with (`mail.privateemail.com:587`, STARTTLS
   pass and restore it after.
 - **Feedback alert delivery** — see the P13 section above. Nothing automated ever sends real mail, and a
   silently-dropped message leaves no trace in vocky at all (a failed alert is logged and lost, by design).
-- **Visual/design sign-off**: nothing in P12 or P13 touches product visual design (`P12.S2`'s token rename was a
-  byte-identical-hex mechanical edit, verified by grep, not a visual change) — there is no design gate to
+- **Visual/design sign-off**: nothing in P12, P13, or P14 touches product visual design (`P12.S2`'s token rename was a
+  byte-identical-hex mechanical edit, verified by grep, not a visual change; P14 deliberately added **no**
+  rendered dashboard control for the new marker, only a URL-driven filter) — there is no design gate to
   cover here as of this doc's version.
+- **Live MCP capture over the real transport.** Nothing in CI opens an MCP session: `tests/test_mcp_transport.py`
+  is the suite's **single** caller of `mcp.session_manager.run()`, and `vocky-smoke` is REST-only. P14's
+  end-to-end proof (a real authenticated `initialize` → `tools/list` → `tools/call` against a running
+  container, read back from Postgres) was therefore a **manual** slice-time check, and any future change to
+  the MCP tool schema or its transport needs the same manual pass. **Rebuild the images first** — `make
+  compose-up` passes `--build`, and a running container can easily predate the code under test, in which
+  case a "live" result proves nothing. When probing `/mcp` with a spoofed `Host`, hit **`/mcp/` directly with
+  redirects off**: the `307` to `/mcp/` is built from the spoofed `Host`, so following it sends the request
+  off-box (P14 hit the real public deployment this way and read the resulting `401` as a local failure).
 
 ## `/qa-check` + `qa-agent` — honest status
 

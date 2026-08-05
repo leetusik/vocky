@@ -1,19 +1,21 @@
 ---
 doc_id: data
-version: v0004
-created_at: 2026-07-28T23:41:58+09:00
-source: P10.REVIEW
-summary: P10: migration 20260728_1200 — projects UNIQUE(tenant_id,name) with an oldest-wins de-dupe, project_credentials.tenant_id NOT NULL, and project_id nullable (IS NULL = org-level)
-previous: v0003_p3_feedback_events.project_id_fk_index_migration_20260716_1500_pg_trgm_trigram_gin_search_index_20260716_1600_head_credential_auth-token_last_used_at_now_stamped
+version: v0005
+created_at: 2026-08-05T15:39:32+09:00
+source: P14.REVIEW
+summary: P14: feedback_events gains nullable indexed recorded_by; migration 20260805_1200 is the new head
+previous: v0004_p10_migration_20260728_1200_projects_unique_tenant_id_name_with_an_oldest-wins_de-dupe_project_credentials.tenant_id_not_null_and_project_id_nullable_is_null_org-level
 ---
 
 # Data
 
 ## Status
 
-This doc covers the **accounts and tenancy** schema (landed by migration `20260715_1200`), the **P3 feedback project-scoping and search** schema changes (migrations `20260716_1500` and `20260716_1600`), and the **P10 org-level credential** changes (migration `20260728_1200`, the current DB head). The full feedback data model (`feedback_events`, `feedback_comments`, `feedback_attachments`) is documented in `architecture.md` (Capture Storage Model / Operator Comment Store / Feedback Attachment Store); this doc records only the P3 additions to `feedback_events` and does not repeat the base shape.
+This doc covers the **accounts and tenancy** schema (landed by migration `20260715_1200`), the **P3 feedback project-scoping and search** schema changes (migrations `20260716_1500` and `20260716_1600`), the **P10 org-level credential** changes (migration `20260728_1200`), and the **P14 agent-vs-human capture marker** (migration `20260805_1200`, the current DB head). The full feedback data model (`feedback_events`, `feedback_comments`, `feedback_attachments`) is documented in `architecture.md` (Capture Storage Model / Operator Comment Store / Feedback Attachment Store); this doc records only the P3 and P14 additions to `feedback_events` and does not repeat the base shape.
 
 **P10 in one line:** `projects` gained `UNIQUE (tenant_id, name)`, and `project_credentials` gained a `NOT NULL` `tenant_id` while its `project_id` became **nullable**, where `project_id IS NULL` means *the credential is scoped to the whole org*. See `security.md` for what that means for the trust boundary — the nullability is a real widening, not a bookkeeping change.
+
+**P14 in one line:** `feedback_events` gained a nullable, indexed `recorded_by TEXT` — *who recorded this feedback* (`agent` | `human`, `NULL` = unspecified) — with no backfill and no DB `CHECK` constraint.
 
 ## Conventions
 
@@ -31,11 +33,14 @@ The migration chain, most recent last:
 - **`20260715_1200` (`add_accounts_tenancy`)**, chained on `20260604_2305` (the previous feedback-attachments head). `upgrade()` creates the six accounts/tenancy tables and their indexes; `downgrade()` drops them in reverse FK order.
 - **`20260716_1500` (`add_feedback_project_id`)**, chained on `20260715_1200`. Adds a nullable `feedback_events.project_id UUID` column, FK `fk_feedback_events_project_id_projects` → `projects.id` `ON DELETE CASCADE`, and index `ix_feedback_events_project_id`. `downgrade()` drops the index, the FK, then the column. No backfill — pre-existing rows stay `NULL`.
 - **`20260716_1600` (`add_feedback_search_index`)**, chained on `20260716_1500`. `upgrade()` runs `CREATE EXTENSION IF NOT EXISTS pg_trgm` then creates the trigram GIN index `ix_feedback_events_search_trgm` over the immutable concatenated search expression (see below). `downgrade()` drops the index only and **leaves the `pg_trgm` extension** installed.
-- **`20260728_1200` (`add_org_level_credentials`)**, chained on `20260716_1600`. The current DB head. See "P10 Org-Level Credentials" below for the step order, which is load-bearing.
+- **`20260728_1200` (`add_org_level_credentials`)**, chained on `20260716_1600`. See "P10 Org-Level Credentials" below for the step order, which is load-bearing.
+- **`20260805_1200` (`add_feedback_recorded_by`)**, chained on `20260728_1200`. The current DB head. See "P14 Capture Provenance Marker" below.
 
-`tests/test_persistence.py` pins the head at `20260728_1200` and includes `ix_feedback_events_project_id` and `ix_feedback_events_search_trgm` in its expected feedback-index list. **That pinned revision string is the one assertion in the suite that hard-codes the head — every future migration must bump it.** The chain is reversible end-to-end (re-verified at the P10 review: `head → 20260716_1600 → head`, clean both ways).
+`tests/test_persistence.py` pins the head at `20260805_1200` and includes `ix_feedback_events_project_id`, `ix_feedback_events_search_trgm`, and `ix_feedback_events_recorded_by` in its expected feedback-index list. **That pinned revision string is the one assertion in the suite that hard-codes the head — every future migration must bump it.** The chain is reversible end-to-end (re-verified at the P10 review: `head → 20260716_1600 → head`; and at P14 against a live database holding rows: `head → 20260728_1200 → head`, clean both ways).
 
-`alembic check` reports **no** drift on `projects` / `project_credentials` — the ORM and the migration agree. It does report a **pre-existing** `remove_index ix_feedback_events_search_trgm`, because that trigram index is deliberately unmodelled in `__table_args__` (the migration is its source of truth, see below). That is not caused by P10; any future `alembic check` CI gate must whitelist it.
+**Pin every alembic downgrade target by revision id, never `"-1"` (P14).** A relative step silently **retargets onto whatever the newest head is**, so a test written to undo one specific migration starts undoing a different one the moment a later phase adds another. This is not hypothetical: `tests/test_accounts_provisioning.py::test_org_credentials_migration_round_trip` used `downgrade(config, "-1")` to undo *the org-credentials migration*, and adding `20260805_1200` made it fail with `UniqueViolation: uq_projects_tenant_id` and cascade into **50 failures across 12 files** — a misaligned session database, not 50 real bugs. The fix was to name the target (`"20260716_1600"`); no assertion, seed, or fixture changed. Any migration in any phase would have hit the same wall.
+
+`alembic check` reports **no** drift on `projects` / `project_credentials` / `feedback_events.recorded_by` — the ORM and the migrations agree. It does report a **pre-existing** `remove_index ix_feedback_events_search_trgm`, because that trigram index is deliberately unmodelled in `__table_args__` (the migration is its source of truth, see below). That is not caused by P10 or P14, and it is the *only* drift either reports; any future `alembic check` CI gate must whitelist it.
 
 ## P10 Org-Level Credentials (migration `20260728_1200`)
 
@@ -58,6 +63,17 @@ The base `feedback_events` shape lives in `architecture.md`; P3 adds:
 - **`ix_feedback_events_search_trgm`** — a `pg_trgm` **trigram GIN** index over the immutable expression `coalesce(message,'') || ' ' || coalesce(comment,'') || ' ' || coalesce(target_text,'') || ' ' || coalesce(trigger_message,'')`. It accelerates the case-insensitive substring (`ILIKE`) free-text search on `/app/feedback` (D-P3-4). The index expression is kept byte-for-byte in lock-step with the predicate built in `vocky.feedback.repository._feedback_search_target()`; only immutable operators (`||`/`coalesce`) are used so the expression index is valid, and the planner uses a `Bitmap Index Scan` on it (verified for Korean and English substrings). The index is intentionally **not** modeled in `__table_args__` — the migration is its source of truth. No `to_tsvector('english', …)` anywhere.
 
 The `pg_trgm` extension (v1.6) is confirmed available and installed on the target Postgres.
+
+## P14 Capture Provenance Marker (migration `20260805_1200`)
+
+`feedback_events` gains one column and one index, both nullable/additive:
+
+- **`recorded_by TEXT NULL`** — *who recorded this feedback event*, indexed by `ix_feedback_events_recorded_by` (a plain btree). Allowed values are exactly `agent` and `human`; `NULL` means **unspecified**. Set once at capture; it is provenance, not a review field, so it is deliberately **not** in the Admin/project PATCH allowlist and can never be edited after the fact. `downgrade()` mirrors the upgrade exactly (drop index, drop column) and was verified against a live database holding rows.
+- **No backfill and no inference.** Every pre-P14 row stays `NULL`. `NULL` must never be read as "human" — a dashboard splits **three** ways: agent / human / unspecified. There is deliberately no filter value that selects only the `NULL` rows; a three-way split would need a new sentinel, not a tweak to the filter.
+- **No DB `CHECK` constraint.** The two-value vocabulary is validated in the application (`src/vocky/recorded_by.py`), exactly as `trigger_type` and `channel` are, so adding a third actor kind later costs one constant and **no** migration. The trade is the usual one this schema already makes: the database will accept any text a bug writes directly, and the application is the only guard.
+- The column is orthogonal to `trigger_type`: the trigger answers *why capture happened*, `recorded_by` answers *who recorded it*. Folding one into the other would be lossy (see `decisions.md` D-P14-1).
+
+**Deployment ordering (the same rule P10 records).** Migrate **before** deploying code that reads the column: old-code + new-schema is safe, new-code + old-schema 500s. Because the column is nullable with no backfill and the index is a btree over an all-`NULL` column, the migration is **instant and non-blocking** — there is no lock window to schedule. `deploy/deploy.sh` already enforces the ordering, so P14 required no operational change; see `operations.md`.
 
 ## Accounts & Tenancy Tables
 
@@ -151,4 +167,4 @@ An account session (opaque bearer) minted on signup/login. Only the hash is stor
 
 - The ORM models live in `src/vocky/persistence/models.py` (`UserModel`, `TenantModel`, `TenantMemberModel`, `ProjectModel`, `ProjectCredentialModel`, `AuthTokenModel`), reusing the shared `Base` + `NAMING_CONVENTION` from `persistence/base.py`.
 - The integration-test fixture (`tests/conftest.py`) truncates all six tables with `CASCADE` on setup and teardown, so accounts tests start from a clean schema. **It lists the tables by name twice** — any new table must be added to both lists.
-- Unlike some sibling repos, vocky's test suite **does** exercise the real migration chain: `tests/conftest.py` builds the test schema with `alembic upgrade head`, not `create_all`. What that does *not* cover is `downgrade`, or the de-dupe branch (a clean database has no duplicates), so `tests/test_accounts_provisioning.py::test_org_credentials_migration_round_trip` seeds duplicate `(tenant_id, name)` projects with dependent `project_credentials` **and** `feedback_events` rows, upgrades, and asserts one survivor with children repointed. That test is deliberately **synchronous** (`alembic/env.py` calls `asyncio.run`, so it cannot run inside the anyio loop) and disposes the async pool first; it is order-independent only because of that disposal.
+- Unlike some sibling repos, vocky's test suite **does** exercise the real migration chain: `tests/conftest.py` builds the test schema with `alembic upgrade head`, not `create_all`. What that does *not* cover is `downgrade`, or the de-dupe branch (a clean database has no duplicates), so `tests/test_accounts_provisioning.py::test_org_credentials_migration_round_trip` seeds duplicate `(tenant_id, name)` projects with dependent `project_credentials` **and** `feedback_events` rows, upgrades, and asserts one survivor with children repointed. **Its downgrade target is pinned by revision id (`"20260716_1600"`) as of P14** — it used `"-1"`, which each new head silently retargeted; see the Migrations section. That test is deliberately **synchronous** (`alembic/env.py` calls `asyncio.run`, so it cannot run inside the anyio loop) and disposes the async pool first; it is order-independent only because of that disposal.

@@ -341,6 +341,30 @@ Docs only; no `src/` change. Full detail in `slices/P14.S4/result.md`.
   lines (`experience.md`, `product.md`, `security.md`, `backend.md`, `decisions.md`, `qa.md`). The two
   Open Questions above are unchanged and still want an operator answer.
 
+### Landed in `P14.REVIEW` — verdict `pass`, docs consolidated
+
+- **Everything re-validated together and green**: `make test` 238, web `npm test` 78 / `typecheck` /
+  `lint` / `format:check` clean, `make check-skill-parity` PASS, `make smoke` PASS against the live
+  stack, `alembic current` = `20260805_1200 (head)`, `alembic check` = the known trigram drift only,
+  `workflow.py validate` PASS. Spot-checks confirmed every slice's claims against the tree (all five
+  write-path places, both read-side duplicate pairs, `recorded_by` absent from the PATCH allowlist,
+  `FORM_FIELD_KEYS` untouched, SKILL.md at 8 sections, `q` documented on `/app/feedback` only).
+- **Eleven doc versions created** — `api`, `data`, `architecture`, `decisions` (D-P14-1/2/3),
+  `backend`, `security`, `operations`, `qa`, `frontend`, `experience`, `product`. Every line of the
+  Doc impact list above landed in at least one of them; S4's completeness sweep held up.
+- **`doc-new-version` slugifies the whole `--summary` into the filename**, and a long one produces a
+  path that exceeds the filesystem's 255-byte name limit *once an editor appends a temp suffix* —
+  the write fails with `ENAMETOOLONG` after the version and its index entry already exist. Keep
+  review summaries **short** (roughly under 100 characters). Recovering means deleting the file,
+  removing its `docs/index.json` entry, restoring `latest`, and re-running `rebuild-docs`.
+- **A pre-existing artifact was cleaned up in the new `api.md` version**: every `api.md` version since
+  `v0002` (the P1 era) ended with stray `</content>` / `</invoke>` lines — a leaked tool-call closing
+  tag that had been copied forward by `doc-new-version`'s base-body carry. `v0010` drops them. No
+  other doc carries the artifact.
+- **The two Open Questions below are unchanged.** The comment-enforcement one is an **operator
+  decision** and is deliberately not decided here; the hardening one is resolved (D9 and D10 are
+  filed under `works/deferred/open/`).
+
 ### Constraints for every slice
 
 - **Additivity is the acceptance bar.** Every existing client — REST, MCP, CLI, dashboard — must keep working byte-for-byte when it never mentions `recorded_by`. The pydantic models ignore unknown fields, the column is nullable, the filter is absent-means-no-filter. If any existing test needs an assertion edit, stop and re-read the design.
@@ -427,5 +451,6 @@ _One line per durable-truth change; `P14.REVIEW` consolidates these into doc ver
 
 ## Open Questions
 
-- Should `comment` (the note) eventually be **server-enforced** when `recorded_by == "agent"`? DECOMP read `intent.md` as a capability requirement and chose documentation over enforcement (D3). Worth putting to the operator at REVIEW.
-- Does the operator want the two deferred hardening items (per-credential rate limiting; capture-only key scopes, D4) filed as `defer-job`s now? DECOMP cannot run `defer-job`; the recommended titles/triggers are in D4 for the orchestrator.
+- **OPEN — for the operator.** Should `comment` (the note) eventually be **server-enforced** when `recorded_by == "agent"`? DECOMP read `intent.md` as a capability requirement and chose documentation over enforcement (D3 / D-P14-3). REVIEW agrees that was the right call for P14 — enforcing it globally would 400 every existing client — and deliberately did **not** decide the follow-up. If the operator wants enforcement, the only defensible shape is "required *when* `recorded_by == "agent"`", which is a small conditional-validation slice in a later phase, not a doc change.
+- **RESOLVED.** The two deferred hardening items from D4 are filed: **D9** (per-credential rate limiting on `/api/feedback` + `/mcp`) and **D10** (capture-only key scopes, revisiting D-P3-2), both `source: P14.DECOMP`, both open under `works/deferred/open/`.
+- **Noted, not a P14 defect.** Local `docker-compose.yml` does not forward `VOCKY_MCP_ALLOWED_HOSTS`/`_ORIGINS` to the `app` service, so `/mcp` over a local stack's external hostname 421s (prod is correct). Recorded in `operations.md` / `security.md` as a local-dev-parity candidate; nobody has filed it as a deferred job, and the operator may want to.

@@ -1,10 +1,10 @@
 ---
 doc_id: architecture
-version: v0011
-created_at: 2026-08-04T17:17:31+09:00
-source: P13.REVIEW
-summary: P13: the worker gains a post-persist feedback alert hook whose swallow-and-log containment sits structurally outside the persistence try, so a failed alert can never requeue or duplicate a feedback event
-previous: v0010_p12_the_app_is_deployed_admin_rest_is_kept_and_fail-closed_an_in-process_auth_limiter_joins_the_request_path_and_the_edge_vhost_now_lives_in_the_edge_repo
+version: v0012
+created_at: 2026-08-05T15:39:32+09:00
+source: P14.REVIEW
+summary: P14: feedback_events carries the capture-time recorded_by provenance marker
+previous: v0011_p13_the_worker_gains_a_post-persist_feedback_alert_hook_whose_swallow-and-log_containment_sits_structurally_outside_the_persistence_try_so_a_failed_alert_can_never_requeue_or_duplicate_a_feedback_event
 ---
 
 # Architecture
@@ -20,6 +20,8 @@ As of **P10** that layer has three architecturally significant properties: **sig
 As of **P4**, vocky also has a **browser surface of its own**: a Next.js app in `web/` that talks to `/auth/*` + `/app/*` through a **server-side BFF proxy** (sealed httpOnly cookie, no CORS, no web-side DB). It was built in P4 as the replacement for the packaged same-origin Admin Web UI, and **P6 completed that replacement by deleting the old UI**. See "The Web App and the BFF Boundary" below.
 
 As of **P6**, vocky also has a complete **production deployment topology** for `vocky.hi2vi.com` — five containers behind a shared edge nginx on an existing OCI box — and as of **P12 it is deployed and serving**: the first deploy (`6c16ac5`, 2026-08-04) ran the whole chain green, including P10's 11-revision migration against an empty schema. See "Production Deployment Topology" below and the runbook in `operations.md`.
+
+As of **P14**, the stored feedback record carries a **capture-time provenance marker**: `feedback_events.recorded_by` (`agent` | `human` | `NULL` = unspecified), the first-class discriminator that makes agent-recorded feedback queryable and dashboard-splittable. It is a contract extension, not a structural change — one nullable indexed column threaded through the existing single capture seam, the existing queue/worker path, and the existing shared read serializers. See "Capture Storage Model" below for why it is its own column rather than a `trigger_type` value.
 
 As of **P13**, the worker also **sends outbound email**: one plain-text SMTP alert to the owning org's owner per persisted feedback event, over env-configured `VOCKY_SMTP_*` transport (off when unconfigured). It is vocky's first and only outbound-email path, and its defining architectural property is the **containment** of the call — see "Feedback Alert Hook and Its Containment" below.
 
@@ -169,6 +171,8 @@ P7 revives the agent-decided capture path retired in P1 as a **write-only** MCP 
 - **Transport security.** `make_transport_security_settings` enables DNS-rebinding protection with a localhost allowlist (`127.0.0.1:*`, `localhost:*`, `[::1]:*`) extendable via `VOCKY_MCP_ALLOWED_HOSTS` / `VOCKY_MCP_ALLOWED_ORIGINS`. The allowlist matcher requires a port, so a public deployment must add its `Host` (with port) to `VOCKY_MCP_ALLOWED_HOSTS`.
 - **Auth (whole endpoint).** `/mcp` is guarded by the same `ProjectCredentialAuthMiddleware` as `/api/*`: its predicate is now `is_api_path(p) or is_mcp_path(p)`, so the **entire** transport (including `initialize`) requires a valid, non-revoked per-project `vk_` credential; missing/unknown/revoked answer the same generic `401`, and `last_used_at` is stamped best-effort. The static `VOCKY_MCP_AUTH_TOKEN` is **not** revived. Because the app-level middleware runs before the mount dispatches, its `scope[PROJECT_CREDENTIAL_SCOPE_KEY]` stash propagates into the mounted sub-app.
 - **The `capture_feedback` tool (`src/vocky/tools/capture_feedback.py`).** The **sole** registered tool (`mcp.list_tools() == ["capture_feedback"]`), write-only. Flat parameter list (`source` nested), with an injected `ctx: Context` that FastMCP excludes from the tool schema. It builds a thin `McpCaptureFeedbackInput` → `normalize_mcp_payload` (no `attachment_ids` — agents have no upload flow), reads the stashed credential back off `ctx.request_context.request` via `get_request_credential`, stamps `payload.project_id = credential.project_id`, then `get_capture_queue().enqueue_feedback(...)` — the **same** shared queue → worker → `feedback_events` path as REST. It returns a raw `CallToolResult` (structured capture receipt, or an `isError=True` result on validation / queue failure); `install_protocol_aware_call_handler(mcp)` passes that raw result straight through as the `ServerResult` and keeps unknown-tool a protocol error.
+- **The tool's parameter list is its own surface (P14).** The MCP tool declares every capture field as an explicit flat function parameter and hand-copies it into the input model, so **adding a field to `BaseCaptureFeedbackInput` does not publish it over MCP** — the tool signature must gain the parameter too, or the tool schema simply never advertises it. This is the one place a capture field can be added everywhere else and still be invisible to agents.
+- **`/mcp` is the one transport that infers a capture value (P14).** `normalize_mcp_payload` stamps `recorded_by = "agent"` when the normalized value is `None`, because `/mcp` is by construction the agent-runtime surface; an explicit caller value always wins, and `normalize_rest_payload` is untouched (REST stays `NULL`). The transport-specific default lives **only** in `normalize_mcp_payload` — `_normalize_capture_payload` stays transport-neutral, which is what keeps REST and MCP behaviourally identical everywhere else.
 
 ## Production Deployment Topology (P6)
 
@@ -291,6 +295,7 @@ The primary table is `feedback_events` with this hybrid shape:
 - `comment TEXT` null
 - `channel TEXT` null, where new writes should contain only `web`, `mobile`, `support`, or `null`
 - `source_integration TEXT` null
+- `recorded_by TEXT` null (P14), accepted values `agent` and `human`, `NULL` = *unspecified*
 - `conversation_id TEXT` null
 - `session_id TEXT` null
 - `user_id TEXT` null
@@ -321,9 +326,12 @@ Indexes for the intended P1 read model should cover:
 - `user_id`
 - `trigger_type`
 - `target_type`
+- `recorded_by` (P14)
 - GIN on `tags`
 
 The schema keeps the most important review dimensions visible as first-class columns while leaving room for source-specific metadata in JSONB fields. `channel` remains nullable `TEXT` rather than a database enum so older arbitrary channel values can stay readable and exact-filterable without destructive migration; write validation prevents new arbitrary channel values on capture and Admin edits. `target_type` is the only target field promoted to a first-class review discriminator in P1; other target fields remain captured context and are not filters or editable review fields.
+
+**Capture provenance is its own dimension (P14).** `recorded_by` answers *who recorded this event* and is **orthogonal to `trigger_type`**, which answers *why capture happened*. Overloading the trigger enum with an `agent` value would have been much cheaper — no migration, and the filters, index, and dashboard param all already existed — but it is lossy: an agent recording a survey response could then say `agent` **or** `survey`, never both. The marker is therefore its own nullable, indexed, application-validated `TEXT` column, in the same shape (and for the same reasons) as `channel` and `trigger_type`: no database enum, no `CHECK`, so a third actor kind costs one constant and no migration. It is **written once at capture and never mutated** — it is excluded from every PATCH allowlist by design, unlike the review fields. `NULL` means *unspecified* and is never backfilled or inferred, so any split over this column is three-way (agent / human / unspecified). See `data.md` for the migration and `decisions.md` D-P14-1 for the rejected alternatives.
 
 ## Operator Comment Store
 
@@ -402,6 +410,8 @@ Capture is asynchronous (`202 Accepted` → Redis queue → worker persist), and
 - When a job carries non-empty `attachment_ids`, the worker calls `create_feedback_event_with_attachments`, which inserts the feedback row and runs the guarded scope-verified link in one transaction. A job with no attachments takes the unchanged `create_feedback_event` path. Missing, mis-scoped, or already-linked attachments are skipped and logged; they never dead-letter the job, because a missing screenshot must not fail real feedback.
 
 REST capture validates and normalizes `attachment_ids` (parse to UUID, dedupe, cap at `VOCKY_ATTACHMENTS_MAX_COUNT`).
+
+**The queue serializer is where a new capture field disappears silently.** `capture_queue._serialize_payload` and `_deserialize_payload` are a **hand-written pair of explicit field allowlists**, so a field added to the payload type but not to *both* halves is dropped between the API and the worker with no error anywhere — the capture still returns `202` and the column just stays null. A capture field must therefore be threaded through five places, and this pair is the only one that fails quietly: the raw input model, `_normalize_capture_payload`, `CreateFeedbackEvent`, **both** queue functions, and the repository's insert **plus** its `_to_record` read-back. `tests/test_capture_queue.py` is the in-process guard, and since P14 the deploy-time guard is `vocky-smoke`, whose reference payload carries a marker and whose round-trip assertion checks it (see `qa.md`) — it is the only check that exercises app → Redis → worker → Postgres → read against a *deployed* environment.
 
 ## Feedback Alert Hook and Its Containment (P13)
 

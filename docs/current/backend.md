@@ -1,19 +1,47 @@
 ---
 doc_id: backend
-version: v0006
-created_at: 2026-08-04T17:16:51+09:00
-source: P13.REVIEW
-summary: P13: accounts gains get_owner_email_for_project, config gains the VOCKY_SMTP_* settings and the smtp_configured gate, and src/vocky/notifications.py sends the owner feedback alert
-previous: v0005_p10_accounts_gains_provision_signup_get_or_create_project_get_project_by_name_list_org_credentials_and_get_credential_auth_gains_the_credential_project-scope_resolver_capture_gains_resolve_capture_project
+version: v0007
+created_at: 2026-08-05T15:39:32+09:00
+source: P14.REVIEW
+summary: P14: the recorded_by validator module and the MCP-only agent default seam
+previous: v0006_p13_accounts_gains_get_owner_email_for_project_config_gains_the_vocky_smtp__settings_and_the_smtp_configured_gate_and_src_vocky_notifications.py_sends_the_owner_feedback_alert
 ---
 
 # Backend
 
 ## Status
 
+As of **P14** it also covers the **capture provenance backend** — the shared `recorded_by` validator module, the MCP-only default seam in `capture.py`, and the read-side filter validator (see "P14 Additions" below).
+
 As of **P13** it also covers the **feedback email alert backend** — the accounts owner-email primitive, the `VOCKY_SMTP_*` settings, and `src/vocky/notifications.py` (see "P13 Additions" below). The worker hook that calls it and its containment rule are in `architecture.md`; the box env/secret plumbing is in `operations.md`.
 
 This doc covers the **accounts / identity backend** landed in P2: the `src/vocky/accounts/` domain package, the reusable user-auth guard, the security primitives, and the `/auth/*` + `/app/*` route modules and their app wiring. As of **P7** it also covers the **MCP capture backend**: the FastMCP server bootstrap (`src/vocky/mcp_server.py`), the write-only `capture_feedback` tool module (`src/vocky/tools/capture_feedback.py`), the broadened ingest guard (`is_mcp_path`), and the thin MCP input model. As of **P6** it also records the **removal of the packaged Admin Web UI** from the backend (see "Admin Web UI Removal" below) — a deletion only; no accounts, MCP, or Admin REST behavior changed. As of **P10** it covers the **org-level credential backend** — new accounts primitives, the credential project-scope resolver, and the shared ingest project resolver (see "P10 Additions" below). The feedback capture/read backend (service, repository, worker, queue, storage) is documented in `architecture.md`; this doc does not repeat it.
+
+## P14 Additions — the `recorded_by` capture provenance marker
+
+One new module plus small, mechanical threading. The design rationale is in `decisions.md` (D-P14-1/2/3) and the wire contract in `api.md`; this is the module surface.
+
+**`src/vocky/recorded_by.py` (new, a single module)**
+
+- `ALLOWED_RECORDED_BY = ("agent", "human")`, `RECORDED_BY_VALIDATION_ERROR`, `RecordedByValidationError`, and `normalize_recorded_by(value)` (trim → blank collapses to `None` → unknown value rejected). It **mirrors `src/vocky/trigger.py` in shape** on purpose — the vocabulary, the trim/blank rule, and the public error string live in exactly one place.
+- The public error string is `recorded_by must be one of: agent, human`, quoted verbatim in the docs and returned identically by the capture side (`400`), the MCP tool (an `isError` tool result), and the read-side filter.
+
+**`src/vocky/capture.py` — the transport-specific default seam**
+
+- `normalize_capture_recorded_by()` is the thin adapter that re-raises the validator's error as `CaptureFeedbackValidationError`, matching `normalize_capture_trigger_type`.
+- `MCP_DEFAULT_RECORDED_BY = "agent"` is stamped in **`normalize_mcp_payload`** when the normalized value is `None` (covering both omitted and whitespace-blank). `normalize_rest_payload` is byte-for-byte unchanged, so REST keeps defaulting to `NULL`. **`_normalize_capture_payload` stays transport-neutral** — putting transport knowledge inside it is the mistake this seam exists to prevent.
+- The MCP tool (`tools/capture_feedback.py`) gained an **explicit flat `recorded_by` parameter**. Adding the field to `BaseCaptureFeedbackInput` gives REST and MCP *body parsing* for free but does **not** publish it in the MCP tool schema — the flat parameter is what does that (see `architecture.md`).
+
+**`src/vocky/tools/query_feedback_common.py` — the read side**
+
+- `normalize_recorded_by_filter` **delegates** to `vocky.recorded_by.normalize_recorded_by` and re-raises as `FeedbackQueryValidationError`, exactly as `normalize_trigger_type_filter` wraps `normalize_trigger_type`. Delegating (rather than importing `ALLOWED_RECORDED_BY` and re-implementing the membership check) reuses the vocabulary **and** the trim/blank rule **and** the error string from one module. Blank or absent ⇒ **no filter**.
+
+**Threading, and the two non-obvious spots**
+
+- `FeedbackEventRecord.recorded_by` carries a **`None` default** where its sibling fields have none. That is load-bearing for additivity — `tests/test_notifications.py` builds a full field dict, and a required field would have forced an edit there — and `kw_only=True` is what makes a mid-list default legal. Do not "tidy" it away.
+- **Field position is a convention worth keeping:** `recorded_by` sits immediately after `source_integration` in `FeedbackQueryFilters`, in `_apply_filters`, and in **both** serializers, mirroring `FeedbackEventRecord`. Any future read-side addition should mirror the record the same way.
+- `recorded_by` is deliberately absent from the Admin/Project **PATCH allowlist** and from `FeedbackMetricsQuery` — provenance, not a review field, and no marker-specific metrics.
+- **Two duplicated pairs, not one.** `admin_api.normalize_list_query` is imported verbatim by `app_feedback_api` and `project_feedback_api`, so one edit covers three REST surfaces; `api.py` carries its own duplicate `normalize_user_feedback_query` **and** `serialize_user_feedback_record`, which must be edited separately. Missing the second is how a field lands on three read surfaces and silently not the fourth.
 
 ## P13 Additions — feedback email alerts over SMTP
 

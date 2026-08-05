@@ -1,10 +1,10 @@
 ---
 doc_id: experience
-version: v0012
-created_at: 2026-08-04T12:53:07+09:00
-source: P12.REVIEW
-summary: P12: the hosted install line is live, not a promise — curl | bash from vocky.hi2vi.com works today
-previous: v0011_p11_onboarding_is_real_end_to_end_for_an_agent_a_curl_bash_install_line_vocky_api_token_plus_vocky_capture_as_the_two-variable_contract_and_a_published_vocky-feedback_skill
+version: v0013
+created_at: 2026-08-05T15:39:32+09:00
+source: P14.REVIEW
+summary: P14: the public agent-capture contract - sentiment, note, and the recorded_by marker
+previous: v0012_p12_the_hosted_install_line_is_live_not_a_promise_curl_bash_from_vocky.hi2vi.com_works_today
 ---
 
 # Action Feedback Integration
@@ -114,6 +114,7 @@ Recommended payload fields:
 - `conversation_id`: stable caller-side conversation or thread ID when available
 - `session_id`: optional caller-side runtime, browser, or user-session ID
 - `user_id`: optional caller-owned product user or account-member ID; use this for stable product identity and keep `session_id` for runtime/session correlation
+- `recorded_by`: optional marker for **who recorded this event** — `agent` or `human`. Omitting it stores `null` = *unspecified*, which is **not** the same as `human`; only the `/mcp` transport infers a value (see "Agent Capture Over MCP" below)
 - `trigger_type`: optional trigger category: `like`, `dislike`, `comment`, `rating`, `survey`, `manual`, or `other`
 - `trigger_message`: optional button text, action label, survey question, prompt copy, or workflow description that caused capture
 - `trigger_metadata`: optional object for trigger-specific context such as control ID, rating scale, selected option, experiment ID, or redacted runtime details
@@ -126,7 +127,7 @@ Recommended payload fields:
 - `used_context`: JSON array of context or retrieval results used by the agent
 - `tags`, `source_metadata`, and `attributes`: optional caller-provided metadata; REST product integrations can use these for URL, page, widget, account, locale, rollout, or backend context
 
-Trigger fields describe why capture happened. Target fields describe what was reviewed. Existing integrations can omit both groups, but integrations with message-level feedback should send `target_type: "message"` plus the exact message context so reviewers do not have to infer which message the user judged. REST integrations with product-surface feedback should use `target_type: "surface"` when the exact page, widget, screen, or feature is known.
+Trigger fields describe why capture happened; `recorded_by` describes **who recorded it** — two different questions, so an agent recording a survey response can say both. Target fields describe what was reviewed. Existing integrations can omit all of these, but integrations with message-level feedback should send `target_type: "message"` plus the exact message context so reviewers do not have to infer which message the user judged. REST integrations with product-surface feedback should use `target_type: "surface"` when the exact page, widget, screen, or feature is known.
 
 Use `used_context` for review-safe process context only: retrieved snippets, tool traces, prompt summaries, policy summaries, or redacted execution metadata. Do not send raw hidden chain-of-thought or private model reasoning.
 
@@ -201,6 +202,33 @@ If your product is an **AI agent**, the agent can save feedback at its own judge
 
 There is exactly **one** tool, `capture_feedback` (write-only — no read/query/liked-conversation tools). Its inputs are the same capture fields as REST **minus** `attachment_ids` (agents have no upload flow), with `source` as the only nested object.
 
+### What goes in which field (read this before building a payload)
+
+Agent capture uses fields that already exist — there is **no sentiment enum and no separate note column**, deliberately, so operators hear the customer's actual words:
+
+| What you are recording | Field | Notes |
+| --- | --- | --- |
+| The **user's** feedback or sentiment, free text, **verbatim** where possible (`답답함`, `감사`, `긍정`, `부정`, `짜증`, or a whole sentence) | **`message`** | Required and non-blank. This is the voice of the customer — do not paraphrase it into your own voice. |
+| **Your** note about that feedback — what happened, what the user was doing, why you recorded it | **`comment`** | Optional in the schema, but **treat it as required whenever an agent is the one recording**. Vocky does not reject a capture without it; the record is simply much less useful. |
+| Who recorded it | **`recorded_by`** | `"agent"` or `"human"`. |
+| Labels you want to slice by later | `tags` | Optional, unchanged meaning. |
+| Your runtime | `source.integration` (e.g. `"langchain-mcp"`) | A free-text hint. **It is not the marker** — do not use it as one. |
+
+Both `message` and `comment` sit inside vocky's free-text search expression, so an agent's sentiment **and** its note are searchable — Korean substrings included — through `/app/feedback?q=` (or `vocky feedback search`) with no extra setup.
+
+### The `recorded_by` marker, and the one place it is inferred
+
+`recorded_by` answers *who recorded this feedback*, orthogonal to `trigger_type`'s *why capture happened*. It is set once at capture and can never be edited afterwards — it is provenance, not a review field.
+
+- Allowed values are exactly `agent` and `human`. Anything else is rejected with `recorded_by must be one of: agent, human` (a `400` on REST; over MCP the same string comes back as an `isError` **tool result**, not an HTTP status).
+- **Omitting it does not mean `human`.** It stores `null` = *unspecified*, which is also what every record captured before this feature reads back as. Never infer a human from a `null`.
+- **`/mcp` is the only surface that fills it in**: omit it there and vocky stamps `"agent"`, because the MCP endpoint is by construction the agent-runtime transport — so an agent that never learns the argument is still marked correctly. An explicit value always wins (pass `"human"` when you are relaying a judgement a person made).
+- **REST and the CLI never infer it.** `POST /api/feedback` without the field stores `null`, and `vocky capture` has **no marker flag at all**, so CLI captures are always unspecified. Use REST or `/mcp` when the marker matters.
+
+### Key scope, stated plainly
+
+The `vk_` key you hand an agent runtime is **not capture-only**: within its scope it can capture, read, PATCH, and DELETE feedback, and an **org** key spans every project in the org, including ones created later. Per-credential capture-only scopes are not implemented yet. So **mint a project-bound key for an agent runtime, never an org key** — especially one running outside infrastructure you control.
+
 LangChain-style client shape (send the key as a Bearer header):
 
 ```python
@@ -217,19 +245,21 @@ Then call the tool when the agent decides an interaction is worth capturing:
 
 ```json
 {
-  "message": "User was frustrated the export kept failing",
-  "source": {"product": "my-agent", "integration": "agent-runtime"},
-  "feedback_value": 2,
+  "message": "감사합니다 정말 도움이 되었어요",
+  "comment": "User said this after finishing the export flow — relief and thanks, unprompted.",
+  "source": {"product": "my-agent", "integration": "langchain-mcp"},
+  "recorded_by": "agent",
   "user_id": "user_123",
   "conversation_id": "conv_123",
-  "trigger_type": "dislike",
   "target_type": "message",
   "target_role": "assistant",
   "target_text": "Try clicking Export again."
 }
 ```
 
-A successful call returns a capture receipt (`{ request_id, accepted_at, status: "accepted" }`) — the same async semantics as REST: the record becomes queryable after the worker persists it. Use MCP capture only when the agent runtime is intentionally deciding to capture voice-of-customer feedback; explicit human UI actions (like/dislike buttons, page/widget feedback) should still go through REST capture. A public `/mcp` deployment must also add its public host to `VOCKY_MCP_ALLOWED_HOSTS` (DNS-rebinding protection is on by default).
+A successful call returns a capture receipt (`{ request_id, accepted_at, status: "accepted" }`) — the same async semantics as REST: the record becomes queryable after the worker persists it. Use MCP capture only when the agent runtime is intentionally deciding to capture voice-of-customer feedback; explicit human UI actions (like/dislike buttons, page/widget feedback) should still go through REST capture.
+
+A public `/mcp` deployment must also add its public host to `VOCKY_MCP_ALLOWED_HOSTS` (DNS-rebinding protection is on by default). If it is not listed, every `/mcp` call answers **`421 Invalid Host header`** — a transport-level check on the `Host` header, before the key is ever examined, so it is **not** an auth problem and a different key will not fix it. `VOCKY_MCP_ALLOWED_ORIGINS` normally needs nothing: `Origin` is only checked when the header is present, and non-browser MCP clients send none.
 
 ## Read Back A User's Own Feedback
 
@@ -240,7 +270,16 @@ curl "https://vocky.example.com/api/feedback?user_id=user_456&source_product=mar
   -H "Authorization: Bearer vk_<your-project-key>"
 ```
 
-Optional filters (`feedback_value`, `channel`, `target_type`, `trigger_type`, `source_integration`, `conversation_id`, `session_id`, `tag`, `start_ingested_at`, `end_ingested_at`, `limit`, and `cursor`) are AND-combined with the required `user_id` + `source_product` scope, so the read never returns another user's data. Operator comments are surfaced read-only as one-way operator-to-user visibility; there are no end-user replies. Broad review, query, summary, and management stay on Admin REST.
+Optional filters (`feedback_value`, `channel`, `target_type`, `trigger_type`, `recorded_by`, `source_integration`, `conversation_id`, `session_id`, `tag`, `start_ingested_at`, `end_ingested_at`, `limit`, and `cursor`) are AND-combined with the required `user_id` + `source_product` scope, so the read never returns another user's data. Operator comments are surfaced read-only as one-way operator-to-user visibility; there are no end-user replies. Broad review, query, summary, and management stay on Admin REST.
+
+**Telling agent-recorded feedback apart (P14).** Every feedback read surface — this one, `/api/project/feedback`, `/app/feedback`, and Admin REST — returns `recorded_by` in each record (`"agent"`, `"human"`, or `null`), and every list surface accepts `?recorded_by=agent` or `?recorded_by=human` as an exact filter:
+
+```sh
+curl "https://vocky.example.com/app/feedback?recorded_by=agent&limit=50" \
+  -H "Authorization: Bearer <your-session-token>"
+```
+
+Omitting the filter returns everything, including the unspecified rows. There is deliberately **no** filter value that selects only the `null` rows, so a three-way agent / human / unspecified split has to be done client-side over an unfiltered read.
 
 ## Read & Manage Your Project's Feedback (Feedback API v2)
 
@@ -462,7 +501,9 @@ Put them in **`~/.zshenv`, never a repo `.env`.** A repo `.env` is never auto-lo
 
 Vocky publishes an end-user agent skill: **`skills/vocky-feedback/SKILL.md`**, served byte-identically at **`/SKILL.md`** and shown on the landing page's `#skill` section (readable, copyable, downloadable). It is deliberately **not** under `.claude/skills/` or `.agents/skills/` — those hold this repo's own workflow machinery and would load into every session here.
 
-The skill is written to be followed verbatim, not interpreted: the two-variable setup, a **zero-side-effect verify step** (a bare `GET /api/feedback` with the bearer key — `400` means the token authenticated and only the missing filter was rejected, `401` means stop and never retry, anything else is a transport/base-URL problem), then three capture paths — **Path A `vocky capture`** (primary, one command), **Path B raw REST** (no vocky install required; the nested `source` object is the single most important shape, and a top-level `source_product` is rejected outright), and **Path C `/mcp`** as the alternative transport — followed by a branch-by-branch error table and a "report back" rule that forbids claiming a capture succeeded without a `202` or a `Captured —` line. Its frontmatter carries a hard negative trigger (not for general note-taking or drafting tickets elsewhere) and a scoped `allowed-tools` allowlist.
+The skill is written to be followed verbatim, not interpreted: the two-variable setup, a **zero-side-effect verify step** (a bare `GET /api/feedback` with the bearer key — `400` means the token authenticated and only the missing filter was rejected, `401` means stop and never retry, anything else is a transport/base-URL problem), then — as of **P14** — a **"what goes in which field" step placed *before* the transports**, because the field mapping decides the payload for all of them, then three capture paths — **Path A `vocky capture`** (primary, one command), **Path B raw REST** (no vocky install required; the nested `source` object is the single most important shape, and a top-level `source_product` is rejected outright), and **Path C `/mcp`** as the agent-runtime transport — followed by a branch-by-branch error table and a "report back" rule that forbids claiming a capture succeeded without a `202` or a `Captured —` line.
+
+**P14 grew the skill from 7 numbered steps to 8** and taught it the agent-capture contract end to end: the sentiment-and-note field mapping, the `recorded_by` marker with its per-transport default, the `null` = *unspecified* rule, the plain statement that a `vk_` key is not capture-only (so mint a project-bound one), the fact that `vocky capture` has no marker flag, and two new error rows — the `recorded_by` rejection string and `421 Invalid Host header`. It also **corrected a pre-existing error**: the self-hosting gotcha claimed an unlisted host makes `/mcp` "401 regardless of the key"; it is `421`, the check is on `Host` (not `Origin`), and the key is never examined. The frontmatter `description` was deliberately left untouched — it governs when the skill activates in every installed client, and P14 changed *what to send*, not *when to capture*. Its frontmatter carries a hard negative trigger (not for general note-taking or drafting tickets elsewhere) and a scoped `allowed-tools` allowlist.
 
 **The served copy can never fork from the canonical**: `scripts/skill_parity.py` holds the two files to a full-file byte match and runs in CI on every push and pull request (see `operations.md`), and the landing's preview pane renders the *served* file read at request time rather than a pasted excerpt.
 
