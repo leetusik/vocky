@@ -243,6 +243,57 @@ Per-slice rule: implementation slices append a one-line **Doc impact** note belo
 - **Still S3's / S4's:** the live round-trip (S3 can now assert `?recorded_by=agent`
   narrowing on all four REST surfaces after an MCP capture) and the public docs.
 
+### Landed in `P14.S3` — the live proof (read this before S4/REVIEW)
+
+Full evidence in `slices/P14.S3/result.md`. The durable lessons:
+
+- **Rebuild the compose images before believing any "live" result.** `make compose-up` rebuilds,
+  but the containers found running were 7 days old and predated S1/S2 — a live round-trip against
+  them would have silently tested pre-P14 code. Always `make compose-up` (it passes `--build`) at
+  the start of a verification slice.
+- **The contract is proven end to end, not just in-process.** One real authenticated MCP session
+  against the container's `/mcp` produced the full matrix, confirmed in Postgres:
+  MCP-omitted ⇒ `agent`, MCP-explicit `human` ⇒ `human`, REST-explicit ⇒ `human`,
+  REST-omitted ⇒ `NULL`. The marker survives the hand-written Redis serialize/deserialize pair.
+  `?recorded_by=agent` narrows correctly on `/api/feedback`, `/admin/api/feedback`, and
+  `/app/feedback`; the unfiltered read still returns the `NULL` row (additivity); a bad value 400s
+  with the same string capture returns.
+- **D3 verified empirically.** `pg_trgm` finds the Korean sentiment in `message` (`감사`,
+  `도움이 되었어요`) *and* the Korean note in `comment` (`수출 흐름`), with a clean negative control,
+  and search composes with `?recorded_by=agent`. **`q` exists on `/app/feedback` only** —
+  `app_feedback_api.py:133` is the codebase's sole assignment to `filters.search`. S4 must not
+  document `q` on the admin, project, or `/api/feedback` surfaces.
+- **Migration reversibility re-verified against a live DB with rows**, pinning both ends by
+  revision id (`downgrade 20260728_1200` → `upgrade head`), column + index restored verbatim.
+- **D4 item 1 verified, with a real gotcha.** With `VOCKY_MCP_ALLOWED_HOSTS=vocky.hi2vi.com` (the
+  exact `compose.prod.yml:143` value) a full authenticated MCP session — initialize, tools/list,
+  capture — succeeds from that non-localhost `Host`; without it the same request is `421 Invalid
+  Host header`. **No `Origin` header was sent by any non-browser client and none was required**, so
+  leaving `VOCKY_MCP_ALLOWED_ORIGINS` unset is confirmed correct.
+  - **Local `docker-compose.yml` does NOT forward `VOCKY_MCP_ALLOWED_HOSTS`/`_ORIGINS` to the `app`
+    service**, even though `.env` sets them and `VOCKY_EXTERNAL_BASE_URL` points at a tailscale
+    host. So `/mcp` over the local stack's external URL 421s today, while REST is unaffected (the
+    allowlist guards `/mcp` only). Prod is fine (`compose.prod.yml:143`). Not a P14 regression and
+    not fixed here — S4's SKILL.md self-hosting paragraph should stay accurate about it, and it is
+    a candidate follow-up for local dev parity.
+  - **Probing gotcha:** `POST /mcp` with a spoofed `Host` and `follow_redirects=True` sends the
+    request **off-box** — the `307` `Location` for `/mcp` → `/mcp/` is built from the spoofed Host,
+    so the first probe hit the real public deployment and came back `401`. Probe `/mcp/` directly
+    with redirects **off**.
+- **One product change: a terse `src/vocky/smoke.py` guard** — the reference payload now sends
+  `"recorded_by": "human"` and the existing round-trip assertion gained one clause. It is the only
+  check that exercises app → Redis → worker → Postgres → read against a **deployed** environment
+  (`make smoke` / `external-smoke` / the deploy gate), which is exactly where a dropped queue field
+  hides. No new file, no new harness. Any future capture field should extend this same payload.
+- **Prod rollout ordering:** migrate before deploying code that reads the column; nullable + no
+  backfill ⇒ instant, non-blocking, no lock window. `deploy/deploy.sh` already does this (step 6
+  migrate, step 7 `up -d`), so **P14 needs no operational change**, and `deploy/rollback.sh`'s
+  "does not re-migrate / assumes additive migrations" stance is safe for this migration.
+- **Gate state after S3:** `make test` **238 passed** (unchanged before and after the smoke edit),
+  `make check-skill-parity` PASS, `alembic check` = the known trigram drift only,
+  `workflow.py validate` passed, `make smoke` passed. Stack left healthy, ad-hoc drivers left in the
+  session scratchpad (never committed), the ad-hoc :8011 server stopped.
+
 ### Constraints for every slice
 
 - **Additivity is the acceptance bar.** Every existing client — REST, MCP, CLI, dashboard — must keep working byte-for-byte when it never mentions `recorded_by`. The pydantic models ignore unknown fields, the column is nullable, the filter is absent-means-no-filter. If any existing test needs an assertion edit, stop and re-read the design.
@@ -271,6 +322,29 @@ _One line per durable-truth change; `P14.REVIEW` consolidates these into doc ver
 - `api.md` — every feedback **read** surface now returns `recorded_by` (`"agent"` | `"human"` | `null` = unspecified) in the record body: Admin `/admin/api/feedback`, `/app/feedback`, `/api/project/feedback` (shared serializer) and `GET /api/feedback` (its own duplicate serializer). Additive: one new nullable key, nothing renamed or retyped. (P14.S2)
 - `api.md` — all four list surfaces accept an optional `recorded_by` **query filter** (`agent` | `human`, trimmed; blank/absent = no filter — legacy `NULL` rows are not selectable); an unknown value is 400 `recorded_by must be one of: agent, human`, the same string capture returns. (P14.S2)
 - `frontend.md` — the dashboard's feedback list gains `recorded_by` as a **URL-driven filter only** (`/feedback?recorded_by=agent`, preserved across filter submit and pagination); no new rendered form control (the visible chip stays design-cowork territory), plus one "Recorded by" row in the record detail page's metadata list. (P14.S2)
+- `operations.md` — **prod rollout ordering for the `recorded_by` migration**: migrate **before**
+  deploying code that reads the column (old-code + new-schema is safe; new-code + old-schema 500s).
+  The column is nullable with no backfill and the index is a btree over an all-NULL column, so the
+  migration is **instant and non-blocking** — no lock window to schedule. `deploy/deploy.sh` already
+  enforces it (step 6 migrate in a one-off container, step 7 `up -d`), so **P14 requires no
+  operational change**, and `deploy/rollback.sh` (which deliberately does not re-migrate) is safe
+  because the migration is additive. (P14.S3)
+- `data.md` — the `20260805_1200` migration is **verified reversible against a live Postgres holding
+  rows**: `downgrade 20260728_1200` drops the column and `ix_feedback_events_recorded_by`,
+  `upgrade head` restores both verbatim; both ends pinned by revision id. (P14.S3)
+- `qa.md` — `vocky-smoke`'s reference capture payload now carries `recorded_by: "human"` and the
+  round-trip assertion checks it, making the smoke the deploy-time guard for capture-field loss in
+  the hand-written Redis queue serialization (the one place a field disappears silently). (P14.S3)
+- `api.md` — free-text search (`?q=`, `pg_trgm`) covers the agent-capture fields with no index work
+  because sentiment lands in `message` and the agent note in `comment`; verified live on Korean
+  substrings, and it composes with `?recorded_by=`. Note that **`q` is accepted on `/app/feedback`
+  only**, not on the admin, project, or `GET /api/feedback` surfaces. (P14.S3)
+- `security.md` / `operations.md` — the public `/mcp` DNS-rebinding allowlist is confirmed live: an
+  authenticated MCP session from a non-localhost `Host` succeeds only when
+  `VOCKY_MCP_ALLOWED_HOSTS` lists it (else `421 Invalid Host header`), and non-browser MCP clients
+  send **no `Origin`**, so leaving `VOCKY_MCP_ALLOWED_ORIGINS` unset is correct. Local
+  `docker-compose.yml` does not forward either variable to `app` (prod's `compose.prod.yml` does),
+  so `/mcp` over a local stack's external hostname 421s — REST is unaffected. (P14.S3)
 - `decisions.md` — **D-P14-1**: the agent/human marker is a first-class nullable indexed `recorded_by` column with a closed two-value vocabulary and `NULL` = unspecified (never backfilled, never inferred, not PATCH-able); **D-P14-2**: MCP capture defaults `recorded_by` to `"agent"` while REST defaults to `NULL`, with the transport-specific default living in `normalize_mcp_payload` and `_normalize_capture_payload` staying transport-neutral. (P14.S1)
 
 ## Open Questions

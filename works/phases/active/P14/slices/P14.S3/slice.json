@@ -3,14 +3,14 @@
   "phase_id": "P14",
   "name": "End-to-end verification of agent-recorded capture",
   "kind": "implementation",
-  "status": "todo",
+  "status": "done",
   "order": 3,
   "depends_on": [
     "P14.S2"
   ],
   "created_at": "2026-08-05T14:49:20+09:00",
-  "started_at": null,
-  "completed_at": null,
+  "started_at": "2026-08-05T15:14:19+09:00",
+  "completed_at": "2026-08-05T15:23:34+09:00",
   "risk": "high",
   "source": {
     "type": "manual",

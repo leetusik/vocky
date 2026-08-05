@@ -110,6 +110,11 @@ def run_rest_smoke(base_url: str) -> tuple[str, int]:
             json={
                 "message": smoke_message,
                 "source": {"product": "vocky-smoke", "integration": "make-smoke"},
+                # Deploy-time guard for the capture-provenance marker: it must
+                # survive the hand-written Redis payload round-trip (the one
+                # place a capture field is silently dropped) and come back on
+                # the read.
+                "recorded_by": "human",
                 "session_id": smoke_session_id,
                 "user_id": smoke_user_id,
                 "target_type": "message",
@@ -172,6 +177,7 @@ def run_rest_smoke(base_url: str) -> tuple[str, int]:
             or matched_record.get("target_id") != smoke_target_id
             or matched_record.get("target_role") != "assistant"
             or matched_record.get("target_text") != smoke_target_text
+            or matched_record.get("recorded_by") != "human"
         ):
             raise SystemExit(
                 "list smoke returned a record without round-tripped context: "
