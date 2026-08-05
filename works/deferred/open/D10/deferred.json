@@ -1,0 +1,11 @@
+{
+  "id": "D10",
+  "title": "Per-credential permission scopes (capture-only keys) — revisit D-P3-2 now that vk_ keys live in third-party agent processes",
+  "status": "deferred",
+  "source": "P14.DECOMP",
+  "reason": "Under D-P3-2 one vk_ key does capture + read + PATCH + DELETE across its whole scope; P14 puts exactly that key inside third-party agent runtimes. A capture-only scope is the right answer but touches minting, middleware, and every /api/* handler — a phase, not a slice",
+  "trigger": "before recommending vocky keys be embedded in any third-party runtime the operator does not control",
+  "created_at": "2026-08-05T14:52:49+09:00",
+  "promoted_to": null,
+  "dropped_reason": null
+}

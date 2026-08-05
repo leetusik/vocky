@@ -1,0 +1,11 @@
+{
+  "id": "D9",
+  "title": "Rate-limit the public capture surfaces (POST /api/feedback, /mcp) per credential, not per IP",
+  "status": "deferred",
+  "source": "P14.DECOMP",
+  "reason": "Existing limiter is per-client-IP, which is wrong for server-to-server agent traffic: one deployment shares one IP and throttles as a single caller while a distributed abuser evades it; capture needs a per-credential bucket, and the module's single-worker invariant and trust model need re-reasoning first",
+  "trigger": "before a second third-party agent product goes live, or on the first abuse/cost incident",
+  "created_at": "2026-08-05T14:52:45+09:00",
+  "promoted_to": null,
+  "dropped_reason": null
+}
