@@ -158,6 +158,9 @@ is dispatched normally.
   Research section included (OWASP password-storage + session-management cites). One run sufficed.
   Confirmed the S1 staleness is confined to `product.md`/`experience.md` — `operations.md`/`qa.md`
   are internally consistent about the live status.
+- **S4 (done):** explainer published — "Vocky Decisions, History, and the Agentic Workspace", KB doc
+  id 28 v1. Research skipped-by-judgment (repo-private process/history). **The four-explainer series
+  is complete: KB docs 25 → 26 → 27 → 28 in reading order.**
 - **S1 finding — stale live-status text inside `docs/current/` itself:** `product.md` v0012 (§Status
   line 22 "nobody outside this repo can use vocky … does not answer", §Distribution line 94 "both
   currently not yet true") and `experience.md` v0013 (line 14 blockquote "There is no hosted vocky
