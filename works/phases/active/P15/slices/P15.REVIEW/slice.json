@@ -1,0 +1,31 @@
+{
+  "id": "P15.REVIEW",
+  "phase_id": "P15",
+  "name": "phase review",
+  "kind": "review",
+  "status": "todo",
+  "order": 9999,
+  "depends_on": [],
+  "created_at": "2026-08-06T22:20:21+09:00",
+  "started_at": null,
+  "completed_at": null,
+  "risk": "high",
+  "source": {
+    "type": "new_phase",
+    "id": "P15"
+  },
+  "paths": {
+    "plan": "plan.md",
+    "result": "result.md"
+  },
+  "validation": {
+    "required": [],
+    "last_run": null,
+    "last_status": "pending"
+  },
+  "archive": {
+    "archived": false,
+    "archived_at": null,
+    "archive_path": null
+  }
+}

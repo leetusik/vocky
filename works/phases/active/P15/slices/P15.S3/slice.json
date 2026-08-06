@@ -1,0 +1,31 @@
+{
+  "id": "P15.S3",
+  "phase_id": "P15",
+  "name": "Knowledge: security, operations, and QA",
+  "kind": "knowledge",
+  "status": "todo",
+  "order": 3,
+  "depends_on": [],
+  "created_at": "2026-08-06T22:30:07+09:00",
+  "started_at": null,
+  "completed_at": null,
+  "risk": "low",
+  "source": {
+    "type": "manual",
+    "id": null
+  },
+  "paths": {
+    "plan": "plan.md",
+    "result": "result.md"
+  },
+  "validation": {
+    "required": [],
+    "last_run": null,
+    "last_status": "pending"
+  },
+  "archive": {
+    "archived": false,
+    "archived_at": null,
+    "archive_path": null
+  }
+}

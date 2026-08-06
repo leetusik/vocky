@@ -5,15 +5,27 @@
 
 ## Pointer
 
-- Current phase: `none`
-- Current slice: `none`
-- Next slice: `none`
+- Current phase: `P15`
+- Current slice: `P15.S1`
+- Next slice: `P15.S2`
 - Waiting on operator: `none`
 - Open deferred jobs: `9`
-- Rebuilt at: `2026-08-06T22:15:26+09:00`
+- Rebuilt at: `2026-08-06T22:48:50+09:00`
 
 ## Active Phases
 
 | Phase | Status | Review | Name | Current Slice | Path |
 |---|---|---|---|---|---|
-| - | - | - | - | - | - |
+| [ ] `P15` | `planned` | `pending` | New-maintainer knowledge base | `P15.S1` | `works/phases/active/P15` |
+
+## Phase P15: New-maintainer knowledge base
+
+| Slice | Status | Name | Kind | Path |
+|---|---|---|---|---|
+| [x] `P15.DECOMP` | `done` | decompose phase | `decomposition` | `works/phases/active/P15/slices/P15.DECOMP` |
+| [ ] `P15.S1` | `todo` | Knowledge: the product and its user-facing surfaces | `knowledge` | `works/phases/active/P15/slices/P15.S1` |
+| [ ] `P15.S2` | `todo` | Knowledge: system internals - architecture, backend code map, data model, API contracts | `knowledge` | `works/phases/active/P15/slices/P15.S2` |
+| [ ] `P15.S3` | `todo` | Knowledge: security, operations, and QA | `knowledge` | `works/phases/active/P15/slices/P15.S3` |
+| [ ] `P15.S4` | `todo` | Knowledge: decisions, history, and the agentic workspace | `knowledge` | `works/phases/active/P15/slices/P15.S4` |
+| [ ] `P15.S5` | `todo` | Audit and refresh README.md | `implementation` | `works/phases/active/P15/slices/P15.S5` |
+| [ ] `P15.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P15/slices/P15.REVIEW` |
