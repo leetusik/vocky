@@ -147,6 +147,18 @@ is dispatched normally.
 6. Cross-check the whole file against `product.md` §Status and `operations.md` before editing; the audit is
    "fix what is stale/wrong/missing", **not** a rewrite, and the README's structure should survive intact.
 
+### Cross-slice notes from the knowledge slices
+
+- **S1 (done):** explainer published — "Vocky: What It Is and How It Is Used", KB doc id 25 v1,
+  `vocky/2026-08-06-vocky-what-it-is-and-how-it-is-used.html`. Research section skipped-by-judgment.
+- **S1 finding — stale live-status text inside `docs/current/` itself:** `product.md` v0012 (§Status
+  line 22 "nobody outside this repo can use vocky … does not answer", §Distribution line 94 "both
+  currently not yet true") and `experience.md` v0013 (line 14 blockquote "There is no hosted vocky
+  yet", §The Web App line 346 "`vocky.hi2vi.com` is **not live**") still carry pre-P12 wording that
+  contradicts the updated live-since-2026-08-04 text in the same files. Same root cause as the README
+  staleness S5 will fix. Fixing these means new doc versions — one for the REVIEW slice to weigh as
+  doc impact (or the operator to schedule), not for S5, whose scope is README.md only.
+
 ### Other survey notes
 
 - Repo entry points (`pyproject.toml` `[project.scripts]`): `vocky` (CLI) → `vocky.cli:main`,
