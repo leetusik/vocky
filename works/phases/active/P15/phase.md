@@ -207,3 +207,58 @@ is dispatched normally.
 - S2 and S3 are the two heavy explainers (S2 spans ~1,500 doc-lines plus the code map; S3 spans ~970 doc-lines
   plus the deploy kit). If one `/explain` run cannot do a grouping justice, say so in that slice's `result.md`
   rather than silently thinning the coverage.
+
+_(Both answered during execution: S5 decided the README audit is **not** durable-truth — see "Doc impact"
+below; S2 and S3 each recorded that one `/explain` run sufficed, no re-split.)_
+
+## Doc impact
+
+**None — the phase changed no durable truth, and `P15.REVIEW` therefore consolidated no doc versions.**
+
+| slice | doc impact |
+|---|---|
+| `P15.DECOMP` | none (planning only) |
+| `P15.S1`–`P15.S4` | none by construction — the explainers live in the operator's personal KB, not in this repo |
+| `P15.S5` | none — every fact added to `README.md` is already correctly stated in `docs/current/operations.md`; the audit pulled the README **up to** accurate durable docs rather than surfacing new truth, and `README.md` is not under `docs/` |
+
+Reviewed and agreed at `P15.REVIEW`; a `doc-new-version` run here would have produced a version whose
+changelog entry is "nothing changed".
+
+## Review notes (`P15.REVIEW`, verdict `pass`)
+
+- **All validation green.** `validate` passed; S5's four greps reproduced exactly (no `package-check`, no
+  stale "not live"/"once … is live"/"before the site is deployed" phrases, `VOCKY_SMTP` present ×2,
+  `check-skill-parity` present); every `make` target the README names exists in `Makefile` `.PHONY`, and
+  the rewritten `make verify` sentence matches `verify: smoke test`. KB API returned `total: 4` for project
+  `vocky` — ids **25–28**, all `version: 1`, titles and paths matching each slice's `result.md`, bodies
+  14.7–20.3 KB with the full Background/Intuition/Code/Quiz skeleton and explicit series framing.
+- **KB gotcha for any future knowledge phase:** `https://knowledge.hi2vi.com` answers **403 Forbidden** to
+  Python `urllib` (edge user-agent filtering) but **200** to `curl` with the same bearer token from
+  `~/.config/knowledge-kb/config.json`. Verify KB documents with `curl`, as the `/explain` skill itself does.
+- **Correction to the S5 line count** (recorded above and in `P15.S5/result.md` as "476 → 481, net +5"):
+  the real numbers are **476 → 480, net +4**. The `git show --stat` figures (11 insertions, 7 deletions)
+  are correct; only the arithmetic was off. Cosmetic — no content implication, and the earlier note is left
+  in place rather than rewritten.
+- **S1's `docs/current/` staleness finding is confirmed, and sharper than recorded.** `product.md` v0012
+  lines 22 + 94 and `experience.md` v0013 lines 14 + 346 still carry pre-P12 "not live"/"not yet true"
+  wording, while `product.md:96` says "live at `https://vocky.hi2vi.com` (since 2026-08-04, P12)" and
+  `experience.md:414` already declares that *"any 'once the site is live' hedging in older copy is now
+  historical"* — i.e. `experience.md` labels its own line-14/line-346 text as stale, 60 lines later. A
+  top-down reader hits the false statement first. This is **pre-existing debt outside P15's scope**, so the
+  review passed the phase and **recommended** rather than executed the fix. Preferred shape: a standalone
+  doc-only pass — `doc-new-version --doc product …` + `doc-new-version --doc experience …` deleting/
+  redirecting those four passages (the corrected facts already exist in the same files and in
+  `operations.md:26` — no new research needed) then `rebuild-docs`. Fallback: a `defer-job` triggered on the
+  next product/experience version. Explicitly **not** a `P15.F1` fix slice, which would reopen a completed
+  phase for work that was never its own.
+- **Workspace-level observation (not a P15 defect):** `phase.json` stayed `"status": "planned"` with
+  `"started_at": null` throughout execution, because `start-slice` does not promote the phase
+  (`scripts/workflow.py:893`). P8–P14 all show the same `started_at: null`, so this is long-standing
+  convention, not drift introduced here; the only cost is a missing start timestamp in the archived record.
+- **Workflow integrity clean:** seven slices with correct statuses and orders, `plan.md` + `result.md`
+  present per slice, exactly six commits — one per slice, in order — and the repo-file blast radius was
+  `README.md` plus `works/` bookkeeping (and a regenerated `docs/index.json` timestamp) only. The inline
+  execution rule was honored: S1–S4 each record that the `/explain` run was executed inline by the
+  orchestrator, and only S5 was dispatched. Note that `--risk low` on the `knowledge` slices is nominal
+  (per the execution rule above) — worth remembering if a later phase adds more of them, since `risk` is
+  otherwise the tier selector.

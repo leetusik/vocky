@@ -4,17 +4,17 @@
       "id": "P15",
       "name": "New-maintainer knowledge base",
       "objective": "Give a new maintainer full understanding of vocky through a series of /explain knowledge explainers saved to the operator's personal knowledge base (DECOMP surveys docs/current and the codebase and cuts one slice per knowledge topic, as many as full coverage requires), plus a slice that audits README.md and updates whatever is stale.",
-      "status": "planned",
+      "status": "done",
       "order": 1,
       "path": "works/phases/active/P15",
-      "review_status": "pending",
-      "current_slice": "P15.REVIEW",
+      "review_status": "pass",
+      "current_slice": null,
       "slice_count": 7,
-      "done_slice_count": 6
+      "done_slice_count": 7
     }
   ],
   "deferred_open_count": 9,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 1,
-  "last_rebuilt_at": "2026-08-06T23:12:27+09:00"
+  "last_rebuilt_at": "2026-08-06T23:19:36+09:00"
 }

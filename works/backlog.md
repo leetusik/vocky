@@ -5,18 +5,18 @@
 
 ## Pointer
 
-- Current phase: `P15`
-- Current slice: `P15.REVIEW`
+- Current phase: `none`
+- Current slice: `none`
 - Next slice: `none`
 - Waiting on operator: `none`
 - Open deferred jobs: `9`
-- Rebuilt at: `2026-08-06T23:12:27+09:00`
+- Rebuilt at: `2026-08-06T23:19:36+09:00`
 
 ## Active Phases
 
 | Phase | Status | Review | Name | Current Slice | Path |
 |---|---|---|---|---|---|
-| [ ] `P15` | `planned` | `pending` | New-maintainer knowledge base | `P15.REVIEW` | `works/phases/active/P15` |
+| [x] `P15` | `done` | `pass` | New-maintainer knowledge base | `none` | `works/phases/active/P15` |
 
 ## Phase P15: New-maintainer knowledge base
 
@@ -28,4 +28,4 @@
 | [x] `P15.S3` | `done` | Knowledge: security, operations, and QA | `knowledge` | `works/phases/active/P15/slices/P15.S3` |
 | [x] `P15.S4` | `done` | Knowledge: decisions, history, and the agentic workspace | `knowledge` | `works/phases/active/P15/slices/P15.S4` |
 | [x] `P15.S5` | `done` | Audit and refresh README.md | `implementation` | `works/phases/active/P15/slices/P15.S5` |
-| [ ] `P15.REVIEW` | `todo` | phase review | `review` | `works/phases/active/P15/slices/P15.REVIEW` |
+| [x] `P15.REVIEW` | `done` | phase review | `review` | `works/phases/active/P15/slices/P15.REVIEW` |
