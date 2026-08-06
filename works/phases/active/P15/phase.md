@@ -151,6 +151,9 @@ is dispatched normally.
 
 - **S1 (done):** explainer published — "Vocky: What It Is and How It Is Used", KB doc id 25 v1,
   `vocky/2026-08-06-vocky-what-it-is-and-how-it-is-used.html`. Research section skipped-by-judgment.
+- **S2 (done):** explainer published — "Vocky System Internals: Architecture, Code Map, Data Model,
+  and Contracts", KB doc id 26 v1. Research section included (pg_trgm sources); one run sufficed for
+  the merged grouping — no re-split needed.
 - **S1 finding — stale live-status text inside `docs/current/` itself:** `product.md` v0012 (§Status
   line 22 "nobody outside this repo can use vocky … does not answer", §Distribution line 94 "both
   currently not yet true") and `experience.md` v0013 (line 14 blockquote "There is no hosted vocky
