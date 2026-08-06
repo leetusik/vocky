@@ -1,0 +1,16 @@
+{
+  "phase_id": "P14",
+  "archived_at": "2026-08-06T22:15:26+09:00",
+  "archive_reason": "phase_review_passed",
+  "review_verdict": "pass",
+  "source_path": "works/phases/active/P14",
+  "archive_path": "works/phases/archived/20260806_221526_P14_public_agent_feedback_agent-recorded_voc_capture",
+  "slices": [
+    "P14.DECOMP",
+    "P14.S1",
+    "P14.S2",
+    "P14.S3",
+    "P14.S4",
+    "P14.REVIEW"
+  ]
+}

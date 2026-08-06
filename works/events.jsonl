@@ -465,3 +465,4 @@
 {"ts": "2026-08-05T15:39:32+09:00", "type": "doc_version_created", "doc": "product", "version": "v0012_p14_agent-recorded_feedback_is_a_public_product_surface_and_the_skill_now_teaches_it", "source": "P14.REVIEW"}
 {"ts": "2026-08-05T15:51:21+09:00", "type": "slice_status_changed", "slice": "P14.REVIEW", "old_status": "in_progress", "new_status": "done"}
 {"ts": "2026-08-05T15:51:21+09:00", "type": "phase_reviewed", "phase": "P14", "verdict": "pass", "reviewer": "slice-executor-high"}
+{"ts": "2026-08-06T22:15:26+09:00", "type": "phase_archived", "phase": "P14", "archive_path": "works/phases/archived/20260806_221526_P14_public_agent_feedback_agent-recorded_voc_capture"}
