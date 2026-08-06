@@ -154,6 +154,10 @@ is dispatched normally.
 - **S2 (done):** explainer published — "Vocky System Internals: Architecture, Code Map, Data Model,
   and Contracts", KB doc id 26 v1. Research section included (pg_trgm sources); one run sufficed for
   the merged grouping — no re-split needed.
+- **S3 (done):** explainer published — "Vocky Security, Operations, and QA", KB doc id 27 v1.
+  Research section included (OWASP password-storage + session-management cites). One run sufficed.
+  Confirmed the S1 staleness is confined to `product.md`/`experience.md` — `operations.md`/`qa.md`
+  are internally consistent about the live status.
 - **S1 finding — stale live-status text inside `docs/current/` itself:** `product.md` v0012 (§Status
   line 22 "nobody outside this repo can use vocky … does not answer", §Distribution line 94 "both
   currently not yet true") and `experience.md` v0013 (line 14 blockquote "There is no hosted vocky
