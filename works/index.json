@@ -8,13 +8,13 @@
       "order": 1,
       "path": "works/phases/active/P15",
       "review_status": "pending",
-      "current_slice": "P15.S5",
+      "current_slice": "P15.REVIEW",
       "slice_count": 7,
-      "done_slice_count": 5
+      "done_slice_count": 6
     }
   ],
   "deferred_open_count": 9,
   "deferred_promoted_count": 0,
   "deferred_dropped_count": 1,
-  "last_rebuilt_at": "2026-08-06T23:07:55+09:00"
+  "last_rebuilt_at": "2026-08-06T23:12:27+09:00"
 }

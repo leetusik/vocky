@@ -25,7 +25,7 @@ The service is free — there are no paid plans, billing, or usage metering.
 
 ### Surfaces
 
-- **Web app** — vocky's primary user-facing browser surface. Sign up, see your org dashboard (projects, usage, and your org keys), drill into a project to mint/revoke its keys, and read/search feedback across your projects. It runs locally today; the public deployment is P6.
+- **Web app** — vocky's primary user-facing browser surface. Sign up, see your org dashboard (projects, usage, and your org keys), drill into a project to mint/revoke its keys, and read/search feedback across your projects. Live in production at [https://vocky.hi2vi.com](https://vocky.hi2vi.com) (since 2026-08-04); it also runs locally for development.
 - **`vocky` CLI** — the same account/project/credential setup and cross-project feedback read from your terminal, so you (or a coding agent acting for you) can onboard and use vocky **without visiting the website**. See [Quickstart](#quickstart--the-vocky-cli) and the [CLI & agent guide](docs/cli.md).
 - **`/api/*` REST capture** — trusted server-to-server capture and reads, authenticated by a `vk_` key (project- or org-scoped).
 - **`/mcp` write-only capture** — an AI agent linked to a project's MCP endpoint saves feedback at its own judgement through a single `capture_feedback` tool, authenticated by the same `vk_` key.
@@ -47,8 +47,8 @@ The fastest way to start. Everything below runs against a local vocky at `http:/
 
 ### Install
 
-The console script is `vocky` (the server entry point is the separate `vocky-server`). **Once
-`https://vocky.hi2vi.com` is live**, the fastest path is the hosted installer:
+The console script is `vocky` (the server entry point is the separate `vocky-server`). **The hosted installer
+is live** and is the fastest path:
 
 ```sh
 curl -fsSL https://vocky.hi2vi.com/install.sh | bash
@@ -57,7 +57,7 @@ curl -fsSL https://vocky.hi2vi.com/install.sh | bash
 It's a small, auditable `curl | bash` script (`web/public/install.sh`) that bootstraps `uv` if needed and
 installs `vocky` under `$HOME/.local` — nothing system-wide. Re-run the same line any time to upgrade.
 
-**Today, before the site is deployed**, install from a checkout instead:
+**Developing against this checkout** (or if you'd rather not `curl | bash`), install from it instead:
 
 ```sh
 # Option A — run it straight from a repo checkout (no install)
@@ -160,13 +160,15 @@ The complete agent contract — every command, its output shape, the equivalent 
 - Server-to-server REST capture (`POST /api/feedback`) for explicit product/UI-triggered feedback, authenticated by a mandatory `vk_` credential, accepted without blocking on database writes and persisted asynchronously through a Redis-backed background worker
 - A write-only MCP `capture_feedback` tool at `/mcp` for agent-decided capture, gated by the same `vk_` credential and feeding the same store as REST
 - A `vocky` CLI and an authenticated web app that both drive the same account/project/credential control-plane and cross-project feedback read
-- Store like/dislike values, optional comments, caller-owned user identity, trigger context, exact target context, conversation context, and metadata for later review
+- Store like/dislike values, optional comments, caller-owned user identity, trigger context, exact target context, conversation context, metadata, and a `recorded_by` capture-provenance marker (`agent` vs. `human`) for later review — see [Agent Capture Over MCP](#agent-capture-over-mcp-write-only)
 - A scoped end-user read (`GET /api/feedback`) that returns a product user's own records plus operator comments and attachment links
 - A project-scoped read+manage surface (`/api/project/feedback`) for a product's own admin panel, using the same `vk_` key
 - A signed-in cross-project read + search surface (`/app/feedback`), Korean-safe
 - Derived usage monitoring (`/app/usage`, `/api/project/usage`) — capture volume + credential last-used, operational visibility only (no billing or metering)
 - Separate Admin REST endpoints (`/admin/api/*`) for self-hosted human/operator review and management
 - Nullable channel category assignment with the built-in MVP categories `web`, `mobile`, and `support`
+- A published agent skill (`vocky-feedback`, [skills/vocky-feedback/SKILL.md](skills/vocky-feedback/SKILL.md)) served from the live site so a coding agent can install and use vocky directly
+- Worker-side feedback alert email: the owning org's owner gets a plain-text notification for every persisted event when `VOCKY_SMTP_*` is configured on the worker; alerts are silently off otherwise
 
 ## What The First MVP Will Not Do
 
@@ -183,11 +185,13 @@ Vocky follows a light open-core direction: a community, self-hostable base plus 
 
 ## Current Status
 
+- vocky is **live in production** at [https://vocky.hi2vi.com](https://vocky.hi2vi.com) (since 2026-08-04); the `vocky` CLI installs via the hosted `curl -fsSL https://vocky.hi2vi.com/install.sh | bash` line (see [Install](#install) above) — nothing is published to PyPI.
 - Account signup/login/logout/identity are implemented over `/auth/*`, minting an opaque, 30-day session bearer token.
 - The account control-plane (`/app/*`) manages the caller's org, projects, `vk_` credentials at project **or** org scope, usage, and cross-project feedback read/search — driven by the web app and the `vocky` CLI.
 - `/api/*` capture and reads are authenticated by a mandatory `vk_` credential, scoped to one project or to the whole org (the old optional static `VOCKY_API_AUTH_TOKEN` is retired).
 - `/mcp` exposes a single write-only `capture_feedback` tool for agents, authenticated by the same `vk_` credential.
 - Accepted capture events are queued and persisted by a dedicated background worker rather than written on the request path; completed events persist to PostgreSQL with Alembic migrations.
+- The worker also emails the owning org's owner a plain-text alert for every persisted event once `VOCKY_SMTP_HOST`/`VOCKY_SMTP_USER`/`VOCKY_SMTP_PASSWORD` (plus optional `VOCKY_SMTP_PORT`/`VOCKY_SMTP_FROM`) are configured; it is silently off otherwise.
 - Self-hosted runtime includes PostgreSQL, Redis, the app process, and a dedicated worker process.
 - The project is still pre-MVP and the contracts should be treated as early-stage.
 
@@ -212,7 +216,7 @@ Open the web app locally with the `web/` Next.js dev server (see `web/README.md`
 
 `make bootstrap` runs `make sync`, `make compose-up`, the explicit migration step `make migrate`, and a final readiness check. The Compose stack includes `redis`, `postgres`, `app`, and `worker`. The app and worker images install dependencies during the Docker build and run with `uv run --no-sync` at container startup.
 
-`make verify` builds a fresh wheel and checks the packaged assets, waits for `GET /healthz`, runs the REST smoke flow, and then runs the full pytest suite. The smoke path **signs up a throwaway account, mints a real `vk_` key**, posts a feedback event to `POST /api/feedback` with it, and confirms the record becomes queryable through the scoped `GET /api/feedback` only after the worker persists it.
+`make verify` waits for `GET /healthz`, runs the REST smoke flow, and then runs the full pytest suite (`smoke test` — there is no packaging step). The smoke path **signs up a throwaway account, mints a real `vk_` key**, posts a feedback event to `POST /api/feedback` with it, and confirms the record becomes queryable through the scoped `GET /api/feedback` only after the worker persists it.
 
 `TEST_DATABASE_URL` must point at a separate disposable database. `make test` refuses to run if it matches `DATABASE_URL`, and the pytest fixtures reset only the database named in `TEST_DATABASE_URL`.
 
@@ -228,12 +232,12 @@ Public custom-domain access has these additional settings:
 Granular fallback commands remain available:
 
 - `make sync`
-- `make package-check`
 - `make compose-up`
 - `make migrate`
 - `make smoke`
 - `make test`
 - `make compose-down`
+- `make check-skill-parity` — verifies the served `skills/vocky-feedback/SKILL.md` is byte-identical to the canonical copy (also runs in CI)
 
 The smoke target checks `GET /healthz`, then provisions a `vk_` key, posts a feedback event to `POST /api/feedback`, and polls the scoped `GET /api/feedback` until the worker-persisted record appears; it waits for readiness before the REST calls.
 

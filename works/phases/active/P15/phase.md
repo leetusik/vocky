@@ -161,6 +161,12 @@ is dispatched normally.
 - **S4 (done):** explainer published — "Vocky Decisions, History, and the Agentic Workspace", KB doc
   id 28 v1. Research skipped-by-judgment (repo-private process/history). **The four-explainer series
   is complete: KB docs 25 → 26 → 27 → 28 in reading order.**
+- **S5 (done):** all six known-staleness items fixed in `README.md` (476 → 481 lines): live-deployment
+  wording, the install-section framing flip, the `make verify`/`package-check`→`check-skill-parity`
+  correction, `VOCKY_SMTP_*` added, and §What It Does/§Current Status brought up to date (live status,
+  installer, `vocky-feedback` skill, `recorded_by` cross-ref, email alerts). No new "Doc impact" note —
+  every added fact already matches accurate `docs/current/operations.md`; the README's alignment with the
+  genuinely-stale `product.md`/`experience.md` lines was already flagged separately by S1's finding above.
 - **S1 finding — stale live-status text inside `docs/current/` itself:** `product.md` v0012 (§Status
   line 22 "nobody outside this repo can use vocky … does not answer", §Distribution line 94 "both
   currently not yet true") and `experience.md` v0013 (line 14 blockquote "There is no hosted vocky
