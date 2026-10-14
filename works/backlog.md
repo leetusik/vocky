@@ -10,7 +10,12 @@
 - Next slice: `none`
 - Waiting on operator: `none`
 - Open deferred jobs: `9`
-- Rebuilt at: `2026-08-06T23:19:36+09:00`
+
+## Streams
+
+| Stream | Phase | Status | Current slice | Done | Worktree | Source |
+|---|---|---|---|---|---|---|
+| `default` | - | idle | - | - | - | working tree |
 
 ## Active Phases
 

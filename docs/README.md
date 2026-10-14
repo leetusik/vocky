@@ -18,13 +18,14 @@ Durable docs are versioned. Do not patch old versions.
 
 ## Rules
 
-Doc updates are the agent's job, normally as part of a slice — the operator asks; the agent runs the commands.
+Doc updates happen in a **docs phase the operator creates** — never per slice. A slice that changes durable truth appends a one-line note to its phase's `## Doc impact` list instead; `python3 scripts/workflow.py docs-debt` prints what is owed, and the docs phase runs the commands below over those notes.
 
 - Read latest docs from `docs/current/*.md`.
 - The agent creates updates with `python3 scripts/workflow.py doc-new-version --doc <doc> --summary "..." --source <phase-or-slice>`.
 - Edit only the newly created version file under `docs/versions/<doc>/`.
 - The agent runs `python3 scripts/workflow.py rebuild-docs` after editing the new version.
 - `docs/current/*.md` is generated from the latest version and should not be manually edited.
+- When a phase's notes are all consolidated: `python3 scripts/workflow.py docs-consolidated <P>` (that is also what unblocks archiving it).
 
 ## Update Triggers
 
