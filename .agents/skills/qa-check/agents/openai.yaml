@@ -1,6 +1,0 @@
-interface:
-  display_name: "qa-check"
-  short_description: "Run the QA agent against a mission brief (or the full mission library)."
-  default_prompt: "Use the qa-check skill."
-policy:
-  allow_implicit_invocation: false

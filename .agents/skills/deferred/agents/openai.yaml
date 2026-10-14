@@ -1,6 +1,0 @@
-interface:
-  display_name: "deferred"
-  short_description: "Rebuild and show the deferred jobs dashboard."
-  default_prompt: "Use the deferred skill."
-policy:
-  allow_implicit_invocation: false
