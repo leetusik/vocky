@@ -5,12 +5,10 @@
 .pytest_cache
 .venv
 __pycache__
-works/current
-works/archives
 # Backend build context is `.` but the Dockerfile only copies pyproject.toml /
 # uv.lock / README.md / alembic* / src — keep everything else out of the context.
-works
 docs
+archive
 tests
 dist
 attachments
