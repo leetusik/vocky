@@ -9,7 +9,7 @@
 #     on failure). vocky has NO publish-on-write (the api never commits to the repo),
 #     so — unlike the sibling `knowledge` — the box clone can be checked out to an exact
 #     ref and a bad build can be reverted by an image-tag flip.
-#   * from knowledge/deploy/deploy.sh — the MULTI-SERVICE health-gate and the one-off
+#   * from platform/deploy/deploy.sh — the MULTI-SERVICE health-gate and the one-off
 #     `docker compose run --name` container (knowledge proved compose v2 accepts it on
 #     a `container_name:`-pinned service on this box).
 #   * vocky-specific — an ALEMBIC MIGRATION run in a one-off container BEFORE the new

@@ -416,11 +416,11 @@ The examples above use the default local loopback URL. If you connect through a 
 
 REST capture is ingestion-only. To read records back, use the scoped end-user read (`GET /api/feedback`), the project read+manage surface (`/api/project/feedback`), the signed-in cross-project read (`/app/feedback`, or `vocky feedback`), or Admin REST.
 
-For client integration guidance, see [docs/current/experience.md](docs/current/experience.md). For the terminal/agent flow, see [docs/cli.md](docs/cli.md).
+For client integration guidance, see [archive/workspace/docs/current/experience.md](archive/workspace/docs/current/experience.md). For the terminal/agent flow, see [docs/cli.md](docs/cli.md).
 
 ## Agent Capture Over MCP (write-only)
 
-If your product is an AI agent, the agent can save feedback at its own judgement through vocky's **write-only** MCP endpoint instead of (or alongside) REST. Point the agent's MCP client at the project's `/mcp` URL and authenticate with the **same `vk_` project key** — the whole endpoint (the `initialize` handshake included) requires it. There is exactly one tool, `capture_feedback` (no read/query tools); its inputs are the same capture fields as REST minus `attachment_ids`, `recorded_by` included. A successful call returns the same `{request_id, accepted_at, status: "accepted"}` receipt as REST. See [docs/current/experience.md](docs/current/experience.md) for a client example.
+If your product is an AI agent, the agent can save feedback at its own judgement through vocky's **write-only** MCP endpoint instead of (or alongside) REST. Point the agent's MCP client at the project's `/mcp` URL and authenticate with the **same `vk_` project key** — the whole endpoint (the `initialize` handshake included) requires it. There is exactly one tool, `capture_feedback` (no read/query tools); its inputs are the same capture fields as REST minus `attachment_ids`, `recorded_by` included. A successful call returns the same `{request_id, accepted_at, status: "accepted"}` receipt as REST. See [archive/workspace/docs/current/experience.md](archive/workspace/docs/current/experience.md) for a client example.
 
 **The agent-capture convention.** Both halves of an agent-recorded event are free text — vocky has no sentiment enum — and both go in fields that already exist:
 
@@ -472,8 +472,8 @@ Admin REST patch writes apply the same channel category rule as capture: blank c
 ## Documentation
 
 - **[docs/cli.md](docs/cli.md)** — the complete `vocky` CLI & coding-agent guide: full command reference, an end-to-end walkthrough with the equivalent raw HTTP for every step, and the agent contract.
-- **[docs/current/experience.md](docs/current/experience.md)** — the product integration guide (REST capture, MCP capture, reads).
-- **[docs/current/api.md](docs/current/api.md)** — public API contracts.
+- **[archive/workspace/docs/current/experience.md](archive/workspace/docs/current/experience.md)** — (frozen) the product integration guide (REST capture, MCP capture, reads).
+- **[archive/workspace/docs/current/api.md](archive/workspace/docs/current/api.md)** — (frozen) public API contracts.
 
 ## License
 
