@@ -2,8 +2,8 @@
 
 Sends one plain-text email to the owning org's owner whenever the worker
 persists a captured feedback event. Stdlib ``smtplib`` only (Decision 1 in
-``works/phases/active/P13/phase.md``) — the blocking send is isolated in
-:func:`_send_message` and run through ``asyncio.to_thread`` so the worker's
+``archive/workspace/works/phases/archived/20260805_141212_P13_feedback_email_alerts_over_smtp/phase.md``)
+— the blocking send is isolated in :func:`_send_message` and run through ``asyncio.to_thread`` so the worker's
 single asyncio loop is never blocked.
 
 Unconfigured SMTP (``Settings.smtp_configured`` False) cleanly disables

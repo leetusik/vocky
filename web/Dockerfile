@@ -3,9 +3,10 @@
 # box's shared edge (P6.S4). Built on the box; reached by the edge over
 # `changple_shared_network` as `vocky-web:3000` — NO public host port. Serves the
 # landing/site (`/`) and the BFF auth/app proxy (`/api/auth/`, `/api/app/`); the
-# Python API answers the rest. Modeled on knowledge/web/Dockerfile (same shape:
+# Python API answers the rest. Modeled on platform/web/Dockerfile (same shape:
 # self-contained pnpm project, node 22, no next/image → no sharp closure). See
-# compose.prod.yml (P6.S5) + deploy/vocky.conf (P6.S6) + works/phases/active/P6/phase.md.
+# compose.prod.yml (P6.S5) + deploy/vocky.conf (P6.S6) + archive/workspace/works/phases/
+# archived/20260805_141212_P6_landing_page_webpage_production_deploy/phase.md.
 #
 # ---------- build ----------
 FROM node:22-slim AS build

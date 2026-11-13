@@ -270,7 +270,7 @@ curl -X POST "http://127.0.0.1:8000/api/feedback" \
 # -> 202 { "request_id": "...", "accepted_at": "...", "status": "accepted" }
 ```
 
-`202` means the job was accepted for background persistence; the record becomes queryable once the worker writes it. `message` and `source.product` are required; every other field is optional (see `docs/current/experience.md` for the full field set). A missing/invalid/revoked key → `401`.
+`202` means the job was accepted for background persistence; the record becomes queryable once the worker writes it. `message` and `source.product` are required; every other field is optional (see the integration guide, [`experience.md`](../archive/workspace/docs/current/experience.md), for the full field set). A missing/invalid/revoked key → `401`.
 
 **Marking who recorded it.** The optional `recorded_by` field takes `agent` or `human` and nothing else (anything else → `400 recorded_by must be one of: agent, human`). Omitting it stores `null` — *unspecified*, not *human*. `vocky capture` has no marker flag, so CLI captures are always unspecified; when the marker matters, send it on the raw REST body above or capture over `/mcp`, which defaults it to `agent` (see below). It answers *who recorded this*, separately from `trigger_type`'s *why capture happened*.
 
@@ -302,7 +302,7 @@ curl "http://127.0.0.1:8000/app/feedback?q=pricing&limit=50" \
 # -> 200 { "records": [ { "id": "...", "project_id": "...", ... } ], "next_cursor"?: "..." }
 ```
 
-A product's own admin panel can instead read+manage its project's feedback with the **same `vk_` key** over `/api/project/feedback`, and a product user's own "my feedback" view uses the scoped `GET /api/feedback?user_id=…&source_product=…`. See `docs/current/experience.md`.
+A product's own admin panel can instead read+manage its project's feedback with the **same `vk_` key** over `/api/project/feedback`, and a product user's own "my feedback" view uses the scoped `GET /api/feedback?user_id=…&source_product=…`. See the integration guide, [`experience.md`](../archive/workspace/docs/current/experience.md).
 
 Every read surface returns `recorded_by` in the record (`"agent"` / `"human"` / `null` for unspecified) and accepts an optional `recorded_by=agent|human` query filter, so agent-recorded feedback can be listed apart from human-recorded feedback (`curl "…/app/feedback?recorded_by=agent" -H "Authorization: Bearer <session-token>"`). Omitting the filter returns every record regardless of marker.
 
@@ -319,10 +319,12 @@ Put the user's own words (or sentiment, verbatim — Korean included) in `messag
 
 The `vk_` key you give an agent runtime is **not** capture-only — within its scope it can also read, PATCH, and delete feedback — so mint a **project-bound** key (`vocky keys mint --project <project-id>`) for it and never an org key.
 
-Use MCP capture only when an agent runtime is intentionally deciding to record voice-of-customer feedback; explicit human UI actions (like/dislike buttons, page/widget feedback) should still go through `/api/*` REST capture. The full MCP client shape and tool inputs are documented in `docs/current/experience.md` ("Agent Capture Over MCP").
+Use MCP capture only when an agent runtime is intentionally deciding to record voice-of-customer feedback; explicit human UI actions (like/dislike buttons, page/widget feedback) should still go through `/api/*` REST capture. The full MCP client shape and tool inputs are documented in the integration guide, [`experience.md`](../archive/workspace/docs/current/experience.md) ("Agent Capture Over MCP").
 
 ## See also
 
-- `docs/current/experience.md` — the product integration guide: REST capture fields, MCP capture, and every read surface.
-- `docs/current/api.md` — the authoritative API contracts (`/auth/*`, `/app/*`, `/api/*`, `/mcp`, Admin REST).
+The integration guide and the API contract are kept in this repo's archive, `archive/workspace/docs/current/`, while vocky is frozen; they are read-only there.
+
+- [`experience.md`](../archive/workspace/docs/current/experience.md) — the product integration guide: REST capture fields, MCP capture, and every read surface.
+- [`api.md`](../archive/workspace/docs/current/api.md) — the authoritative API contracts (`/auth/*`, `/app/*`, `/api/*`, `/mcp`, Admin REST).
 - `README.md` — project overview, self-hosting, and the CLI quickstart.

@@ -24,7 +24,7 @@ const isProd = process.env.NODE_ENV === "production";
 // rejects it (no middleware.ts exists). Applied in PRODUCTION ONLY — dev (Fast
 // Refresh) needs eval + a websocket a strict CSP would break. HSTS +
 // upgrade-insecure-requests are deferred to the edge vhost (P6.S6). This CSP
-// string is mirrored into docs/current/security.md at P6.REVIEW.
+// string is mirrored into archive/workspace/docs/current/security.md at P6.REVIEW.
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
