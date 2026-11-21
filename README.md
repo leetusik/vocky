@@ -1,5 +1,8 @@
 # vocky
 
+> **This project moved to sikstack.** Feedback is now part of sikstack, developed at
+> <https://github.com/leetusik/sikstack>. This repository is no longer updated.
+
 Human-triggered feedback capture and review. Turn product and customer feedback moments into structured voice-of-customer signals.
 
 Vocky is a **free, multi-tenant feedback SaaS** (still pre-MVP). You sign up for an account, immediately get an **org** with a `"default"` project, and mint a `vk_` key — scoped to one project or to the whole org — that your product backend uses to capture feedback. There are several ways in: the **web app**, the **`vocky` CLI**, server-to-server **`/api/*` REST capture**, and a write-only **`/mcp`** endpoint for AI agents.
